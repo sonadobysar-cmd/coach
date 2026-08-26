@@ -1,0 +1,80 @@
+[
+  {
+    "id": "external_orientation_90s",
+    "name": "Vnější orientace 90 sekund",
+    "mode": "podporna_stabilizace",
+    "purpose": "Krátce podpořit orientaci v přítomném prostoru bez otevírání vnitřních obrazů nebo traumatické paměti.",
+    "signals": ["úzkost", "panika", "flashback", "spouštěč", "rozklepaná", "zklidnit"],
+    "duration_minutes": 2,
+    "steps": ["Ověřit současné bezpečí", "Nechat oči otevřené", "Najít tři neutrální předměty", "Vnímat oporu chodidel nebo zad", "Pojmenovat dva zvuky", "Ověřit změnu"],
+    "choices": ["Členka může přeskočit kterýkoli krok", "Může místo těla sledovat pouze předměty a zvuky", "Může kdykoli skončit"],
+    "stop_conditions": ["zhoršení úzkosti", "pocit odpojení nebo neskutečna", "nový akutní zdravotní příznak", "nesouhlas"],
+    "never_claim": ["léčí úzkost", "zpracovává trauma", "funguje každému"],
+    "source_ids": ["WHO-SELF-HELP-2026", "SAMHSA-TRAUMA-INFORMED"]
+  },
+  {
+    "id": "gentle_breath_option_2m",
+    "name": "Jemný dech jako volba",
+    "mode": "podporna_stabilizace",
+    "purpose": "Nabídnout krátké zpomalení bez nuceného hlubokého dýchání nebo zádrže dechu.",
+    "signals": ["napětí", "stres", "uklidnit", "zrychlená", "nervozita"],
+    "duration_minutes": 2,
+    "steps": ["Ověřit, zda je zaměření na dech příjemné", "Nechat dech přirozený", "Pouze jemně prodloužit výdech, pokud to vyhovuje", "Vrátit pozornost do prostoru", "Ověřit změnu"],
+    "choices": ["Místo dechu lze použít zvuky nebo oporu těla", "Oči mohou zůstat otevřené", "Bez počítání a bez zádrže"],
+    "stop_conditions": ["dušnost", "bolest na hrudi", "závrať", "zhoršení paniky", "nepříjemné zaměření na tělo"],
+    "never_claim": ["léčí panickou poruchu", "nahrazuje lékařské posouzení", "okamžitě odstraní úzkost"],
+    "source_ids": ["WHO-STRESS-2023", "NICE-GAD-2011"]
+  },
+  {
+    "id": "evening_settling_5m",
+    "name": "Večerní zklidnění",
+    "mode": "vedena_meditace",
+    "purpose": "Vytvořit krátký přechod z pracovního dne do odpočinku bez slibu léčby nespavosti.",
+    "signals": ["večer", "večerní", "spánek", "usnout", "po práci"],
+    "duration_minutes": 5,
+    "steps": ["Ověřit bezpečné místo", "Nabídnout otevřené nebo zavřené oči", "Uvolnit kontakt s pracovním dnem", "Vnímat oporu těla nebo okolní zvuky", "Dovolit myšlenkám odejít bez boje", "Zakončit volbou odpočinku"],
+    "choices": ["Bez vizualizace", "Bez zaměření na dech", "Kratší dvouminutová verze"],
+    "stop_conditions": ["rostoucí úzkost", "flashback", "disociace", "řízení nebo jiná riziková činnost"],
+    "never_claim": ["léčí nespavost", "garantuje spánek", "nahrazuje léčbu"],
+    "source_ids": ["MEDITATION-META-2014", "MEDITATION-AE-2020"]
+  },
+  {
+    "id": "pre_performance_grounding_3m",
+    "name": "Zklidnění před vystoupením",
+    "mode": "vedena_meditace",
+    "purpose": "Podpořit orientaci, stabilitu a kontakt s jedním záměrem před videem, hovorem nebo prezentací.",
+    "signals": ["před videem", "prezentace", "prodejní hovor", "vystoupení", "tréma"],
+    "duration_minutes": 3,
+    "steps": ["Udržet oči otevřené", "Vnímat oporu chodidel", "Pojmenovat jeden realistický záměr", "Uvolnit ramena bez nucení", "Zvolit první větu nebo první krok"],
+    "choices": ["Jen vnější orientace", "Jemný přirozený dech", "Bez afirmací"],
+    "stop_conditions": ["zhoršení úzkosti", "nové zdravotní příznaky", "pocit odpojení"],
+    "never_claim": ["odstraní trému", "garantuje výkon", "mění osobnost"],
+    "source_ids": ["WHO-STRESS-2023", "GOAL-SETTING-2002"]
+  },
+  {
+    "id": "self_compassion_pause_4m",
+    "name": "Laskavá pauza bez afirmací",
+    "mode": "vedena_meditace",
+    "purpose": "Zmírnit tvrdý dvojí metr vůči sobě a vrátit se ke konkrétní realistické podpoře.",
+    "signals": ["nejsem dost dobrá", "selhala jsem", "stydím se", "nenávidím se", "sebekritika"],
+    "duration_minutes": 4,
+    "steps": ["Pojmenovat, že je situace těžká", "Nechat oči otevřené nebo zavřené podle volby", "Použít stejný tón jako k blízké kamarádce", "Pojmenovat jeden ověřitelný fakt o úsilí", "Vrátit se do prostoru"],
+    "choices": ["Bez doteku těla", "Bez vizualizace", "Jen krátká věta a orientace"],
+    "stop_conditions": ["silný stud nebo zhoršení", "traumatická vzpomínka", "odpojení"],
+    "never_claim": ["léčí depresi", "dokazuje vlastní hodnotu", "nahrazuje terapii"],
+    "source_ids": ["SELF-COMPASSION-META-2023", "MEDITATION-AE-2020"]
+  },
+  {
+    "id": "illness_capacity_pause_4m",
+    "name": "Pauza pro práci s omezenou energií",
+    "mode": "vedena_meditace",
+    "purpose": "Pomoci člence s nemocí rozlišit dnešní kapacitu, prioritu a bezpečnou hranici bez ovlivňování léčby.",
+    "signals": ["nemoc", "chronická", "únava", "omezená energie", "zdravotní omezení"],
+    "duration_minutes": 4,
+    "steps": ["Ověřit bezpečí a pohodlnou pozici", "Vnímat okolní oporu", "Pojmenovat dnešní reálnou energii bez hodnocení", "Zvolit jednu prioritu a jednu hranici", "Zakončit návratem do prostoru"],
+    "choices": ["Bez práce s tělesnými pocity", "Bez dechu", "Pouze slovní reflexe"],
+    "stop_conditions": ["zhoršení zdravotních příznaků", "závrať", "bolest", "emoční zahlcení"],
+    "never_claim": ["léčí nemoc", "zvyšuje energii", "nahrazuje doporučení lékaře"],
+    "source_ids": ["WHO-SELF-HELP-2026", "WHO-AI-HEALTH-2021"]
+  }
+]

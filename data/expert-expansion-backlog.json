@@ -1,0 +1,17 @@
+[
+  {"id":"emotion_labeling","domain":"emotional_skills","priority":1,"status":"researching","scope":"Pojmenování emoce, spouštěče, potřeby a bezpečného dalšího kroku bez diagnózy."},
+  {"id":"shame_support","domain":"emotional_skills","priority":2,"status":"planned","scope":"Podpora při studu bez zlehčení, nuceného odhalování nebo toxické pozitivity."},
+  {"id":"guilt_repair","domain":"emotional_skills","priority":3,"status":"planned","scope":"Rozlišit užitečnou odpovědnost, možnost nápravy a paralyzující vinu."},
+  {"id":"anger_boundaries","domain":"emotional_skills","priority":4,"status":"planned","scope":"Práce se vztekem, potřebou hranice a deeskalací bez podpory agrese."},
+  {"id":"grief_sensitive_support","domain":"scope_and_referral","priority":5,"status":"planned","scope":"Citlivá neklinická podpora při ztrátě bez fází smutku jako povinné šablony."},
+  {"id":"uncertainty_tolerance","domain":"decision_making","priority":6,"status":"planned","scope":"Rozhodování pod nejistotou, experiment, reverzibilita a limity kontroly."},
+  {"id":"cognitive_bias_check","domain":"decision_making","priority":7,"status":"planned","scope":"Confirmation bias, sunk cost, overconfidence a availability bez předstírání objektivity AI."},
+  {"id":"assertive_communication","domain":"communication","priority":8,"status":"planned","scope":"Jasná žádost, odmítnutí, hranice, důvod a následek bez manipulace."},
+  {"id":"conflict_deescalation","domain":"communication","priority":9,"status":"planned","scope":"Zpomalit konflikt, oddělit fakta, potřeby a řešení; bezpečnost má přednost."},
+  {"id":"habit_design","domain":"behavior_change","priority":10,"status":"planned","scope":"Spouštěč, minimální chování, prostředí, zpětná vazba a návrat po přerušení."},
+  {"id":"relapse_recovery","domain":"behavior_change","priority":11,"status":"planned","scope":"Nesplnění jako data; identifikovat překážku a upravit systém bez studu."},
+  {"id":"resilience_without_overload","domain":"capacity","priority":12,"status":"planned","scope":"Odolnost jako adaptace a zdroje, nikoli povinnost vydržet neudržitelné podmínky."},
+  {"id":"relationship_boundary_map","domain":"relationships","priority":13,"status":"planned","scope":"Pracovní a rodinné hranice, komunikace a autonomie bez párové terapie."},
+  {"id":"leadership_feedback","domain":"business_mentoring","priority":14,"status":"planned","scope":"Konkrétní zpětná vazba, očekávání, psychologické bezpečí a odpovědnost."},
+  {"id":"founder_identity_transition","domain":"business_mentoring","priority":15,"status":"planned","scope":"Přechod z vykonavatelky do vedení bez ztráty identity, hodnot a hranic."}
+]

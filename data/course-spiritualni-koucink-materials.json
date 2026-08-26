@@ -1,0 +1,451 @@
+[
+  {
+    "id": "spirit-m0-portfolio-tracker",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-overview",
+    "categoryLabel": "PORTFOLIO MODULU",
+    "title": "Mapa dokončení úvodního modulu",
+    "estimatedMinutes": 8,
+    "techniqueId": "SC-00",
+    "method": "Nejdřív si projdi všechny výstupy modulu. Tento list používej jako průběžnou mapu: položku označ až ve chvíli, kdy máš konkrétní výstup uložený a dokážeš vysvětlit, co sis z něj odnesla.",
+    "boundary": "Zaškrtnutí není důkaz porozumění. Rozhodující je uložený výstup a schopnost použít jej v modelové situaci.",
+    "purpose": "Udržet přehled o tom, co máš skutečně zpracované a co je zatím pouze přečtené.",
+    "canDiscover": "Která část profesního základu je pevná a kde potřebuješ doplnit porozumění nebo nácvik.",
+    "takeaway": "Přehledné portfolio úvodního modulu s jasnými podmínkami dokončení.",
+    "howToUse": [
+      "Na začátku si projdi všechny požadované výstupy.",
+      "Po každé části se vrať a označ pouze skutečně dokončený výstup.",
+      "K nejasné položce si napiš otázku pro Elitea nebo Niu.",
+      "Před uzavřením modulu ověř, že umíš každý výstup krátce vysvětlit."
+    ],
+    "prompts": [
+      { "id": "intention", "type": "checkbox", "label": "Mám uložený záměr výcviku", "help": "Jedna pravdivá věta vysvětluje, proč výcvik absolvuji právě teď." },
+      { "id": "study_plan", "type": "checkbox", "label": "Mám realistický studijní a integrační rytmus", "help": "Obsahuje konkrétní dny, délku bloku a signály, kdy zpomalit." },
+      { "id": "role", "type": "checkbox", "label": "Mám první přesnou definici své role", "help": "Je z ní jasné komu, s čím a jak pomáhám a kde zůstává rozhodnutí." },
+      { "id": "consent", "type": "checkbox", "label": "Mám vlastní skript souhlasu s technikou", "help": "Obsahuje pojmenování, vysvětlení, možnost odmítnout a alternativu." },
+      { "id": "stop", "type": "checkbox", "label": "Mám kartu ZASTAV a mapu další podpory", "help": "Vím, jak techniku přerušit, pojmenovat hranici a domluvit další krok." },
+      { "id": "competence", "type": "checkbox", "label": "Mám uloženou výchozí mapu kompetencí", "help": "U každého hodnocení mám alespoň jeden konkrétní důkaz nebo mezeru." },
+      { "id": "contract", "type": "checkbox", "label": "Mám podepsaný studijní a profesní kontrakt", "help": "Obsahuje ověřitelné jednání, ne seznam ideálních přání." },
+      { "id": "scenarios", "type": "checkbox", "label": "Mám zpracované tři profesní situace", "help": "Každá odpověď drží roli, volbu klientky a bezpečný další krok." },
+      { "id": "open_question", "label": "Co ještě potřebuji před dokončením vyjasnit?", "help": "Napiš konkrétní otázku, nácvik nebo rozhodnutí. Pokud nic, uveď proč považuješ základ za dostatečný." }
+    ]
+  },
+  {
+    "id": "spirit-m0-intention",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-1",
+    "categoryLabel": "PORTFOLIO",
+    "title": "Záměr výcviku a první profesní stopa",
+    "estimatedMinutes": 15,
+    "techniqueId": "SC-01",
+    "method": "Odděl vnitřní motivaci od tlaku na výkon. Nejprve popiš současnou situaci, potom změnu, kterou chceš umět doložit konkrétním jednáním.",
+    "boundary": "Záměr není slib výsledku ani důkaz odbornosti. Je to pracovní hypotéza, ke které se během výcviku vracíš.",
+    "purpose": "Ukotvit, proč do výcviku vstupuješ a jak poznáš, že se skutečně mění tvoje praxe.",
+    "canDiscover": "Zda tě vede vlastní směr, potřeba potvrzení, nebo konkrétní profesní potřeba.",
+    "takeaway": "První položka portfolia a tři pozorovatelné ukazatele posunu.",
+    "howToUse": [
+      "Piš bez stylizace a bez snahy znít spirituálně.",
+      "Odliš přání od toho, co můžeš pozorovat ve svém jednání.",
+      "Vyber nejvýše tři ukazatele, které dokážeš průběžně sledovat.",
+      "Na konci výcviku odpovědi porovnej s reálnými důkazy."
+    ],
+    "prompts": [
+      { "id": "why_now", "label": "Proč chci výcvikem projít právě teď?", "help": "Jedna až tři pravdivé věty bez marketingového jazyka." },
+      { "id": "current_reality", "label": "Co dnes při vedení nebo rozhodování ještě neumím držet jistě?", "help": "Popiš konkrétní situaci, ne obecný pocit nedostatečnosti." },
+      { "id": "visible_change", "label": "Jaké jednání bude na konci jiné?", "help": "Co budeš dělat, říkat nebo rozhodovat přesněji než dnes?" },
+      { "id": "evidence", "label": "Tři důkazy skutečného posunu", "help": "Uveď nejvýše tři pozorovatelné ukazatele, například kvalitu dohody, schopnost zastavit techniku nebo přesnost otázek." },
+      { "id": "portfolio_sentence", "label": "Moje první věta do portfolia", "help": "Doplň: Tímto výcvikem procházím, protože…" }
+    ]
+  },
+  {
+    "id": "spirit-m0-study-rhythm",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-2",
+    "categoryLabel": "STUDIJNÍ PLÁN",
+    "title": "Studijní rytmus a integrační plán",
+    "estimatedMinutes": 18,
+    "techniqueId": "SC-02",
+    "method": "Naplánuj minimum, které udrží kontinuitu, a předem si stanov podmínky pro zpomalení. Plán musí počítat se studiem, vlastní zkušeností, reflexí i nácvikem.",
+    "boundary": "Plán není závazek překračovat vlastní kapacitu. Citlivou praxi můžeš přerušit, upravit nebo odložit.",
+    "purpose": "Převést kurz z neurčitého předsevzetí do rytmu, který lze dlouhodobě udržet.",
+    "canDiscover": "Kolik prostoru skutečně máš, co narušuje kontinuitu a jaké signály vyžadují integraci.",
+    "takeaway": "Konkrétní týdenní rytmus, minimální verze studia a plán návratu po výpadku.",
+    "howToUse": [
+      "Vycházej z běžného týdne, ne z ideálního týdne bez překážek.",
+      "Odděl čas na čtení, vlastní praxi, zápis a nácvik.",
+      "Urči signály, podle kterých poznáš potřebu integrace.",
+      "Připrav minimální návratový krok pro týden, který nevyjde."
+    ],
+    "prompts": [
+      { "id": "days", "label": "Které dny a časy jsou reálně dostupné?", "help": "Napiš konkrétní okna v běžném týdnu." },
+      { "id": "block", "label": "Jak dlouhý bude můj běžný studijní blok?", "help": "Zvol délku, kterou můžeš opakovat bez vyčerpání." },
+      { "id": "components", "label": "Jak rozdělím čtení, vlastní praxi, reflexi a nácvik?", "help": "Popiš, co se má vejít do jednoho nebo více bloků." },
+      { "id": "protection", "label": "Jak tento čas ochráním?", "help": "Konkrétní dohoda, vypnutí rušení, místo nebo příprava předem." },
+      { "id": "integration_signals", "label": "Podle čeho poznám, že potřebuji integraci?", "help": "Uveď vlastní signály zahlcení, únavy, nejasnosti nebo potřeby odstupu." },
+      { "id": "minimum", "label": "Jak vypadá minimální verze pro náročný týden?", "help": "Nejmenší krok, který zachová kontinuitu bez tlaku." },
+      { "id": "return_plan", "label": "Jak se vrátím po výpadku?", "help": "Napiš první konkrétní krok bez dohánění a trestání." }
+    ]
+  },
+  {
+    "id": "spirit-m0-role",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-3",
+    "categoryLabel": "PROFESNÍ ROLE",
+    "title": "Definice role a jazyk, který ponechává autorství",
+    "estimatedMinutes": 22,
+    "techniqueId": "SC-03",
+    "method": "Vymez komu pomáháš, s čím, prostřednictvím jakých postupů a jaký druh rozhodnutí vždy zůstává klientce. Potom přepiš direktivní věty do jazyka nabídky a ověření.",
+    "boundary": "Popis role nesmí slibovat diagnózu, léčbu, jistou předpověď ani správné rozhodnutí za klientku.",
+    "purpose": "Vytvořit srozumitelný a důvěryhodný popis spirituálního koučinku bez vágních nebo absolutních tvrzení.",
+    "canDiscover": "Kde máš sklon přebírat autoritu a které spirituální pojmy potřebuješ vysvětlovat přesněji.",
+    "takeaway": "První verze profesního představení a vlastní slovník bezpečných formulací.",
+    "howToUse": [
+      "Nejprve napiš roli běžným jazykem, kterému rozumí i člověk mimo obor.",
+      "Zkontroluj, zda je jasné, co nabízíš a co neslibuješ.",
+      "U každého intuitivního výroku vrať klientce možnost ověření a odmítnutí.",
+      "Přečti text nahlas a uprav místa, která znějí nadřazeně nebo neurčitě."
+    ],
+    "prompts": [
+      { "id": "who", "label": "Komu chci pomáhat?", "help": "Popiš skupinu nebo situaci bez diagnostických nálepek." },
+      { "id": "with_what", "label": "S čím jí mohu pomáhat v rámci své role?", "help": "Uveď témata vhodná pro neklinický koučovací rámec." },
+      { "id": "methods", "label": "Jaké postupy mohu transparentně nabídnout?", "help": "Například rozhovor, otázky, sebereflexi, meditaci, záměr, symboly nebo intuici." },
+      { "id": "client_authorship", "label": "Co vždy zůstává v rukou klientky?", "help": "Pojmenuj její rozhodnutí, význam, tempo a možnost odmítnout." },
+      { "id": "role_statement", "label": "Moje první definice role", "help": "Doplň: Jako spirituální koučka pomáhám… prostřednictvím… aby mohly…" },
+      { "id": "rewrite", "label": "Přepis jedné direktivní věty", "help": "Vyber větu typu „Tvoje duše mi říká, že musíš…“ a přepiš ji do nabídky, kterou může klientka ověřit." },
+      { "id": "plain_language", "label": "Jak svou práci vysvětlím za 30 sekund bez žargonu?", "help": "Krátká ústní verze pro první kontakt s klientkou." }
+    ]
+  },
+  {
+    "id": "spirit-m0-consent",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-4",
+    "categoryLabel": "KLIENTSKÁ DOHODA",
+    "title": "Souhlas s technikou — praktický klientský skript",
+    "estimatedMinutes": 25,
+    "techniqueId": "SC-04",
+    "method": "Pro jednu konkrétní techniku připrav skript v pořadí: pojmenovat, vysvětlit průběh a délku, popsat možné prožitky bez sugesce, nabídnout alternativu, ověřit volbu a průběžně znovu ověřovat souhlas.",
+    "boundary": "Souhlas musí být konkrétní, informovaný, svobodný a odvolatelný. Mlčení, nejistota ani snaha vyhovět koučce nejsou automatické ano.",
+    "purpose": "Převést obecnou zásadu souhlasu do formulace, kterou můžeš skutečně použít před technikou.",
+    "canDiscover": "Zda klientce dáváš dost informací a zda je odmítnutí opravdu stejně přijatelné jako souhlas.",
+    "takeaway": "Hotový skript pro jednu techniku, alternativní postup a kontrolní otázky během praxe.",
+    "howToUse": [
+      "Vyber techniku, kterou chceš později skutečně nabízet.",
+      "Napiš přesnou formulaci pro každou fázi souhlasu.",
+      "Ověř, že alternativa není podaná jako horší možnost.",
+      "Skript si nahlas nacvič a uprav podle přirozeného jazyka."
+    ],
+    "prompts": [
+      { "id": "technique", "label": "Konkrétní technika", "help": "Jedna přesně pojmenovaná technika, například osmiminutová meditace budoucího Já." },
+      { "id": "name_offer", "label": "1. Jak techniku nabídnu a pojmenuji?", "help": "Jedna věta bez nátlaku nebo předpokladu, že ji klientka chce." },
+      { "id": "explain", "label": "2. Jak vysvětlím průběh, délku a účel?", "help": "Co se bude dít, jak dlouho to zabere a k čemu to může sloužit." },
+      { "id": "choice", "label": "3. Jak ověřím svobodnou volbu?", "help": "Otázka musí umožnit ano, ne, úpravu i odklad." },
+      { "id": "alternative", "label": "Jaká je rovnocenná alternativa?", "help": "Co nabídneš, když klientka techniku nechce." },
+      { "id": "during", "label": "Jak ověřím souhlas během techniky?", "help": "Konkrétní věta nebo signál pro zpomalení, změnu či zastavení." },
+      { "id": "after", "label": "Jak po technice ověřím dopad?", "help": "Nevysvětluj prožitek za klientku; ptej se na její zkušenost a další potřebu." },
+      { "id": "pressure_check", "label": "Kde by v mém skriptu mohl vzniknout skrytý tlak?", "help": "Najdi formulaci, tón nebo situaci, která by mohla ztížit odmítnutí." }
+    ]
+  },
+  {
+    "id": "spirit-m0-stop-card",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-5",
+    "categoryLabel": "BEZPEČNÁ PRAXE",
+    "title": "Karta ZASTAV a mapa bezpečného předání",
+    "estimatedMinutes": 30,
+    "techniqueId": "SC-05",
+    "method": "Nacvič šest kroků ZASTAV na anonymizované nebo modelové situaci: zpomal, ověř aktuální stav, stanov hranici, vytvoř další krok, nabídni odpovídající podporu a vrať klientce konkrétní odpovědnost.",
+    "boundary": "Do listu nevkládej identifikační, zdravotní ani traumatické podrobnosti skutečné klientky. Při bezprostředním ohrožení se řiď místním krizovým postupem, ne pracovním listem.",
+    "purpose": "Připravit se na chvíli, kdy je profesionální zastavení důležitější než dokončení techniky.",
+    "canDiscover": "Ve kterém kroku máš tendenci znejistit, zachraňovat, vysvětlovat nebo pokračovat příliš dlouho.",
+    "takeaway": "Stručná karta pro zastavení techniky, vlastní hraniční věta a ověřená mapa další podpory.",
+    "howToUse": [
+      "Pracuj pouze s modelovou nebo bezpečně anonymizovanou situací.",
+      "Napiš konkrétní větu pro každý krok, ne jen popis záměru.",
+      "Doplň lokální kontakty a postupy z ověřených aktuálních zdrojů.",
+      "Celý postup si nahlas nacvič tak, aby zněl klidně a jednoznačně."
+    ],
+    "prompts": [
+      { "id": "scenario", "label": "Modelová situace", "help": "Popiš jen tolik, kolik potřebuješ k rozhodnutí o zastavení. Bez identifikátorů a citlivých detailů." },
+      { "id": "slow", "label": "Z — Zpomal: co přesně udělám a řeknu?", "help": "Jak bezpečně přerušíš techniku a vrátíš kontakt k přítomnosti." },
+      { "id": "current", "label": "A — Aktuální stav: co potřebuji ověřit?", "help": "Krátké otázky na současný stav, bezpečí a bezprostřední potřebu." },
+      { "id": "boundary", "label": "S — Stanov hranici: moje přesná věta", "help": "Co nemůžeš nabídnout a co naopak udělat můžeš." },
+      { "id": "next_step", "label": "T — Tvoř další krok společně", "help": "Nejbližší konkrétní krok, který odpovídá situaci a klientčině volbě." },
+      { "id": "support", "label": "A — Alternativní podpora", "help": "Jaký typ kvalifikované, krizové nebo jiné podpory je relevantní. Ověř aktuální místní kontakty mimo tento list." },
+      { "id": "responsibility", "label": "V — Vrať odpovědnost: co klientka konkrétně udělá?", "help": "Ověř, že rozumí, může volit a ví, jaký krok následuje." },
+      { "id": "contacts", "label": "Moje ověřená mapa kontaktů a postupů", "help": "Doplň pouze veřejné profesní kontakty, místní linky a datum posledního ověření." },
+      { "id": "supervision", "label": "Kdy budu situaci konzultovat v supervizi?", "help": "Pojmenuj spouštěče pro odbornou konzultaci bez sdílení zbytečných identifikačních údajů." }
+    ]
+  },
+  {
+    "id": "spirit-m0-competence-map",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-6",
+    "categoryLabel": "SEBEHODNOCENÍ",
+    "title": "Výchozí mapa 10 profesních kompetencí",
+    "estimatedMinutes": 28,
+    "techniqueId": "SC-06",
+    "method": "Každou kompetenci ohodnoť od 0 do 10 a připoj jeden konkrétní důkaz. Číslo bez důkazu je pouze pocit; důkaz může ukazovat dovednost i mezeru.",
+    "boundary": "Jde o výchozí sebehodnocení, ne o certifikaci, diagnózu schopností ani srovnání s ostatními.",
+    "purpose": "Zachytit výchozí stav tak, aby šel na konci výcviku poctivě porovnat.",
+    "canDiscover": "Kde máš skutečnou dovednost, kde pouze znalost a které dvě oblasti potřebují první cílený nácvik.",
+    "takeaway": "Datovaná mapa kompetencí, důkazy k hodnocení a dvě priority dalšího rozvoje.",
+    "howToUse": [
+      "U každé položky zvol číslo 0–10 podle současné opakovatelné schopnosti.",
+      "Do důkazu napiš konkrétní příklad nebo situaci, která číslo podporuje.",
+      "Nevyrovnávej čísla tak, aby profil vypadal lépe.",
+      "Vyber dvě priority podle dopadu na bezpečnou praxi, ne podle studu."
+    ],
+    "prompts": [
+      { "id": "define", "label": "1. Vysvětlím, co je spirituální koučink — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "discern", "label": "2. Rozliším vlastní vjem od zkušenosti klientky — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "consent", "label": "3. Získám souhlas s technikou — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "opening", "label": "4. Vytvořím bezpečný začátek sezení — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "question", "label": "5. Položím otázku bez navádění — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "action", "label": "6. Převedu vhled do konkrétního kroku — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "closing", "label": "7. Uzavřu intenzivní sezení — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "scope", "label": "8. Rozpoznám přesah své role — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "signature", "label": "9. Popíšu svou signature metodu — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "offer", "label": "10. Nabídnu a ocením svůj program — hodnocení a důkaz", "help": "Napiš číslo 0–10 a konkrétní příklad." },
+      { "id": "priorities", "label": "Dvě priority pro další část výcviku", "help": "Vyber podle dopadu na kvalitu a bezpečí práce. U každé napiš první nácvik." },
+      { "id": "scope_statement", "label": "První prohlášení o rozsahu služby", "help": "Popiš, co nabízíš, jaké techniky používáš, co může klientka odmítnout a kdy hledáš jiný druh podpory." }
+    ]
+  },
+  {
+    "id": "spirit-m0-contract",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-7",
+    "categoryLabel": "PRAKTICKÁ LABORATOŘ",
+    "title": "Můj studijní a profesní kontrakt",
+    "estimatedMinutes": 30,
+    "techniqueId": "SC-07",
+    "method": "Každou odpověď převeď na jednání, které lze pozorovat. Nahraď výrazy jako „budu se snažit“ konkrétním spouštěčem, krokem a způsobem návratu.",
+    "boundary": "Kontrakt není nástroj sebepotrestání. Musí respektovat kapacitu, možnost cvičení upravit a právo přerušit osobní praxi.",
+    "purpose": "Vytvořit realistickou dohodu sama se sebou pro studium, osobní práci a profesní kongruenci.",
+    "canDiscover": "Kde máš konkrétní závazek a kde zatím pouze ideální představu bez opory v chování.",
+    "takeaway": "Jednostránkový kontrakt s ověřitelnými kroky, hranicemi a návratovým plánem.",
+    "howToUse": [
+      "Odpověz nejprve pravdivě, potom každou větu zpřesni do pozorovatelného jednání.",
+      "U odporu rozliš, zda potřebuješ menší krok, více informací nebo zastavení.",
+      "Zkontroluj, že kontrakt chrání tvoje hranice stejně jako kontinuitu.",
+      "Na závěr napiš datum revize a kontrakt si ulož do portfolia."
+    ],
+    "prompts": [
+      { "id": "purpose", "label": "Proč jsem do výcviku vstoupila?", "help": "Konkrétní současný důvod, ne obecná touha být lepší." },
+      { "id": "rhythm", "label": "Jaký reálný rytmus studia si volím?", "help": "Dny, délka, místo a minimální verze." },
+      { "id": "resistance", "label": "Co udělám, když narazím na odpor nebo nejistotu?", "help": "Rozhodovací postup: zmenšit krok, položit otázku, integrovat, nebo zastavit." },
+      { "id": "boundaries", "label": "Jak budu chránit své hranice při osobních cvičeních?", "help": "Signály pro úpravu, přerušení a vyhledání vhodné podpory." },
+      { "id": "congruence", "label": "Jaké jednání bude dokazovat profesní kongruenci?", "help": "Co bude vidět v přípravě, komunikaci, souhlasu, reflexi a supervizi." },
+      { "id": "completion", "label": "Co pro mě znamená výcvik skutečně dokončit?", "help": "Konkrétní portfolio, nácviky a schopnosti, ne pouze otevřené lekce." },
+      { "id": "return", "label": "Můj návratový krok po výpadku", "help": "Jedna akce do 20 minut, která obnoví kontakt s výcvikem." },
+      { "id": "signature", "label": "Datum, jméno a termín první revize", "help": "Uzavři kontrakt jako pracovní dohodu, kterou můžeš při revizi vědomě upravit." }
+    ]
+  },
+  {
+    "id": "spirit-m0-scenarios",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-8",
+    "categoryLabel": "PROFESNÍ NÁCVIK",
+    "title": "Tři situace, ve kterých musíš držet roli",
+    "estimatedMinutes": 38,
+    "techniqueId": "SC-08",
+    "method": "Pro každou modelovou klientku napiš souvislou odpověď v pěti prvcích: uznání, hranice, dostupná podpora, konkrétní další krok a ověření porozumění a volby.",
+    "boundary": "Jde o modelový nácvik. Při skutečném bezprostředním ohrožení nebo zdravotním tématu postupuj podle aktuálních místních pravidel a své kvalifikace.",
+    "purpose": "Nacvičit formulace, které jsou současně lidské, jednoznačné a profesně ohraničené.",
+    "canDiscover": "Zda v tlaku sklouzáváš k diagnóze, rozhodování za klientku, pokračování přes její stav nebo naopak k chladnému odmítnutí.",
+    "takeaway": "Tři připravené odpovědi a osobní kontrolní rámec pro náročnou chvíli.",
+    "howToUse": [
+      "Nejprve odpověz bez nápovědy tak, jak bys mluvila v reálném sezení.",
+      "Potom v odpovědi označ pět povinných prvků.",
+      "Přečti formulaci nahlas a zkontroluj tón, délku a srozumitelnost.",
+      "Nakonec ji prober s Elitea jako modelovou situaci."
+    ],
+    "prompts": [
+      { "id": "diagnosis", "label": "Situace 1: „Myslíš, že mám psychickou poruchu?“", "help": "Napiš celou odpověď: uznání, hranice bez diagnózy, co nabídnout můžeš, další krok a ověření volby." },
+      { "id": "marriage", "label": "Situace 2: „Řekni mi, jestli mám odejít z manželství.“", "help": "Vrať autorství klientce a nabídni přesný způsob, jak může rozhodnutí prozkoumat." },
+      { "id": "meditation", "label": "Situace 3: „Je mi velmi úzko. Pokračuj, ať to prolomím.“", "help": "Techniku zastav, ověř aktuální stav, stanov hranici a určete bezpečný bezprostřední krok." },
+      { "id": "quality_review", "label": "Kontrola kvality všech tří odpovědí", "help": "Kde je uznání? Kde hranice? Co můžeš nabídnout? Jaký je další krok? Kde klientka skutečně volí?" },
+      { "id": "pressure_pattern", "label": "Moje typická reakce pod tlakem", "help": "Mám sklon zachraňovat, vysvětlovat, rozhodovat, pokračovat, nebo se příliš rychle stáhnout? Jaký signál mi to připomene?" },
+      { "id": "supervision_question", "label": "Otázka pro supervizi nebo Elitea", "help": "Jedna konkrétní formulace nebo rozhodnutí, které chceš dále nacvičit." }
+    ]
+  },
+  {
+    "id": "spirit-m0-final-portfolio",
+    "courseId": "spiritualni-koucink-practice",
+    "moduleIndex": 0,
+    "itemId": "m0-9",
+    "categoryLabel": "UZAVŘENÍ MODULU",
+    "title": "Portfolio a kontrola dokončení modulu 0",
+    "estimatedMinutes": 20,
+    "techniqueId": "SC-09",
+    "method": "Po testu projdi povinné výstupy, u každého uveď, kde je uložený, a napiš jednu větu o tom, co díky němu nyní umíš přesněji. Nejasné místo vrať do konkrétní lekce nebo nácviku.",
+    "boundary": "Dokončení modulu není potvrzení kvalifikace k práci mimo vlastní kompetence. Je to kontrolní bod v rámci celého výcviku.",
+    "purpose": "Uzavřít modul důkazem práce, ne pouze označením lekcí jako dokončených.",
+    "canDiscover": "Který výstup je použitelný v praxi a který potřebuje ještě revizi, nácvik nebo zpětnou vazbu.",
+    "takeaway": "Uspořádané portfolio modulu, reflexe testu a jasný další studijní krok.",
+    "howToUse": [
+      "Nejprve dokonči test bez nahlížení do klíče.",
+      "U každého výstupu ověř existenci, srozumitelnost a praktickou použitelnost.",
+      "Nevyhovující výstup vrať k revizi místo formálního zaškrtnutí.",
+      "Modul uzavři jedním konkrétním rozhodnutím pro další praxi."
+    ],
+    "prompts": [
+      { "id": "rhythm", "type": "checkbox", "label": "Studijní rytmus je uložený a realistický", "help": "Obsahuje i integraci a návrat po výpadku." },
+      { "id": "competence", "type": "checkbox", "label": "Výchozí mapa kompetencí obsahuje čísla i důkazy", "help": "Mám vybrané dvě priority dalšího rozvoje." },
+      { "id": "scenarios", "type": "checkbox", "label": "Tři profesní situace jsou zpracované a zkontrolované", "help": "Každá odpověď obsahuje pět povinných prvků." },
+      { "id": "scope", "type": "checkbox", "label": "První prohlášení o rozsahu služby je uložené", "help": "Je jasné, co nabízím, co klientka může odmítnout a kde hledám jinou podporu." },
+      { "id": "test", "type": "checkbox", "label": "Test modulu jsem dokončila a opravila nejasnosti", "help": "Nerozhoduje jen počet správných odpovědí, ale pochopení důvodu." },
+      { "id": "strongest_evidence", "label": "Nejsilnější důkaz mého posunu v tomto modulu", "help": "Konkrétní výstup, formulace nebo rozhodnutí a proč je důležité." },
+      { "id": "needs_revision", "label": "Co ještě potřebuji revidovat nebo nacvičit?", "help": "Jedna přesná mezera a způsob, jak ji doplníš." },
+      { "id": "next_step", "label": "Můj další konkrétní krok", "help": "Co uděláš jako první po otevření dalšího modulu?" }
+    ]
+  },
+  {
+    "id": "spirit-m1-five-layers", "courseId": "spiritualni-koucink-practice", "moduleIndex": 1, "itemId": "m1-4", "categoryLabel": "KOUČOVACÍ MAPA", "title": "Rozhovor přes pět vrstev", "estimatedMinutes": 25, "techniqueId": "SC-10",
+    "method": "Odděl popis situace od interpretací, projdi pouze relevantní vrstvy a společně s klientkou vyber jednu oblast a ověřitelný další krok.",
+    "boundary": "Mapa není diagnostický nástroj a žádná vrstva sama nevysvětluje zdravotní, psychické nebo sociální příčiny klientčiny situace.",
+    "purpose": "Naučit se rozšířit pohled bez zahlcení klientky a bez toho, aby koučka předem určovala správnou příčinu nebo řešení.",
+    "canDiscover": "Kterou vrstvu máš sklon přeceňovat, které otázky jsou navádějící a kde klientka získává nejvíce možnosti volby.",
+    "takeaway": "Hotová mapa jednoho tématu, pět přesných otázek a jeden klientkou zvolený krok s měřítkem dokončení.",
+    "howToUse": ["Popiš situaci bez výkladu příčiny.", "Polož jednu otevřenou otázku ke každé relevantní vrstvě.", "Nech klientku určit prioritu.", "Převeď vhled do malého ověřitelného kroku."],
+    "prompts": [{"id":"facts","label":"Co se konkrétně děje?","help":"Zapiš pozorovatelná fakta bez duchovního nebo psychologického výkladu."},{"id":"self","label":"Vrstva vztahu k sobě","help":"Jaká otázka otevře identitu, hodnotu, hranice nebo autorství bez navádění?"},{"id":"mind_emotion","label":"Mysl a emoce","help":"Jaké věty a pocity se opakují a co pro klientku znamenají?"},{"id":"body_spirit","label":"Tělo a spiritualita","help":"Co klientka vnímá a jaký význam tomu sama dává?"},{"id":"choice","label":"Volba a konkrétní krok","help":"Která vrstva je teď prioritní a co klientka udělá do příštího setkání?"}]
+  },
+  {
+    "id": "spirit-m2-congruence", "courseId": "spiritualni-koucink-practice", "moduleIndex": 2, "itemId": "m2-3", "categoryLabel": "SEBEREFLEXE KOUČKY", "title": "Audit profesní kongruence", "estimatedMinutes": 35, "techniqueId": "SC-11",
+    "method": "Pět vybraných hodnot převeď do pozorovatelného jednání, důkazů, rizik nesouladu a konkrétních oprav s termínem.",
+    "boundary": "Audit není měřítkem lidské hodnoty ani důvodem pokračovat v práci bez potřebné kapacity, podpory nebo odborné konzultace.",
+    "purpose": "Převést obecné hodnoty do chování, které může klientka skutečně zažít v přípravě, sezení, dokumentaci a následné péči.",
+    "canDiscover": "Kde je tvoje deklarovaná hodnota opřená o praxi a kde zatím vzniká mezera s možným dopadem na klientku.",
+    "takeaway": "Datovaný audit pěti hodnot, dvouminutový check-in před sezením a plán jedné prioritní opravy.",
+    "howToUse": ["Vyber pět profesních hodnot.", "U každé napiš důkaz i nesoulad.", "Pojmenuj dopad na klientku.", "Urči opravu, podporu a termín revize."],
+    "prompts": [{"id":"values","label":"Mých pět profesních hodnot","help":"Vyber hodnoty, které musí být patrné v konkrétním jednání."},{"id":"evidence","label":"Pozorovatelné důkazy","help":"U každé hodnoty uveď jednu situaci z posledních třiceti dnů."},{"id":"gaps","label":"Místa nesouladu","help":"Kde se moje chování od hodnoty odchyluje a co to spouští?"},{"id":"impact","label":"Možný dopad na klientku","help":"Jaké riziko nebo nejasnost může nesoulad ve spolupráci vytvořit?"},{"id":"repair","label":"Oprava a kontrolní termín","help":"Co přesně změním, jakou podporu použiji a kdy výsledek ověřím?"}]
+  },
+  {
+    "id": "spirit-m3-story", "courseId": "spiritualni-koucink-practice", "moduleIndex": 3, "itemId": "m3-4", "categoryLabel": "PRÁCE S PŘÍBĚHEM", "title": "Příběh, fakta a sedmidenní experiment", "estimatedMinutes": 45, "techniqueId": "SC-12",
+    "method": "Rozděl starý příběh na fakta, interpretace, absolutní závěry a ochrannou funkci; vytvoř rozšířenou verzi a otestuj ji v malém jednání.",
+    "boundary": "Pracuj s tématem zvládnutelné intenzity. Cvičení nepřepisuje fakta, nezlehčuje újmu a nenahrazuje terapeutické zpracování traumatu.",
+    "purpose": "Změnit omezující význam bez nucené pozitivity a vytvořit nový příběh, který lze ověřovat zkušeností místo pouhého opakování.",
+    "canDiscover": "Kde se z jedné události stala celá identita, co starý příběh chrání a jaký nový důkaz je dnes realisticky dostupný.",
+    "takeaway": "Původní a rozšířený příběh, zachovaná ochranná potřeba a sedmidenní experiment s jasným vyhodnocením.",
+    "howToUse": ["Vyber téma do intenzity pět z deseti.", "Odděl fakta a interpretace.", "Najdi ochrannou funkci.", "Vytvoř rozšířený příběh a sedmidenní test."],
+    "prompts": [{"id":"old","label":"Původní příběh v deseti větách","help":"Napiš jej bez úprav tak, jak si ho obvykle vyprávíš."},{"id":"coding","label":"Fakta, domněnky a absolutní slova","help":"Označ jednotlivé typy a všimni si, kde vzniká uzavřený závěr."},{"id":"protection","label":"Co příběh chránil?","help":"Jakou potřebu, hranici nebo prevenci měl původní význam zajistit?"},{"id":"expanded","label":"Rozšířená verze příběhu","help":"Zachovej fakta a přidej kontext, zdroje, nejistotu a dnešní volbu."},{"id":"experiment","label":"Sedmidenní experiment","help":"Jaké malé jednání může novou verzi podpořit, vyvrátit nebo zpřesnit?"}]
+  },
+  {
+    "id": "spirit-m4-emotion-map", "courseId": "spiritualni-koucink-practice", "moduleIndex": 4, "itemId": "m4-3", "categoryLabel": "EMOČNÍ MAPA", "title": "Sedmidenní mapa emocí a potřeb", "estimatedMinutes": 40, "techniqueId": "SC-13",
+    "method": "Třikrát denně zaznamenej emoci, intenzitu, spouštěč, tělesný signál, potřebu a reakci; potom porovnej opakující se vzorce a podpůrné zásahy.",
+    "boundary": "Mapa není diagnóza ani náhrada odborné péče. Při zhoršování, ztrátě kontaktu nebo ohrožení cvičení zastav a vyhledej odpovídající podporu.",
+    "purpose": "Nahradit neurčité hodnocení emocí konkrétními daty a vybrat regulující možnosti podle skutečného dopadu v běžném týdnu.",
+    "canDiscover": "Které spouštěče se opakují, jaké potřeby zůstávají bez odpovědi a které rychlé zásahy skutečně zvyšují možnost volby.",
+    "takeaway": "Sedmidenní přehled, dva regulační experimenty a osobní signály pro zpomalení, hranici nebo vyhledání podpory.",
+    "howToUse": ["Zapisuj bez hodnocení třikrát denně.", "Používej stupnici intenzity nula až deset.", "Po týdnu hledej vzorce.", "Navrhni dva malé experimenty a měř dopad."],
+    "prompts": [{"id":"records","label":"Denní záznamy","help":"Uveď emoci, intenzitu, situaci, tělo, potřebu a následnou reakci."},{"id":"patterns","label":"Opakující se spouštěče","help":"Které situace, časy nebo vztahy se v mapě objevují opakovaně?"},{"id":"supports","label":"Co pomáhá do deseti minut","help":"Rozliš skutečný posun od krátkého rozptýlení nebo potlačení."},{"id":"limits","label":"Signály pro zpomalení","help":"Kdy potřebuji pauzu, hranici, změnu postupu nebo jiný druh podpory?"},{"id":"experiments","label":"Dva regulační experimenty","help":"Co vyzkouším, kdy, jak dlouho a podle čeho vyhodnotím dopad?"}]
+  },
+  {
+    "id": "spirit-m5-somatic", "courseId": "spiritualni-koucink-practice", "moduleIndex": 5, "itemId": "m5-3", "categoryLabel": "TĚLESNÁ PŘÍPRAVA", "title": "Somatický profil práce koučky", "estimatedMinutes": 35, "techniqueId": "SC-14",
+    "method": "Pět dní sleduj kapacitu před a po práci, podmínky prostředí a konkrétní zásah; vyber pouze postupy s opakovatelným přínosem.",
+    "boundary": "Tělesný profil neposuzuje zdravotní stav a nenahrazuje lékařskou, fyzioterapeutickou, výživovou ani jinou kvalifikovanou péči.",
+    "purpose": "Vytvořit realistickou přípravu a uzavření sezení založené na vlastních datech místo univerzálních nebo energetických tvrzení.",
+    "canDiscover": "Jak spánek, hlad, poloha, prostředí a časový tlak ovlivňují přítomnost a které drobné zásahy mají největší efekt.",
+    "takeaway": "Dvouminutový protokol před sezením, tříminutové uzavření a jasné signály nedostatečné kapacity.",
+    "howToUse": ["Měř před i po práci.", "Zaznamenej podmínky prostředí.", "Testuj vždy jeden zásah.", "Vyber jen opakovatelně užitečné postupy."],
+    "prompts": [{"id":"baseline","label":"Výchozí tělesný stav","help":"Energie, napětí, dech, bolest a schopnost soustředit se před prací."},{"id":"conditions","label":"Podmínky a možné vlivy","help":"Spánek, jídlo, stimulanty, poloha, hluk, teplota a časový tlak."},{"id":"intervention","label":"Použitý krátký zásah","help":"Co přesně jsem udělala a jak dlouho to trvalo?"},{"id":"effect","label":"Dopad po práci","help":"Co se změnilo na stejné stupnici a co zůstalo stejné?"},{"id":"protocol","label":"Můj přípravný a závěrečný protokol","help":"Sepiš kroky, limity a signál, kdy sezení raději přesunout."}]
+  },
+  {
+    "id": "spirit-m6-meditation-script", "courseId": "spiritualni-koucink-practice", "moduleIndex": 6, "itemId": "m6-4", "categoryLabel": "SCÉNÁŘ MEDITACE", "title": "Sedmiminutová meditace se souhlasem", "estimatedMinutes": 45, "techniqueId": "SC-15",
+    "method": "Napiš a nahraj praxi s úvodní volbou, jednoduchou orientací, jedním obrazem, tichem, možností zastavit, návratem a otevřenou integrací.",
+    "boundary": "Nevnucuj zavřené oči, soustředění na dech ani předem určený prožitek. Při rostoucí aktivaci praxi neprohlubuj a respektuj zastavení.",
+    "purpose": "Nacvičit meditaci, která je spirituálně smysluplná a současně ponechává klientce kontrolu nad tempem, polohou a významem zkušenosti.",
+    "canDiscover": "Kde tvůj jazyk sugeruje výsledek, zda necháváš dost ticha a jestli alternativa k meditaci působí skutečně rovnocenně.",
+    "takeaway": "Hotový scénář, nahrávka, seznam sugestivních míst a přepracovaná verze použitelná v klientské praxi.",
+    "howToUse": ["Napiš souhlas a alternativu.", "Použij nejvýše jeden obraz.", "Vyznač plánované pauzy.", "Nahraj, poslechni a přepiš sugestivní věty."],
+    "prompts": [{"id":"consent","label":"Úvodní souhlas a alternativa","help":"Jak vysvětlím účel, délku, volby a rovnocenný rozhovor bez meditace?"},{"id":"body","label":"Přesný text vedení","help":"Napiš celý text včetně volby očí, orientace, obrazu a návratu."},{"id":"pauses","label":"Mapa pauz a tempa","help":"Vyznač délku ticha a místa, kde má hlas zpomalit nebo ztišit."},{"id":"suggestion","label":"Kontrola sugestivních vět","help":"Kde předvídám pocit, obraz nebo význam a jak větu otevřu?"},{"id":"reflection","label":"Reflexe po poslechu","help":"Jak působí tempo, jasnost, možnost volby a bezpečný návrat?"}]
+  },
+  {
+    "id": "spirit-m7-higher-self", "courseId": "spiritualni-koucink-practice", "moduleIndex": 7, "itemId": "m7-4", "categoryLabel": "VYŠŠÍ JÁ", "title": "Tři otázky, tři filtry a vratný krok", "estimatedMinutes": 40, "techniqueId": "SC-16",
+    "method": "Připrav tři otázky pro vyšší nebo budoucí Já, zachyť odpovědi bez výkladu a každou projdi filtrem hodnot, faktů a vratného experimentu.",
+    "boundary": "Praxe neposkytuje předpověď ani objektivní zprávu o zdraví, smrti, nevěře nebo úmyslech druhých lidí a nesmí rozhodovat za klientku.",
+    "purpose": "Spojit tvořivou spirituální perspektivu s rozlišováním, aby silný obraz nezískal větší autoritu než klientka, fakta a bezpečí.",
+    "canDiscover": "Které otázky hledají moudrost a které pouze jistotu, kde se přání nebo strach tváří jako vedení a co lze bezpečně ověřit.",
+    "takeaway": "Tři kvalitní otázky, záznam odpovědí, průchod filtry a jeden malý vratný krok bez ukvapeného rozhodnutí.",
+    "howToUse": ["Uprav otázky mimo předpovědi.", "Proveď praxi bez okamžité interpretace.", "Odděl obraz, význam a fakta.", "Vyber pouze vratný ověřovací krok."],
+    "prompts": [{"id":"questions","label":"Tři připravené otázky","help":"Formuluj otázky na vlastní hodnoty a jednání, ne na jistou budoucnost."},{"id":"raw","label":"Co se objevilo bez výkladu","help":"Zapiš přesná slova, obrazy nebo pocity dříve, než jim dáš význam."},{"id":"meaning","label":"Můj vlastní význam","help":"Co to pro mě může znamenat a jaké jiné výklady jsou možné?"},{"id":"filters","label":"Hodnoty, fakta a bezpečí","help":"Je vhled v souladu s hodnotami, známými fakty a profesními hranicemi?"},{"id":"step","label":"Malý vratný experiment","help":"Jaký bezpečný krok mohu vyzkoušet bez nevratného rozhodnutí?"}]
+  },
+  {
+    "id": "spirit-m8-intake", "courseId": "spiritualni-koucink-practice", "moduleIndex": 8, "itemId": "m8-3", "categoryLabel": "KLIENTSKÝ INTAKE", "title": "Vstupní formulář a rozhodovací mapa", "estimatedMinutes": 50, "techniqueId": "SC-17",
+    "method": "Vytvoř nejvýše patnáct účelných otázek a rozhodovací postup pro přijetí, úpravu spolupráce, konzultaci nebo doporučení jiné podpory.",
+    "boundary": "Nesbírej zdravotní, traumatické ani identifikační podrobnosti bez jasného účelu, zabezpečení a právního základu odpovídajícího tvé zemi.",
+    "purpose": "Připravit bezpečný první kontakt, který poskytne dost informací pro rozhodnutí a zároveň respektuje soukromí a rozsah koučovací služby.",
+    "canDiscover": "Které otázky jsou opravdu potřebné, kde chybí podmínky vhodné spolupráce a jak reaguješ na situaci mimo vlastní kompetenci.",
+    "takeaway": "Hotový intake, účel každého pole a rozhodovací mapa otestovaná na třech modelových případech.",
+    "howToUse": ["Sepiš maximálně patnáct otázek.", "Ke každé uveď účel a nakládání s odpovědí.", "Vytvoř čtyři možné výsledky posouzení.", "Otestuj mapu na modelových situacích."],
+    "prompts": [{"id":"goals","label":"Cíl a měřítko užitku","help":"Jak zjistím, co klientka chce a podle čeho pozná posun?"},{"id":"context","label":"Zdroje, překážky a pokusy","help":"Které minimum kontextu potřebuji bez sběru celého životního příběhu?"},{"id":"preferences","label":"Preference, přístupnost a techniky","help":"Jaké postupy klientka chce, nechce nebo potřebuje upravit?"},{"id":"purpose_map","label":"Účel a ochrana každé otázky","help":"Proč údaj potřebuji, kdo k němu má přístup a kdy jej smažu?"},{"id":"decision","label":"Rozhodovací mapa přijetí","help":"Kdy přijmu, upravím, konzultuji nebo doporučím jinou podporu?"}]
+  },
+  {
+    "id": "spirit-m9-session-review", "courseId": "spiritualni-koucink-practice", "moduleIndex": 9, "itemId": "m9-5", "categoryLabel": "NÁCVIK SEZENÍ", "title": "Hodnocení modelového 30minutového sezení", "estimatedMinutes": 45, "techniqueId": "SC-18",
+    "method": "Nahraj strukturované sezení, vyber důkazy ke kontraktu, naslouchání, souhlasu, intuici, kroku a uzavření a přepiš nejvíce mluvený úsek.",
+    "boundary": "Použij modelové nebo bezpečně anonymizované téma a předem dohodni nahrávání, přístup, účel a smazání záznamu.",
+    "purpose": "Nahradit dojem z vlastního výkonu konkrétními důkazy z nahrávky a cíleně opravit jednu dovednost v dalším sezení.",
+    "canDiscover": "Kolik prostoru klientka skutečně dostala, kde jsi předpokládala, jak jsi pracovala s cílem a zda byl krok opravdu její.",
+    "takeaway": "Časová osa sezení, přepis pěti minut, hodnocení šesti kompetencí a přesný plán opravy.",
+    "howToUse": ["Získej souhlas s modelovou nahrávkou.", "Vyznač fáze a čas sezení.", "Cituj konkrétní důkazy.", "Přepiš jeden úsek a nacvič lepší verzi."],
+    "prompts": [{"id":"timeline","label":"Časová osa sezení","help":"Kdy začala dohoda, zkoumání, technika, krok a uzavření?"},{"id":"evidence","label":"Důkazy šesti kompetencí","help":"U každé kompetence uveď přesnou větu nebo čas nahrávky."},{"id":"talk_ratio","label":"Pět minut, kdy jsem mluvila nejvíce","help":"Přepiš úsek a označ vysvětlování, otázky, reflexe a ticho."},{"id":"pressure","label":"Místo možného tlaku","help":"Kde mohl tón, předpoklad nebo technika omezit klientčinu volbu?"},{"id":"repair","label":"Jedna oprava pro další sezení","help":"Napiš přesnou alternativní větu a situaci, ve které ji použiješ."}]
+  },
+  {
+    "id": "spirit-m10-signature", "courseId": "spiritualni-koucink-practice", "moduleIndex": 10, "itemId": "m10-4", "categoryLabel": "SIGNATURE METODA", "title": "Mapa vlastní koučovací cesty", "estimatedMinutes": 50, "techniqueId": "SC-19",
+    "method": "Navrhni čtyři až šest fází podle změny klientky; každá fáze musí mít účel, otázku, nástroje, hranici, výstup a kritérium postupu.",
+    "boundary": "Metoda neslibuje jistý výsledek, nesmí překračovat kvalifikaci a potřebuje rovnocennou variantu pro klientku, která odmítne spirituální techniku.",
+    "purpose": "Vytvořit opakovatelnou a vysvětlitelnou cestu, ve které každá technika slouží jasnému výsledku místo náhodné směsi oblíbených cvičení.",
+    "canDiscover": "Které fáze jsou nezbytné, kde metoda stojí na neověřeném předpokladu a co potřebuje alternativu nebo měřítko pokroku.",
+    "takeaway": "Kompletní mapa signature metody, rozhodovací body, alternativy a kritéria postupu použitelná pro návrh programu.",
+    "howToUse": ["Začni cílovou změnou klientky.", "Navrhni nejvýše šest fází.", "Doplň rozhodovací body a hranice.", "Odstraň techniky bez jasné funkce."],
+    "prompts": [{"id":"client","label":"Pro koho a z jaké situace","help":"Popiš vhodnou klientku, výchozí problém a podmínky spolupráce."},{"id":"outcome","label":"Konkrétní podporovaný výsledek","help":"Co bude klientka na konci umět, mít nebo dělat bez záruky výsledku?"},{"id":"phases","label":"Čtyři až šest fází","help":"U každé uveď výchozí stav, otázku, nástroje a výstup."},{"id":"choices","label":"Souhlas, hranice a alternativy","help":"Kde musí klientka volit a jak pokračuje bez spirituální techniky?"},{"id":"criteria","label":"Kritéria postupu a měření","help":"Podle čeho poznáte, že je vhodné pokračovat, opakovat nebo změnit plán?"}]
+  },
+  {
+    "id": "spirit-m11-offer", "courseId": "spiritualni-koucink-practice", "moduleIndex": 11, "itemId": "m11-6", "categoryLabel": "PROFESNÍ NABÍDKA", "title": "Karta programu a kalkulace ceny", "estimatedMinutes": 60, "techniqueId": "SC-20",
+    "method": "Spoj obsah programu, celkový čas, náklady, kapacitu, cenu, hranice a klientský jazyk do jedné transparentní karty nabídky.",
+    "boundary": "Kalkulace je podnikatelský podklad, ne individuální daňová nebo právní rada; dokumenty a povinnosti ověř s odborníkem pro svou zemi.",
+    "purpose": "Vytvořit nabídku, která je ekonomicky udržitelná, srozumitelná a prodejná bez falešné naléhavosti, duchovního tlaku nebo přehnaných slibů.",
+    "canDiscover": "Kolik času služba skutečně spotřebuje, zda cena odpovídá kapacitě a která marketingová tvrzení potřebují zpřesnit.",
+    "takeaway": "Jednostránková karta programu, cenová kalkulace, seznam dokumentů a plán ověření nabídky s reálnými lidmi.",
+    "howToUse": ["Spočítej přímý i nepřímý čas.", "Doplň náklady, rezervu a kapacitu.", "Napiš nabídku bez záruk.", "Otestuj srozumitelnost a nech dokumenty odborně ověřit."],
+    "prompts": [{"id":"scope","label":"Obsah, délka a hranice programu","help":"Co klientka dostává, v jakém rytmu a co služba výslovně není?"},{"id":"time","label":"Celkový čas na jednu klientku","help":"Sezení, příprava, poznámky, zprávy, administrativa a regenerace."},{"id":"price","label":"Kalkulace ceny a kapacity","help":"Náklady, daně, rezerva, cílová mzda, počet klientek a test trhu."},{"id":"copy","label":"Jednostránková karta nabídky","help":"Pro koho, s čím, výsledek, obsah, metody, cena, podmínky a další krok."},{"id":"legal","label":"Dokumenty a odborné ověření","help":"Co potřebuji připravit a s kým ověřím právo, daně a ochranu dat?"}]
+  },
+  {
+    "id": "spirit-m12-portfolio", "courseId": "spiritualni-koucink-practice", "moduleIndex": 12, "itemId": "m12-5", "categoryLabel": "CERTIFIKAČNÍ PORTFOLIO", "title": "Kontrola důkazů závěrečného praktika", "estimatedMinutes": 45, "techniqueId": "SC-21",
+    "method": "Ke každému požadavku připoj konkrétní soubor, čas nahrávky nebo jiný důkaz, ověř souhlasy a anonymizaci a chybějící položku vrať k nácviku.",
+    "boundary": "Portfolio nesmí obsahovat zbytečné osobní údaje, neanonymizované klientské příběhy ani nahrávky bez platného souhlasu a plánu smazání.",
+    "purpose": "Prokázat skutečnou práci a kompetence místo formálního zaškrtnutí lekcí a připravit čistý podklad pro závěrečné ověření.",
+    "canDiscover": "Které kompetence mají opakovatelný důkaz, kde je pouze pocit jistoty a co je nutné doplnit před certifikací.",
+    "takeaway": "Uspořádaný index portfolia, kontrola soukromí, mapa chybějících důkazů a plán jejich doplnění.",
+    "howToUse": ["Přiřaď důkaz ke každému požadavku.", "Ověř anonymizaci a souhlasy.", "Zkontroluj kvalitu, ne jen existenci.", "Naplánuj doplnění chybějících kompetencí."],
+    "prompts": [{"id":"framework","label":"Etický a profesní rámec","help":"Kde je rozsah služby, souhlas, hranice a krizový postup?"},{"id":"methods","label":"Metody a pracovní materiály","help":"Kde je intake, dohoda, meditace, signature mapa a klientské alternativy?"},{"id":"practice","label":"Dvě praktické nahrávky","help":"Jaké důkazy obsahují a kde jsou zpětné vazby a sebereflexe?"},{"id":"privacy","label":"Souhlasy, anonymizace a smazání","help":"Je každý záznam oprávněný, zabezpečený a má jasnou dobu uchování?"},{"id":"gaps","label":"Chybějící důkazy a plán doplnění","help":"Co ještě není dostatečné, jaký nácvik chybí a do kdy jej doplním?"}]
+  },
+  {
+    "id": "spirit-m13-cases", "courseId": "spiritualni-koucink-practice", "moduleIndex": 13, "itemId": "m13-2", "categoryLabel": "PŘÍPADOVÁ ZKOUŠKA", "title": "Tři hraniční případy certifikace", "estimatedMinutes": 40, "techniqueId": "SC-22",
+    "method": "Každý případ zpracuj v pořadí uznání, profesní hranice, otevřená otázka, dostupná podpora, další krok a minimální dokumentace.",
+    "boundary": "Jde o modelové ověření. Skutečné akutní, zdravotní nebo právní situace vyžadují aktuální místní postup a kvalifikovanou podporu.",
+    "purpose": "Ověřit, že i pod tlakem dokážeš zachovat klientčino autorství, oddělit intuici od faktu a zvolit bezpečný konkrétní postup.",
+    "canDiscover": "Kde máš tendenci diagnostikovat, obhajovat vjem, rozhodovat za klientku nebo naopak opustit podporu bez dalšího kroku.",
+    "takeaway": "Tři kompletní modelové odpovědi, dokumentační minimum a osobní kontrolní věta pro náročné situace.",
+    "howToUse": ["Odpověz nejprve bez nápovědy.", "Označ šest povinných prvků.", "Přečti odpověď nahlas.", "Oprav tlak, nejasnost a chybějící další krok."],
+    "prompts": [{"id":"diagnosis","label":"Případ: diagnóza z energie","help":"Jak uznáš obavu, odmítneš diagnózu a nabídneš vhodný další postup?"},{"id":"decision","label":"Případ: rozhodnutí po meditaci","help":"Jak zpomalíš nevratný krok, zachováš vhled a vrátíš se k faktům?"},{"id":"rejection","label":"Případ: odmítnutý intuitivní vjem","help":"Jak vjem odložíš bez obhajování a vrátíš vedení klientce?"},{"id":"records","label":"Minimální profesní dokumentace","help":"Co věcně zapíšeš bez interpretací a zbytečných citlivých údajů?"},{"id":"rule","label":"Moje kontrolní věta pod tlakem","help":"Krátká věta, která mi připomene rozsah, souhlas a autorství klientky."}]
+  },
+  {
+    "id": "spirit-audio-production-pack", "courseId": "spiritualni-koucink-practice", "moduleIndex": 0, "itemId": "m0-1", "categoryLabel": "AUDIO K NAHRÁNÍ", "title": "Kompletní balíček 10 scénářů k namluvení", "estimatedMinutes": 120, "techniqueId": "SC-AUDIO",
+    "method": "Otevři produkční dokument, projdi technické instrukce a nahraj deset přesně připravených audií včetně vyznačených pauz, alternativ a bezpečného návratu.",
+    "boundary": "Doslovné scénáře můžeš přirozeně upravit svému hlasu, ale zachovej možnost volby, zastavení, návrat do prostoru a všechna profesní omezení uvedená u praxe.",
+    "purpose": "Mít přímo v kurzu přesný text, délku, tón, tempo, hudební doporučení i umístění každého audia, aby nebylo nutné domýšlet, co a jak namluvit.",
+    "canDiscover": "Které nahrávky jsou úvodní, klientské, meditační nebo reflexivní a jak se liší hlas, tempo, práce s tichem a technické zpracování.",
+    "takeaway": "Deset hotových nahrávek připravených pro web: uvítání, orientace, světlo, příprava koučky, vyšší Já, ideální klientka, otevření, uzavření, reflexe a závěr.",
+    "howToUse": ["Nejprve prostuduj společné technické pokyny.", "Nahraj pracovní verzi bez hudby a dodrž vyznačené pauzy.", "Poslechni ji vsedě i vleže a oprav srozumitelnost.", "Exportuj archivní WAV a webovou MP3 podle produkčních parametrů."],
+    "prompts": [{"id":"audio1","label":"Audio 1 — Vítej ve výcviku","help":"Označ až po nahrání, poslechu a kontrole cílové délky i tónu."},{"id":"audio2","label":"Audio 2 — Orientace a volba","help":"Ověř otevřené oči, možnost zastavení a přesné časování pauz."},{"id":"audio3","label":"Audio 3 — Dech se světlem","help":"Zachovej symbolický rámec, přirozený dech a bezpečný návrat."},{"id":"audio4","label":"Audio 4 — Příprava koučky","help":"Zkontroluj profesionální tón a rozlišení kapacity od výkonu."},{"id":"audio5","label":"Audio 5 — Vyšší nebo budoucí Já","help":"Ověř tři otázky, filtry a návrat k faktům před rozhodnutím."},{"id":"audio6","label":"Audio 6 — Ideální klientka","help":"Zachovej tvořivý tón a jasné označení výsledků jako hypotéz."},{"id":"audio7","label":"Audio 7 — Otevření sezení","help":"Nahraj přirozený koučovací hlas bez meditačního projevu."},{"id":"audio8","label":"Audio 8 — Uzavření sezení","help":"Ponech reálný prostor pro odpovědi klientky a jasný konec."},{"id":"audio9","label":"Audio 9 — Reflexe po sezení","help":"Drž věcný tón, oddělení faktů a interpretací a bezpečné uložení poznámek."},{"id":"audio10","label":"Audio 10 — Závěr výcviku","help":"Nahraj slavnostně, ale bez přehnaných slibů nebo dojmu licence."}]
+  }
+]

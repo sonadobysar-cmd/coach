@@ -1,0 +1,5242 @@
+[
+  {
+    "id": "grow",
+    "name": "GROW",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cil",
+      "rozhodnout",
+      "moznosti",
+      "dalsi krok",
+      "plan"
+    ],
+    "use_when": [
+      "jasný neklinický cíl",
+      "potřeba převést úvahu do kroku"
+    ],
+    "core_move": "Ujasni cíl, realitu, možnosti a dobrovolně zvolený další krok.",
+    "avoid": [
+      "krize",
+      "akutní zahlcení"
+    ],
+    "never_claim": [
+      "garance výsledku"
+    ],
+    "origin_or_standard": "Globálně rozšířený koučovací rámec GROW"
+  },
+  {
+    "id": "t_grow",
+    "name": "T-GROW",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "tema",
+      "agenda",
+      "co resit",
+      "priorita"
+    ],
+    "use_when": [
+      "je potřeba nejprve vybrat téma sezení"
+    ],
+    "core_move": "Před GROW společně vymez téma a žádoucí výsledek rozhovoru.",
+    "avoid": [
+      "bezprostřední ohrožení"
+    ],
+    "never_claim": [
+      "že struktura sama vyřeší problém"
+    ],
+    "origin_or_standard": "Varianta GROW používaná v profesionálním koučinku"
+  },
+  {
+    "id": "clear",
+    "name": "CLEAR",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "smlouva",
+      "ocekavani",
+      "reflexe",
+      "sezeni"
+    ],
+    "use_when": [
+      "potřeba jasné dohody o cíli a procesu"
+    ],
+    "core_move": "Dohodni kontrakt, naslouchej, prozkoumej, podpoř akci a uzavři reflexí.",
+    "avoid": [
+      "mechanické vedení bez souhlasu"
+    ],
+    "never_claim": [
+      "terapeutický účinek"
+    ],
+    "origin_or_standard": "Koučovací model CLEAR"
+  },
+  {
+    "id": "oskar",
+    "name": "OSKAR",
+    "family": "solution_focused",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "co funguje",
+      "pokrok",
+      "skala",
+      "vysledek"
+    ],
+    "use_when": [
+      "klientka chce stavět na tom, co už funguje"
+    ],
+    "core_move": "Popiš výsledek, škálu, know-how a zdroje, další akci a zpětné zhodnocení.",
+    "avoid": [
+      "bagatelizace závažného problému"
+    ],
+    "never_claim": [
+      "že pozitivní zaměření odstraní nemoc"
+    ],
+    "origin_or_standard": "Solution-focused koučovací model OSKAR"
+  },
+  {
+    "id": "practice",
+    "name": "PRACTICE",
+    "family": "cognitive_behavioral_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "problem",
+      "reseni",
+      "dusledky",
+      "vyhodnotit"
+    ],
+    "use_when": [
+      "řešitelný praktický problém s více možnostmi"
+    ],
+    "core_move": "Vymez problém, realistický cíl, varianty, důsledky, volbu, provedení a vyhodnocení.",
+    "avoid": [
+      "krize",
+      "diagnostika duševní poruchy"
+    ],
+    "never_claim": [
+      "že jde o psychoterapii"
+    ],
+    "origin_or_standard": "Cognitive behavioural coaching model PRACTICE"
+  },
+  {
+    "id": "space",
+    "name": "SPACE mapa",
+    "family": "cognitive_behavioral_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "myslenky",
+      "emoce",
+      "reakce",
+      "situace",
+      "telo"
+    ],
+    "use_when": [
+      "potřeba zmapovat souvislosti situace, myšlenek, emocí a jednání"
+    ],
+    "core_move": "Bez diagnózy zmapuj situaci, tělesné reakce, jednání, myšlenky a emoce.",
+    "avoid": [
+      "zahlcující rozbor traumatu"
+    ],
+    "never_claim": [
+      "klinická diagnóza"
+    ],
+    "origin_or_standard": "Cognitive behavioural coaching model SPACE"
+  },
+  {
+    "id": "preferred_future",
+    "name": "Preferovaná budoucnost",
+    "family": "solution_focused",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "chci aby",
+      "idealni stav",
+      "budoucnost",
+      "vysledek"
+    ],
+    "use_when": [
+      "cíl je vágní nebo formulovaný jen jako absence problému"
+    ],
+    "core_move": "Pomoz popsat konkrétní pozorovatelné znaky lepší budoucnosti.",
+    "avoid": [
+      "pouhé fantazírování bez reality"
+    ],
+    "never_claim": [
+      "manifestace výsledku"
+    ],
+    "origin_or_standard": "Solution Focused Brief Approach"
+  },
+  {
+    "id": "exception_questions",
+    "name": "Otázky na výjimky",
+    "family": "solution_focused",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nekdy",
+      "vyjimka",
+      "fungovalo",
+      "povedlo"
+    ],
+    "use_when": [
+      "problém není přítomen vždy"
+    ],
+    "core_move": "Najdi chvíle, kdy byl problém menší, a konkrétní podmínky, které lze zopakovat.",
+    "avoid": [
+      "naznačení, že si klientka problém vytváří"
+    ],
+    "never_claim": [
+      "že výjimka dokazuje vyřešení"
+    ],
+    "origin_or_standard": "Solution Focused Brief Approach"
+  },
+  {
+    "id": "scaling_question",
+    "name": "Škálovací otázka",
+    "family": "solution_focused",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "skala",
+      "jak moc",
+      "pokrok",
+      "jistota"
+    ],
+    "use_when": [
+      "potřeba zachytit subjektivní stav a malý posun"
+    ],
+    "core_move": "Nech klientku zvolit číslo a popsat, co by znamenal jeden realistický posun.",
+    "avoid": [
+      "vydávání škály za diagnostický test"
+    ],
+    "never_claim": [
+      "objektivní měření psychického stavu"
+    ],
+    "origin_or_standard": "Solution Focused Brief Approach"
+  },
+  {
+    "id": "appreciative_4d",
+    "name": "Appreciative Inquiry 4D",
+    "family": "strengths_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "silne stranky",
+      "vize",
+      "co funguje",
+      "tym"
+    ],
+    "use_when": [
+      "rozvoj, změna nebo týmová práce založená na silných stránkách"
+    ],
+    "core_move": "Objev fungující jádro, představ žádoucí stav, navrhni cestu a podpoř realizaci.",
+    "avoid": [
+      "překrytí reálných rizik pozitivitou"
+    ],
+    "never_claim": [
+      "že pozitivní jazyk odstraní překážky"
+    ],
+    "origin_or_standard": "Appreciative Inquiry 4-D cycle"
+  },
+  {
+    "id": "values_clarification",
+    "name": "Vyjasnění hodnot",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "hodnoty",
+      "soulad",
+      "dilema",
+      "rozhodnuti",
+      "proc"
+    ],
+    "use_when": [
+      "vnitřní konflikt nebo nejasná priorita"
+    ],
+    "core_move": "Pojmenuj hodnoty ve hře a porovnej, jak je jednotlivé volby naplňují.",
+    "avoid": [
+      "vnucování hodnot Elitea"
+    ],
+    "never_claim": [
+      "jediná správná volba"
+    ],
+    "origin_or_standard": "Values-based coaching"
+  },
+  {
+    "id": "woop",
+    "name": "WOOP / mentální kontrast",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "prani",
+      "prekazka",
+      "plan",
+      "prokrastinace"
+    ],
+    "use_when": [
+      "klientka má cíl, ale opakovaně se zasekne"
+    ],
+    "core_move": "Ujasni přání, nejlepší výsledek, vnitřní překážku a konkrétní reakci na ni.",
+    "avoid": [
+      "použití jako záruka motivace"
+    ],
+    "never_claim": [
+      "automatické splnění cíle"
+    ],
+    "origin_or_standard": "WOOP / Mental Contrasting with Implementation Intentions"
+  },
+  {
+    "id": "implementation_intention",
+    "name": "Plán když–tak",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "navyk",
+      "odkladam",
+      "zapominam",
+      "rutina"
+    ],
+    "use_when": [
+      "známá opakující se překážka a jasné žádoucí jednání"
+    ],
+    "core_move": "Spoj konkrétní spouštěč s malou předem zvolenou reakcí.",
+    "avoid": [
+      "příliš mnoho plánů najednou"
+    ],
+    "never_claim": [
+      "že plán odstraní všechny překážky"
+    ],
+    "origin_or_standard": "Implementation intentions"
+  },
+  {
+    "id": "mi_oars",
+    "name": "OARS",
+    "family": "motivational_interviewing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nejsem rozhodnuta",
+      "ambivalence",
+      "nevim jestli",
+      "zmena"
+    ],
+    "use_when": [
+      "ambivalence a potřeba vlastní motivace"
+    ],
+    "core_move": "Použij otevřenou otázku, konkrétní ocenění, reflexi a stručné shrnutí v partnerském duchu.",
+    "avoid": [
+      "přesvědčování nebo skrytý prodej"
+    ],
+    "never_claim": [
+      "že klientku lze technikou přimět ke změně"
+    ],
+    "origin_or_standard": "Motivational Interviewing Network of Trainers"
+  },
+  {
+    "id": "mi_change_talk",
+    "name": "Rozvíjení řeči změny",
+    "family": "motivational_interviewing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "chci zmenit",
+      "duvod",
+      "dokazu",
+      "potrebuji"
+    ],
+    "use_when": [
+      "klientka sama naznačuje touhu, schopnost, důvod nebo potřebu změny"
+    ],
+    "core_move": "Zrcadli a rozviň vlastní důvody klientky pro změnu bez přidávání tlaku.",
+    "avoid": [
+      "ignorování důvodů pro nezměnu"
+    ],
+    "never_claim": [
+      "manipulace motivace"
+    ],
+    "origin_or_standard": "Motivational Interviewing"
+  },
+  {
+    "id": "mi_rulers",
+    "name": "Pravítko důležitosti a jistoty",
+    "family": "motivational_interviewing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "motivace",
+      "jistota",
+      "dulezite",
+      "skala"
+    ],
+    "use_when": [
+      "potřeba rozlišit nízkou důležitost od nízké sebedůvěry"
+    ],
+    "core_move": "Nech klientku ohodnotit důležitost a jistotu a prozkoumej, proč není níže.",
+    "avoid": [
+      "hodnocení klientky podle čísla"
+    ],
+    "never_claim": [
+      "diagnostická přesnost"
+    ],
+    "origin_or_standard": "Motivational Interviewing"
+  },
+  {
+    "id": "mi_elicit_provide_elicit",
+    "name": "Zjisti–nabídni–ověř",
+    "family": "motivational_interviewing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "porad",
+      "informace",
+      "doporuceni",
+      "vysvetli"
+    ],
+    "use_when": [
+      "Elitea chce nabídnout informaci nebo radu bez mentorské převahy"
+    ],
+    "core_move": "Zjisti dosavadní pohled, nabídni stručnou informaci se souhlasem a ověř její význam pro klientku.",
+    "avoid": [
+      "zahlcení radami"
+    ],
+    "never_claim": [
+      "neomylnost doporučení"
+    ],
+    "origin_or_standard": "Motivational Interviewing information exchange"
+  },
+  {
+    "id": "decisional_balance",
+    "name": "Mapa přínosů a nákladů",
+    "family": "motivational_interviewing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pro a proti",
+      "dilema",
+      "rozhodnout",
+      "dve moznosti"
+    ],
+    "use_when": [
+      "skutečné rozhodovací dilema"
+    ],
+    "core_move": "Zmapuj krátkodobé i dlouhodobé přínosy a náklady možností bez tlačení na výsledek.",
+    "avoid": [
+      "použití k přesvědčení klientky"
+    ],
+    "never_claim": [
+      "matematicky správná životní volba"
+    ],
+    "origin_or_standard": "Decision balance used across coaching and MI contexts"
+  },
+  {
+    "id": "cbt_situation_map",
+    "name": "Situace–myšlenka–emoce–jednání",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "myslim",
+      "citím",
+      "reaguju",
+      "situace",
+      "spoustec"
+    ],
+    "use_when": [
+      "neklinické pracovní nebo rozhodovací téma"
+    ],
+    "core_move": "Odděl pozorovatelnou situaci, interpretaci, emoci a následné jednání.",
+    "avoid": [
+      "diagnóza",
+      "zpracování traumatu"
+    ],
+    "never_claim": [
+      "psychoterapie",
+      "že emoce jsou jen myšlenky"
+    ],
+    "origin_or_standard": "CBT-informed coaching"
+  },
+  {
+    "id": "socratic_questions",
+    "name": "Sokratovské otázky",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "presvedceni",
+      "urcite",
+      "vzdy",
+      "nikdy",
+      "dukaz"
+    ],
+    "use_when": [
+      "ztuhlé přesvědčení omezuje neklinické rozhodnutí"
+    ],
+    "core_move": "Zkoumej důkazy, alternativy, užitečnost a přesnější formulaci bez hádání.",
+    "avoid": [
+      "křížový výslech",
+      "zpochybňování prožívání"
+    ],
+    "never_claim": [
+      "že Elitea ví, co je pravda o klientce"
+    ],
+    "origin_or_standard": "CBT-informed coaching"
+  },
+  {
+    "id": "cognitive_distortion_check",
+    "name": "Kontrola zkreslení",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "katastrofa",
+      "vsechno",
+      "nikdo",
+      "selzu",
+      "hater"
+    ],
+    "use_when": [
+      "jazyk ukazuje možné černobílé nebo katastrofické uvažování"
+    ],
+    "core_move": "Nabídni zkreslení pouze jako hypotézu a hledej přesnější, stále pravdivý pohled.",
+    "avoid": [
+      "nálepkování klientky"
+    ],
+    "never_claim": [
+      "že její obava je nepravdivá bez důkazů"
+    ],
+    "origin_or_standard": "CBT-informed cognitive reappraisal"
+  },
+  {
+    "id": "behavioral_experiment",
+    "name": "Malý behaviorální experiment",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "overit",
+      "test",
+      "bojim se oslovit",
+      "hypoteza"
+    ],
+    "use_when": [
+      "bezpečně testovatelný neklinický předpoklad"
+    ],
+    "core_move": "Sepiš předpověď, malý bezpečný test, pozorovatelný výsledek a poučení.",
+    "avoid": [
+      "klinická expozice",
+      "riziko zdraví, reputace nebo velkých peněz"
+    ],
+    "never_claim": [
+      "že jeden test dokazuje univerzální pravdu"
+    ],
+    "origin_or_standard": "CBT-informed behavioural experiment adapted to coaching"
+  },
+  {
+    "id": "graded_task",
+    "name": "Stupňovaný úkol",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zahlcena",
+      "moc velke",
+      "nezacala",
+      "odkladam"
+    ],
+    "use_when": [
+      "úkol je větší než aktuální kapacita"
+    ],
+    "core_move": "Rozděl cíl na nejmenší zvládnutelnou neklinickou část a po ní znovu vyhodnoť kapacitu.",
+    "avoid": [
+      "léčebná expozice"
+    ],
+    "never_claim": [
+      "léčba úzkostné poruchy"
+    ],
+    "origin_or_standard": "Graded task assignment adapted to nonclinical coaching"
+  },
+  {
+    "id": "structured_problem_solving",
+    "name": "Strukturované řešení problému",
+    "family": "cbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "problem",
+      "varianty",
+      "reseni",
+      "vybrat"
+    ],
+    "use_when": [
+      "praktický problém lze rozdělit a ovlivnit"
+    ],
+    "core_move": "Definuj ovlivnitelný problém, varianty, kritéria, volbu, krok a kontrolu výsledku.",
+    "avoid": [
+      "předstírání kontroly nad neovlivnitelným"
+    ],
+    "never_claim": [
+      "nulové riziko"
+    ],
+    "origin_or_standard": "Problem-solving approach"
+  },
+  {
+    "id": "act_values",
+    "name": "Hodnotově vedený směr",
+    "family": "act_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "hodnoty",
+      "smysl",
+      "proc",
+      "soulad"
+    ],
+    "use_when": [
+      "potřeba směru, který není jen výkonovým cílem"
+    ],
+    "core_move": "Rozliš hodnotu jako dlouhodobý směr od cíle jako dosažitelného bodu.",
+    "avoid": [
+      "morální hodnocení"
+    ],
+    "never_claim": [
+      "že hodnota odstraní bolest"
+    ],
+    "origin_or_standard": "ACT six core processes"
+  },
+  {
+    "id": "act_defusion",
+    "name": "Odstup od myšlenky",
+    "family": "act_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "hlava mi rika",
+      "nejsem dost",
+      "myslenka",
+      "bojim se"
+    ],
+    "use_when": [
+      "klientka zachází s myšlenkou jako s jistým faktem"
+    ],
+    "core_move": "Pomoz pojmenovat, že má určitou myšlenku, aniž by ji musela potlačit nebo poslechnout.",
+    "avoid": [
+      "zlehčování reality"
+    ],
+    "never_claim": [
+      "odstranění nepříjemných myšlenek"
+    ],
+    "origin_or_standard": "ACT cognitive defusion adapted to coaching"
+  },
+  {
+    "id": "act_choice_point",
+    "name": "Bod volby",
+    "family": "act_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "co ted",
+      "volba",
+      "hodnoty",
+      "krok"
+    ],
+    "use_when": [
+      "klientka stojí mezi automatickou reakcí a hodnotově vedeným krokem"
+    ],
+    "core_move": "Rozliš jednání, které vzdaluje od hodnot, a malý krok, který k nim přibližuje.",
+    "avoid": [
+      "vytváření pocitu viny"
+    ],
+    "never_claim": [
+      "jedna volba určuje hodnotu člověka"
+    ],
+    "origin_or_standard": "ACT choice point"
+  },
+  {
+    "id": "act_willingness",
+    "name": "Ochota nést nepohodlí",
+    "family": "act_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "komfortni zona",
+      "nepohodli",
+      "strach",
+      "odvaha"
+    ],
+    "use_when": [
+      "malé nepohodlí stojí mezi klientkou a důležitým krokem"
+    ],
+    "core_move": "Ověř, jaké bezpečné nepohodlí je klientka ochotná nést ve službě svým hodnotám.",
+    "avoid": [
+      "nátlak k překračování hranic",
+      "trauma"
+    ],
+    "never_claim": [
+      "že utrpení je nutná cena úspěchu"
+    ],
+    "origin_or_standard": "ACT acceptance and committed action"
+  },
+  {
+    "id": "act_present_moment",
+    "name": "Návrat do přítomnosti",
+    "family": "act_inspired",
+    "access_level": "support_only",
+    "keywords": [
+      "zahlcena",
+      "myslenky",
+      "pritomnost",
+      "stres"
+    ],
+    "use_when": [
+      "mírné zahlcení bez krize"
+    ],
+    "core_move": "Dobrovolně vrať pozornost k neutrálním vjemům a aktuálně ovlivnitelnému kroku.",
+    "avoid": [
+      "silná disociace",
+      "řízení vozidla"
+    ],
+    "never_claim": [
+      "léčba úzkosti"
+    ],
+    "origin_or_standard": "ACT present-moment awareness"
+  },
+  {
+    "id": "dbt_stop_pause",
+    "name": "STOP pauza",
+    "family": "dbt_inspired",
+    "access_level": "support_only",
+    "keywords": [
+      "impuls",
+      "vybuchnu",
+      "zprava",
+      "konflikt",
+      "zastavit"
+    ],
+    "use_when": [
+      "potřeba nepřidat impulzivní reakci"
+    ],
+    "core_move": "Zastav automatickou reakci, vytvoř odstup, všimni si situace a teprve pak zvol krok.",
+    "avoid": [
+      "bezprostřední nebezpečí vyžadující rychlou pomoc"
+    ],
+    "never_claim": [
+      "plnohodnotná DBT"
+    ],
+    "origin_or_standard": "DBT-inspired distress tolerance skill"
+  },
+  {
+    "id": "dbt_check_facts",
+    "name": "Ověření faktů",
+    "family": "dbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "fakta",
+      "domnenka",
+      "emoce",
+      "predpoklad"
+    ],
+    "use_when": [
+      "emoce může být zesílena neověřenou interpretací"
+    ],
+    "core_move": "Odděl fakta, interpretace, nejistoty a potřebu dalšího ověření.",
+    "avoid": [
+      "zpochybňování oprávněných emocí"
+    ],
+    "never_claim": [
+      "že fakta ruší emoce"
+    ],
+    "origin_or_standard": "DBT-inspired emotion regulation skill"
+  },
+  {
+    "id": "dbt_wise_mind",
+    "name": "Moudrá rovnováha",
+    "family": "dbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "rozum",
+      "emoce",
+      "rozhodnuti",
+      "intuice"
+    ],
+    "use_when": [
+      "rozhodnutí je roztržené mezi emocí a analýzou"
+    ],
+    "core_move": "Nech zaznít emocionální i racionální pohled a hledej integrované rozhodnutí.",
+    "avoid": [
+      "předstírání, že Elitea zná správnou odpověď"
+    ],
+    "never_claim": [
+      "klinická DBT intervence"
+    ],
+    "origin_or_standard": "DBT-inspired Wise Mind reflection"
+  },
+  {
+    "id": "dbt_assertive_request",
+    "name": "Asertivní žádost",
+    "family": "dbt_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pozadat",
+      "hranice",
+      "klient",
+      "rict ne",
+      "konflikt"
+    ],
+    "use_when": [
+      "potřeba jasně a respektujícím způsobem něco požadovat nebo odmítnout"
+    ],
+    "core_move": "Popiš situaci, potřebu a konkrétní žádost; drž se cíle a respektu k oběma stranám.",
+    "avoid": [
+      "nátlak nebo manipulace"
+    ],
+    "never_claim": [
+      "že druhá strana musí vyhovět"
+    ],
+    "origin_or_standard": "DBT interpersonal effectiveness inspired"
+  },
+  {
+    "id": "full_dbt_treatment",
+    "name": "Komplexní DBT léčba",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "sebeposkozovani",
+      "hranicni porucha",
+      "dbt lecba"
+    ],
+    "use_when": [
+      "pouze kvalifikovaný klinický tým"
+    ],
+    "core_move": "Elitea pouze vysvětlí obecný pojem a doporučí kvalifikovanou péči.",
+    "avoid": [
+      "provádění AI",
+      "krize"
+    ],
+    "never_claim": [
+      "že Elitea poskytuje DBT léčbu"
+    ],
+    "origin_or_standard": "Dialectical Behavior Therapy"
+  },
+  {
+    "id": "external_grounding",
+    "name": "Vnější orientace",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "uzkost",
+      "panika",
+      "flashback",
+      "rozklepana",
+      "uklidnit"
+    ],
+    "use_when": [
+      "silné napětí bez zachyceného bezprostředního ohrožení"
+    ],
+    "core_move": "Nabídni oči otevřené, kontakt s oporou a všímání neutrálních prvků v prostoru.",
+    "avoid": [
+      "nucení zavřít oči",
+      "vybavování traumatu"
+    ],
+    "never_claim": [
+      "léčba traumatu nebo panické poruchy"
+    ],
+    "origin_or_standard": "Trauma-informed stabilization principles"
+  },
+  {
+    "id": "safety_choice_control",
+    "name": "Bezpečí, volba a kontrola",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "trauma",
+      "bezpeci",
+      "hranice",
+      "kontrola"
+    ],
+    "use_when": [
+      "zranitelné téma, kde je zásadní autonomie"
+    ],
+    "core_move": "Průběžně nabízej volbu, možnost odmítnout a zastavit; neptej se na detaily traumatu.",
+    "avoid": [
+      "direktivní tlak"
+    ],
+    "never_claim": [
+      "zpracování traumatu"
+    ],
+    "origin_or_standard": "Trauma-informed care principles"
+  },
+  {
+    "id": "resource_recall",
+    "name": "Bezpečné připomenutí zdroje",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "opora",
+      "zdroj",
+      "bezpecne misto",
+      "podpora"
+    ],
+    "use_when": [
+      "klientka chce krátce obnovit pocit opory"
+    ],
+    "core_move": "Nabídni připomenutí reálné opory, člověka nebo neutrálního místa s možností kdykoli skončit.",
+    "avoid": [
+      "vnucená vizualizace",
+      "disociace"
+    ],
+    "never_claim": [
+      "přepis traumatické paměti"
+    ],
+    "origin_or_standard": "Trauma-informed resourcing"
+  },
+  {
+    "id": "window_awareness",
+    "name": "Mapa kapacity a zahlcení",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "pretezena",
+      "zamrzla",
+      "zahlcena",
+      "odpojena"
+    ],
+    "use_when": [
+      "potřeba upravit tempo podle aktuální kapacity"
+    ],
+    "core_move": "Bez diagnózy rozpoznej přílišné nabuzení nebo odpojení a sniž náročnost kroku.",
+    "avoid": [
+      "klinické nálepkování"
+    ],
+    "never_claim": [
+      "diagnóza nervového systému"
+    ],
+    "origin_or_standard": "Window-of-tolerance-informed support"
+  },
+  {
+    "id": "emdr",
+    "name": "EMDR",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "emdr",
+      "trauma",
+      "ocni pohyby"
+    ],
+    "use_when": [
+      "pouze vyškolený kvalifikovaný odborník"
+    ],
+    "core_move": "Elitea metodu neprovádí a odkáže na kvalifikovaného odborníka.",
+    "avoid": [
+      "AI vedení",
+      "samoléčba"
+    ],
+    "never_claim": [
+      "léčba traumatu přes chat"
+    ],
+    "origin_or_standard": "Eye Movement Desensitization and Reprocessing"
+  },
+  {
+    "id": "prolonged_exposure",
+    "name": "Prolongovaná expozice",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "expozice",
+      "trauma",
+      "ptsd",
+      "znovu prozit"
+    ],
+    "use_when": [
+      "pouze kvalifikovaná klinická péče"
+    ],
+    "core_move": "Elitea nevede vybavování ani expozici a doporučí odbornou péči.",
+    "avoid": [
+      "AI vedení",
+      "krize"
+    ],
+    "never_claim": [
+      "bezpečné domácí zpracování traumatu"
+    ],
+    "origin_or_standard": "Clinical exposure therapy"
+  },
+  {
+    "id": "trauma_narrative",
+    "name": "Zpracování traumatického příběhu",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "traumaticky pribeh",
+      "detaily traumatu",
+      "zpracovat trauma"
+    ],
+    "use_when": [
+      "kvalifikovaný terapeutický vztah"
+    ],
+    "core_move": "Elitea nevyžaduje detaily a nabídne stabilizaci a odbornou pomoc.",
+    "avoid": [
+      "AI rekonstrukce vzpomínek"
+    ],
+    "never_claim": [
+      "uzdravení vyprávěním AI"
+    ],
+    "origin_or_standard": "Trauma-focused psychotherapy"
+  },
+  {
+    "id": "regression_hypnosis",
+    "name": "Regrese a hypnóza pro trauma",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "regrese",
+      "hypnoza",
+      "minuly zivot",
+      "potlacena vzpominka"
+    ],
+    "use_when": [
+      "Elitea ji pro trauma nepoužívá"
+    ],
+    "core_move": "Odmítni vyvolávání nebo potvrzování vzpomínek a doporuč kvalifikovanou pomoc.",
+    "avoid": [
+      "sugestivní otázky",
+      "tvrzení o pravdivosti vzpomínek"
+    ],
+    "never_claim": [
+      "obnovení spolehlivé paměti",
+      "léčba nemoci"
+    ],
+    "origin_or_standard": "Restricted due to suggestibility and clinical risk"
+  },
+  {
+    "id": "nlp_well_formed_outcome",
+    "name": "Dobře formulovaný výsledek",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cil",
+      "vysledek",
+      "chci",
+      "konkretne",
+      "well formed outcome",
+      "zadouci stav",
+      "prvni krok"
+    ],
+    "use_when": [
+      "cíl je vágní nebo závislý jen na druhých",
+      "klientka potřebuje převést přání do konkrétního a ověřitelného směru"
+    ],
+    "core_move": "Zpřesni žádoucí, pozorovatelný a převážně ovlivnitelný výsledek, kontext, dopady, potřebné zdroje a první krok.",
+    "steps": [
+      "Nech klientku vyjádřit, co chce místo toho, co nechce.",
+      "Zpřesni, podle čeho konkrétně pozná dosažený výsledek.",
+      "Urči situace, lidi a kontext, ve kterých výsledek chce nebo nechce.",
+      "Odděl to, co může ovlivnit sama, od toho, co závisí na druhých.",
+      "Prověř dopady výsledku na další důležité oblasti a pojmenuj potřebné zdroje.",
+      "Přelož výsledek do prvního proveditelného kroku."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "slib kontroly nad druhými",
+      "předčasné vnucení cíle bez slov klientky"
+    ],
+    "never_claim": [
+      "přeprogramování mysli",
+      "zaručené dosažení výsledku"
+    ],
+    "origin_or_standard": "NLP Well-Formed Outcomes; Elitea Practitioner Certificate PDF 043"
+  },
+  {
+    "id": "nlp_meta_model",
+    "name": "Zpřesňující jazykové otázky",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vsichni",
+      "nikdy",
+      "musim",
+      "nejde",
+      "obecne",
+      "nikdo",
+      "vzdy",
+      "meta model",
+      "zobecneni",
+      "vynechani",
+      "zkresleni"
+    ],
+    "use_when": [
+      "vágní zobecnění zakrývá konkrétní problém",
+      "jazyk obsahuje nejasnou nutnost, nemožnost, čtení mysli nebo chybějícího původce"
+    ],
+    "core_move": "Citlivě rozpoznej zobecnění, vynechání nebo zkreslení a jednou přesnou otázkou obnov chybějící konkrétní zkušenost.",
+    "steps": [
+      "Zachyť přesné slovo nebo větu, která zobecňuje, vynechává nebo zkresluje zkušenost.",
+      "Vyber jedinou nejdůležitější nejasnost, neprováděj jazykový výslech.",
+      "Zeptej se konkrétně kdo, kdy, jak, podle čeho, co přesně nebo co by se stalo, kdyby to neplatilo.",
+      "Nech klientku opravit nebo zpřesnit vlastní mapu situace.",
+      "Ověř, jak nové zpřesnění mění její možnosti jednání."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "křížový výslech",
+      "slovíčkaření bez vztahu k cíli"
+    ],
+    "never_claim": [
+      "odhalení lži nebo nevědomí",
+      "že jazyková struktura sama dokazuje psychickou příčinu"
+    ],
+    "origin_or_standard": "NLP Meta Model; Elitea Practitioner Certificate PDFs 018/09 and 033"
+  },
+  {
+    "id": "nlp_perceptual_positions",
+    "name": "Více perspektiv",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "konflikt",
+      "pohled",
+      "klient",
+      "druha strana",
+      "perspektiva",
+      "tri pozice",
+      "pozorovatel"
+    ],
+    "use_when": [
+      "neklinický konflikt nebo komunikační dilema",
+      "klientka chce porozumět interakci bez tvrzení, že zná mysl druhého"
+    ],
+    "core_move": "Odděl vlastní pohled, imaginativně možný pohled druhé strany a neutrální pozorování; fakta a domněnky drž odděleně.",
+    "steps": [
+      "Vyber jednu konkrétní interakci a nech klientku popsat vlastní zkušenost v první pozici.",
+      "Označ druhou pozici jako hypotetický pokus a prozkoumej, co mohla druhá strana vnímat nebo potřebovat.",
+      "Přejdi do pozice nezúčastněného pozorovatele a popiš jen pozorovatelné jednání obou stran.",
+      "Porovnej, co se mezi pozicemi změnilo a co zůstává pouhou domněnkou.",
+      "Nech klientku zvolit jednu úpravu příští komunikace."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "tvrzení, že známe mysl druhého",
+      "citlivá práce s traumatickou událostí"
+    ],
+    "never_claim": [
+      "čtení myšlenek",
+      "objektivní pravdivost imaginované perspektivy"
+    ],
+    "origin_or_standard": "NLP Perceptual Positions; Elitea Practitioner Certificate PDFs 018/07 and 021"
+  },
+  {
+    "id": "nlp_reframing",
+    "name": "Přerámování",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vyznam",
+      "jinak",
+      "selhani",
+      "problem"
+    ],
+    "use_when": [
+      "existuje pravdivý a užitečnější úhel pohledu"
+    ],
+    "core_move": "Nabídni alternativní význam jako hypotézu, aniž bys popírala fakta nebo emoce.",
+    "avoid": [
+      "toxická pozitivita"
+    ],
+    "never_claim": [
+      "že změna slov mění objektivní realitu"
+    ],
+    "origin_or_standard": "Reframing across coaching and communication"
+  },
+  {
+    "id": "nlp_ecology_check",
+    "name": "Kontrola dopadů změny",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "dopad",
+      "dusledky",
+      "rodina",
+      "zdravi",
+      "soulad"
+    ],
+    "use_when": [
+      "rozhodnutí má více osobních nebo byznysových důsledků"
+    ],
+    "core_move": "Prověř dopad volby na zdraví, vztahy, finance, reputaci, kapacitu a dlouhodobý cíl.",
+    "avoid": [
+      "nekonečná analýza"
+    ],
+    "never_claim": [
+      "odhalení všech budoucích důsledků"
+    ],
+    "origin_or_standard": "NLP ecology check adapted as decision-risk review"
+  },
+  {
+    "id": "nlp_chunking",
+    "name": "Změna úrovně detailu",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "detail",
+      "celek",
+      "zahlcena",
+      "konkretne",
+      "chunking",
+      "smysl",
+      "ucel",
+      "priklad"
+    ],
+    "use_when": [
+      "klientka je ztracená v detailech nebo přílišné obecnosti",
+      "je potřeba propojit smysl s konkrétním krokem"
+    ],
+    "core_move": "Přejdi podle potřeby o úroveň výš k účelu a hodnotě nebo níž ke konkrétním příkladům, komponentám a proveditelnému kroku.",
+    "steps": [
+      "Urči, zda je výchozí sdělení příliš obecné, nebo zahlcené detailem.",
+      "Při přílišné konkrétnosti se zeptej, k čemu to slouží nebo co je širším smyslem.",
+      "Při přílišné obecnosti si vyžádej konkrétní příklad, situaci, osobu, překážku nebo činnost.",
+      "Propojuj obě úrovně, dokud klientka neuvidí smysl i proveditelný krok.",
+      "Ověř, zda je výsledná úroveň detailu skutečně užitečná pro její cíl."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "intervention",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "odvedení od podstaty",
+      "nekonečné řetězení otázek"
+    ],
+    "never_claim": [
+      "změna neurologického programu",
+      "že vyšší nebo nižší úroveň je vždy správnější"
+    ],
+    "origin_or_standard": "NLP Chunking Up and Down; Elitea Practitioner Certificate PDFs 012 and 018/09"
+  },
+  {
+    "id": "nlp_anchor_cue",
+    "name": "Neutrální připomínka zdrojového stavu",
+    "family": "nlp_inspired",
+    "access_level": "support_only",
+    "keywords": [
+      "kotva",
+      "sebeduvera",
+      "pripomenout",
+      "stav"
+    ],
+    "use_when": [
+      "klientka chce spojit běžný podnět s připomenutím vlastní zkušenosti"
+    ],
+    "core_move": "Vytvoř dobrovolnou připomínku konkrétní dříve zvládnuté situace, bez slibu automatického účinku.",
+    "avoid": [
+      "trauma",
+      "sugestivní manipulace"
+    ],
+    "never_claim": [
+      "neurologické přeprogramování",
+      "garantovaná změna stavu"
+    ],
+    "origin_or_standard": "NLP anchoring reframed as a neutral memory cue"
+  },
+  {
+    "id": "nlp_meta_mirror",
+    "name": "Meta Mirror vztahové interakce",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "meta mirror",
+      "vztah",
+      "interakce",
+      "konflikt",
+      "jak pusobim",
+      "zrcadlo"
+    ],
+    "use_when": [
+      "opakující se neklinická vztahová nebo pracovní interakce",
+      "klientka chce zkoumat vlastní podíl a možnosti změny"
+    ],
+    "core_move": "Prozkoumej konkrétní interakci z vlastní, hypoteticky druhé, pozorovatelské a integrační pozice a převeď poznání do změny vlastního jednání.",
+    "steps": [
+      "Vyber jednu konkrétní nevydařenou interakci a ověř ochotu projít více perspektiv.",
+      "Z vlastní pozice popiš chování, pocity, přesvědčení, důležitou hodnotu a to, co by klientka chtěla změnit.",
+      "Z hypotetické pozice druhé osoby prozkoumej možný dopad klientčina jednání bez tvrzení, že známe její mysl.",
+      "Z neutrální pozice pozorovatele popiš vzorec mezi oběma lidmi a co jej udržuje.",
+      "V integrační pozici vyber jednu změnu, kterou může klientka příště udělat sama.",
+      "Mentálně projdi příští podobnou situaci s novou reakcí a ověř její přijatelnost."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "traumatická událost",
+      "domněnky vydávané za fakta",
+      "přesouvání odpovědnosti za chování druhého na klientku"
+    ],
+    "never_claim": [
+      "čtení myšlenek",
+      "objektivní určení viny",
+      "garantovaná změna vztahu"
+    ],
+    "origin_or_standard": "NLP Meta Mirror for Change; Elitea Practitioner Certificate PDFs 018/07 and 036"
+  },
+  {
+    "id": "nlp_satir_decision_matrix",
+    "name": "Satir rozhodovací matice",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "rozhodnuti",
+      "dilema",
+      "co se stane",
+      "neudelam",
+      "satir",
+      "ctyri otazky",
+      "varianty"
+    ],
+    "use_when": [
+      "klientka se rozhoduje mezi jednáním a nejednáním",
+      "potřebuje odhalit přínosy, ztráty a slepá místa obou voleb"
+    ],
+    "core_move": "Projdi čtyři kombinace toho, co se stane nebo nestane, když klientka jedná nebo nejedná, a potom porovnej skutečné dopady.",
+    "steps": [
+      "Pojmenuj jedno konkrétní rozhodnutí v podobě udělat versus neudělat.",
+      "Prozkoumej, co se stane, když to udělá.",
+      "Prozkoumej, co se nestane, když to udělá.",
+      "Prozkoumej, co se stane, když to neudělá.",
+      "Prozkoumej, co se nestane, když to neudělá.",
+      "Porovnej odpovědi podle hodnot, rizik, kapacity a dlouhodobého cíle a nech klientku zvolit další krok."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "mechanické použití u krizového rozhodnutí",
+      "podsouvání preferované odpovědi"
+    ],
+    "never_claim": [
+      "že matice odhalí všechny důsledky",
+      "že výsledek nahrazuje odborné právní, zdravotní nebo finanční posouzení"
+    ],
+    "origin_or_standard": "Satir Reframing Matrix; Elitea Practitioner Certificate PDF 039"
+  },
+  {
+    "id": "nlp_lazarus_focus",
+    "name": "Lazarusovo zhuštění tématu",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zahlcena",
+      "moc veci",
+      "nedokazu shrnout",
+      "jadro problemu",
+      "jedno slovo",
+      "lazarus",
+      "ztracim se"
+    ],
+    "use_when": [
+      "vyprávění je natolik široké, že se ztrácí pracovní fokus",
+      "klientka chce najít jádro tématu bez popření jeho složitosti"
+    ],
+    "core_move": "Nech klientku postupně vyjádřit téma jedním slovem, frází, větou a krátkým odstavcem a z výsledku společně vyber pracovní fokus.",
+    "steps": [
+      "Uznávej složitost tématu a ověř, zda jej klientka chce na chvíli zhuštit.",
+      "Požádej ji o jedno slovo, které zachycuje jeho jádro.",
+      "Rozšiř toto slovo do jedné přesné fráze.",
+      "Rozšiř frázi do jedné věty popisující hlavní problém nebo potřebu.",
+      "Dovol krátký odstavec, který vrátí nezbytný kontext bez všech odboček.",
+      "Společně zvol jednu část, se kterou budete pracovat jako první."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "intervention",
+      "intervention",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "umlčení klientky",
+      "minimalizace citlivého tématu",
+      "použití zhuštění jako důkazu jediné příčiny"
+    ],
+    "never_claim": [
+      "že jediné slovo diagnostikuje problém",
+      "že složitost situace je vyřešena shrnutím"
+    ],
+    "origin_or_standard": "Lazarus Technique; Elitea Practitioner Certificate PDF 031"
+  },
+  {
+    "id": "nlp_values_hierarchy",
+    "name": "Hierarchie osobních hodnot",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "hodnoty",
+      "priority",
+      "soulad",
+      "co je dulezite",
+      "vnitrni konflikt",
+      "hierarchie hodnot"
+    ],
+    "use_when": [
+      "rozhodnutí nebo cíl je v napětí s tím, co je pro klientku důležité",
+      "klientka chce prioritizovat více smysluplných možností"
+    ],
+    "core_move": "Vytěž konkrétní hodnoty z reálných voleb, zpřesni jejich osobní význam, seřaď je a ověř soulad s aktuálním rozhodnutím.",
+    "steps": [
+      "Vycházej z konkrétní situace a zeptej se, co je v ní pro klientku skutečně důležité.",
+      "U každého obecného slova zpřesni, co pro ni tato hodnota prakticky znamená.",
+      "Odliš vlastní hodnoty od převzatých očekávání a požadavků okolí.",
+      "Nech klientku porovnat hodnoty po dvojicích a vytvořit pracovní pořadí.",
+      "Prověř, jak aktuální cíl nebo rozhodnutí jednotlivé hodnoty podporuje či narušuje.",
+      "Zvol úpravu, která zvýší soulad bez tvrzení, že konflikt musí úplně zmizet."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "vnucování hodnot",
+      "prezentace pořadí jako neměnné osobnosti"
+    ],
+    "never_claim": [
+      "objektivní změření hodnot",
+      "že soulad zaručí štěstí nebo úspěch"
+    ],
+    "origin_or_standard": "NLP Core Values process; Elitea Practitioner Certificate PDF 035"
+  },
+  {
+    "id": "nlp_submodality_goal",
+    "name": "Smyslové zpřesnění žádoucího výsledku",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "submodalita",
+      "submodality",
+      "predstava cile",
+      "obraz budoucnosti",
+      "jak to vypada",
+      "jak to zni",
+      "jak se to citi"
+    ],
+    "use_when": [
+      "klientka má bezpečný neklinický cíl, který potřebuje konkretizovat",
+      "mentální představa má podpořit plánování nebo zkoušku budoucí situace"
+    ],
+    "core_move": "Zpřesni vizuální, sluchové a tělesné vlastnosti bezpečné představy žádoucího výsledku a přelož je do pozorovatelných kritérií a jednání.",
+    "steps": [
+      "Vyber bezpečný, neklinický žádoucí výsledek a ověř ochotu pracovat s představou.",
+      "Zjisti, co by klientka v cílové situaci konkrétně viděla.",
+      "Zjisti, co by slyšela, říkala si nebo vnímala v komunikaci.",
+      "Zjisti, jaké tělesné signály by pro ni znamenaly dostatečnou oporu, nikoli dokonalý stav.",
+      "Uprav jen ty vlastnosti představy, které sama chce zkusit změnit, a průběžně ověřuj účinek.",
+      "Přelož představu do pozorovatelného znaku a prvního reálného kroku."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "intervention",
+      "intervention",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "traumatická vzpomínka",
+      "vynucená vizualizace",
+      "interpretace tělesného vjemu jako diagnózy"
+    ],
+    "never_claim": [
+      "přepis minulosti",
+      "garantovaná změna emocí, osobnosti nebo reality"
+    ],
+    "origin_or_standard": "NLP Submodalities in Coaching; Elitea Practitioner Certificate PDFs 026 and 042"
+  },
+  {
+    "id": "nlp_pacing_leading",
+    "name": "Pacing a transparentní vedení",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "rapport",
+      "pacing",
+      "leading",
+      "naladit komunikaci",
+      "jak mluvit",
+      "odpor",
+      "porozumeni"
+    ],
+    "use_when": [
+      "klientka chce zlepšit neklinickou komunikaci nebo vedení rozhovoru",
+      "nejprve je potřeba prokázat porozumění a teprve potom nabídnout směr"
+    ],
+    "core_move": "Nejprve přesně zachyť perspektivu a jazyk druhé strany, ověř porozumění a potom otevřeně nabídni malý další směr bez skrytého ovlivňování.",
+    "steps": [
+      "Poslouchej konkrétní slova, priority a způsob, kterým druhá strana situaci popisuje.",
+      "Vlastními slovy přesně zachyť její perspektivu bez mechanického napodobování.",
+      "Ověř, že porozumění sedí, a oprav případnou nepřesnost.",
+      "Pojmenuj otevřeně svůj záměr a navrhni malý další směr.",
+      "Sleduj slovní reakci a respektuj nesouhlas nebo potřebu zpomalit."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "elicitation",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "skryté zrcadlení těla nebo řeči",
+      "předstírání souhlasu",
+      "nátlakový prodej"
+    ],
+    "never_claim": [
+      "nepozorovatelné ovládání druhého",
+      "že rapport zaručí souhlas"
+    ],
+    "origin_or_standard": "NLP Pacing and Leading; Elitea Practitioner Certificate PDF 019"
+  },
+  {
+    "id": "nlp_four_levels_communication",
+    "name": "Čtyři úrovně komunikačního významu",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nedorozumeni",
+      "co jsem rekla",
+      "co slysel",
+      "co tim myslel",
+      "komunikacni chyba",
+      "ctyri urovne"
+    ],
+    "use_when": [
+      "došlo k nedorozumění a je potřeba oddělit záměr, sdělení, přijetí a interpretaci"
+    ],
+    "core_move": "Odděl, co chtěla klientka sdělit, co skutečně řekla, co druhý prokazatelně slyšel a jaký význam tomu přisoudil; domněnky ověř otázkou.",
+    "steps": [
+      "Pojmenuj původní záměr klientky.",
+      "Rekonstruuj co nejpřesněji její skutečná slova nebo pozorovatelné sdělení.",
+      "Odděl to, co druhý prokazatelně zopakoval nebo na co reagoval.",
+      "Označ interpretaci významu jako hypotézu, pokud ji druhý výslovně nepotvrdil.",
+      "Navrhni jednu objasňující větu nebo otázku, která mezeru ověří."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "domněnky vydávané za fakta",
+      "určení viníka bez dat"
+    ],
+    "never_claim": [
+      "že model odhaluje skutečný úmysl druhého",
+      "že tón nebo gesto má jediný univerzální význam"
+    ],
+    "origin_or_standard": "Four Levels of Communication; Elitea Practitioner Certificate PDF 029"
+  },
+  {
+    "id": "nlp_johari_feedback",
+    "name": "Johariho okno pro zpětnou vazbu",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "johari",
+      "slepe misto",
+      "zpetna vazba",
+      "jak me vidi",
+      "sebeuvedomeni",
+      "otevrenost"
+    ],
+    "use_when": [
+      "klientka chce rozšířit pracovní sebepoznání pomocí bezpečné zpětné vazby",
+      "potřebuje rozlišit veřejné, soukromé, slepé a dosud neprozkoumané oblasti"
+    ],
+    "core_move": "Zmapuj, co klientka o sobě ví a sdílí, co si chrání, jakou bezpečnou zpětnou vazbu může získat a co zatím zůstává otevřené k pozorování.",
+    "steps": [
+      "Vymez konkrétní pracovní kontext, ve kterém chce klientka lépe rozumět svému působení.",
+      "Sepiš to, co o sobě v tomto kontextu ví a co vidí i druzí.",
+      "Pojmenuj jen to, co sama nechce sdílet, bez tlaku na odhalování soukromí.",
+      "Vyber důvěryhodné lidi a jednu konkrétní otázku pro zpětnou vazbu k možnému slepému místu.",
+      "Nech neznámou oblast otevřenou pro další zkušenost a pozorování místo rychlé nálepky.",
+      "Po získání zpětné vazby odděl opakující se data od jednotlivého názoru a zvol užitečný krok."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "nátlak na osobní odhalování",
+      "přijetí jedné zpětné vazby jako absolutní pravdy"
+    ],
+    "never_claim": [
+      "úplné odhalení osobnosti",
+      "diagnostika slepých míst"
+    ],
+    "origin_or_standard": "Johari Window; Elitea Practitioner Certificate PDF 030"
+  },
+  {
+    "id": "nlp_modeling_strategy",
+    "name": "Modelování funkční strategie",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "modelovani",
+      "vzor",
+      "jak to dela",
+      "strategie uspechu",
+      "mentor",
+      "inspirovat",
+      "proces"
+    ],
+    "use_when": [
+      "klientka chce rozebrat přenositelný postup člověka, který dosahuje relevantního výsledku",
+      "potřebuje převést inspiraci do testovatelné vlastní strategie"
+    ],
+    "core_move": "Vytěž pozorovatelné kroky, rozhodovací pravidla, priority, zpětnou vazbu a kontext funkčního vzoru a vytvoř vlastní malý test bez slepého kopírování.",
+    "steps": [
+      "Vyber konkrétního člověka a přesný výsledek, který chce klientka pochopit.",
+      "Zjisti jeho posloupnost kroků, způsob stanovování cílů, priority a rozhodovací kritéria.",
+      "Zjisti, jak sleduje pokrok, reaguje na chybu a udržuje odpovědnost.",
+      "Odděl pozorovatelný postup od dojmu, osobního mýtu a podmínek, které klientka nemá.",
+      "Vyber přenositelnou část a uprav ji pro její zdroje, hodnoty a trh.",
+      "Navrhni malý test a konkrétní signál, podle kterého pozná užitečnost strategie."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "kopírování osobnosti",
+      "ignorování odlišného trhu, zdrojů nebo privilegia",
+      "idealizace vzoru"
+    ],
+    "never_claim": [
+      "že stejný postup zaručí stejný výsledek",
+      "že úspěch má jedinou reprodukovatelnou strategii"
+    ],
+    "origin_or_standard": "NLP Modelling Exercise; Elitea Practitioner Certificate PDF 034"
+  },
+  {
+    "id": "nlp_future_pacing",
+    "name": "Future pacing a mentální zkouška",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "future pacing",
+      "budouci ja",
+      "mentalni zkouska",
+      "predstavit budoucnost",
+      "za pul roku",
+      "za rok",
+      "pristi situace"
+    ],
+    "use_when": [
+      "klientka chce bezpečně prověřit neklinický cíl nebo novou reakci v budoucím kontextu",
+      "je potřeba spojit vizi s dnešním jednáním"
+    ],
+    "core_move": "Proveď dobrovolnou mentální zkoušku konkrétní budoucí situace, hledej pozorovatelné znaky, překážky a zdroje a vrať představu k dnešnímu kroku.",
+    "steps": [
+      "Vyber konkrétní bezpečný cíl a ověř, zda klientka chce pracovat představou, nebo raději slovním scénářem.",
+      "Ukotvi realistický budoucí okamžik, ve kterém už změnu nějakou dobu používá.",
+      "Prozkoumej, co v něm konkrétně dělá, vidí, slyší a podle čeho poznává posun.",
+      "Prověř, co by ji mohlo stáhnout ke starému postupu a jaké zdroje by v té chvíli potřebovala.",
+      "Mentálně projdi jednu příští reálnou situaci s novou volbou bez předstírání jistého výsledku.",
+      "Převeď zkoušku do jednoho dnešního kroku a ověř, zda je pro klientku přijatelný."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation",
+      "intervention",
+      "intervention"
+    ],
+    "avoid": [
+      "traumatická událost",
+      "vynucené zavírání očí",
+      "únik do fantazie místo reality"
+    ],
+    "never_claim": [
+      "naprogramování budoucnosti",
+      "že představa zaručí výsledek",
+      "léčba psychických nebo zdravotních obtíží"
+    ],
+    "origin_or_standard": "NLP Future Pacing; Kain Ramsay Practitioner lectures 49–50 and Certificate Journal section 03"
+  },
+  {
+    "id": "nlp_attending_immediacy",
+    "name": "Attending a citlivá bezprostřednost",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "attending",
+      "immediacy",
+      "co se deje mezi nami",
+      "ted v rozhovoru",
+      "rozpor slov a jednani",
+      "zasek v rozhovoru",
+      "pritomny vztah"
+    ],
+    "use_when": [
+      "v neklinickém rozhovoru se opakuje zjevný vzorec nebo vzniká napětí",
+      "je potřeba citlivě pojmenovat právě pozorovatelný rozdíl mezi slovy a jednáním"
+    ],
+    "core_move": "Nejprve plně sleduj klientčinu agendu a potom jako ověřitelnou hypotézu citlivě pojmenuj, co se právě děje v rozhovoru, bez interpretace její mysli.",
+    "steps": [
+      "Zachyť klientčin cíl a její vlastní slova bez přesměrování k vlastní agendě.",
+      "Odděl pozorovatelný děj v rozhovoru od své interpretace.",
+      "Ověř ochotu podívat se na to, co se právě mezi vámi nebo v jejím vyjadřování děje.",
+      "Pojmenuj jeden konkrétní rozpor nebo změnu jako hypotézu, například mezi deklarovaným cílem a právě popsaným jednáním.",
+      "Zeptej se, jak to vnímá ona, a dovol jí tvůj postřeh opravit nebo odmítnout.",
+      "Pokud je postřeh užitečný, propojte jej s cílem; pokud ne, vrať se bez obhajování k její agendě."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "konfrontace pro efekt",
+      "analýza neverbálních signálů z textu",
+      "vydávání domněnky za diagnózu"
+    ],
+    "never_claim": [
+      "čtení skrytých motivů",
+      "že nesouhlas potvrzuje odpor",
+      "že napětí dokazuje hlubší problém"
+    ],
+    "origin_or_standard": "NLP attending and immediacy; Kain Ramsay Practitioner lectures 56 and 129"
+  },
+  {
+    "id": "nlp_cartesian_consequence_check",
+    "name": "Kartézská kontrola důsledků",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cartesian",
+      "kartezske otazky",
+      "co nastane",
+      "co nenastane",
+      "kdyz budu",
+      "kdyz nebudu",
+      "opportunity cost"
+    ],
+    "use_when": [
+      "klientka chce rozšířit pohled na rozhodnutí, jednání nebo nejednání",
+      "je potřeba zachytit i méně zřejmé přínosy a náklady"
+    ],
+    "core_move": "Prozkoumej čtyři kombinace toho, co nastane a nenastane při jednání i nejednání, potom odděl fakta, odhady a hodnotovou volbu.",
+    "steps": [
+      "Formuluj jednu konkrétní volbu, kterou lze skutečně udělat nebo neudělat.",
+      "Zjisti, co pravděpodobně nastane, když klientka zvolený krok udělá.",
+      "Zjisti, co pravděpodobně nenastane, když jej udělá.",
+      "Zjisti, co pravděpodobně nastane, když jej neudělá.",
+      "Zjisti, co pravděpodobně nenastane, když jej neudělá.",
+      "Označ jistá data, odhady a obavy, porovnej opportunity cost a nech rozhodnutí na klientce."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "použití jako prodejní uzavírač",
+      "nátlak na okamžitý závazek",
+      "dvojité negace bez zpřesnění"
+    ],
+    "never_claim": [
+      "úplná mapa budoucnosti",
+      "že jediná volba revolučně změní život",
+      "garantované odstranění nerozhodnosti"
+    ],
+    "origin_or_standard": "NLP Cartesian Coordinates; Graham Nicholls lecture 174 and Kain Ramsay Master Practitioner lectures 130–131"
+  },
+  {
+    "id": "nlp_metaphor_exploration",
+    "name": "Práce s klientčinou metaforou",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "metafora",
+      "prirovnani",
+      "jako bych",
+      "zed",
+      "lano",
+      "klec",
+      "taha me to",
+      "obraz problemu"
+    ],
+    "use_when": [
+      "klientka spontánně popisuje zkušenost metaforou",
+      "obraz může zpřesnit její vlastní význam a možnosti bez vnucené interpretace"
+    ],
+    "core_move": "Zůstaň u klientčiny vlastní metafory, nech ji popsat její strukturu, význam a možnou změnu a nepřepisuj ji cizím symbolem.",
+    "steps": [
+      "Zachyť přesná slova klientčiny metafory bez okamžitého vysvětlování.",
+      "Zeptej se, co v obrazu konkrétně je, kde to je a jak se to projevuje.",
+      "Nech klientku určit, co pro ni jednotlivé části znamenají; nenabízej univerzální symboliku.",
+      "Prozkoumej, co by se v metafoře muselo změnit, aby se objevila další možnost.",
+      "Převeď její změnu obrazu do reálného vztahu, rozhodnutí nebo jednání.",
+      "Ověř, zda metafora přinesla přesnost a užitek, nebo je lepší ji opustit."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "vnucený příběh",
+      "analýza symbolů jako diagnózy",
+      "skrytá sugesce"
+    ],
+    "never_claim": [
+      "přímý přístup k nevědomí",
+      "že metafora odhaluje pravdu nebo kořen problému",
+      "že změna obrazu sama změní realitu"
+    ],
+    "origin_or_standard": "NLP metaphor work; Graham Nicholls Master Practitioner lectures 169–170"
+  },
+  {
+    "id": "nlp_swish_habit_rehearsal",
+    "name": "Swish jako nácvik nové reakce",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "swish",
+      "stary navyk",
+      "spoustec",
+      "nova reakce",
+      "prerusit automat",
+      "mentalni nácvik",
+      "pozornost"
+    ],
+    "use_when": [
+      "běžný neklinický návyk má jasný spouštěč a klientka chce nacvičit jinou reakci",
+      "cílem je přerušit automatickou pozornost a vytvořit prostor pro volbu"
+    ],
+    "core_move": "Zmapuj spouštěč a starou automatickou reakci, vytvoř realistický obraz nové volby, krátce nacvič přechod a ověř jej v reálném chování.",
+    "steps": [
+      "Vyber nízkorizikový návyk s konkrétním spouštěčem a popiš jeho současnou smyčku.",
+      "Urči okamžik těsně před automatickou reakcí, ve kterém ještě existuje možnost volby.",
+      "Vytvoř konkrétní a proveditelný obraz nové reakce včetně prvního pohybu nebo věty.",
+      "Se souhlasem krátce nacvič přesun pozornosti od spouštěče k nové volbě bez tvrzení, že starý vzorec mizí.",
+      "Vrať se k běžnému rozhovoru a ověř, zda představa působí realisticky, neutrálně nebo nepříjemně.",
+      "Domluv malý reálný test a způsob, jak klientka pozná, zda jí nácvik pomohl."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "fobie",
+      "trauma",
+      "závislost",
+      "porucha příjmu potravy",
+      "sebepoškozování",
+      "vynucená rychlá imaginace"
+    ],
+    "never_claim": [
+      "vymazání návyku",
+      "neurologické přeprogramování",
+      "rychlá léčba fobie, traumatu nebo závislosti"
+    ],
+    "origin_or_standard": "NLP Swish adapted as nonclinical habit rehearsal; Kain Ramsay Practitioner lecture 75"
+  },
+  {
+    "id": "nlp_logical_levels_alignment",
+    "name": "Soulad cíle napříč úrovněmi",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "logical levels",
+      "neurological levels",
+      "soulad cile",
+      "kongruence",
+      "prostredi",
+      "dovednosti",
+      "presvedceni",
+      "identita",
+      "smysl"
+    ],
+    "use_when": [
+      "cíl je atraktivní, ale motivace nebo proveditelnost se rozpadá",
+      "klientka chce prověřit soulad prostředí, jednání, schopností, přesvědčení, identity a širšího smyslu"
+    ],
+    "core_move": "Projdi cíl od prostředí přes chování, schopnosti, přesvědčení a hodnoty až k identitě a smyslu, hledej konkrétní nesoulad a zvol jednu úpravu.",
+    "steps": [
+      "Formuluj konkrétní cíl a situaci, ve které se má uskutečnit.",
+      "Prověř prostředí, čas, peníze, lidi a další vnější podmínky.",
+      "Prověř potřebné chování, rutiny a rozhodnutí.",
+      "Prověř schopnosti, znalosti a zdroje, které už klientka má nebo potřebuje doplnit.",
+      "Prozkoumej relevantní přesvědčení a hodnoty jako její vlastní výroky, ne jako skryté příčiny.",
+      "Prověř, zda cíl sedí k tomu, kým chce být a čemu chce přispět.",
+      "Najdi nejslabší spojení a uprav cíl, podmínky nebo první krok tak, aby byl soulad realističtější."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "hierarchizace lidské hodnoty",
+      "vnucení identity",
+      "morální hodnocení motivace"
+    ],
+    "never_claim": [
+      "neurologická diagnostika",
+      "že nesoulad automaticky vysvětluje neúspěch",
+      "že model odhalí pravé poslání"
+    ],
+    "origin_or_standard": "NLP Logical/Neurological Levels adapted for goal congruence; Kain Ramsay Master Practitioner lectures 65–66"
+  },
+  {
+    "id": "nlp_state_map",
+    "name": "Mapa aktuálního stavu a volby",
+    "family": "nlp_inspired",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nlp state",
+      "stav",
+      "fyziologie",
+      "myslenky",
+      "emoce",
+      "reakce",
+      "zmenit stav",
+      "spoustec stavu"
+    ],
+    "use_when": [
+      "klientka chce pochopit, z čeho se skládá její aktuální neklinický pracovní nebo komunikační stav",
+      "je potřeba oddělit tělesný vjem, myšlenku, emoci, kontext a jednání"
+    ],
+    "core_move": "Zmapuj současný stav jako dočasnou kombinaci kontextu, tělesných signálů, myšlenek, emocí a jednání a najdi jednu ovlivnitelnou složku.",
+    "steps": [
+      "Vymez konkrétní okamžik a situaci místo obecné nálepky stavu.",
+      "Popiš pozorovatelné tělesné signály neutrálně a bez hledání skrytého významu.",
+      "Zachyť přesná slova myšlenky nebo interpretace, která v okamžiku probíhá.",
+      "Pojmenuj emoci nebo směs emocí jen tak, jak ji označí klientka.",
+      "Zmapuj následující jednání, krátkodobý účinek a pozdější dopad.",
+      "Vyber jednu ovlivnitelnou složku a navrhni malou změnu k otestování.",
+      "Po testu ověř skutečný účinek místo předpokládané změny stavu."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "diagnostika z tělesného signálu",
+      "redukce složité situace na jedinou emoci",
+      "potlačování nepříjemného stavu"
+    ],
+    "never_claim": [
+      "že člověk má stav plně pod kontrolou",
+      "že změna fyziologie automaticky odstraní emoci",
+      "léčba psychických potíží"
+    ],
+    "origin_or_standard": "NLP state model; Practitioner Certificate Journal section 05"
+  },
+  {
+    "id": "nlp_swirk_phobia",
+    "name": "Swish, timeline a rychlá léčba fobie",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "swish",
+      "timeline therapy",
+      "fobie",
+      "rychle vylecit"
+    ],
+    "use_when": [
+      "Elitea nepoužívá jako léčbu"
+    ],
+    "core_move": "Nevést techniku pro trauma, fobii nebo nemoc; doporučit kvalifikovanou péči.",
+    "avoid": [
+      "AI léčba",
+      "garance"
+    ],
+    "never_claim": [
+      "rychlé vyléčení",
+      "přepis traumatu"
+    ],
+    "origin_or_standard": "Restricted NLP claims and clinical applications"
+  },
+  {
+    "id": "mindful_pause",
+    "name": "Všímavá pauza",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "stres",
+      "zastavit",
+      "pauza",
+      "zahlcena"
+    ],
+    "use_when": [
+      "mírný stres a potřeba zpomalit před rozhodnutím"
+    ],
+    "core_move": "Nabídni krátkou pauzu, orientaci v prostoru a pojmenování aktuální potřeby.",
+    "avoid": [
+      "řízení",
+      "zhoršující se panika"
+    ],
+    "never_claim": [
+      "léčba úzkosti"
+    ],
+    "origin_or_standard": "Mindfulness-informed support"
+  },
+  {
+    "id": "gentle_breath_choice",
+    "name": "Jemná práce s dechem s volbou",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "dech",
+      "zklidnit",
+      "napeti",
+      "meditace"
+    ],
+    "use_when": [
+      "klientka sama chce dechové zklidnění a nemá varovné příznaky"
+    ],
+    "core_move": "Nabídni přirozený dech bez nucení, zadržování a výkonu; umožni kdykoli přejít k vnější orientaci.",
+    "avoid": [
+      "dušnost",
+      "bolest na hrudi",
+      "panika z dechu"
+    ],
+    "never_claim": [
+      "léčba nemoci"
+    ],
+    "origin_or_standard": "Trauma-sensitive mindfulness principles"
+  },
+  {
+    "id": "body_scan_opt_out",
+    "name": "Body scan s možností vynechat",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "body scan",
+      "telo",
+      "meditace",
+      "napeti"
+    ],
+    "use_when": [
+      "dobrovolná relaxace u stabilní klientky"
+    ],
+    "core_move": "Provázej pozorností po neutrálních částech těla a dovol kteroukoli oblast přeskočit nebo cvičení ukončit.",
+    "avoid": [
+      "trauma",
+      "disociace",
+      "silná panika"
+    ],
+    "never_claim": [
+      "diagnóza nebo léčba tělesných potíží"
+    ],
+    "origin_or_standard": "Trauma-sensitive mindfulness adaptation"
+  },
+  {
+    "id": "progressive_relaxation",
+    "name": "Postupná svalová relaxace",
+    "family": "relaxation",
+    "access_level": "support_only",
+    "keywords": [
+      "svaly",
+      "napeti",
+      "relaxace",
+      "vecer"
+    ],
+    "use_when": [
+      "běžné napětí a dobrovolná relaxace"
+    ],
+    "core_move": "Nabídni velmi jemné střídání napětí a uvolnění s možností části přeskočit.",
+    "avoid": [
+      "bolest",
+      "úraz",
+      "zdravotní omezení bez konzultace"
+    ],
+    "never_claim": [
+      "léčba zdravotního stavu"
+    ],
+    "origin_or_standard": "Progressive muscle relaxation adapted for general wellbeing"
+  },
+  {
+    "id": "loving_kindness",
+    "name": "Meditace laskavosti",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "laskavost",
+      "vina",
+      "sebekritika",
+      "meditace"
+    ],
+    "use_when": [
+      "klientka chce jemnou podpůrnou meditaci"
+    ],
+    "core_move": "Nabídni volitelné laskavé věty k sobě či druhým bez nucení pozitivních emocí.",
+    "avoid": [
+      "pokud vyvolává odpor nebo zhoršení"
+    ],
+    "never_claim": [
+      "léčba deprese nebo traumatu"
+    ],
+    "origin_or_standard": "Loving-kindness meditation"
+  },
+  {
+    "id": "walking_mindfulness",
+    "name": "Všímavá chůze",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "chuze",
+      "nechci sedet",
+      "meditace",
+      "pohyb"
+    ],
+    "use_when": [
+      "klientce nevyhovuje statická meditace"
+    ],
+    "core_move": "Zaměř pozornost na bezpečnou pomalou chůzi a okolí bez zavírání očí.",
+    "avoid": [
+      "nebezpečné prostředí",
+      "řízení"
+    ],
+    "never_claim": [
+      "léčebný účinek"
+    ],
+    "origin_or_standard": "Walking meditation"
+  },
+  {
+    "id": "emotion_labeling",
+    "name": "Přesné pojmenování emoce",
+    "family": "emotion_skills",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "citím",
+      "emoce",
+      "nevim co citim",
+      "napeti"
+    ],
+    "use_when": [
+      "emoce je neurčitá a brání volbě dalšího kroku"
+    ],
+    "core_move": "Nabídni několik možností jako hypotézy a nech klientku zvolit vlastní přesné pojmenování.",
+    "avoid": [
+      "diagnostika z textu"
+    ],
+    "never_claim": [
+      "že Elitea ví lépe, co klientka cítí"
+    ],
+    "origin_or_standard": "Affect labeling and coaching emotion skills"
+  },
+  {
+    "id": "self_compassion_break",
+    "name": "Laskavá sebereflexe",
+    "family": "emotion_skills",
+    "access_level": "support_only",
+    "keywords": [
+      "vina",
+      "selhala",
+      "jsem hrozna",
+      "sebekritika"
+    ],
+    "use_when": [
+      "tvrdá sebekritika po chybě"
+    ],
+    "core_move": "Uznat bolest, připomenout lidskost chyby a zvolit laskavou odpovědnost místo sebeútoku.",
+    "avoid": [
+      "vynechání nápravy škody"
+    ],
+    "never_claim": [
+      "že laskavost zbavuje odpovědnosti"
+    ],
+    "origin_or_standard": "Self-compassion-informed support"
+  },
+  {
+    "id": "nvc_request",
+    "name": "Pozorování–pocit–potřeba–žádost",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "komunikace",
+      "konflikt",
+      "potreba",
+      "pozadat",
+      "partner"
+    ],
+    "use_when": [
+      "napjatá komunikace bez bezprostředního nebezpečí"
+    ],
+    "core_move": "Odděl pozorování od hodnocení, pojmenuj vlastní pocit a potřebu a formuluj konkrétní nenátlakovou žádost.",
+    "avoid": [
+      "použití jako manipulační skript"
+    ],
+    "never_claim": [
+      "že správná formulace zaručí souhlas"
+    ],
+    "origin_or_standard": "Nonviolent Communication inspired"
+  },
+  {
+    "id": "boundary_script",
+    "name": "Jasná hranice",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "hranice",
+      "vecer",
+      "vikend",
+      "navic",
+      "klient"
+    ],
+    "use_when": [
+      "opakované překračování pracovních nebo osobních hranic"
+    ],
+    "core_move": "Řekni stručně, co je a není dostupné, od kdy pravidlo platí a jaká je alternativa.",
+    "avoid": [
+      "výhrůžka nebo ponižování"
+    ],
+    "never_claim": [
+      "kontrola reakce druhého"
+    ],
+    "origin_or_standard": "Assertive communication"
+  },
+  {
+    "id": "sbi_feedback",
+    "name": "SBI zpětná vazba",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zpetna vazba",
+      "tym",
+      "zamestnanec",
+      "chovani"
+    ],
+    "use_when": [
+      "konkrétní pracovní zpětná vazba"
+    ],
+    "core_move": "Popiš situaci, pozorované chování a jeho dopad; odděl fakta od úsudku.",
+    "avoid": [
+      "hodnocení osobnosti"
+    ],
+    "never_claim": [
+      "že jediný pohled je objektivní"
+    ],
+    "origin_or_standard": "Situation–Behavior–Impact feedback"
+  },
+  {
+    "id": "repair_apology",
+    "name": "Omluva a náprava",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "chyba",
+      "omluvit",
+      "klient",
+      "naprava"
+    ],
+    "use_when": [
+      "podnikatelka skutečně udělala chybu"
+    ],
+    "core_move": "Přiznej konkrétní chybu, uznej dopad, omluv se a nabídni přiměřenou nápravu.",
+    "avoid": [
+      "falešná vina za něco, co neudělala"
+    ],
+    "never_claim": [
+      "že omluva automaticky obnoví důvěru"
+    ],
+    "origin_or_standard": "Professional repair practice"
+  },
+  {
+    "id": "conflict_deescalation",
+    "name": "Deeskalace konfliktu",
+    "family": "communication",
+    "access_level": "support_only",
+    "keywords": [
+      "agresivni",
+      "hada",
+      "konflikt",
+      "vyhrocene"
+    ],
+    "use_when": [
+      "slovní konflikt, kde lze bezpečně zpomalit"
+    ],
+    "core_move": "Zpomal, nehádej se o motivy, potvrď praktické jádro a nabídni jasný další postup nebo ukončení kontaktu.",
+    "avoid": [
+      "bezprostřední nebezpečí",
+      "zneužívání"
+    ],
+    "never_claim": [
+      "že klientka musí konflikt zvládnout sama"
+    ],
+    "origin_or_standard": "Conflict de-escalation principles"
+  },
+  {
+    "id": "premortem",
+    "name": "Pre-mortem",
+    "family": "business_decision",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "riziko",
+      "selhani",
+      "spustit",
+      "projekt"
+    ],
+    "use_when": [
+      "před významným rozhodnutím nebo spuštěním"
+    ],
+    "core_move": "Představ si, že plán nevyšel, sepiš pravděpodobné příčiny a preventivní kroky.",
+    "avoid": [
+      "katastrofizace bez priorit"
+    ],
+    "never_claim": [
+      "předpověď budoucnosti"
+    ],
+    "origin_or_standard": "Prospective hindsight / pre-mortem"
+  },
+  {
+    "id": "decision_matrix",
+    "name": "Rozhodovací matice",
+    "family": "business_decision",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vybrat",
+      "varianty",
+      "kriteria",
+      "rozhodnout"
+    ],
+    "use_when": [
+      "více realistických variant a několik kritérií"
+    ],
+    "core_move": "Společně zvol kritéria a váhy, porovnej varianty a proveď citlivostní kontrolu.",
+    "avoid": [
+      "předstírání, že číslo rozhoduje za klientku"
+    ],
+    "never_claim": [
+      "objektivně jediná správná volba"
+    ],
+    "origin_or_standard": "Multi-criteria decision analysis adapted for mentoring"
+  },
+  {
+    "id": "reversible_decision",
+    "name": "Vratné versus nevratné rozhodnutí",
+    "family": "business_decision",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "riziko",
+      "rozhodnuti",
+      "vratit",
+      "zkusit"
+    ],
+    "use_when": [
+      "rychlost rozhodnutí závisí na jeho vratnosti"
+    ],
+    "core_move": "U vratné volby navrhni malý test; u obtížně vratné zpomal a rozšiř kontrolu rizik.",
+    "avoid": [
+      "zlehčení právních či finančních důsledků"
+    ],
+    "never_claim": [
+      "nulová cena vratné volby"
+    ],
+    "origin_or_standard": "Reversible/irreversible decision framing"
+  },
+  {
+    "id": "pareto_focus",
+    "name": "80/20 priorita",
+    "family": "business_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "priorita",
+      "moc ukolu",
+      "nejvetsi dopad",
+      "zahlcena",
+      "busy",
+      "zaneprazdnena",
+      "dulezite"
+    ],
+    "use_when": [
+      "mnoho aktivit a omezená kapacita",
+      "klientka je velmi vytížená, ale nevidí odpovídající posun výsledku"
+    ],
+    "core_move": "Hledej malou skupinu aktivit s největším doložitelným dopadem a ostatní odlož, zmenši nebo deleguj. Rozliš nutnou péči a provoz od práce, která jen vytváří pocit aktivity.",
+    "avoid": [
+      "vymyšlená přesná procenta",
+      "shazování zaneprázdněnosti jako neschopnosti",
+      "ignorování neplacené péče a úkolů, které jsou nutné, i když nepřinášejí okamžitý výnos"
+    ],
+    "never_claim": [
+      "že poměr musí být přesně 80/20",
+      "že vytížený člověk neumí řídit čas",
+      "že každý úkol s nepřímým dopadem je zbytečný"
+    ],
+    "origin_or_standard": "Pareto principle used as prioritization heuristic, doplněný kritickým auditem busy-trap části Neuroplasticity Masterclass"
+  },
+  {
+    "id": "eisenhower",
+    "name": "Důležitost versus naléhavost",
+    "family": "business_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "urgentni",
+      "dulezite",
+      "priorita",
+      "ukoly"
+    ],
+    "use_when": [
+      "směšování naléhavých a důležitých úkolů"
+    ],
+    "core_move": "Rozděl práci podle důležitosti a naléhavosti a chraň čas na důležité nenaléhavé kroky.",
+    "avoid": [
+      "ignorování dopadu na klienta"
+    ],
+    "never_claim": [
+      "univerzální pořadí priorit"
+    ],
+    "origin_or_standard": "Eisenhower prioritization matrix"
+  },
+  {
+    "id": "constraint_focus",
+    "name": "Úzké hrdlo",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zpomaluje",
+      "bottleneck",
+      "uzke hrdlo",
+      "neprodava"
+    ],
+    "use_when": [
+      "systém neroste navzdory mnoha aktivitám"
+    ],
+    "core_move": "Najdi hlavní omezení toku klientů, dodání nebo peněz a nejprve zlepši právě je.",
+    "avoid": [
+      "optimalizace kosmetických detailů"
+    ],
+    "never_claim": [
+      "že existuje vždy jen jedna příčina"
+    ],
+    "origin_or_standard": "Theory of Constraints inspired"
+  },
+  {
+    "id": "five_whys",
+    "name": "Pět proč bez dogmatu",
+    "family": "business_diagnosis",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "proc",
+      "pricina",
+      "problem",
+      "opakovaně"
+    ],
+    "use_when": [
+      "potřeba jít za první symptom problému"
+    ],
+    "core_move": "Ptej se po příčinách, dokud nenajdeš ovlivnitelný mechanismus; počet otázek přizpůsob situaci.",
+    "avoid": [
+      "obviňování člověka",
+      "vynucených přesně pět otázek"
+    ],
+    "never_claim": [
+      "jediná kořenová příčina"
+    ],
+    "origin_or_standard": "Five Whys root-cause heuristic"
+  },
+  {
+    "id": "business_model_canvas",
+    "name": "Business Model Canvas",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "business model",
+      "partneri",
+      "kanaly",
+      "prijmy",
+      "naklady"
+    ],
+    "use_when": [
+      "potřeba vidět, jak firma vytváří, doručuje a zachycuje hodnotu"
+    ],
+    "core_move": "Zmapuj zákazníky, hodnotu, kanály, vztahy, činnosti, zdroje, partnery, příjmy a náklady a označ hypotézy.",
+    "avoid": [
+      "vyplňování bez ověření u zákazníků"
+    ],
+    "never_claim": [
+      "že canvas sám potvrzuje životaschopnost"
+    ],
+    "origin_or_standard": "Business Model Canvas, Strategyzer"
+  },
+  {
+    "id": "value_proposition_canvas",
+    "name": "Value Proposition Canvas",
+    "family": "business_offer",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nabidka",
+      "cilovka",
+      "problem klienta",
+      "hodnota",
+      "produkt"
+    ],
+    "use_when": [
+      "nabídka není přesně napojená na důležité potřeby klienta"
+    ],
+    "core_move": "Propoj zákaznické úkoly, bolesti a přínosy s konkrétními prvky nabídky a vše ověř na trhu.",
+    "avoid": [
+      "domýšlení potřeb bez rozhovorů"
+    ],
+    "never_claim": [
+      "product-market fit bez dat"
+    ],
+    "origin_or_standard": "Value Proposition Canvas, Strategyzer"
+  },
+  {
+    "id": "jobs_to_be_done",
+    "name": "Jobs to Be Done",
+    "family": "business_offer",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "proc kupuje",
+      "vysledek klienta",
+      "potreba",
+      "zakaznik"
+    ],
+    "use_when": [
+      "potřeba pochopit pokrok, pro který si klient službu pořizuje"
+    ],
+    "core_move": "Zkoumej situaci, žádoucí pokrok, bariéry a alternativy z pohledu klienta.",
+    "avoid": [
+      "redukování člověka na jeden motiv"
+    ],
+    "never_claim": [
+      "úplné poznání klienta bez výzkumu"
+    ],
+    "origin_or_standard": "Jobs to Be Done framework"
+  },
+  {
+    "id": "customer_discovery",
+    "name": "Zákaznický rozhovor",
+    "family": "business_research",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pruzkum trhu",
+      "rozhovor",
+      "zakaznik",
+      "overit napad"
+    ],
+    "use_when": [
+      "ověřování problému, chování a ochoty měnit současné řešení"
+    ],
+    "core_move": "Nejdřív vymez konkrétní skupinu a problémovou hypotézu. Potom určete, kterou neznámou potřebujete ověřit, zvolte nábor respondentek podle skutečně dostupného kanálu a ptejte se na konkrétní minulou zkušenost a současné chování, ne na lichotivý názor na hypotetický produkt.",
+    "steps": [
+      "Vyjasni přesnou skupinu žen a konkrétní problémovou hypotézu, kterou má výzkum ověřit.",
+      "Urči jedinou rozhodující neznámou o minulém nebo současném chování zákaznice.",
+      "Zvol způsob získání respondentek podle kanálu, který má členka skutečně dostupný; nepředpokládej vlastní publikum, kontakty ani rozpočet.",
+      "Připrav nenaváděcí otázky na konkrétní minulou zkušenost, současné alternativy a skutečné projevy ochoty problém řešit.",
+      "Po sběru odpovědí odděl opakované signály, rozpory a otevřené nejistoty bez tvrzení, že omezený vzorek potvrzuje celý trh."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "naváděcí otázky",
+      "prodej maskovaný jako výzkum",
+      "domýšlení přístupu k publiku, kontaktům nebo rozpočtu"
+    ],
+    "never_claim": [
+      "že malý vzorek reprezentuje celý trh",
+      "že zájem o rozhovor nebo kliknutí samo potvrzuje ochotu platit"
+    ],
+    "origin_or_standard": "Customer discovery / Lean practice"
+  },
+  {
+    "id": "lean_test_card",
+    "name": "Malý tržní test",
+    "family": "business_research",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "test",
+      "mvp",
+      "overit",
+      "poptavka",
+      "napad"
+    ],
+    "use_when": [
+      "klíčový předpoklad lze ověřit levněji než plným spuštěním"
+    ],
+    "core_move": "Definuj hypotézu, nejmenší férový test, metriku, hranici rozhodnutí a následné učení.",
+    "avoid": [
+      "klamavý prodej",
+      "sběr peněz bez možnosti dodat"
+    ],
+    "never_claim": [
+      "jistota úspěchu z jediného testu"
+    ],
+    "origin_or_standard": "Lean experimentation and Strategyzer Test Card principles"
+  },
+  {
+    "id": "unit_economics",
+    "name": "Ekonomika jedné zakázky",
+    "family": "business_finance",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cena",
+      "marze",
+      "naklady",
+      "zisk",
+      "hodinovka"
+    ],
+    "use_when": [
+      "cenotvorba nebo škálování služby"
+    ],
+    "core_move": "Spočítej všechny relevantní náklady a čas, příspěvek na režii, zisk a kapacitní dopad; porovnej s hodnotou a trhem.",
+    "avoid": [
+      "vymyšlená čísla",
+      "čistý cost-plus bez hodnoty"
+    ],
+    "never_claim": [
+      "správná cena bez vstupních dat"
+    ],
+    "origin_or_standard": "Unit economics and value-based pricing principles"
+  },
+  {
+    "id": "cashflow_runway",
+    "name": "Cashflow a rezerva",
+    "family": "business_finance",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cashflow",
+      "rezerva",
+      "penize",
+      "vydaje",
+      "prijmy"
+    ],
+    "use_when": [
+      "rozhodnutí závisí na načasování peněz a finanční stabilitě"
+    ],
+    "core_move": "Odděl zůstatek, očekávané příjmy, povinné výdaje, nejistotu a dobu, po kterou firma závazky unese.",
+    "avoid": [
+      "investiční nebo daňová rada bez odborníka"
+    ],
+    "never_claim": [
+      "garance finanční bezpečnosti"
+    ],
+    "origin_or_standard": "Cash-flow planning"
+  },
+  {
+    "id": "pricing_ladder",
+    "name": "Cenová a hodnotová architektura",
+    "family": "business_offer",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "balicky",
+      "cena",
+      "nabidka",
+      "premium",
+      "zdrazit"
+    ],
+    "use_when": [
+      "potřeba sladit různé úrovně služby, hodnoty a kapacity"
+    ],
+    "core_move": "Navrhni jasně odlišné varianty podle výsledku, rozsahu, podpory a náročnosti dodání; ověř s trhem.",
+    "avoid": [
+      "falešné návnady",
+      "nejasné rozdíly"
+    ],
+    "never_claim": [
+      "že tři balíčky vždy zvýší prodej"
+    ],
+    "origin_or_standard": "Offer architecture and value-based pricing"
+  },
+  {
+    "id": "ethical_free_trial_design",
+    "name": "Etický návrh zkušebního členství",
+    "family": "business_offer",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "free trial",
+      "zkusebni obdobi",
+      "automaticke obnoveni",
+      "karta predem",
+      "zruseni clenstvi",
+      "predplatne",
+      "subscription"
+    ],
+    "use_when": [
+      "návrh zkušebního období, které má ověřit hodnotu služby a zároveň chránit důvěru klientky",
+      "rozhodování o kartě předem, připomenutí obnovy, přechodu na placený tarif nebo zrušení"
+    ],
+    "core_move": "Nejdřív ujasni, jaký konkrétní výsledek má členka během trialu reálně zažít a jak dlouho k němu potřebuje. Potom navrhni transparentní vstup, viditelnou cenu a datum obnovy, aktivní souhlas, včasné připomenutí, stejně snadné zrušení jako aktivaci a férové zacházení s daty a případnou refundací. Ekonomiku vyhodnoť podle aktivace, skutečného používání, placené konverze, retence, podpory, refundací a stížností — ne podle lidí, kteří zapomněli zrušit.",
+    "steps": [
+      "Vyjasni jediný konkrétní hodnotový okamžik, který má klientka během trialu zažít, a reálný čas potřebný k jeho dosažení.",
+      "Rozhodni o délce trialu a kartě předem podle tření, rizika zneužití, ceny podpory a důvěry cílové skupiny; odděl fakta od neověřených předpokladů.",
+      "Navrhni transparentní souhlas: cenu a datum první platby u tlačítka, potvrzení podmínek a včasnou připomínku před obnovením.",
+      "Zajisti stejně snadné zrušení jako aktivaci, okamžité potvrzení zrušení a jasná pravidla přístupu, dat a refundace.",
+      "Předem stanov metriky aktivace, používání, placené konverze, retence, nákladů podpory, refundací a stížností a podle nich trial iteruj."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "skryté automatické obnovení",
+      "zamlčenou cenu nebo datum platby",
+      "překážky při zrušení",
+      "počítání zapomenutých plateb jako zdravé retence",
+      "dark patterns a nátlak"
+    ],
+    "never_claim": [
+      "že karta předem nebo sedm dní vždy maximalizují zisk",
+      "že obtížné zrušení vytváří skutečnou loajalitu",
+      "že jeden trial model vyhovuje každé cílové skupině nebo legislativě"
+    ],
+    "origin_or_standard": "Everand practical tool 990; transparent subscription and consumer-protection practice"
+  },
+  {
+    "id": "batna",
+    "name": "BATNA",
+    "family": "business_negotiation",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vyjednavani",
+      "dohoda",
+      "nabidka",
+      "odmitnout",
+      "podminky"
+    ],
+    "use_when": [
+      "vyjednávání o významné dohodě"
+    ],
+    "core_move": "Ujasni nejlepší realistickou alternativu, pokud dohoda nevznikne, a hranici přijetí.",
+    "avoid": [
+      "blafování bez připravené alternativy"
+    ],
+    "never_claim": [
+      "garantovaná převaha ve vyjednávání"
+    ],
+    "origin_or_standard": "BATNA, principled negotiation"
+  },
+  {
+    "id": "sales_pipeline",
+    "name": "Prodejní pipeline",
+    "family": "business_sales",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "leady",
+      "prodej",
+      "follow up",
+      "pipeline",
+      "klienti"
+    ],
+    "use_when": [
+      "poptávky a obchod nejsou měřitelné"
+    ],
+    "core_move": "Zmapuj fáze od kontaktu po zakázku, objemy, přechody, dobu a hlavní místo ztrát.",
+    "avoid": [
+      "vymyšlené benchmarky"
+    ],
+    "never_claim": [
+      "příčina bez reálných dat"
+    ],
+    "origin_or_standard": "Sales pipeline management"
+  },
+  {
+    "id": "delegation_matrix",
+    "name": "Matice delegace",
+    "family": "business_operations",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "delegovat",
+      "vsechno sama",
+      "tym",
+      "cas"
+    ],
+    "use_when": [
+      "majitelka je úzké hrdlo firmy"
+    ],
+    "core_move": "Seřaď činnosti podle času, jedinečnosti přínosu, energie a rizika; nejprve předávej časově náročné neunikátní úkoly.",
+    "avoid": [
+      "delegace bez standardu a kontroly"
+    ],
+    "never_claim": [
+      "okamžitá úspora peněz"
+    ],
+    "origin_or_standard": "Delegation and founder-leverage practice"
+  },
+  {
+    "id": "after_action_review",
+    "name": "After Action Review",
+    "family": "business_learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vyhodnotit",
+      "co se povedlo",
+      "projekt skoncil",
+      "pouceni"
+    ],
+    "use_when": [
+      "po kampani, projektu, prodeji nebo důležitém kroku"
+    ],
+    "core_move": "Porovnej záměr a skutečnost, pojmenuj příčiny, zachovej fungující části a změň další pokus.",
+    "avoid": [
+      "hledání viníka"
+    ],
+    "never_claim": [
+      "že korelace dokazuje příčinu"
+    ],
+    "origin_or_standard": "After Action Review"
+  },
+  {
+    "id": "swot_tows",
+    "name": "SWOT/TOWS",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "swot",
+      "strategie",
+      "silne stranky",
+      "hrozby",
+      "prilezitosti"
+    ],
+    "use_when": [
+      "potřeba propojit interní realitu s trhem"
+    ],
+    "core_move": "Odděl interní silné a slabé stránky od externích příležitostí a hrozeb a převeď je do voleb.",
+    "avoid": [
+      "dlouhý seznam bez priorit a dat"
+    ],
+    "never_claim": [
+      "kompletní analýza trhu"
+    ],
+    "origin_or_standard": "SWOT and TOWS strategy tools"
+  },
+  {
+    "id": "ooda",
+    "name": "OODA cyklus",
+    "family": "business_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "rychla zmena",
+      "konkurence",
+      "iterace",
+      "rozhodnout"
+    ],
+    "use_when": [
+      "rychle se měnící situace vyžaduje krátké cykly učení"
+    ],
+    "core_move": "Pozoruj, zorientuj se, rozhodni, jednej a podle nových dat cyklus opakuj.",
+    "avoid": [
+      "ukvapené jednání u nevratného rizika"
+    ],
+    "never_claim": [
+      "rychlost je vždy důležitější než kvalita"
+    ],
+    "origin_or_standard": "OODA loop"
+  },
+  {
+    "id": "somatic_orient_choice",
+    "name": "Orientace a volba opory",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "zahlceni",
+      "uzkost",
+      "telo",
+      "orientace",
+      "somaticka"
+    ],
+    "use_when": [
+      "klientka chce krátce snížit běžné zahlcení před dalším krokem"
+    ],
+    "core_move": "Nech oči otevřené, pojmenuj několik neutrálních věcí v okolí a dovol klientce zvolit vnější nebo tělesnou oporu či cvičení ukončit.",
+    "avoid": [
+      "řízení",
+      "bezprostřední ohrožení",
+      "zhoršující se stav"
+    ],
+    "never_claim": [
+      "léčba úzkosti nebo traumatu",
+      "regulace nervového systému na povel"
+    ],
+    "origin_or_standard": "Původní neklinická syntéza orientingu, volby a trauma-sensitive somatic support; odvozena z vlastního studijního kurátorství"
+  },
+  {
+    "id": "somatic_dose_check",
+    "name": "Kontrola dávky somatické práce",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "moc intenzivni",
+      "zahlceni",
+      "telo",
+      "somaticka",
+      "zastavit"
+    ],
+    "use_when": [
+      "krátká dobrovolná somatická praxe a potřeba hlídat intenzitu"
+    ],
+    "core_move": "Před praxí, během ní i po ní ověř snesitelnost; při růstu napětí zmenši dávku, vrať pozornost ven nebo skonči.",
+    "avoid": [
+      "nátlak vydržet",
+      "vyvolávání traumatické vzpomínky",
+      "interpretace tělesného pocitu"
+    ],
+    "never_claim": [
+      "že nepohodlí znamená léčení",
+      "že AI bezpečně zpracuje trauma"
+    ],
+    "origin_or_standard": "Původní bezpečnostní adaptace principů titrace, orientace a volby ze somatického vzdělávání"
+  },
+  {
+    "id": "somatic_close_integrate",
+    "name": "Somatické uzavření a integrace",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "po cviceni",
+      "somaticka",
+      "uzavrit",
+      "co dal",
+      "zklidnit"
+    ],
+    "use_when": [
+      "po krátkém regulačním nebo všímavém cvičení"
+    ],
+    "core_move": "Vrať pozornost do místnosti, porovnej stav před a po bez hodnocení, pojmenuj jednu užitečnou změnu a ukonči konkrétním bezpečným krokem.",
+    "avoid": [
+      "další prohlubování při únavě",
+      "tvrzení o skrytém významu pocitů"
+    ],
+    "never_claim": [
+      "uvolnění traumatu",
+      "dokončené uzdravení"
+    ],
+    "origin_or_standard": "Původní integrační protokol Elitea syntetizovaný z trauma-sensitive somatic support"
+  },
+  {
+    "id": "somatic_dialogue_practice_switch",
+    "name": "Přepnutí rozhovor–krátká praxe",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "somaticka",
+      "mluvit",
+      "cviceni",
+      "nechci zavrit oci",
+      "nedokazu se soustredit"
+    ],
+    "use_when": [
+      "klientce nevyhovuje dlouhá vnitřní praxe",
+      "je užitečné střídat porozumění a krátké všímání"
+    ],
+    "core_move": "Nech klientku zvolit mezi rozhovorem a velmi krátkou dobrovolnou praxí; po jednom vjemu se vrať do dialogu a společně zhodnoť, zda pokračovat.",
+    "avoid": [
+      "trvání na zavřených očích",
+      "dlouhá praxe bez kontroly",
+      "interpretace nepozornosti jako odporu"
+    ],
+    "never_claim": [
+      "že správný stav vědomí je podmínkou změny",
+      "že obtíž se soustředit znamená diagnózu"
+    ],
+    "origin_or_standard": "Původní adaptace Elitea vytvořená z kurátorského auditu somatického vzdělávání"
+  },
+  {
+    "id": "thought_emotion_body_log",
+    "name": "Mapa myšlenka–emoce–tělo",
+    "family": "emotion_skills",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "myslenky",
+      "emoce",
+      "telo",
+      "vzorec",
+      "denik",
+      "spoustec"
+    ],
+    "use_when": [
+      "klientka chce porozumět opakujícímu se neklinickému vzorci",
+      "potřebujeme oddělit pozorování od výkladu"
+    ],
+    "core_move": "Zachyť konkrétní situaci, přesná slova myšlenky, pojmenovanou emoci, neutrálně popsaný tělesný vjem a následné jednání; hledej opakování bez tvrzení o příčině.",
+    "avoid": [
+      "hledání traumatické vzpomínky",
+      "přisuzování významu tělesnému vjemu",
+      "dlouhé sebepozorování při zhoršování stavu"
+    ],
+    "never_claim": [
+      "že tělesný vjem odhaluje skrytou pravdu",
+      "že mapa stanoví diagnózu"
+    ],
+    "origin_or_standard": "Původní syntéza Elitea propojující somatické všímání a neklinické behaviorální mapování"
+  },
+  {
+    "id": "story_sensation_choice",
+    "name": "Volba mezi příběhem a vjemem",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "spirala myslenek",
+      "pribeh",
+      "telesny pocit",
+      "vjem",
+      "zahlceni"
+    ],
+    "use_when": [
+      "klientka se opakovaně vrací do stejné myšlenkové spirály a sama chce krátce změnit ohnisko pozornosti"
+    ],
+    "core_move": "Uznat význam situace a nabídnout krátkou volbu: pokračovat v rozhovoru, nebo na několik vteřin popsat jediný neutrální vjem bez hledání jeho významu; poté se vrátit k faktům a potřebám.",
+    "avoid": [
+      "popírání reálného problému",
+      "tvrzení, že vše je jen projekce",
+      "nucení setrvat u nepříjemného vjemu"
+    ],
+    "never_claim": [
+      "že emoce pochází vždy z minulosti",
+      "že odložení příběhu vyřeší příčinu"
+    ],
+    "origin_or_standard": "Původní bezpečná adaptace Elitea odvozená z rozlišování dialogu a somatické pozornosti"
+  },
+  {
+    "id": "compassionate_observer",
+    "name": "Laskavá pozice pozorovatelky",
+    "family": "emotion_skills",
+    "access_level": "support_only",
+    "keywords": [
+      "vyssi ja",
+      "vnitrni moudrost",
+      "sebekritika",
+      "laskavost",
+      "odstup"
+    ],
+    "use_when": [
+      "klientka chce získat laskavější odstup od neklinické situace",
+      "tvrdá sebekritika zužuje možnosti"
+    ],
+    "core_move": "Pozvi klientku, aby se na sebe podívala jako moudrá a laskavá podporovatelka a formulovala jednu větu, která uzná realitu, potřebu i odpovědnost.",
+    "avoid": [
+      "vnucování spirituality",
+      "regrese do dětství",
+      "vytváření falešných vzpomínek",
+      "použití při silném odpojení"
+    ],
+    "never_claim": [
+      "kontakt s vyšší bytostí",
+      "léčení vnitřního dítěte",
+      "zpráva z nevědomí"
+    ],
+    "origin_or_standard": "Původní sekulární adaptace Elitea inspirovaná compassionate perspective-taking"
+  },
+  {
+    "id": "somatic_four_phase_checkin",
+    "name": "Čtyřfázové somatické zastavení",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "somaticka konzultace",
+      "uzkost",
+      "napeti",
+      "zastavit",
+      "telo",
+      "integrovat"
+    ],
+    "use_when": [
+      "klientka výslovně chce krátkou neklinickou somatickou podporu"
+    ],
+    "core_move": "1) ukotvi se v přítomném prostoru, 2) všimni si jednoho snesitelného vjemu, 3) zvol laskavou a realistickou odpověď, 4) vrať se ven a vyber praktický další krok; po každé fázi nabídni zastavení.",
+    "avoid": [
+      "práce s traumatickou vzpomínkou",
+      "automatické zavírání očí",
+      "předpoklad bezpečí bez ověření",
+      "prohlubování nepohodlí"
+    ],
+    "never_claim": [
+      "uvolnění blokované energie",
+      "zpracování traumatu",
+      "léčba psychického nebo tělesného onemocnění"
+    ],
+    "origin_or_standard": "Původní čtyřfázový protokol Elitea vzniklý bezpečnou syntézou orientace, všímavosti, soucitu a integrace"
+  },
+  {
+    "id": "micro_psychoeducation",
+    "name": "Mikrodávka vysvětlení",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vysvetli",
+      "proc se to deje",
+      "psychoedukace",
+      "nezahlcovat",
+      "jednoduse"
+    ],
+    "use_when": [
+      "krátké vysvětlení může zvýšit orientaci nebo volbu klientky"
+    ],
+    "core_move": "Vysvětli jediný relevantní princip jednou až dvěma větami běžným jazykem, označ nejistotu a hned ověř, zda klientce pomáhá.",
+    "avoid": [
+      "přednáška během citlivého momentu",
+      "diagnostický výklad",
+      "neuvedená spekulace"
+    ],
+    "never_claim": [
+      "že vysvětlení je léčba",
+      "že obecný model přesně popisuje konkrétní klientku"
+    ],
+    "origin_or_standard": "Původní komunikační karta Elitea pro citlivě dávkovanou psychoedukaci"
+  },
+  {
+    "id": "agency_without_self_blame",
+    "name": "Vliv bez sebeobviňování",
+    "family": "emotion_skills",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vina",
+      "obvinovani",
+      "projekce",
+      "muzu ovlivnit",
+      "odpovednost",
+      "hranice"
+    ],
+    "use_when": [
+      "klientka potřebuje odlišit vnější realitu od vlastní ovlivnitelné reakce"
+    ],
+    "core_move": "Odděl ověřitelná fakta, dopad jednání druhých, vlastní interpretaci a to, co může klientka ovlivnit; posiluj volbu bez převzetí viny za cizí chování.",
+    "avoid": [
+      "tvrzení, že situaci způsobila vlastními emocemi",
+      "přebírání odpovědnosti za násilí nebo zneužívání",
+      "popření oprávněného hněvu"
+    ],
+    "never_claim": [
+      "že vnější problém je jen projekce",
+      "že plná odpovědnost za emoce znamená vinu"
+    ],
+    "origin_or_standard": "Původní korektivní rámec Elitea propojující agency, kontrolu faktů a hranice"
+  },
+  {
+    "id": "unfinished_material_parking",
+    "name": "Bezpečné odložení nedokončeného tématu",
+    "family": "emotion_skills",
+    "access_level": "support_only",
+    "keywords": [
+      "nestihly jsme",
+      "nedokoncene tema",
+      "uzavrit",
+      "vratit se",
+      "po cviceni"
+    ],
+    "use_when": [
+      "konverzace končí a téma zůstává otevřené, ale nejde o bezprostřední ohrožení"
+    ],
+    "core_move": "Pojmenuj, co zůstalo otevřené, zvol dobrovolný způsob připomenutí, vrať pozornost k přítomnosti a domluv, zda a kdy se k tématu vrátit.",
+    "avoid": [
+      "tvrzení, že téma je vyřešené",
+      "symbolické odložení místo řešení reálného nebezpečí"
+    ],
+    "never_claim": [
+      "že mysl bude téma automaticky zpracovávat",
+      "že odložení samo léčí"
+    ],
+    "origin_or_standard": "Původní uzavírací karta Elitea odvozená z praxe containment a session closure"
+  },
+  {
+    "id": "five_channel_checkin",
+    "name": "Pětikanálový check-in",
+    "family": "emotion_skills",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "check in",
+      "co se deje",
+      "telo",
+      "myslenky",
+      "emoce",
+      "dech",
+      "energie"
+    ],
+    "use_when": [
+      "klientka potřebuje rychle zmapovat aktuální kapacitu bez dlouhého rozboru"
+    ],
+    "core_move": "Krátce zmapuj pět oddělených kanálů: tělesný vjem, myšlenky, emoce, přirozený dech a subjektivní energii; klientka může kterýkoli kanál přeskočit.",
+    "avoid": [
+      "diagnostické závěry",
+      "nutit pozornost do těla",
+      "vydávat subjektivní energii za zdravotní metriku"
+    ],
+    "never_claim": [
+      "objektivní měření nervového systému",
+      "odhalení traumatu"
+    ],
+    "origin_or_standard": "Původní check-in Elitea vytvořený syntézou somatického a behaviorálního mapování"
+  },
+  {
+    "id": "inner_outer_attention_loop",
+    "name": "Smyčka vnitřní–vnější pozornosti",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "zahlceni",
+      "orientace",
+      "okolí",
+      "telo",
+      "pritomnost",
+      "uzkost"
+    ],
+    "use_when": [
+      "jednostranné soustředění dovnitř zvyšuje napětí",
+      "klientka chce krátkou orientaci v přítomnosti"
+    ],
+    "core_move": "Střídej jeden neutrální vnější detail s jedním snesitelným vnitřním vjemem a po každém kole ověř, zda je užitečné pokračovat.",
+    "avoid": [
+      "rychlé pohyby očí",
+      "vybavování traumatické situace",
+      "pokračování při závrati nebo zhoršení"
+    ],
+    "never_claim": [
+      "EMDR",
+      "stimulace vagu",
+      "zpracování traumatické vzpomínky"
+    ],
+    "origin_or_standard": "Původní nízkoriziková adaptace Elitea z orientace a interoceptivního dávkování"
+  },
+  {
+    "id": "gentle_mobilization_choice",
+    "name": "Jemná mobilizace podle volby",
+    "family": "relaxation",
+    "access_level": "support_only",
+    "keywords": [
+      "pohyb",
+      "ztuhla",
+      "nechci meditovat",
+      "protahnout",
+      "rozhybat"
+    ],
+    "use_when": [
+      "klientce nevyhovuje klid nebo chce krátce změnit stav jemným pohybem"
+    ],
+    "core_move": "Nabídni jednu snadnou variantu vsedě nebo ve stoje — například uvolnit ramena, ruce či chodidla — v pohodlném rozsahu a potom porovnat stav před a po.",
+    "avoid": [
+      "bolest",
+      "závrať",
+      "úraz",
+      "náročné balanční nebo jógové pozice",
+      "řízení"
+    ],
+    "never_claim": [
+      "uvolnění traumatu",
+      "léčba nervového systému",
+      "fyzioterapeutický účinek"
+    ],
+    "origin_or_standard": "Původní wellbeing adaptace Elitea z mindful movement a somatické volby"
+  },
+  {
+    "id": "gentle_sound_experiment",
+    "name": "Jemný zvukový experiment",
+    "family": "relaxation",
+    "access_level": "support_only",
+    "keywords": [
+      "zvuk",
+      "humming",
+      "broukani",
+      "hlas",
+      "uklidnit"
+    ],
+    "use_when": [
+      "klientka sama chce vyzkoušet krátký zvuk jako podpůrný rituál"
+    ],
+    "core_move": "Nabídni krátké tiché broukání nebo prodloužený přirozený výdech bez tlaku na výkon a ověř pouze subjektivní změnu.",
+    "avoid": [
+      "dušnost",
+      "bolest v krku či na hrudi",
+      "závrať",
+      "prostředí, kde zvuk není bezpečný nebo vhodný"
+    ],
+    "never_claim": [
+      "přímá stimulace vagu",
+      "léčba úzkosti",
+      "zaručená regulace"
+    ],
+    "origin_or_standard": "Původní experimentální wellbeing karta Elitea inspirovaná hlasem, rytmem a relaxací"
+  },
+  {
+    "id": "stillness_readiness",
+    "name": "Připravenost na klid",
+    "family": "mindfulness",
+    "access_level": "support_only",
+    "keywords": [
+      "meditace mi nejde",
+      "klid me znervoznuje",
+      "nevydrzim sedet",
+      "stillness",
+      "neklid"
+    ],
+    "use_when": [
+      "statická meditace nebo zavření očí zvyšuje neklid"
+    ],
+    "core_move": "Normalizuj, že klid nemusí být vhodný začátek; nabídni oči otevřené, kratší dobu, vnější kotvu nebo jemný pohyb a nech klientku vybrat.",
+    "avoid": [
+      "vynucená nehybnost",
+      "hodnocení neklidu jako selhání",
+      "prodlužování praxe přes nepohodlí"
+    ],
+    "never_claim": [
+      "že meditace musí fungovat každému",
+      "že neklid je odpor k uzdravení"
+    ],
+    "origin_or_standard": "Původní trauma-sensitive mindfulness adaptace Elitea"
+  },
+  {
+    "id": "personal_regulation_recipe",
+    "name": "Osobní recept podpory",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "co mi pomaha",
+      "regulace",
+      "vlastni plan",
+      "rutina",
+      "stres",
+      "odolnost"
+    ],
+    "use_when": [
+      "klientka už vyzkoušela více podpůrných praktik a chce z nich vytvořit realistickou rutinu"
+    ],
+    "core_move": "Vyber nejvýše tři praktiky, které klientce skutečně pomohly, přiřaď jim situaci, délku a snadnou verzi pro náročný den a po týdnu vyhodnoť zkušenost.",
+    "avoid": [
+      "přeplněný wellbeing plán",
+      "nahrazování spánku, jídla nebo odborné péče technikami"
+    ],
+    "never_claim": [
+      "univerzální regulace",
+      "prevence všech spouštěčů"
+    ],
+    "origin_or_standard": "Původní integrační rámec Elitea odvozený z personalizované practice design"
+  },
+  {
+    "id": "identity_habit_vote",
+    "name": "Malý hlas pro budoucí identitu",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "navyk",
+      "identita",
+      "pravidelnost",
+      "disciplina",
+      "zacit"
+    ],
+    "use_when": [
+      "klientka ví, kým chce v podnikání být, ale chybí jí opakované jednání",
+      "velký výsledek odvádí pozornost od procesu, který lze dnes ovlivnit"
+    ],
+    "core_move": "V přístupu Nii je každý opakovaný čin hlasem pro budoucí identitu: přelož žádoucí identitu do jedné malé pozorovatelné akce, kterou lze dnes provést, opakovat a postupně zvětšovat. Vysvětli, že součet návyků významně formuje životní výsledky, zdraví, štěstí i úspěch, a současně průběžně ověřuj, co funguje v podmínkách konkrétní členky. Identitu používej jako směr, ne jako měřítko lidské hodnoty.",
+    "avoid": [
+      "nálepkování osobnosti",
+      "považování výsledku za jedinou odměnu",
+      "ignorování zdrojů, okolností a systémových překážek",
+      "mechanické zvětšování návyku bez kontroly kapacity"
+    ],
+    "never_claim": [
+      "garantovaný výsledek nebo vydávání přístupu Nii za jediný univerzální zákon",
+      "že neúspěšný výsledek dokazuje špatný charakter"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 19–21; znovu ověřeno z přepisů 23. 8. 2026"
+  },
+  {
+    "id": "habit_return_plan",
+    "name": "Plán návratu po výpadku",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vypadla jsem",
+      "nedodrzela",
+      "navrat",
+      "navyk",
+      "selhani"
+    ],
+    "use_when": [
+      "klientka přerušila užitečný návyk nebo plán",
+      "chce předem připravit návrat pro předvídatelně náročné období"
+    ],
+    "core_move": "Bez výčitek zjisti příčinu výpadku a vrať se k návyku co nejdříve. Použij konkrétní čas a místo, minimální verzi, accountability a úpravu prostředí. V metodice Nii může vynechaný den oslabit právě budovaný vzorec, proto je důležité výpadek neproměnit v nový standard a mít předem připravený návratový krok.",
+    "avoid": [
+      "trestání",
+      "plán založený jen na vůli",
+      "nucení minimální verze při nemoci, zranění nebo potřebě odpočinku",
+      "accountability bez souhlasu"
+    ],
+    "never_claim": [
+      "garantovaný úspěch pouze díky dodržení rozvrhu"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 24 a 26; znovu ověřeno z přepisu a obrazové rekapitulace 23. 8. 2026"
+  },
+  {
+    "id": "meta_objective_gate",
+    "name": "Brána cíle Meta kampaně",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "meta ads",
+      "facebook reklama",
+      "instagram reklama",
+      "cil kampane",
+      "kampan"
+    ],
+    "use_when": [
+      "před návrhem nebo kontrolou placené Meta kampaně"
+    ],
+    "core_move": "Nejprve ujasni obchodní výsledek, konverzní událost, připravenost nabídky a měření; teprve potom doporuč cíl kampaně.",
+    "avoid": [
+      "boostování bez cíle",
+      "volba cíle podle nejlevnější metriky"
+    ],
+    "never_claim": [
+      "garantované leady nebo prodej",
+      "aktuální nastavení platformy bez ověření"
+    ],
+    "origin_or_standard": "Původní rozhodovací karta Elitea odvozená z kurzu Meta Ads a běžné funnel praxe"
+  },
+  {
+    "id": "meta_metrics_diagnostic",
+    "name": "Diagnostika reklamního trychtýře podle metrik",
+    "family": "business_diagnosis",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "ctr",
+      "cpc",
+      "cpm",
+      "cpl",
+      "roas",
+      "meta ads",
+      "reklama nefunguje"
+    ],
+    "use_when": [
+      "kampaň běží a existují skutečná data"
+    ],
+    "core_move": "Čti metriky po cestě pozornost → klik → lead nebo nákup → ekonomika; najdi první místo významného propadu a testuj jednu příčinu.",
+    "avoid": [
+      "hodnocení z malého vzorku",
+      "univerzální benchmark bez trhu a cíle"
+    ],
+    "never_claim": [
+      "jistá příčina z jedné metriky",
+      "ziskovost bez nákladů a kvality leadů"
+    ],
+    "origin_or_standard": "Původní diagnostický rámec Elitea syntetizovaný z Meta Ads metrik a funnel analýzy"
+  },
+  {
+    "id": "meta_creative_test_matrix",
+    "name": "Matice testu reklamní kreativy",
+    "family": "business_research",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "kreativa",
+      "hook",
+      "reklamni video",
+      "test reklamy",
+      "meta ads"
+    ],
+    "use_when": [
+      "potřeba zjistit, proč kreativa nezískává pozornost nebo konverze"
+    ],
+    "core_move": "Definuj hypotézu a měň v jednom testu jednu hlavní proměnnou: úhel, hook, formát, důkaz, nabídku nebo CTA; předem stanov metriku a rozhodovací hranici.",
+    "avoid": [
+      "současná změna všeho",
+      "prohlášení vítěze bez dost dat"
+    ],
+    "never_claim": [
+      "že konkrétní formát funguje vždy",
+      "že korelace dokazuje důvod výkonu"
+    ],
+    "origin_or_standard": "Původní testovací karta Elitea odvozená z kurzu Meta Ads creative testing"
+  },
+  {
+    "id": "meta_lead_quality_loop",
+    "name": "Smyčka kvality leadů",
+    "family": "business_sales",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "leady",
+      "nekvalitni leady",
+      "formular",
+      "meta ads",
+      "follow up"
+    ],
+    "use_when": [
+      "reklama přivádí kontakty, ale obchodní výsledek je slabý"
+    ],
+    "core_move": "Propoj zdroj a reklamu s kvalifikací, rychlostí reakce, follow-upem, domluvenými hovory a uzavřenými zakázkami; optimalizuj podle obchodní kvality, ne jen ceny kontaktu.",
+    "avoid": [
+      "optimalizace pouze na levný formulář",
+      "sběr kontaktů bez transparentního souhlasu"
+    ],
+    "never_claim": [
+      "že levnější lead je lepší",
+      "že problém je vždy v reklamě"
+    ],
+    "origin_or_standard": "Původní propojení Meta lead generation a sales pipeline pro malé služby"
+  },
+  {
+    "id": "meta_budget_guardrail",
+    "name": "Rozpočtové mantinely kampaně",
+    "family": "business_finance",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "rozpocet reklamy",
+      "kolik do reklamy",
+      "meta ads",
+      "zvysit rozpocet",
+      "skalovat"
+    ],
+    "use_when": [
+      "nastavení testovacího nebo škálovacího rozpočtu"
+    ],
+    "core_move": "Vycházej z únosné ztráty, jednotkové ekonomiky, potřebného vzorku a předem stanovených pravidel pokračovat, upravit nebo zastavit.",
+    "avoid": [
+      "utrácení rezervy na povinné náklady",
+      "škálování bez ověřené ekonomiky"
+    ],
+    "never_claim": [
+      "bezriziková investice",
+      "přesná návratnost bez dat"
+    ],
+    "origin_or_standard": "Původní finanční ochranný rámec Elitea odvozený z Meta Ads budget allocation a Nii metodiky cashflow"
+  },
+  {
+    "id": "accurate_self_talk_edit",
+    "name": "Přeprogramování vnitřní řeči",
+    "family": "cognitive_behavioral_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vnitrni hlas",
+      "sebemluva",
+      "self talk",
+      "nejsem dost",
+      "vzdycky selzu",
+      "nedokazu",
+      "afirmace",
+      "preprogramovani"
+    ],
+    "use_when": [
+      "tvrdá nebo absolutní vnitřní věta blokuje konkrétní krok",
+      "členka chce vědomě vytvořit nový podpůrný mentální vzorec"
+    ],
+    "core_move": "Zachyť přesnou vnitřní větu a vědomě ji nahraď pozitivní, užitečnou formulací, která podporuje žádoucí identitu, emoci a jednání. V přístupu Nii opakovaný self-talk programuje a posiluje neurální i psychické vzorce; negativní věta může aktivovat související negativní síť a zvolená afirmace může postupně vybudovat nový vzorec. Formulaci pravidelně opakuj, vizualizuj a propojuj s konkrétním chováním, aby změna nezůstala jen u slov.",
+    "steps": [
+      "Zapiš přesné znění jediné opakující se věty, která ti teď běží hlavou.",
+      "Odděl v té větě ověřitelný fakt od absolutních předpovědí a pojmenuj, co skutečně víš.",
+      "Vytvoř pravdivější podpůrnou větu, která nepopírá riziko a současně otevírá konkrétní jednání.",
+      "Vyslov novou větu vlastními slovy, představ si nejbližší situaci a zvol jeden malý čin, který ji potvrdí."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "popření reálného rizika",
+      "předstírání jistoty bez vazby na jednání",
+      "použití proti vůli členky"
+    ],
+    "never_claim": [
+      "garantovaná léčba, vyléčení nebo jistý zdravotní výsledek",
+      "že jediná věta bez opakování a jednání okamžitě odstranila všechny staré vzorce"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 12–15; znovu ověřeno z přepisů 23. 8. 2026"
+  },
+  {
+    "id": "habit_space_design",
+    "name": "Uvolnění prostoru pro návyk",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nemam cas",
+      "novy navyk",
+      "rutina",
+      "kam to dat",
+      "nestiham",
+      "termin",
+      "deadline",
+      "rozvrh"
+    ],
+    "use_when": [
+      "klientka chce přidat návyk, ale její kalendář a prostředí jsou už plné",
+      "výsledkový termín vytváří tlak, ale chybí opakovatelný pracovní rytmus"
+    ],
+    "core_move": "Urči konkrétní čas a místo, vyber co se zmenší nebo odstraní, připrav prostředí a stanov minimální verzi pro náročný den. V přístupu Nii je opakovatelný rozvrh důležitější než samotná deadline: pravidelným opakováním se návyk zapisuje do identity a postupně se stává automatickým. Sleduj plnění procesu i skutečný posun výsledku.",
+    "avoid": [
+      "přidání další povinnosti bez uvolnění kapacity",
+      "plán založený jen na motivaci",
+      "rigidní rozvrh bez prostoru pro péči, rodinu a výkyvy kapacity",
+      "nahrazení obchodního výsledku pouhou aktivitou"
+    ],
+    "never_claim": [
+      "garantovaný výsledek bez ohledu na podmínky, kapacitu a provedení",
+      "že selhání plánu je osobnostní vada"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 22; znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "keystone_habit_selector",
+    "name": "Výběr pákového návyku",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "kde zacit",
+      "moc navyku",
+      "paka",
+      "nejvetsi dopad",
+      "rutina",
+      "dominovy efekt"
+    ],
+    "use_when": [
+      "klientka chce měnit příliš mnoho věcí zároveň"
+    ],
+    "core_move": "Porovnej kandidátní návyky podle dopadu, proveditelnosti a návaznosti na další chování. Vyber jeden nebo dva pákové návyky, které podle metodiky Nii mohou spustit dominový efekt v dalších oblastech, a v krátkém období sleduj jejich skutečný dopad.",
+    "avoid": [
+      "změna více návyků současně bez kapacity",
+      "vnucení univerzálního návyku bez vztahu k cíli členky"
+    ],
+    "never_claim": [
+      "garantovaný dominový efekt u každého člověka bez ověření"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 23 a 26; znovu ověřeno z přepisu a obrazové rekapitulace 23. 8. 2026"
+  },
+  {
+    "id": "procrastination_friction_map",
+    "name": "Mapa tření prokrastinace",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "prokrastinace",
+      "odkladam",
+      "nemuzu zacit",
+      "vyhybam se",
+      "nemam motivaci",
+      "sebedisciplina",
+      "mozek me chrani"
+    ],
+    "use_when": [
+      "konkrétní úkol se opakovaně odkládá"
+    ],
+    "core_move": "Zjisti, zda hlavní tření tvoří strach, stres, únava, impulzivita, nejasnost, velikost úkolu, perfekcionismus, okamžitá úleva, prostředí, chybějící dovednost, sebeobraz nebo nedostatečná sebedisciplína. V přístupu Nii může prokrastinaci udržovat naučený neurální program i ochranná reakce mozku. Rozliš oprávněný odpočinek od úniku, vyber nejsilnější příčinu a změň ji minimálním začátkem, úpravou prostředí, self-talkem nebo tréninkem disciplíny.",
+    "avoid": [
+      "automatické označení každého odkladu za lenost",
+      "motivační nátlak bez pochopení konkrétní situace",
+      "ignorování spánku, zdraví, péče a reálné pracovní kapacity",
+      "přenesení celé viny na klientku"
+    ],
+    "never_claim": [
+      "garantované vysvětlení příčiny bez rozhovoru a ověření",
+      "že odpočinek je vždy výmluva nebo že lidskou hodnotu určuje disciplína"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: Neuroplasticity Masterclass, behaviorální analýza, sebeochrana a disciplína"
+  },
+  {
+    "id": "goal_evidence_ladder",
+    "name": "Důkazní žebřík cíle",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "cil",
+      "pokrok",
+      "merit",
+      "milnik",
+      "nevim jestli se posouvam"
+    ],
+    "use_when": [
+      "cíl je žádoucí, ale vágní nebo bez měřitelného pokroku"
+    ],
+    "core_move": "Přelož výsledek do pozorovatelných důkazů, vytvoř několik mezikroků a pro nejbližší období vyber jednu metriku výsledku a jednu metriku provedené činnosti.",
+    "avoid": [
+      "měření všeho",
+      "zaměnění aktivity za obchodní výsledek",
+      "nereálný termín"
+    ],
+    "never_claim": [
+      "že metrika garantuje dosažení cíle",
+      "že každý důležitý posun lze vyjádřit jedním číslem"
+    ],
+    "origin_or_standard": "Původní cílový rámec Elitea syntetizovaný z goal setting, milestone planning a praktického mentoringu"
+  },
+  {
+    "id": "single_task_focus_block",
+    "name": "Blok jediné priority",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nesoustredim se",
+      "rozptyleni",
+      "multitasking",
+      "focus",
+      "priorita",
+      "telefon",
+      "trenink mozku"
+    ],
+    "use_when": [
+      "klientka má jasný úkol, ale pozornost se tříští"
+    ],
+    "core_move": "Zvol jediný konkrétní výstup, odlož rušivé podněty a trénuj soustředění jako posilovatelnou mentální schopnost. Nastav blok odpovídající kapacitě, zachyť vedlejší myšlenky mimo úkol a délku postupně prodlužuj. V přístupu Nii opakovaný hluboký fokus posiluje příslušný neurální program a schopnost disciplíny.",
+    "avoid": [
+      "dlouhý blok přes aktuální kapacitu",
+      "považování odpočinku za selhání",
+      "soustředění při řízení nebo nebezpečné činnosti"
+    ],
+    "never_claim": [
+      "garantované zvýšení výkonu bez ohledu na spánek, zdraví a okolnosti",
+      "že každé rozptýlení je porucha nebo morální selhání"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: single-tasking, attention management a Neuroplasticity Masterclass"
+  },
+  {
+    "id": "skill_feedback_loop",
+    "name": "Smyčka dovednost–pokus–zpětná vazba",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zlepsit dovednost",
+      "feedback",
+      "trenink",
+      "uceni",
+      "nejde mi to"
+    ],
+    "use_when": [
+      "klientka potřebuje cíleně zlepšit konkrétní pracovní nebo komunikační dovednost"
+    ],
+    "core_move": "Definuj pozorovatelnou dovednost, proveď malý pokus, získej specifickou zpětnou vazbu od vhodného zdroje a změň v dalším kole jednu věc.",
+    "avoid": [
+      "sběr obecných názorů bez kritérií",
+      "změna všeho po jednom komentáři",
+      "zpětná vazba od nevhodné cílové skupiny"
+    ],
+    "never_claim": [
+      "že častější zpětná vazba je vždy správnější",
+      "že jeden pokus měří schopnosti člověka"
+    ],
+    "origin_or_standard": "Původní učící smyčka Elitea syntetizovaná z deliberate practice, feedback loops a testování na trhu"
+  },
+  {
+    "id": "active_recall_capture",
+    "name": "Aktivní vybavení a paměťové techniky",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zapamatovat",
+      "uceni",
+      "kurz",
+      "poznamky",
+      "retence",
+      "nepamatuji si",
+      "chunking",
+      "vizualizace",
+      "pohyb oci",
+      "metoda mist"
+    ],
+    "use_when": [
+      "klientka spotřebovává obsah, ale neumí jej později použít",
+      "členka chce najít osobní kombinaci paměťových technik"
+    ],
+    "core_move": "Ujasni význam látky a rozděl ji do smysluplných celků. Bez nápovědy vybav hlavní myšlenky, porovnej je se zdrojem, oprav mezery a vysvětli je vlastními slovy. V metodice Nii lze přidat rozložené opakování, vizualizaci, metodu míst, náladové a kontextové nápovědy, hlasité opakování, kreslení i dobrovolné střídavé pohyby očí jako cvičení propojení pozornosti a paměti. Vyber kombinaci podle stylu členky a sleduj skutečný přínos.",
+    "avoid": [
+      "pouhé opakované čtení",
+      "kopírování cizího obsahu",
+      "zahlcení množstvím poznámek",
+      "mechanické použití všech technik najednou",
+      "pokračování v cvičení, které člence zvyšuje nepohodu"
+    ],
+    "never_claim": [
+      "garantovaná fotografická paměť, přesné procentní zlepšení nebo léčba poruchy paměti",
+      "že běžné zapomínání samo o sobě dokazuje poškození mozku"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: Neuroplasticity Masterclass, aktivní vybavení, vizualizace, metoda míst a pohyb očí"
+  },
+  {
+    "id": "meta_tracking_readiness",
+    "name": "Kontrola připravenosti měření",
+    "family": "business_diagnosis",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pixel",
+      "dataset",
+      "mereni konverzi",
+      "tracking",
+      "meta ads",
+      "nevim odkud prisel lead"
+    ],
+    "use_when": [
+      "před spuštěním nebo diagnostikou kampaně, jejíž výsledek se má odehrát na webu či ve formuláři"
+    ],
+    "core_move": "Ověř správnou obchodní událost, zdroj dat, testovací konverzi, návaznost na CRM nebo objednávku a možnost odlišit Meta výsledek od ostatních kanálů.",
+    "avoid": [
+      "optimalizace podle neověřeného eventu",
+      "sběr údajů bez informovaného souhlasu",
+      "předstírání technické kontroly bez přístupu"
+    ],
+    "never_claim": [
+      "stoprocentně přesná atribuce",
+      "že Pixel sám zlepší nabídku nebo kvalitu leadů"
+    ],
+    "origin_or_standard": "Původní technická brána Elitea odvozená z kompletního auditu Meta Ads kurzu, měření konverzí a funnel praxe"
+  },
+  {
+    "id": "meta_compliance_preflight",
+    "name": "Předletová kontrola reklamního tvrzení",
+    "family": "business_risk",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "meta reklama zamitnuta",
+      "policy",
+      "reklamni tvrzeni",
+      "before after",
+      "citlive tema",
+      "compliance"
+    ],
+    "use_when": [
+      "před publikací reklamy se silným slibem, osobním atributem nebo citlivým tématem"
+    ],
+    "core_move": "Zkontroluj pravdivost a doložitelnost tvrzení, způsob oslovení publika, vizuál, očekávání na landing page a aktuální pravidla platformy; rizikovou formulaci uprav bez ztráty obchodního sdělení.",
+    "avoid": [
+      "obcházení moderace",
+      "klamavý důkaz",
+      "ponižování či využívání zranitelnosti publika"
+    ],
+    "never_claim": [
+      "garance schválení reklamy",
+      "aktuální znalost všech pravidel bez ověření"
+    ],
+    "origin_or_standard": "Původní kvalitativní kontrola Elitea syntetizovaná z compliance části Meta Ads kurzu a etické marketingové praxe"
+  },
+  {
+    "id": "meta_campaign_architecture",
+    "name": "Architektura kampaně podle výsledku",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "struktura kampane",
+      "campaign adset ad",
+      "cbo",
+      "abo",
+      "kolik kampani",
+      "meta ads"
+    ],
+    "use_when": [
+      "nabídka a měření jsou připravené, ale účet je roztříštěný nebo není jasné rozdělení kampaní a ad setů"
+    ],
+    "core_move": "Začni jedním obchodním výsledkem, zvol nejjednodušší strukturu schopnou jej měřit, odděl pouze skutečně odlišný účel nebo rozpočtové řízení a zachovej dost dat pro vyhodnocení.",
+    "avoid": [
+      "mnoho malých ad setů bez objemu",
+      "struktura podle názvů funnelu místo reálného cíle",
+      "kopírování schématu velké značky na malý rozpočet"
+    ],
+    "never_claim": [
+      "jediná správná struktura účtu",
+      "že konsolidace je vždy výhodnější"
+    ],
+    "origin_or_standard": "Původní rozhodovací rámec Elitea z kompletního kurzu Meta Ads campaign hierarchy, learning phase a account structures"
+  },
+  {
+    "id": "meta_retargeting_message_ladder",
+    "name": "Žebřík sdělení pro retargeting",
+    "family": "business_marketing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "retargeting",
+      "remarketing",
+      "teple publikum",
+      "navstevnici webu",
+      "opusteny formular",
+      "namitky"
+    ],
+    "use_when": [
+      "existuje dostatečně velké relevantní publikum, které už značku nebo nabídku poznalo"
+    ],
+    "core_move": "Rozděl publikum podle skutečného signálu zájmu, přiřaď nevyřešenou otázku či námitku, zvol odpovídající důkaz nebo nabídku a kontroluj frekvenci i přírůstkový obchodní přínos.",
+    "avoid": [
+      "retargeting prázdného publika",
+      "stejné sdělení pro všechny fáze",
+      "posuzování jen podle vysokého ROAS bez vlivu na získávání nových klientů"
+    ],
+    "never_claim": [
+      "univerzální podíl rozpočtu",
+      "že každý kontakt potřebuje určitý počet zobrazení"
+    ],
+    "origin_or_standard": "Původní messaging karta Elitea syntetizovaná z retargeting, objection handling a budget allocation částí Meta Ads kurzu"
+  },
+  {
+    "id": "meta_creative_angle_brief",
+    "name": "Brief reklamního úhlu",
+    "family": "business_marketing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "reklamni kreativita",
+      "uhel reklamy",
+      "testimonial",
+      "ugc",
+      "benefit",
+      "nabidka",
+      "meta ads"
+    ],
+    "use_when": [
+      "je potřeba vytvořit nebo rozšířit zásobu reklamních kreativ bez náhodného kopírování formátů"
+    ],
+    "core_move": "Vyber jednu cílovou situaci, jeden problém nebo žádoucí výsledek, jeden odlišující důvod věřit, vhodný typ důkazu a formát; potom vytvoř několik provedení stejné hypotézy.",
+    "avoid": [
+      "formát bez vazby na zákazníka",
+      "falešný testimonial nebo autorita",
+      "kopírování konkurence",
+      "smíchání mnoha úhlů do jedné reklamy"
+    ],
+    "never_claim": [
+      "vítězná kreativa před testem",
+      "že UGC nebo testimonial funguje vždy"
+    ],
+    "origin_or_standard": "Původní kreativní brief Elitea odvozený z 37lekčního creative modulu Meta Ads kurzu a Nii brand metodiky"
+  },
+  {
+    "id": "meta_video_script_builder",
+    "name": "Stavba reklamního videa",
+    "family": "business_marketing",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "video reklama",
+      "hook",
+      "skript",
+      "cta",
+      "ugc video",
+      "reels reklama"
+    ],
+    "use_when": [
+      "nabídka a reklamní úhel jsou jasné a je potřeba vytvořit testovatelný video scénář"
+    ],
+    "core_move": "Spoj mluvený, textový a vizuální hook se stejným slibem; v těle vysvětli problém, mechanismus, přínos a důkaz; zakonči jedním konkrétním CTA a připrav samostatně testovatelné varianty.",
+    "avoid": [
+      "nesouvisející vizuální hook",
+      "více různých CTA",
+      "dlouhý úvod bez zákaznického významu",
+      "nepravdivá naléhavost"
+    ],
+    "never_claim": [
+      "garantovaný výkon scénáře",
+      "že kratší či delší video je vždy lepší"
+    ],
+    "origin_or_standard": "Původní scénáristická karta Elitea syntetizovaná z video structure, hooks, body frameworks, CTA a editing částí Meta Ads kurzu"
+  },
+  {
+    "id": "meta_lead_route_selector",
+    "name": "Volba cesty k leadu",
+    "family": "business_sales",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "instant form",
+      "webovy formular",
+      "messenger lead",
+      "whatsapp lead",
+      "call ads",
+      "lead generation"
+    ],
+    "use_when": [
+      "služba potřebuje zvolit, zda získávat kontakty přes web, okamžitý formulář, zprávu, WhatsApp nebo telefon"
+    ],
+    "core_move": "Porovnej tření, potřebnou kvalifikaci, rychlost reakce, způsob prodeje, měření a kapacitu týmu; vyber jednu hlavní cestu a předem definuj follow-up i metriku obchodní kvality.",
+    "avoid": [
+      "nejlevnější lead jako jediné kritérium",
+      "kanál bez kapacity rychle reagovat",
+      "sběr více osobních údajů, než je nutné"
+    ],
+    "never_claim": [
+      "že konkrétní cesta vždy přináší kvalitnější leady",
+      "že počet formulářů rovná se počet klientů"
+    ],
+    "origin_or_standard": "Původní rozhodovací karta Elitea z kompletního modulu Meta lead generation a Nii obchodní metodiky"
+  },
+  {
+    "id": "meta_scaling_readiness",
+    "name": "Brána připravenosti škálovat",
+    "family": "business_finance",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "skalovat reklamu",
+      "zvysit rozpocet",
+      "vertical scaling",
+      "horizontal scaling",
+      "roas klesl"
+    ],
+    "use_when": [
+      "kampaň má výsledky a podnikatelka zvažuje výrazné zvýšení rozpočtu nebo rozšíření publika"
+    ],
+    "core_move": "Ověř stabilitu nabídky, marži a cashflow, kapacitu dodání, kvalitu měření, velikost vzorku a očekávaný pokles efektivity; poté zvol kontrolovaný rozpočtový nebo publikační test s hranicí zastavení.",
+    "avoid": [
+      "škálování jednoho náhodného vítězného dne",
+      "ignorování provozní kapacity",
+      "návrat rozpočtu jen kvůli běžnému kolísání bez propočtu"
+    ],
+    "never_claim": [
+      "lineární růst tržeb s rozpočtem",
+      "udržení stejného ROAS při škálování"
+    ],
+    "origin_or_standard": "Původní škálovací brána Elitea syntetizovaná z horizontal/vertical scaling, bid strategies a Nii cashflow principů"
+  },
+  {
+    "id": "meta_attribution_lag_check",
+    "name": "Kontrola atribuce a zpoždění",
+    "family": "business_diagnosis",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "atribuce",
+      "meta ukazuje prodeje",
+      "google ukazuje prodeje",
+      "conversion window",
+      "roas nesedi",
+      "poslednich sedm dni"
+    ],
+    "use_when": [
+      "platformy si připisují rozdílné výsledky nebo poslední období vypadá náhle slabší"
+    ],
+    "core_move": "Odděl click-through a view-through signály, zohledni zvolené atribuční okno a zpoždění konverzí, porovnej platformu s obchodními daty a rozhoduj podle konzistentního časového řezu.",
+    "avoid": [
+      "sčítání výsledků více platforem bez deduplikace",
+      "hodnocení neuzavřeného období",
+      "vydávání platformního reportu za absolutní pravdu"
+    ],
+    "never_claim": [
+      "dokonalé určení příčiny každého prodeje",
+      "že jedna platforma vždy měří správněji"
+    ],
+    "origin_or_standard": "Původní analytická karta Elitea z attribution modulu Meta Ads kurzu a cross-channel měření"
+  },
+  {
+    "id": "meta_seasonal_media_plan",
+    "name": "Sezónní mediální plán",
+    "family": "business_strategy",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "black friday",
+      "sezonni kampan",
+      "media plan",
+      "vanocni reklama",
+      "akce",
+      "kratkodoby rozpocet"
+    ],
+    "use_when": [
+      "časově omezená prodejní událost vyžaduje připravit nabídku, kreativy, rozpočet a provoz jako jeden plán"
+    ],
+    "core_move": "Začni obchodním cílem a zásobou či kapacitou, rozfázuj přípravu, zahřátí, prodej a vyhodnocení, přiřaď rozpočty a kreativní varianty, stanov rozhodovací termíny a plán návratu po akci.",
+    "avoid": [
+      "spuštění bez otestované nabídky a měření",
+      "rozpočet ohrožující provoz",
+      "kopírování procent z jiného trhu",
+      "sleva bez propočítané marže"
+    ],
+    "never_claim": [
+      "garantovaný sezónní obrat",
+      "univerzální rozdělení rozpočtu mezi funnel fáze"
+    ],
+    "origin_or_standard": "Původní plánovací karta Elitea syntetizovaná z seasonal campaigns, media plan, budget allocation a Nii ekonomiky nabídky"
+  },
+  {
+    "id": "acupressure_treatment",
+    "name": "Akupresurní léčebné postupy",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "akupresura",
+      "tlakovy bod",
+      "meridian",
+      "astma",
+      "tinnitus",
+      "artritida",
+      "gynekologicke potize"
+    ],
+    "use_when": [
+      "pouze kvalifikovaný člověk po vhodném posouzení zdravotního stavu a kontraindikací"
+    ],
+    "core_move": "Elitea nevydává tlakové body ani jejich kombinace za léčbu; může pouze doporučit ověření vhodnosti u kvalifikovaného zdravotního nebo manuálního odborníka.",
+    "avoid": [
+      "AI lokalizace bodů",
+      "léčba onemocnění přes chat",
+      "návod pro jinou osobu bez posouzení",
+      "tlak u těhotenství, akutní bolesti či jiného rizika"
+    ],
+    "never_claim": [
+      "léčba astmatu, artritidy, tinnitu, gynekologických nebo jiných zdravotních obtíží",
+      "prokázaná účinnost konkrétní kombinace bodů"
+    ],
+    "origin_or_standard": "Kritická hranice Elitea vytvořená po úplném auditu kurzu Acupressure Massage For Health Certificate Course"
+  },
+  {
+    "id": "myofascial_manual_treatment",
+    "name": "Manuální myofasciální ošetření",
+    "family": "clinical_human_only",
+    "access_level": "human_only",
+    "keywords": [
+      "myofascial release",
+      "deep tissue",
+      "masaz",
+      "pater",
+      "krk",
+      "rameno",
+      "manualni technika"
+    ],
+    "use_when": [
+      "praktické provedení vyškoleným manuálním odborníkem s informovaným souhlasem a posouzením kontraindikací"
+    ],
+    "core_move": "Elitea nevede hlubokou masáž, práci s páteří, krkem ani myofasciální sekvence přes text; obecně vysvětlí hranici a odkáže na vhodně kvalifikovaného člověka.",
+    "avoid": [
+      "samostatné provádění podle chatu",
+      "tlak na krk nebo páteř",
+      "návod při bolesti, úrazu či nejasném zdravotním stavu"
+    ],
+    "never_claim": [
+      "náprava držení těla nebo bolesti přes AI návod",
+      "uvolnění fascie jako garantovaný zdravotní výsledek"
+    ],
+    "origin_or_standard": "Kritická hranice Elitea vytvořená po úplném auditu Deep Tissue Myofascial Massage Certificate Course"
+  },
+  {
+    "id": "daily_attitude_behavior_intention",
+    "name": "Denní postoj a přeprogramování",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "postoj",
+      "attitude",
+      "rano",
+      "vecer",
+      "zamer",
+      "jak se chci chovat",
+      "pozitivni pristup",
+      "preprogramovani"
+    ],
+    "use_when": [
+      "klientka chce zvolit užitečnější postoj pro konkrétní den nebo situaci",
+      "členka chce opakováním posílit nový mentální vzorec"
+    ],
+    "core_move": "Pojmenuj žádoucí postoj vlastními slovy, večer jej zvol pro následující den, připomeň si jej po probuzení a převeď do konkrétního chování. V přístupu Nii může vědomě zvolený postoj přeprogramovávat naučené vzorce, měnit prožívání dne a dlouhodobě formovat osobnost. Pracuj například s optimismem, laskavostí, soustředěním, službou, vděčností, zdravím, trpělivostí a úspěchem; večer zhodnoť, jak se postoj projevil.",
+    "avoid": [
+      "obviňování klientky, když se postoj během dne změní",
+      "popření reálného problému nebo bolesti",
+      "měření lidské hodnoty výkonem"
+    ],
+    "never_claim": [
+      "garantovaný dobrý den, úspěch, zdraví nebo léčba pouze díky zvolenému postoji"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 16–18; znovu ověřeno z přepisů a obrazové rekapitulace 23. 8. 2026"
+  },
+  {
+    "id": "low_risk_habit_loop_replacement",
+    "name": "Náhrada návykové smyčky",
+    "family": "behavior_change",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zlozvyk",
+      "spoustec",
+      "automaticky",
+      "scrolluju",
+      "kontroluju email",
+      "prokrastinace",
+      "nahradit navyk",
+      "zavislost"
+    ],
+    "use_when": [
+      "opakované chování se spouští v předvídatelném kontextu a klientka jej chce změnit",
+      "členka chce koučovací podporu při změně návyku nebo návykového vzorce"
+    ],
+    "core_move": "Bez souzení zachyť situaci, spouštěč, okamžitou funkci a četnost. V přístupu Nii lze zlozvyk měnit přerušením starého neurálního programu: zvol náhradní reakci se stejnou nebo podobnou funkcí, uprav prostředí, použij vizualizaci a self-talk, vytvoř plán když–tak a sleduj průběh. U silně návykové látky nedávej pokyn k nebezpečnému náhlému vysazení.",
+    "avoid": [
+      "odebrání chování bez náhradní strategie",
+      "stud a morální nálepky",
+      "pokyny k nebezpečnému náhlému vysazení návykové látky",
+      "koučování během explicitní akutní krize"
+    ],
+    "never_claim": [
+      "garantované zlomení jakéhokoli návyku jedním postupem",
+      "garantovaná léčba závislosti nebo jiného zdravotního stavu"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii a Udemy Neuroplasticity Masterclass, lekce 25–26; znovu ověřeno z přepisu a obrazové rekapitulace 23. 8. 2026"
+  },
+  {
+    "id": "next_day_priority_plan",
+    "name": "Večerní plán a ranní náskok",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "plan dne",
+      "naplanovat zitra",
+      "co zitra",
+      "vecerni plan",
+      "ranni chaos",
+      "priority dne",
+      "podvedomi"
+    ],
+    "use_when": [
+      "ráno se ztrácí čas rozhodováním nebo má klientka mnoho konkurenčních úkolů"
+    ],
+    "core_move": "Na konci dne zvol důležité výstupy na zítřek, připrav první krok a stanov, co se dělat nebude. V přístupu Nii večerní plán dává podvědomí čas úkoly zpracovat a ráno je výhodné začít nejdůležitějším či nejtěžším krokem, než den zaplní cizí požadavky. Přizpůsob konkrétní čas reálnému rytmu členky a průběžně jej ověřuj.",
+    "avoid": [
+      "plán zaplněný bez rezervy",
+      "seznam zaměněný za prioritu",
+      "výčitky při změně okolností",
+      "vnucování stejného denního rytmu proti dlouhodobě ověřené zkušenosti členky"
+    ],
+    "never_claim": [
+      "garantované vyřešení úkolu podvědomím nebo odstranění všech výpadků"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: večerní plánování, podvědomé zpracování a ranní priorita z Neuroplasticity Masterclass"
+  },
+  {
+    "id": "similar_task_batching_test",
+    "name": "Dávkování podobných úkolů",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "batching",
+      "dávkování úkolů",
+      "emaily najednou",
+      "natocit vice videi",
+      "obsah dopredu",
+      "prepinani kontextu",
+      "deep work"
+    ],
+    "use_when": [
+      "opakované podobné úkoly mají vysokou přípravu nebo přepínání kontextu"
+    ],
+    "core_move": "Seskup podobné úkoly do delšího soustředěného bloku, předem stanov požadovaný výstup a omez přepínání kontextu. V metodice Nii delší deep-work a batching bloky obvykle zvyšují efektivitu a množství výstupu; po bloku porovnej čas, kvalitu a energii a podle výsledku nastav další dávku.",
+    "avoid": [
+      "nekonečný výrobní blok bez přestávky",
+      "ignorování termínů, kvality nebo fyzické kapacity",
+      "přirovnávání člověka k továrně"
+    ],
+    "never_claim": [
+      "garantovaná produktivita u každého typu práce a každého člověka"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: deep work, context switching a batch production z Neuroplasticity Masterclass"
+  },
+  {
+    "id": "goal_strategy_cascade",
+    "name": "Kaskáda cíle do provedení",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "strategie cíle",
+      "dílčí cíle",
+      "priority",
+      "aktivity",
+      "jak dosáhnout cíle",
+      "plán cíle",
+      "smart cil"
+    ],
+    "use_when": [
+      "klientka zná žádoucí výsledek, ale její plán je jen seznam nespojených úkolů"
+    ],
+    "core_move": "Stanovení jasného cíle v přístupu Nii zvyšuje soustředění a urychluje postup v kariéře i podnikání. Zvol dlouhodobý cíl s termínem, přelož jej do měřitelných dílčích výsledků, strategie, pěti až sedmi priorit a konkrétních aktivit. Ověř návaznost zdola nahoru a pravidelně plán aktualizuj podle výsledků.",
+    "avoid": [
+      "strategický dokument bez prvního kroku",
+      "mnoho paralelních strategií bez kapacity",
+      "termíny odtržené od zdrojů a cashflow",
+      "zaměnění osobní hodnoty za splnění cíle"
+    ],
+    "never_claim": [
+      "stoprocentní dosažení cíle bez ohledu na okolnosti, zdroje a provedení"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii: SMART, dlouhodobé cíle a strategická kaskáda z Neuroplasticity Masterclass"
+  },
+  {
+    "id": "nia_memory_release_practice",
+    "name": "Uvolnění emočního náboje vzpomínky",
+    "family": "emotion_skills",
+    "access_level": "support_only",
+    "keywords": [
+      "neprijemna vzpominka",
+      "nemuzu pustit minulost",
+      "bolestna vzpominka",
+      "prijeti",
+      "odpusteni",
+      "zmena vyznamu"
+    ],
+    "use_when": [
+      "členka sama chce neklinicky pracovat s nepříjemnou vzpomínkou a je schopná zůstat v přítomném kontaktu"
+    ],
+    "core_move": "Se souhlasem a možností kdykoli přestat pomoz člence vzpomínku pojmenovat, přijmout její existenci, oddělit minulost od přítomnosti, změnit její význam a opakovaně ji krátce vybavit jen v míře, která postupně snižuje emoční náboj. Doplň práci se spouštěči, journaling, rozhovor, aktivitu, truchlení a návrat pozornosti k současnému životu.",
+    "avoid": [
+      "pokračování při zahlcení, odpojení nebo zhoršení",
+      "nátlak na odpuštění",
+      "vytváření nebo doplňování vzpomínek",
+      "použití během explicitní akutní krize"
+    ],
+    "never_claim": [
+      "garantované vymazání vzpomínky, léčba traumatu nebo jisté odstranění obtíží"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii z Neuroplasticity Masterclass: přijetí, opakované vybavení, změna významu a návrat k přítomnosti"
+  },
+  {
+    "id": "nia_concentration_training_menu",
+    "name": "Trénink koncentrace podle Nii",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "koncentrace",
+      "cviceni soustredeni",
+      "brain builder",
+      "pozornost",
+      "vizualizace",
+      "zvuky",
+      "pocitani",
+      "vybarvovani",
+      "klidne sezeni"
+    ],
+    "use_when": [
+      "členka chce systematicky trénovat pozornost a soustředění"
+    ],
+    "core_move": "Vyber jediné krátké cvičení a délku postupně zvyšuj: mentální výpočty; detailní pozorování předmětu; fokus na slovo či zvuk; všimnutí myšlenky a návrat bez násilného potlačení; vizualizaci; kreslení nebo vybarvování; klidný pohled na neutrální předmět; jemný přirozený dech; krátké sezení v klidu; nebo výběrové přepínání mezi zvuky. Sleduj, které cvičení člence funguje, a dovol kdykoli přejít k vnější orientaci či skončit.",
+    "avoid": [
+      "cvičení při řízení nebo nebezpečné činnosti",
+      "pokračování při bolesti, závrati nebo výrazném zhoršení",
+      "přetížení mnoha cvičeními současně",
+      "vynucené zadržování dechu, nehybnost nebo prázdná mysl",
+      "zaměření na tep či tělo, pokud zvyšuje úzkost"
+    ],
+    "never_claim": [
+      "garantované vytvoření konkrétního neurálního programu nebo léčba poruchy pozornosti či nespavosti",
+      "že potlačení myšlenek nebo přesný dechový rytmus je nutný"
+    ],
+    "origin_or_standard": "Potvrzená metodika Nii z Neuroplasticity Masterclass, lekce 47 a 75; celé přepisy znovu ověřeny 23. 8. 2026"
+  },
+  {
+    "id": "focus_maintenance_seven_strategies",
+    "name": "Sedm strategií udržení fokusu",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "udrzet fokus",
+      "udrzet soustredeni",
+      "ztracim pozornost",
+      "mind map",
+      "myslenkova mapa",
+      "vnitrni rozptyleni",
+      "relevance ukolu"
+    ],
+    "use_when": [
+      "členka umí začít, ale během práce nebo učení ztrácí fokus",
+      "potřebuje najít konkrétní příčinu rozptýlení a odpovídající strategii"
+    ],
+    "core_move": "Zjisti, co fokus oslabuje, a vyber jednu ze sedmi pák Nii: myšlenkovou mapu pro celek a detaily; zvýšení zájmu a zvídavosti; připomenutí účelu a významu; zachycení vnitřních i vnějších rušičů a úpravu prostředí; zvýšení relevance prioritou, termínem nebo odměnou; realistický časový odhad a střídání těžších a lehčích úkolů; aktivní poznámky a závěrečné shrnutí.",
+    "avoid": [
+      "nasazení všech sedmi strategií současně",
+      "potlačování myšlenek silou bez práce s prostředím",
+      "časový plán bez rezervy",
+      "odměna, která narušuje důležitější cíl"
+    ],
+    "never_claim": [
+      "garantované soustředění nebo přesné procentní zvýšení výkonu"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 48, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "learning_motivation_boost",
+    "name": "Deset pák motivace k učení",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "motivace k uceni",
+      "nemam motivaci se ucit",
+      "motivace k praci",
+      "proc se ucim",
+      "studijni motivace",
+      "rozjet uceni"
+    ],
+    "use_when": [
+      "členka čeká na motivaci před začátkem učení nebo práce",
+      "ztratila spojení mezi úkolem, smyslem a žádoucím výsledkem"
+    ],
+    "core_move": "Vyber jednu vhodnou páku: začít nejmenším krokem a nečekat na náladu; udělat nejtěžší úkol jako první; použít odměnu a podpůrný self-talk; sdílet pokrok; připomenout si proč, směr a obraz za tři roky; převést látku do vlastních slov; změnit strategii, místo nebo vložit přestávku; vizualizovat konečný výsledek; položit si otázku na radost a vzrušení; porovnávat se se svým dřívějším já a vést záznam úspěchů.",
+    "avoid": [
+      "čekání na dokonalou motivaci",
+      "srovnávání vlastní hodnoty s ostatními",
+      "odměny poškozující zdraví nebo finance",
+      "přetlačení oprávněné potřeby odpočinku"
+    ],
+    "never_claim": [
+      "že motivace vždy přijde po začátku nebo že jediná páka funguje každému"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 49, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "reading_comprehension_five_moves",
+    "name": "Pět tahů pro porozumění a retenci",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "porozumeni textu",
+      "ctu a nepamatuji",
+      "reading comprehension",
+      "retence cteni",
+      "shrnutí odstavce",
+      "hlavni myslenka textu"
+    ],
+    "use_when": [
+      "členka čte, ale pozornost bloudí nebo si obsah neumí vybavit",
+      "potřebuje proměnit pasivní čtení v aktivní dialog s textem"
+    ],
+    "core_move": "Použij jednu nebo více navazujících technik: reaguj krátkým komentářem na autorova tvrzení; po odstavci nahlas shrň hlavní bod; předpověz, co bude následovat; po čtení bez nápovědy vytvoř osnovu a až potom doplň mezery ze zdroje; odděl hlavní tvrzení, důkazy a závěr. U důležitého textu uzavři čtení vlastní aplikací nebo otázkou.",
+    "avoid": [
+      "opisování bez vybavení z paměti",
+      "komentář ke každé větě, který zničí tok čtení",
+      "zaměnění shrnutí za hlavní autorovo tvrzení",
+      "vyvozování jistoty z neúplného textu"
+    ],
+    "never_claim": [
+      "garantované zapamatování všeho přečteného nebo univerzální rychlost zlepšení"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 50, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "imaginative_memory_story",
+    "name": "Imaginativní příběh pro paměť",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pamatovat si pomoci obrazku",
+      "vizualni pribeh",
+      "imaginace pamet",
+      "propojit informace obrazem",
+      "kreativni zapamatovani"
+    ],
+    "use_when": [
+      "členka si potřebuje zapamatovat několik nesouvisejících pojmů nebo kroků",
+      "vizuální a zážitkové spojení jí vyhovuje více než mechanické opakování"
+    ],
+    "core_move": "Převeď pojmy do výrazných obrazů a spoj je do krátkého neobvyklého příběhu, který obsahuje prostředí, pohyb, emoci a smyslový detail. Příběh si v klidu přehraj, potom informace vybav bez nápovědy a oprav chybějící spojení. Imaginaci trénuj jako dovednost a propojuj ji s praktickým použitím látky.",
+    "avoid": [
+      "příběh složitější než samotná informace",
+      "použití zraňujících nebo nechtěných obrazů",
+      "nahrazení pochopení pouhou bizarní asociací"
+    ],
+    "never_claim": [
+      "garantovaná lepší paměť, kreativita nebo vyřešení každého problému"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 51, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "memory_palace_route",
+    "name": "Paměťový palác a pevná trasa",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pametovy palac",
+      "memory palace",
+      "metoda loci",
+      "zapamatovat seznam",
+      "trasa v pameti",
+      "kotvy v prostoru"
+    ],
+    "use_when": [
+      "členka chce uložit pořadí seznamu, bodů prezentace nebo jiných položek",
+      "dokáže si živě představit známé místo"
+    ],
+    "core_move": "Vyber dobře známé místo, stanov pevnou trasu a několik jasných kotevních bodů. Každou položku převeď do živého, pohyblivého a klidně bizarního obrazu a umísti ji na jednu kotvu. Trasou několikrát projdi v mysli, vybav položky bez nápovědy a pro delší uchování celý průchod zopakuj další den a znovu s odstupem.",
+    "avoid": [
+      "příliš mnoho kotev při prvním pokusu",
+      "měnění trasy během učení",
+      "nejasné nebo vzájemně zaměnitelné obrazy",
+      "použití při vizualizaci, která člence vyvolává výraznou nepohodu"
+    ],
+    "never_claim": [
+      "garantovaná dlouhodobá paměť nebo výsledek paměťových šampionů u každého"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 52, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "neuroplasticity_change_process",
+    "name": "Pětikrokový proces změny vzorce",
+    "family": "behavior_change",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zmenit navyk",
+      "zmenit vzorec",
+      "preprogramovat navyk",
+      "proces zmeny",
+      "napojit na navyk",
+      "vecerni mentalni priprava"
+    ],
+    "use_when": [
+      "členka chce změnit konkrétní opakované chování a potřebuje jasný proces",
+      "záměr je vágní a není napojený na každodenní spouštěč"
+    ],
+    "core_move": "Přesně popiš měněný návyk, jeho důvod a žádoucí podobu. Rozděl změnu do jednoduchého pravidelně opakovatelného procesu. Proces si živě představ s emocí, večer si mentálně projdi následující provedení a první krok připoj k již stabilnímu návyku nebo situaci. Sleduj provedení, upravuj nejasná místa a stav na opakování místo čekání na velký jednorázový průlom.",
+    "avoid": [
+      "vágní záměr bez pozorovatelného jednání",
+      "příliš mnoho současných změn",
+      "vizualizaci bez skutečného kroku",
+      "večerní cvičení, pokud zvyšuje napětí nebo narušuje spánek"
+    ],
+    "never_claim": [
+      "že mentální zkouška nebo opakování samo garantuje změnu osobnosti, mozku či výsledku"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 2, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "brain_builder_activity_design",
+    "name": "Návrh osobního brain builderu",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "brain builder",
+      "trenovat mozek",
+      "nova dovednost",
+      "mentalni stimulace",
+      "ucit se neco noveho",
+      "novost a obtiznost"
+    ],
+    "use_when": [
+      "členka chce dlouhodobě rozvíjet soustředění, učení nebo tvořivost novou aktivitou",
+      "potřebuje vybrat smysluplný trénink místo nahodilého seznamu cvičení"
+    ],
+    "core_move": "Vyber aktivitu, která spojuje novost, soustředění, přiměřenou obtížnost, odměnu, měřitelný pokrok, stimulaci a osobní emoční význam. Členka se jí aktivně účastní, pravidelně ji opakuje a vydrží u ní dost dlouho, aby mohla pozorovat skutečný posun. Může jít například o nový jazyk, nástroj, kreslení, strategickou hru, výuku naučené dovednosti nebo trénink nedominantní ruky; volba se přizpůsobí zájmu, kapacitě a cíli.",
+    "avoid": [
+      "pasivní spotřebu vydávanou za trénink",
+      "výběr aktivity bez osobního zájmu",
+      "rychlé navyšování obtížnosti přes kapacitu",
+      "nebezpečné nebo zdravotně nevhodné cvičení"
+    ],
+    "never_claim": [
+      "garantovaný vznik nových neuronů, konkrétní změnu mozku nebo univerzální zlepšení výkonu"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 4, 7 a 8 včetně pracovních listů; znovu ověřeno 23. 8. 2026"
+  },
+  {
+    "id": "awareness_novelty_scan",
+    "name": "Vědomý průzkum novosti",
+    "family": "mindfulness",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "byt vsimava",
+      "vsimat si okoli",
+      "jedu na autopilota",
+      "mentalni autopilot",
+      "novy pohled",
+      "vedomy pruzkum"
+    ],
+    "use_when": [
+      "členka popisuje stereotyp, mentální autopilot nebo nedostatek inspirace",
+      "chce krátce procvičit všímavost a zvídavost v běžném dni"
+    ],
+    "core_move": "Vyber bezpečný známý úsek dne a projdi jej jako vědomý pozorovatel: zachyť několik nových detailů, jednu změnu, jednu otázku a jeden podnět, který stojí za další prozkoumání. Následně zvol malou novinku – jinou cestu, téma, rozhovor, knihu nebo dovednost – která rozšíří zaběhnutý vzorec. Cílem je aktivní všímavost, zvídavost a pestrost, ne výkon.",
+    "avoid": [
+      "cvičení při řízení nebo v situaci vyžadující plnou bezpečnostní pozornost",
+      "posuzování běžného odpočinku jako mentálního selhání",
+      "zahlcení přemírou nových aktivit",
+      "nátlak na pozitivitu"
+    ],
+    "never_claim": [
+      "že všímavost garantovaně omlazuje mozek, prodlužuje život nebo léčí kognitivní obtíže"
+    ],
+    "origin_or_standard": "Neuroplasticity Masterclass, lekce 9 a 10, znovu ověřeno z přepisu 23. 8. 2026"
+  },
+  {
+    "id": "ten_minute_momentum_check",
+    "name": "Desetiminutový reset momenta",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "10 minut",
+      "deset minut",
+      "kratky blok",
+      "ztratila jsem momentum",
+      "nemuzu se rozjet",
+      "rychly restart"
+    ],
+    "use_when": [
+      "členka ztratila pracovní momentum a potřebuje se vrátit k prioritě malým proveditelným krokem",
+      "velikost úkolu vytváří odpor, ale existuje jasný dílčí výstup"
+    ],
+    "core_move": "Zeptej se: Co jsem dělala posledních deset minut a co konkrétně udělám v příštích deseti? Vyber jediný malý výstup, odstraň pro tento úsek rušiče a pracuj s intenzitou přiměřenou kapacitě. Po bloku vědomě rozhodni, zda pokračovat, upravit délku, dát si skutečnou pauzu nebo změnit překážku; deset minut je startovací jednotka, ne povinný univerzální interval.",
+    "avoid": [
+      "řetězení intenzivních bloků bez obnovy",
+      "zaměnění každé pauzy za prokrastinaci",
+      "použití při úkolu, který nelze bezpečně uspěchat",
+      "ignorování únavy, péče nebo zdravotní kapacity"
+    ],
+    "never_claim": [
+      "že deset minut vždy stačí nebo že krátký blok automaticky obnoví produktivitu"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 29 a 31; celý přepis a obrazová rekapitulace znovu ověřeny 23. 8. 2026"
+  },
+  {
+    "id": "recovery_feedback_loop",
+    "name": "Regenerace a kontrola směru",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "regenerace",
+      "recovery",
+      "odpocinek",
+      "vycerpana",
+      "vyhodnotit vysledky",
+      "zpetna vazba",
+      "recuperation"
+    ],
+    "use_when": [
+      "výkon klesá nebo pracovní systém dlouhodobě vyčerpává kapacitu",
+      "členka pracuje hodně, ale neví, zda se skutečně přibližuje cíli"
+    ],
+    "core_move": "Naplánuj skutečnou obnovu a potom krátkou zpětnou vazbu: co přineslo výsledek, co spotřebovalo energii bez odpovídajícího dopadu a co se příště zmenší, zachová nebo změní. Regeneraci vybírej podle preference a kapacity členky – může jít o spánek, klid, procházku, jemný pohyb, kontakt s blízkými nebo jinou obnovující činnost – a neposuzuj ji podle množství produkce.",
+    "avoid": [
+      "aktivní odpočinek vnucený člověku, který potřebuje klid",
+      "použití regenerace jako dalšího výkonového úkolu",
+      "zdravotní nebo výživová doporučení bez znalosti situace",
+      "vyhodnocování lidské hodnoty podle produktivity"
+    ],
+    "never_claim": [
+      "že konkrétní režim regenerace léčí vyčerpání nebo zaručí výkon",
+      "že každý pokles energie způsobuje špatný plán"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 29 a 31; celý přepis a obrazová rekapitulace znovu ověřeny 23. 8. 2026"
+  },
+  {
+    "id": "memory_signal_design",
+    "name": "Pět signálů zapamatovatelnosti",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "zapamatovatelnost",
+      "co si mozek ulozi",
+      "prvenstvi",
+      "cerstvost",
+      "prekvapeni",
+      "emocni dopad",
+      "primacy recency"
+    ],
+    "use_when": [
+      "členka potřebuje navrhnout lekci, prezentaci nebo sdělení tak, aby se klíčové body lépe vybavovaly",
+      "učivo je důležité, ale splývá a nemá jasné paměťové kotvy"
+    ],
+    "core_move": "Vyber hlavní sdělení a podpoř je pěti signály: promyšleným opakováním; silným začátkem a závěrem; bezpečným prvkem překvapení či neobvyklosti; osobním nebo emočním významem; a jasnou zpětnou vazbou či důsledkem. Potom ověř vybavení bez nápovědy a uprav jen body, které se ztrácejí.",
+    "avoid": [
+      "zahlcení každého bodu všemi pěti signály",
+      "záměrné vyvolávání strachu, studu nebo silné emoce",
+      "opakování bez pochopení",
+      "manipulativní překvapení"
+    ],
+    "never_claim": [
+      "že těchto pět signálů garantuje dlouhodobé zapamatování nebo funguje stejně u každého"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 33; přepis znovu ověřen 23. 8. 2026"
+  },
+  {
+    "id": "memory_fourteen_tool_selector",
+    "name": "Výběr ze čtrnácti paměťových nástrojů",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "14 technik pameti",
+      "zlepsit pamet",
+      "pamatuji si spatne",
+      "chunking",
+      "elaborativni opakovani",
+      "vybavovaci podnety",
+      "doodling"
+    ],
+    "use_when": [
+      "členka chce prakticky zlepšit zapamatování a potřebuje vybrat postup podle typu látky",
+      "jedna dosavadní učební metoda nefunguje a je vhodné otestovat jinou cestu"
+    ],
+    "core_move": "Podle problému vyber nejvýše dvě techniky: pozornost; pochopení významu; smysluplné chunking; vysvětlení druhému; imaginaci či loci; kontextové vybavovací podněty; rozestupy mezi podobnou látkou; hlasité zopakování; doodling; volitelný pohyb očí jako krátký koncentrační experiment; ochranu spánku; přiměřený pohyb; regulaci stresu a omezení multitaskingu; nebo obecnou péči o vyvážené stravování. Výsledek ověř vybavením bez nápovědy a ponech jen to, co člence funguje.",
+    "avoid": [
+      "všech čtrnáct technik najednou",
+      "zdravotní nebo výživové předepisování",
+      "pohyb očí při závrati, nevolnosti nebo zrakových obtížích",
+      "zaměnění pocitu známosti za skutečné vybavení"
+    ],
+    "never_claim": [
+      "že pohyb očí propojí hemisféry nebo zaručeně zlepší paměť",
+      "přesné procentní zlepšení bez ověřitelného zdroje",
+      "že běžné zapomínání znamená poškození mozku",
+      "že jedna metoda vyhovuje každému"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 35; celý přepis a všech čtrnáct bodů znovu ověřeno 23. 8. 2026"
+  },
+  {
+    "id": "stroop_concentration_practice",
+    "name": "Stroopův trénink pozornosti",
+    "family": "learning",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "stroop",
+      "barevna slova",
+      "barva inkoustu",
+      "hlavolam koncentrace",
+      "konflikt cteni barvy",
+      "inhibice"
+    ],
+    "use_when": [
+      "členka chce krátké měřitelné cvičení selektivní pozornosti a inhibice automatické reakce",
+      "potřebuje pestřejší koncentrační trénink bez vazby na pracovní obsah"
+    ],
+    "core_move": "Použij tři krátká kola: nejprve pojmenuj barvy barevných prvků, potom rychle přečti barevná slova a nakonec pojmenuj barvu inkoustu, nikoli napsané slovo. Zaznamenej čas nebo chyby bez hodnocení a při opakování sleduj vlastní trend. Cvičení je trénink a sebereflexe, nikoli test inteligence či diagnóza.",
+    "avoid": [
+      "použití při řízení nebo jiné bezpečnostně náročné činnosti",
+      "výkonový nátlak",
+      "pokračování při bolesti očí, závrati nebo výrazné nepohodě",
+      "srovnávání lidské hodnoty podle výsledku"
+    ],
+    "never_claim": [
+      "že cvičení diagnostikuje poruchu pozornosti nebo inteligenci",
+      "že levá a pravá hemisféra vysvětlují výkon jednoduchým rozdělením",
+      "garantované zlepšení koncentrace"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 38; přepis a všechny tři obrazové úlohy znovu ověřeny 23. 8. 2026"
+  },
+  {
+    "id": "mind_habit_alignment_audit",
+    "name": "Audit návyků mysli a cíle",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "nakyvy mysli",
+      "mind habits",
+      "sladit navyky s cilem",
+      "cil a chovani",
+      "konzistence",
+      "integrita",
+      "flexibilita"
+    ],
+    "use_when": [
+      "členka má jasný cíl, ale její opakované chování mu neodpovídá",
+      "potřebuje vybrat mentální nebo komunikační dovednost s největším dopadem"
+    ],
+    "core_move": "Nejdřív bez hodnocení sleduj několik dní opakované chování a jeho dopad. Potom porovnej dvanáct oblastí – komunikaci, celek, kreativitu, přesnost, kritické myšlení, otevřenost, vytrvalost, odpovědné riziko, spolupráci, řízení impulzů, integritu a flexibilitu – a vyber nejvýše tři. Každou přelož do pozorovatelného kroku, otestuj v bezpečné situaci a podle výsledku ji ponech, uprav nebo opusť.",
+    "avoid": [
+      "hodnocení osobnosti podle jedné situace",
+      "všechny oblasti najednou",
+      "nekonečná vytrvalost u nefunkčního nebo škodlivého směru",
+      "záměna otevřenosti za souhlas se vším"
+    ],
+    "never_claim": [
+      "že správné návyky zaručí dosažení cíle nebo přes noc změní osobnost",
+      "že neúspěch dokazuje slabou mysl"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 62–64; celé přepisy znovu ověřeny 23. 8. 2026"
+  },
+  {
+    "id": "focus_story_clarifier",
+    "name": "Příběh pro vyjasnění fokusu",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "pribeh o cili",
+      "pribeh o neuspechu",
+      "story focus",
+      "proc je to dulezite",
+      "ztracim smysl",
+      "pouceni z chyby"
+    ],
+    "use_when": [
+      "členka ztrácí vztah mezi denním úkolem a jeho smyslem",
+      "potřebuje vytěžit poučení z pracovní chyby nebo si představit standard dokončení"
+    ],
+    "core_move": "Nech členku vytvořit krátký, bezpečný příběh o cíli, chybě, inspiraci nebo dokončení. Potom společně odděl fakta, interpretace a přání; vytáhni hlavní význam, konkrétní překážku, požadovanou kvalitu, omezení a nejbližší krok. Příběh uzavři ověřitelným jednáním, ne pouze pozitivním obrazem.",
+    "avoid": [
+      "vyžadování detailů traumatu nebo bolestivé události",
+      "přepisování reality do povinně pozitivního příběhu",
+      "smyšlené motivy druhých lidí",
+      "příběh bez praktického kroku"
+    ],
+    "never_claim": [
+      "léčba traumatu, snížení stresu nebo zvýšení sebedůvěry samotným vyprávěním",
+      "že příběh zaručí fokus či výsledek"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 66; celý přepis znovu ověřen 23. 8. 2026"
+  },
+  {
+    "id": "goal_skill_gap_map",
+    "name": "Mapa dovedností k cíli",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "jake dovednosti potrebuji",
+      "skill gap",
+      "chybi mi dovednost",
+      "rozvoj dovednosti",
+      "naucit se pro cil",
+      "kompetence"
+    ],
+    "use_when": [
+      "členka má cíl, ale není jasné, co se musí naučit nebo zajistit",
+      "příliš mnoho kurzů není propojeno s reálným výkonem"
+    ],
+    "core_move": "Ke každému prioritnímu cíli vypiš potřebné dovednosti, současnou úroveň a pozorovatelný důkaz zvládnutí. Zohledni silné stránky, vyber největší mezeru, pozoruj kvalitní vzor, navrhni malý záměrný nácvik v reálném úkolu a po něm zpětnou vazbu. Rozliš, co se má členka učit sama, co může delegovat a co teď nepotřebuje.",
+    "avoid": [
+      "nákup kurzu bez vazby na úkol",
+      "srovnávání hodnoty členky s expertem",
+      "rozvoj všech mezer současně",
+      "zaměnění informací za praktickou dovednost"
+    ],
+    "never_claim": [
+      "že koncentrace sama vytvoří expertizu nebo že každou dovednost musí zvládnout osobně",
+      "garantovaný kariérní či obchodní výsledek"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 68; celý přepis znovu ověřen 23. 8. 2026"
+  },
+  {
+    "id": "concentration_context_audit",
+    "name": "Kontextový audit koncentrace",
+    "family": "productivity",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "proc se nesoustredim",
+      "audit koncentrace",
+      "test soustredeni",
+      "mysl bloudi",
+      "rusive myslenky",
+      "kdy mam nejvic energie"
+    ],
+    "use_when": [
+      "členka opakovaně ztrácí pozornost a potřebuje rozlišit příčiny",
+      "chce sledovat vlastní podmínky soustředění bez diagnózy"
+    ],
+    "core_move": "Na krátké škále zmapuj pouze relevantní oblasti: bloudění mysli, rušivé myšlenky, prostředí, energii, nevyřešené starosti, pauzy, zájem, fyzické podmínky, aktivní práci s obsahem, multitasking, digitální odbočky a začátek naplánovaného úkolu. Vyber nejsilnější překážku, proveď jednu změnu a porovnej vlastní výsledek před a po.",
+    "avoid": [
+      "všech osmnáct otázek bez ohledu na kontext",
+      "nálepkování poruchy pozornosti",
+      "nucení práce přes únavu nebo bolest",
+      "srovnávání s univerzálním výkonovým standardem"
+    ],
+    "never_claim": [
+      "diagnóza, pevná doba zlepšení nebo že jedinou příčinou je disciplína",
+      "garantované soustředění"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 69; celý přepis a nekonzistentní číslování auditovány 23. 8. 2026"
+  },
+  {
+    "id": "feedback_request_loop",
+    "name": "Smyčka vyžádané zpětné vazby",
+    "family": "communication",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "vyzadat zpetnou vazbu",
+      "chci feedback",
+      "slepé misto",
+      "jak prijmout kritiku",
+      "zpetna vazba na vykon"
+    ],
+    "use_when": [
+      "členka chce zlepšit konkrétní pracovní chování nebo výstup",
+      "potřebuje odlišit užitečný feedback od obecného názoru"
+    ],
+    "core_move": "Urči konkrétní cíl a pozorovatelné chování, vyber relevantního člověka a požádej o včasný konkrétní příklad. Nejprve ověř porozumění, potom posuď zdroj, fakta, opakování a soulad s cílem. Vyber jednu použitelnou změnu, otestuj ji a požádej o následnou kontrolu; zbytek můžeš vědomě odmítnout.",
+    "avoid": [
+      "žádost typu řekni mi, co si o mně myslíš",
+      "přijetí každého názoru jako pravdy",
+      "obrannou hádku před vyjasněním",
+      "feedback jako útok na osobnost"
+    ],
+    "never_claim": [
+      "že zpětná vazba je vždy přesná nebo že její přijetí zaručí výkon, vztah či sebevědomí"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 70; celý přepis znovu ověřen 23. 8. 2026"
+  },
+  {
+    "id": "worry_action_sort",
+    "name": "Třídění obav podle ovlivnitelnosti",
+    "family": "cognitive_behavioral_coaching",
+    "access_level": "support_only",
+    "keywords": [
+      "mam obavy",
+      "stres mi bere fokus",
+      "bojim se co bude",
+      "starosti",
+      "uzkost a prace",
+      "nemuzu se soustredit kvuli obavam"
+    ],
+    "use_when": [
+      "běžné nebo mírné obavy zahlcují pracovní pozornost a členka chce praktickou podporu",
+      "je možné rozlišit fakta, předpovědi a ovlivnitelnou část"
+    ],
+    "core_move": "Sepiš jednotlivé obavy a u každé odděl fakt, interpretaci, nejistotu a to, co lze dnes ovlivnit. U ovlivnitelné části zvol jeden konkrétní krok; u neovlivnitelné části zvol hranici, informační kontrolu, podporu nebo vědomé odložení. Pokud je členka zahlcená, nejprve nabídni krátkou pauzu či vnější orientaci a teprve potom plán.",
+    "avoid": [
+      "nálepkování obavy jako iracionální bez prozkoumání",
+      "ujišťování, že se nic nestane",
+      "nucení dechu nebo pokračování přes zhoršení",
+      "použití jako léčba úzkostné poruchy"
+    ],
+    "never_claim": [
+      "že všechny problémy lze vyřešit, obavy odstranit nebo úzkost vyléčit tímto tříděním"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 77, bezpečně adaptováno pro neklinickou podporu 23. 8. 2026"
+  },
+  {
+    "id": "identity_direction_map",
+    "name": "Mapa identity jako směru",
+    "family": "strengths_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "kdo jsem",
+      "zmenit identitu",
+      "reinvent myself",
+      "budouci ja",
+      "jaka chci byt",
+      "nejsem to ja"
+    ],
+    "use_when": [
+      "členka chce znovu vymezit svou profesní nebo osobní roli",
+      "stará nálepka omezuje další krok, ale nejde o klinickou krizi identity"
+    ],
+    "core_move": "Rozliš vnější okolnosti od oblasti vlivu. Zmapuj silné stránky, hodnoty, role, vášně, hranice, současné činy a žádoucí směr. Starou identitu formuluj jako dosavadní příběh, ne definitivní pravdu; novou podobu přelož do několika pozorovatelných voleb a jednoho malého činu. Průběžně ověřuj soulad s realitou, kapacitou a vztahy.",
+    "avoid": [
+      "morální dělení na dobrou a špatnou osobu",
+      "obviňování za neovlivnitelné okolnosti",
+      "vnucování pozitivní identity",
+      "diagnostiku osobnosti nebo práce s krizí identity"
+    ],
+    "never_claim": [
+      "že myšlenky určují osud, vnitřní svět je plně pod kontrolou nebo jedna volba změní osobnost"
+    ],
+    "origin_or_standard": "Udemy Neuroplasticity Masterclass, lekce 78, bezpečně adaptováno 23. 8. 2026"
+  },
+  {
+    "id": "somatic_permission_gate",
+    "name": "Brána souhlasu pro somatickou praxi",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "somaticka praxe",
+      "zavrit oci",
+      "telo",
+      "dech",
+      "nechci cviceni",
+      "souhlas"
+    ],
+    "use_when": [
+      "před jakoukoli vedenou tělesnou, dechovou nebo imaginativní praxí"
+    ],
+    "core_move": "Stručně vysvětli, co navrhuješ a proč, nabídni rovnocenné možnosti dialog, oči otevřené, vnější kotva, velmi krátká praxe nebo žádná praxe. Během cvičení znovu ověř snesitelnost a připomeň možnost změnit směr či skončit.",
+    "avoid": [
+      "automatické zavírání očí",
+      "předpoklad bezpečí",
+      "pokračování po nesouhlasu nebo zhoršení",
+      "skrytá sugesce"
+    ],
+    "never_claim": [
+      "že nepohodlí je nutná cesta k uzdravení",
+      "že klientka musí jít do těla, aby se posunula"
+    ],
+    "origin_or_standard": "Udemy somatický kurz, lekce 18, 19, 22, 32 a 46; bezpečně adaptováno pro Elitea 23. 8. 2026"
+  },
+  {
+    "id": "neutral_sensation_description",
+    "name": "Neutrální popis jednoho vjemu",
+    "family": "trauma_informed_support",
+    "access_level": "support_only",
+    "keywords": [
+      "telesny vjem",
+      "tlak",
+      "teplo",
+      "mravenceni",
+      "kde to citim",
+      "somatika"
+    ],
+    "use_when": [
+      "klientka dobrovolně chce krátce zmapovat tělesnou část běžné emoce"
+    ],
+    "core_move": "Vyber jediný snesitelný vjem a popiš jeho místo, kvalitu, přibližnou intenzitu a změnu v čase bez hledání skrytého významu. Po několika vteřinách vrať pozornost ven a ověř, zda pokračování pomáhá.",
+    "avoid": [
+      "interpretace vjemu jako traumatu, bloku nebo nemoci",
+      "hledání příčiny v minulosti",
+      "dlouhé setrvání u bolesti či zhoršujícího se vjemu"
+    ],
+    "never_claim": [
+      "že vjem odhaluje pravdu nebo kořen problému",
+      "že pozornost vjem automaticky uvolní"
+    ],
+    "origin_or_standard": "Udemy somatický kurz, lekce 13–15, 21–23, 32 a 42; bezpečně adaptováno pro Elitea 23. 8. 2026"
+  },
+  {
+    "id": "thought_usefulness_gate",
+    "name": "Brána užitečnosti myšlenky",
+    "family": "cognitive_behavioral_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "spirala myslenek",
+      "premyslim dokola",
+      "ruminace",
+      "je ta myslenka uzitecna",
+      "vratit se k tematu"
+    ],
+    "use_when": [
+      "během dialogu se opakuje stejná myšlenková smyčka",
+      "je potřeba rozhodnout, zda myšlenku rozvinout nebo na chvíli odložit"
+    ],
+    "core_move": "Zeptej se, zda myšlenka přináší nové ověřitelné informace, pomáhá pojmenovat potřebu nebo vede k volbě. Pokud ano, rozviň ji. Pokud jen opakuje stejný scénář, uznej ji, zapiš ji k návratu a nabídni jiný kanál: fakta, emoci, vnější orientaci nebo konkrétní krok.",
+    "avoid": [
+      "označení nepříjemné myšlenky za blok jen proto, že je nepříjemná",
+      "potlačování oprávněné obavy",
+      "odložení reálného nebezpečí"
+    ],
+    "never_claim": [
+      "že myšlenky brání léčení",
+      "že spirála vždy skrývá hlubší emoci"
+    ],
+    "origin_or_standard": "Udemy somatický kurz, lekce 15, 30, 43, 46 a 48; bezpečně adaptováno pro Elitea 23. 8. 2026"
+  },
+  {
+    "id": "shame_validation_choice",
+    "name": "Validace studu bez hledání skryté vrstvy",
+    "family": "emotion_skills",
+    "access_level": "support_only",
+    "keywords": [
+      "stud",
+      "stydim se",
+      "selhala jsem",
+      "ponizeni",
+      "sebeobvinovani"
+    ],
+    "use_when": [
+      "klientka pojmenuje stud nebo silnou sebekritiku a chce podpůrné koučovací vedení"
+    ],
+    "core_move": "Uznat stud jako bolestivou lidskou zkušenost, oddělit konkrétní čin od celkové hodnoty člověka a zeptat se, zda chce porozumět spouštěči, potřebě, nápravě nebo jen chvíli podporu. Další emoci nehledat jako povinně hlubší vrstvu.",
+    "avoid": [
+      "tvrzení, že stud je jen povrchová emoce",
+      "nucení odpuštění",
+      "vyvolávání detailů traumatu",
+      "morální hodnocení"
+    ],
+    "never_claim": [
+      "že pod studem je vždy konkrétní emoce",
+      "že krátké cvičení stud odstraní"
+    ],
+    "origin_or_standard": "Udemy somatický kurz, lekce 48; korigováno a bezpečně adaptováno pro Elitea 23. 8. 2026"
+  },
+  {
+    "id": "elitea_compass",
+    "name": "ELITEA Compass",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "elitea compass",
+      "chci zmenu",
+      "chci transformaci",
+      "zasadni posun",
+      "motam se v kruhu",
+      "nevim kudy dal",
+      "zasekla jsem se"
+    ],
+    "use_when": [
+      "členka chce hlubší vícekolovou práci místo jednorázové rady",
+      "téma vyžaduje spojit uvědomění, rozhodnutí a experiment",
+      "členka se opakovaně vrací ke stejnému problému bez posunu"
+    ],
+    "core_move": "Veď sedm navazujících fází S–E–L–F–A–Y–A: Směr, Evidence, Limity a páky, Frikce, Autonomní volba, Your experiment a Adaptace. Vždy pracuj jen s aktuální fází, využij již známý kontext a další fázi zvol podle odpovědi členky.",
+    "steps": [
+      "S — Směr: dohodni jedno téma, žádoucí změnu a pozorovatelný znak užitečného výsledku.",
+      "E — Evidence: odděl konkrétní fakta, interpretace, dosavadní pokusy a důležité neznámé.",
+      "L — Limity a páky: zmapuj dovednosti, příležitosti, motivaci, čas, energii, peníze a dostupnou oporu.",
+      "F — Frikce: najdi nejsilnější překážku, její spouštěcí podmínky a krátkodobou funkci; výklad označ jako pracovní hypotézu.",
+      "A — Autonomní volba: vytvoř reálné možnosti včetně nečinnosti, pojmenuj důsledky a nech rozhodnutí člence.",
+      "Y — Your experiment: se souhlasem převeď volbu do malého vratného testu, konkrétní situace, když–tak plánu a měřítka.",
+      "A — Adaptace: porovnej očekávání s výsledkem, zachyť učení a rozhodni, co zachovat, upravit nebo ukončit."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention",
+      "elicitation"
+    ],
+    "avoid": [
+      "vedení více fází v jedné odpovědi",
+      "podsunutí cíle nebo řešení",
+      "interpretace psychické příčiny jako jistoty",
+      "akce bez kontroly kapacity a rizik",
+      "nahrazení potřebného odborného posouzení"
+    ],
+    "never_claim": [
+      "že metoda zaručí transformaci nebo úspěch",
+      "že Elitea zná nevědomou příčinu bez důkazů",
+      "že klientka musí zvolit doporučenou cestu",
+      "že jde o psychoterapii nebo léčbu"
+    ],
+    "origin_or_standard": "Originální metodika ELITEA Compass v1; principy ICF 2025, COM-B, Self-Determination Theory a implementation intentions; know-how Nii Dobyšar"
+  },
+  {
+    "id": "elitea_evidence_map",
+    "name": "Mapa reality: fakta, výklady a neznámé",
+    "family": "core_coaching",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "fakta a domnenky",
+      "co skutecne vim",
+      "overit predpoklad",
+      "nejasna situace",
+      "realita problemu"
+    ],
+    "use_when": [
+      "členka zaměňuje předpověď nebo výklad za ověřený údaj",
+      "rozhodnutí stojí na chybějící informaci",
+      "je potřeba připravit malý ověřovací krok"
+    ],
+    "core_move": "Rozděl jedinou situaci do čtyř polí: pozorovatelná fakta, význam přisuzovaný členkou, důležité neznámé a nejlevnější způsob ověření. Výklad neopravuj automaticky; zkoumej, co jej podporuje a co by jej mohlo změnit.",
+    "steps": [
+      "Popiš jednu konkrétní situaci bez vysvětlení příčiny.",
+      "Sepiš, co je přímo pozorovatelné a co je interpretace.",
+      "Pojmenuj jednu neznámou informaci, která může změnit rozhodnutí.",
+      "Navrhni bezpečný a přiměřený způsob jejího ověření."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "spor s emocí",
+      "vydávání neúplných dat za jistotu",
+      "nekonečné analyzování bez rozhodovací hodnoty"
+    ],
+    "never_claim": [
+      "že nepříjemná interpretace je automaticky chybná",
+      "že získaná data odstraní veškerou nejistotu"
+    ],
+    "origin_or_standard": "Originální nástroj Elitey; ICF 2025, profesní kritické myšlení a rozhodovací podpora"
+  },
+  {
+    "id": "elitea_capacity_friction_scan",
+    "name": "Sken kapacity a frikce",
+    "family": "behavior_change",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "proc to nedelam",
+      "co mi brani",
+      "chybi kapacita",
+      "nemam energii",
+      "prekazka zmeny",
+      "frikce"
+    ],
+    "use_when": [
+      "plán se opakovaně neuskuteční",
+      "není jasné, zda chybí dovednost, podmínky nebo skutečná motivace",
+      "členka může být přetížená místo nedisciplinované"
+    ],
+    "core_move": "Bez nálepkování projdi čtyři oblasti: schopnost a dovednost, vnější podmínky a zdroje, smysl a motivaci, aktuální mentální a fyzickou kapacitu. Vyber jedinou překážku s největším dopadem a změň podmínky dříve, než zvýšíš tlak.",
+    "steps": [
+      "Zjisti, zda členka přesně ví, co a jak má udělat.",
+      "Ověř čas, prostředí, peníze, nástroje a podporu.",
+      "Ověř vlastní smysl cíle, ambivalenci a cenu změny.",
+      "Zmapuj současnou energii a zátěž bez nálepky lenosti.",
+      "Vyber jednu podmínku, kterou lze realisticky upravit jako první."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "elicitation",
+      "intervention"
+    ],
+    "avoid": [
+      "diagnózu z nízké kapacity",
+      "automatické označení odkladu za strach nebo prokrastinaci",
+      "tlak na výkon při přetížení"
+    ],
+    "never_claim": [
+      "že nečinnost má jedinou příčinu",
+      "že motivace sama překoná chybějící podmínky",
+      "že COM-B diagnostikuje člověka"
+    ],
+    "origin_or_standard": "Originální nástroj Elitey; COM-B (Michie, van Stralen a West, 2011), Self-Determination Theory a know-how Nii Dobyšar"
+  },
+  {
+    "id": "elitea_experiment_loop",
+    "name": "Experiment–data–adaptace",
+    "family": "goal_execution",
+    "access_level": "ai_coaching",
+    "keywords": [
+      "maly experiment",
+      "otestovat zmenu",
+      "kdyz tak plan",
+      "vyhodnotit pokus",
+      "co udelat dal",
+      "upravit krok"
+    ],
+    "use_when": [
+      "členka má zvolený směr, ale potřebuje jej ověřit v praxi",
+      "riziko lze snížit malým vratným pokusem",
+      "předchozí úkol nebyl dokončen nebo nepřinesl očekávaný výsledek"
+    ],
+    "core_move": "Urči jedno pozorovatelné jednání, konkrétní situaci nebo termín, předvídatelnou překážku a když–tak odpověď. Předem stanov, co bude užitečný signál. Po pokusu porovnej očekávání s daty a uprav krok, podmínky nebo původní hypotézu.",
+    "steps": [
+      "Vyber nejmenší vratný pokus, který poskytne užitečnou informaci.",
+      "Urči konkrétní situaci nebo termín a formuluj když–tak plán pro hlavní překážku.",
+      "Předem stanov pozorovatelný signál, podle kterého pokus vyhodnotíte.",
+      "Po pokusu odděl výsledek, vedlejší dopad a nové zjištění.",
+      "Rozhodni, co zachovat, zmenšit, změnit nebo neopakovat."
+    ],
+    "step_kinds": [
+      "elicitation",
+      "intervention",
+      "elicitation",
+      "elicitation",
+      "elicitation"
+    ],
+    "avoid": [
+      "nevratný nebo nepřiměřeně drahý test",
+      "úkol bez souhlasu členky",
+      "hodnocení nedokončení jako osobního selhání",
+      "opakování stejného kroku bez změny podmínek"
+    ],
+    "never_claim": [
+      "že jediný pokus prokáže univerzální pravdu",
+      "že malý krok vždy vede k velkému výsledku",
+      "že nedokončený úkol znamená nedostatek disciplíny"
+    ],
+    "origin_or_standard": "Originální nástroj Elitey; implementation intentions, behaviorální experimentování a cyklické učení"
+  }
+]

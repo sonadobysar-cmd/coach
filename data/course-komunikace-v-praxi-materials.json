@@ -1,0 +1,172 @@
+[
+  {
+    "id":"comm-m0-baseline","courseId":"komunikace-v-praxi","moduleIndex":0,"itemId":"m0-4","categoryLabel":"VÝCHOZÍ DIAGNOSTIKA","title":"Výchozí video a mapa komunikačních důkazů","estimatedMinutes":45,"techniqueId":"COM-00",
+    "method":"Nahraj dvouminutové představení, odděl obraz, hlas a obsah a u každého hodnocení připoj přesný čas nebo doslovnou větu.",
+    "boundary":"Nehodnoť tělo, věk, vzhled ani osobnost. Pracuj pouze s komunikačním chováním, které lze v dalším pokusu konkrétně změnit.",
+    "purpose":"Vytvořit poctivý výchozí bod, ke kterému se na konci vrátíš, a zabránit neurčitému sebehodnocení typu dobrá nebo špatná komunikátorka.",
+    "canDiscover":"Kde se liší tvůj záměr od toho, co skutečně zazní, a která jediná oprava má pro další pokus největší dopad.",
+    "takeaway":"Uložená nahrávka, důkazy pro devět oblastí, jedna priorita a opravená druhá verze.",
+    "howToUse":["Nahraj bez opakování první pokus.","Sleduj zvlášť obraz, hlas a celek.","Cituj důkazy s časem.","Oprav jedinou prioritu a nahraj znovu."],
+    "prompts":[{"id":"intent","label":"Záměr a cílový posluchač","help":"Co má posluchačka vědět, pamatovat si nebo udělat?"},{"id":"message","label":"Hlavní sdělení a struktura","help":"Kde přesně zazněl hlavní bod a jak byly seřazeny opory?"},{"id":"voice","label":"Tempo, hlas, pauzy a výplně","help":"Uveď konkrétní čas a pozorovatelné chování bez soudu o hlasu."},{"id":"visual","label":"Pohled, ruce, postoj a obraz","help":"Co podporuje kontakt a co odvádí pozornost od sdělení?"},{"id":"repair","label":"Jedna oprava a druhý pokus","help":"Co přesně změníš, jak to provedeš a jak poznáš rozdíl?"}]
+  },
+  {
+    "id":"comm-m1-audience","courseId":"komunikace-v-praxi","moduleIndex":1,"itemId":"m1-4","categoryLabel":"PUBLIKUM A SDĚLENÍ","title":"Mapa publika a test zapamatování","estimatedMinutes":50,"techniqueId":"COM-01",
+    "method":"Zmapuj konkrétní rozhodnutí posluchačky, vytvoř hlavní větu s nejvýše pěti oporami a otestuj zapamatování bez nápovědy.",
+    "boundary":"Testovací člověk nemluví za celý trh. Jeho odpověď je jeden důkaz, který potřebuješ porovnat s dalšími relevantními lidmi.",
+    "purpose":"Přestat prezentovat množství vlastních informací a začít vytvářet sdělení podle skutečné situace a rozhodnutí publika.",
+    "canDiscover":"Které body jsou důležité pouze pro tebe, co posluchačka chápe jinak a co se po pěti minutách skutečně vybaví.",
+    "takeaway":"Profil publika, hierarchie sdělení, dva testy a upravená verze založená na důkazech.",
+    "howToUse":["Vyber jedno publikum a rozhodnutí.","Sepiš jednu větu a pět opor.","Nahraj tříminutovou verzi.","Otestuj vybavení a uprav."],
+    "prompts":[{"id":"decision","label":"Člověk a jeho rozhodnutí","help":"Co právě řeší a podle čeho bude vybírat?"},{"id":"needs","label":"Potřeby, obavy a omezení","help":"Co víš z reálných odpovědí a co je zatím hypotéza?"},{"id":"hierarchy","label":"Hlavní věta a opěrné body","help":"Napiš jednu větu a nejvýše pět relevantních bodů."},{"id":"recall","label":"Výsledek testu bez nápovědy","help":"Co si dva lidé vybavili, jak tomu rozuměli a co čekali dál?"},{"id":"revision","label":"Opravená hierarchie","help":"Co odstraníš, zpřesníš nebo podpoříš příkladem?"}]
+  },
+  {
+    "id":"comm-m2-listening","courseId":"komunikace-v-praxi","moduleIndex":2,"itemId":"m2-4","categoryLabel":"NASLOUCHÁNÍ","title":"Záznam pětiminutového naslouchacího nácviku","estimatedMinutes":45,"techniqueId":"COM-02",
+    "method":"Veď pětiminutový rozhovor s jedinou otázkou v jednom okamžiku, bez přerušování, a uzavři jej ověřovacím shrnutím.",
+    "boundary":"Nahrávej druhou osobu pouze s výslovným souhlasem. Pro citlivé téma použij simulaci a neukládej zbytečné osobní údaje.",
+    "purpose":"Převést naslouchání z dojmu do pozorovatelných důkazů: navazující otázky, pauzy, přesné shrnutí a přijetí opravy.",
+    "canDiscover":"Kde předvídáš konec věty, kdy otázka obsahuje vlastní odpověď a co ve shrnutí zůstalo mimo.",
+    "takeaway":"Přepis klíčového úseku, zpětná vazba mluvčí, opravené shrnutí a pravidlo pro další rozhovor.",
+    "howToUse":["Domluv bezpečné téma a souhlas.","Neskákej do řeči.","Shrň a nech se opravit.","Přepiš jednu slabou pasáž."],
+    "prompts":[{"id":"conditions","label":"Podmínky pro pozornost","help":"Co vypneš, jak stanovíš účel a zda si budeš psát poznámky?"},{"id":"questions","label":"Použité otázky","help":"Zapiš otázky a označ ty, které byly krátké, otevřené a navazující."},{"id":"interruptions","label":"Přerušení a ticho","help":"Kde jsi vstoupila příliš brzy a kde jsi nechala prostor?"},{"id":"summary","label":"Doslovné závěrečné shrnutí","help":"Co jsi pochopila o faktech, významu, rozhodnutí a dalším kroku?"},{"id":"feedback","label":"Oprava od mluvčí a nový závěr","help":"Co chybělo nebo bylo nepřesné a jak zní opravená verze?"}]
+  },
+  {
+    "id":"comm-m3-assertive","courseId":"komunikace-v-praxi","moduleIndex":3,"itemId":"m3-4","categoryLabel":"ASERTIVITA","title":"Banka žádostí, hranic a zpětné vazby","estimatedMinutes":50,"techniqueId":"COM-03",
+    "method":"Přepiš pět reálných situací do struktury pozorování, dopad, potřeba, konkrétní žádost a prostor pro odpověď a každou nahraj.",
+    "boundary":"Asertivní formulace nezaručuje souhlas druhého člověka. Pokud je přítomné ohrožení, mocenské zneužití nebo odveta, zvaž bezpečnější postup.",
+    "purpose":"Nahradit omluvné náznaky, hodnocení osobnosti a skrytý tlak větami, o kterých lze skutečně rozhodnout nebo vyjednávat.",
+    "canDiscover":"Kde žádost není konkrétní, kde se po vyslovení sama oslabíš a kde zaměňuješ hranici za snahu druhého ovládat.",
+    "takeaway":"Pět použitelných formulací, nahrávky, odpovědi na odmítnutí a jedna věta pro finanční žádost.",
+    "howToUse":["Vyber pět odlišných situací.","Odděl fakt od hodnocení.","Vyslov žádost nahlas.","Nacvič i odpověď na ne."],
+    "prompts":[{"id":"no","label":"Respektující odmítnutí","help":"Napiš jasné ne bez nadbytečného ospravedlňování a s relevantní alternativou."},{"id":"boundary","label":"Hranice a její důsledek","help":"Co uděláš ty, pokud se chování bude opakovat?"},{"id":"feedback","label":"Konkrétní zpětná vazba","help":"Chování, dopad, potřebná změna a možnost reakce."},{"id":"money","label":"Finanční nebo smluvní žádost","help":"Uveď konkrétní částku, důkazy, termín a další možnosti."},{"id":"review","label":"Kontrola tlaku a neurčitosti","help":"Kde věta hodnotí osobnost, hrozí nebo nechává druhého hádat?"}]
+  },
+  {
+    "id":"comm-m4-delivery","courseId":"komunikace-v-praxi","moduleIndex":4,"itemId":"m4-4","categoryLabel":"HLAS A TĚLO","title":"Diagnostika hlasu, výplní a vizuálního projevu","estimatedMinutes":50,"techniqueId":"COM-04",
+    "method":"Porovnej formální a přirozený hlas, spočítej rušivé výplně a analyzuj video zvlášť se zvukem a bez zvuku.",
+    "boundary":"Nejde o léčbu hlasu ani poruchy řeči. Trvalé potíže, bolest nebo klinický problém patří příslušnému kvalifikovanému odborníkovi.",
+    "purpose":"Najít konkrétní a měnitelné rozdíly místo odmítnutí vlastního hlasu, vzhledu nebo celé osobnosti.",
+    "canDiscover":"Které projevy vznikají hlavně při napětí, jak vypadá tvůj přirozený rozsah a co lze opravit jedním nácvikem.",
+    "takeaway":"Srovnávací tabulka, počet výplní, jedna hlasová a jedna vizuální oprava a finální video.",
+    "howToUse":["Nahraj formální a přirozenou minutu.","Poslouchej a sleduj odděleně.","Vyber dvě proměnné.","Nahraj finální verzi."],
+    "prompts":[{"id":"natural","label":"Přirozený hlas v rozhovoru","help":"Tempo, melodie, hlasitost, pauzy a energie v bezpečné situaci."},{"id":"formal","label":"Formální hlas a rozdíly","help":"Co se změnilo a ve kterém přesném okamžiku?"},{"id":"fillers","label":"Mapa výplňových slov","help":"Typ, počet, spouštěč a vhodná náhrada tichem."},{"id":"body","label":"Obraz bez zvuku","help":"Pohled, ruce, postoj, výraz, kamera, světlo a rušivé prvky."},{"id":"final","label":"Dvě opravy a finální důkaz","help":"Co jsi změnila a jaký pozorovatelný rozdíl nový záznam ukazuje?"}]
+  },
+  {
+    "id":"comm-m5-stories","courseId":"komunikace-v-praxi","moduleIndex":5,"itemId":"m5-4","categoryLabel":"STORYTELLING","title":"Banka skutečných příběhů a tři délky","estimatedMinutes":55,"techniqueId":"COM-05",
+    "method":"Vyber hlavní sdělení, najdi pravdivou situaci se změnou a nahraj ji ve třech délkách bez memorování celých vět.",
+    "boundary":"Chraň soukromí a souhlas lidí v příběhu. Anonymizace nestačí, pokud lze člověka podle kontextu stále rozpoznat.",
+    "purpose":"Vytvářet zapamatovatelná sdělení pomocí relevantních zkušeností místo generických historek nebo datového výlevu.",
+    "canDiscover":"Které detaily pomáhají publiku vidět situaci, co je odbočka a zda si lidé pamatují právě zamýšlený bod.",
+    "takeaway":"Jeden eticky použitelný příběh ve třech délkách a začátek soukromé knihovny příběhů.",
+    "howToUse":["Začni sdělením.","Zmapuj sedm prvků příběhu.","Nahraj tři délky.","Otestuj paměť posluchače."],
+    "prompts":[{"id":"message","label":"Hlavní sdělení příběhu","help":"Jedna věta, kterou má zkušenost pomoci pochopit nebo si pamatovat."},{"id":"elements","label":"Sedm prvků skutečné situace","help":"Prostředí, postava, cíl, překážka, děj, emoce a výsledek."},{"id":"privacy","label":"Souhlas a citlivé hranice","help":"Co je možné sdílet, co anonymizovat a co vůbec nepoužívat?"},{"id":"versions","label":"Verze 30 s, 90 s a 3 min","help":"U každé ponech pouze detaily potřebné pro stejný hlavní bod."},{"id":"recall","label":"Test zapamatování","help":"Jaké sdělení, okamžik a emoci si posluchačka vybavila?"}]
+  },
+  {
+    "id":"comm-m6-slides","courseId":"komunikace-v-praxi","moduleIndex":6,"itemId":"m6-4","categoryLabel":"PREZENTACE","title":"Redukce pěti snímků a mapa prezentace","estimatedMinutes":55,"techniqueId":"COM-06",
+    "method":"Ke každému snímku urči jedinou myšlenku, proveď test porozumění a paměti a přesuň nepoužitelné detaily do podkladu.",
+    "boundary":"Neodstraňuj povinné právní, bezpečnostní nebo odborné informace; změň jejich umístění a způsob dostupnosti podle situace.",
+    "purpose":"Zastavit čtení obrazovky a vytvořit prezentaci, ve které vizuály opravdu pomáhají publiku pochopit a vybavit si podstatné.",
+    "canDiscover":"Který snímek nemá funkci, kde vizuál soutěží s hlasem a které informace publikum potřebuje až jako podklad.",
+    "takeaway":"Mapa prezentace, pět rozhodnutí projekce versus podklad, upravené snímky a video před a po.",
+    "howToUse":["Napiš výsledek celé prezentace.","Urči funkci pěti snímků.","Redukuj nebo přesuň detail.","Nahraj a porovnej."],
+    "prompts":[{"id":"goal","label":"Výsledek a hlavní věta","help":"Co má publikum po prezentaci chápat a udělat?"},{"id":"map","label":"Otevření, body, příběhy a konec","help":"Stručná mapa bez celého textu pro čtení."},{"id":"audit","label":"Dvojí test pěti snímků","help":"Jak každý zvyšuje porozumění i zapamatování?"},{"id":"handout","label":"Co přesunout do podkladu","help":"Které tabulky, texty a detaily zůstanou dostupné mimo projekci?"},{"id":"evidence","label":"Video před a po","help":"Kde nový návrh zlepšil kontakt, jasnost a tempo?"}]
+  },
+  {
+    "id":"comm-m7-rehearsal","courseId":"komunikace-v-praxi","moduleIndex":7,"itemId":"m7-4","categoryLabel":"KAMEROVÝ TRÉNINK","title":"Pět kol jednoho projevu a žebřík expozice","estimatedMinutes":60,"techniqueId":"COM-07",
+    "method":"Rozděl náročnost do stupňů a v pěti záznamech měň vždy jedinou komunikační proměnnou, dokud máš použitelný důkaz.",
+    "boundary":"Kurz pracuje s běžnou trémou. Výrazná úzkost, panika nebo omezení fungování mohou vyžadovat individuální odbornou podporu.",
+    "purpose":"Budovat jistotu z opakovatelného procesu a skutečných záznamů, ne z tlaku cítit se sebevědomě před prvním pokusem.",
+    "canDiscover":"Který stupeň je zvládnutelný, co se mění nácvikem a která oprava má vedlejší dopad na jinou část projevu.",
+    "takeaway":"Osobní žebřík, pět verzí, tabulka jedné změny a nejlepší funkční záznam.",
+    "howToUse":["Vytvoř sedm stupňů náročnosti.","Zvol dvouminutový projev.","Měň jedinou věc.","Vyber podle důkazů."],
+    "prompts":[{"id":"ladder","label":"Sedm stupňů komunikační zátěže","help":"Od audia o samotě po relevantní náročnou situaci."},{"id":"baseline","label":"První pokus a funkční prvky","help":"Co už chceš zachovat bez ohledu na přítomnou nervozitu?"},{"id":"rounds","label":"Pět kol a jedna změna","help":"U každého kola popiš proměnnou a pozorovatelný výsledek."},{"id":"tradeoff","label":"Vedlejší dopady změn","help":"Co se zlepšilo a co se současně mohlo zhoršit?"},{"id":"next","label":"Další stupeň a podmínky","help":"Kdy postoupíš, co zopakuješ a jakou podporu potřebuješ?"}]
+  },
+  {
+    "id":"comm-m8-intro","courseId":"komunikace-v-praxi","moduleIndex":8,"itemId":"m8-4","categoryLabel":"PŘEDSTAVENÍ A POHOVOR","title":"Tři délky představení a pohovorová mapa","estimatedMinutes":55,"techniqueId":"COM-08",
+    "method":"Připrav tři délky představení, pět důkazů relevantních pro roli a vlastní otázky a vše otestuj bez obecného marketingového jazyka.",
+    "boundary":"Nevymýšlej výsledky, kompetence ani zkušenosti. Relevantní zkrácení životopisu nesmí změnit pravdivost nebo zamlčet podstatnou podmínku.",
+    "purpose":"Představit se přes význam pro konkrétního člověka a vést pohovor jako oboustranné rozhodnutí místo recitace životopisu.",
+    "canDiscover":"Co si lidé skutečně pamatují, kde odpověď odbočuje a které otázky odhalují podmínky úspěchu v roli.",
+    "takeaway":"Verze 15, 30 a 60 sekund, odpověď o sobě, pět příběhů a strategická stránka pohovoru.",
+    "howToUse":["Zmapuj publikum nebo roli.","Nahraj tři délky.","Připrav důkazy a otázky.","Otestuj zapamatování."],
+    "prompts":[{"id":"versions","label":"Představení 15, 30 a 60 sekund","help":"Každá verze obsahuje konkrétní relevanci a přirozený další krok."},{"id":"tell_me","label":"Odpověď Řekněte mi o sobě","help":"Vyber profesní cestu relevantní pro tuto roli, ne celý životopis."},{"id":"stories","label":"Pět důkazových příběhů","help":"Situace, tvoje jednání, výsledek a co dokládá o potřebné kompetenci."},{"id":"questions","label":"Vlastní otázky k rozhodnutí","help":"Vedení, očekávání, zdroje, rizika a podmínky úspěchu."},{"id":"feedback","label":"Co si posluchačka zapamatovala","help":"Jak popsala tvoji relevanci a na co se chtěla zeptat dál?"}]
+  },
+  {
+    "id":"comm-m9-meetings","courseId":"komunikace-v-praxi","moduleIndex":9,"itemId":"m9-4","categoryLabel":"PORADY A LEADERSHIP","title":"Pět funkčních vstupů do porady","estimatedMinutes":50,"techniqueId":"COM-09",
+    "method":"Nahraj do jedné minuty otázku, riziko, návrh, nesouhlas a shrnutí a u každého začni funkcí místo omluvného kontextu.",
+    "boundary":"Přímé vystoupení může mít v mocensky nebo kulturně citlivém prostředí různé důsledky. Zvaž bezpečí, mandát a vhodný kanál.",
+    "purpose":"Umět se zapojit stručně a srozumitelně a současně vést týmovou změnu s přesným oddělením faktů, nejistot a dalších kroků.",
+    "canDiscover":"Kde mluvíš bez funkce, jak dlouho trvá příchod k závěru a zda tým ví, co je rozhodnutí a co otevřená otázka.",
+    "takeaway":"Pět minutových záznamů, společné normy porady a šablona transparentní aktualizace změny.",
+    "howToUse":["Zvol pět funkcí.","Začni závěrem.","Stopuj jednu minutu.","Odstraň omluvy a neurčitost."],
+    "prompts":[{"id":"question","label":"Otázka, která posouvá rozhodnutí","help":"Krátká otázka s jasnou vazbou na účel porady."},{"id":"risk","label":"Riziko, důkaz a návrh","help":"Co hrozí, z čeho vycházíš a co doporučuješ?"},{"id":"disagreement","label":"Nesouhlas bez osobního útoku","help":"Společný cíl, odlišný závěr, důvod a návrh dalšího ověření."},{"id":"summary","label":"Shrnutí rozhodnutí a vlastníků","help":"Co bylo rozhodnuto, kdo co udělá a co zůstává otevřené?"},{"id":"norms","label":"Komunikační normy týmu","help":"Jak se ptáte, nesouhlasíte, zapisujete a aktualizujete rozhodnutí?"}]
+  },
+  {
+    "id":"comm-m10-channels","courseId":"komunikace-v-praxi","moduleIndex":10,"itemId":"m10-4","categoryLabel":"DIGITÁLNÍ KOMUNIKACE","title":"Jeden obsah ve čtyřech kanálech","estimatedMinutes":50,"techniqueId":"COM-10",
+    "method":"Převeď jednu informaci do e-mailu, chatu, hlasové zprávy a videa a zdůvodni volbu kanálu podle naléhavosti, citlivosti a složitosti.",
+    "boundary":"Nevkládej citlivé nebo klientské údaje do AI či komunikačního nástroje bez oprávnění, vhodného zabezpečení a transparentního účelu.",
+    "purpose":"Přestat posílat stejný obsah všemi kanály a navrhovat komunikaci podle toho, co příjemce potřebuje pochopit, udělat a dohledat.",
+    "canDiscover":"Kde kanál vytváří zbytečné tření, co musí být živý rozhovor a jak AI návrh mění fakta, tón nebo autorství.",
+    "takeaway":"Čtyři hotové verze, rozhodovací matice kanálů a kontrolní seznam online schůzky.",
+    "howToUse":["Vyber jednu reálnou informaci.","Napiš čtyři verze.","Zhodnoť rizika kanálů.","Vyber a zdůvodni nejlepší."],
+    "prompts":[{"id":"email","label":"E-mail s jasným rozhodnutím","help":"Předmět, účel, nutný kontext, další krok a termín."},{"id":"chat","label":"Krátká chatová verze","help":"Co lze zkrátit a kdy už chat není vhodný?"},{"id":"voice","label":"Hlasová zpráva","help":"Jméno, důvod, požadavek, kontakt a časová relevance."},{"id":"video","label":"Dvouminutové video","help":"Kdy obraz zvyšuje porozumění nebo vztah a co musí být dostupné textem?"},{"id":"matrix","label":"Rozhodovací matice kanálů","help":"Naléhavost, citlivost, složitost, interakce, dostupnost a záznam."}]
+  },
+  {
+    "id":"comm-m11-pitch","courseId":"komunikace-v-praxi","moduleIndex":11,"itemId":"m11-4","categoryLabel":"PITCH A DATA","title":"Tři verze nabídky pro tři rozhodovatelky","estimatedMinutes":55,"techniqueId":"COM-11",
+    "method":"Zachovej stejná fakta a vytvoř zákaznickou, finanční a investorskou verzi s odlišnou hierarchií, důkazy a žádostí.",
+    "boundary":"Každé číslo označ jako fakt, odhad, scénář nebo hypotézu. Nezamlčuj podstatné riziko ani nevyráběj falešnou naléhavost.",
+    "purpose":"Naučit se překládat technické funkce a data do rozhodovacího významu bez ztráty přesnosti nebo etiky.",
+    "canDiscover":"Které informace jsou relevantní pro každý typ rozhodnutí a kde univerzální deck nutí publikum hledat vlastní význam.",
+    "takeaway":"Tři tříminutové pitche, mapa důkazů, seznam nejistot a odpovědi na pět náročných otázek.",
+    "howToUse":["Sepiš společná fakta.","Zmapuj tři rozhodnutí.","Nahraj tři verze.","Ověř důkazy a žádost."],
+    "prompts":[{"id":"facts","label":"Společná fakta a jejich status","help":"Co je ověřeno, odhadnuto, modelováno nebo ještě neznámé?"},{"id":"customer","label":"Verze pro zákaznici","help":"Problém, přínos, důkaz, podmínky, cena a další krok."},{"id":"finance","label":"Verze pro finance","help":"Náklady, scénáře, rizika, návratnost a rozhodnutí."},{"id":"investor","label":"Verze pro investorku","help":"Příležitost, důkaz poptávky, model, tým, rizika a žádost."},{"id":"questions","label":"Pět odpovědí bez improvizace","help":"Cena, konkurence, riziko, důkaz a co uděláš, když odpověď neznáš."}]
+  },
+  {
+    "id":"comm-m12-crisis","courseId":"komunikace-v-praxi","moduleIndex":12,"itemId":"m12-4","categoryLabel":"KRIZOVÁ KOMUNIKACE","title":"První stanovisko, aktualizace a oprava","estimatedMinutes":55,"techniqueId":"COM-12",
+    "method":"Napiš stručné první stanovisko pouze z ověřených faktů a po nové informaci vytvoř aktualizaci, která viditelně opraví nepřesnost.",
+    "boundary":"Modelový list nenahrazuje krizový, právní, bezpečnostní ani mediální plán organizace. V reálné události postupuj podle odpovědností a odborné koordinace.",
+    "purpose":"Komunikovat rychle bez spekulace, uznat dopad na lidi a udržet důvěru přesným časem další aktualizace.",
+    "canDiscover":"Kde se neznámé mění v domnělý fakt, zda sdělení začíná lidmi a kroky a jak transparentně zacházíš s opravou.",
+    "takeaway":"Stanovisko do 120 slov, druhá verze, log změn a pět přípravných mediálních bodů.",
+    "howToUse":["Odděl fakta a neznámé.","Napiš první verzi.","Přidej nový fakt.","Oprav a uveď další aktualizaci."],
+    "prompts":[{"id":"people","label":"Koho situace zasáhla a co uznáváš","help":"Začni konkrétním lidským nebo provozním dopadem bez dramatizace."},{"id":"facts","label":"Ověřená fakta a zdroje","help":"Co přesně víš, odkud a ke kterému času?"},{"id":"unknowns","label":"Neznámé a nepovolené spekulace","help":"Co zatím nevíš a co nesmí být vydáváno za závěr?"},{"id":"actions","label":"Kroky, kontakt a další čas","help":"Co se děje nyní, kde získat pomoc a kdy přijde aktualizace?"},{"id":"correction","label":"Viditelná oprava druhé verze","help":"Co bylo nepřesné, jaký je nový fakt a jak opravíš předchozí sdělení?"}]
+  },
+  {
+    "id":"comm-m13-special","courseId":"komunikace-v-praxi","moduleIndex":13,"itemId":"m13-4","categoryLabel":"SPECIÁLNÍ PROJEV","title":"Návrh a nácvik jednoho celého projevu","estimatedMinutes":60,"techniqueId":"COM-13",
+    "method":"Vyber jednu příležitost, urč její službu publiku, citlivé hranice, nosnou myšlenku a dva pravdivé momenty a nahraj ji v reálném limitu.",
+    "boundary":"U rozloučení, svatby nebo příběhu o druhých lidech respektuj soukromí, přání blízkých, důstojnost a přiměřenost příležitosti.",
+    "purpose":"Přizpůsobit strukturu, jazyk, délku a emoci konkrétní příležitosti místo použití jednoho univerzálního řečnického receptu.",
+    "canDiscover":"Která část slouží spíše egu řečnice, co publikum potřebuje a zda projev zůstává funkční po zkrácení na polovinu.",
+    "takeaway":"Celý projev, verze s polovičním limitem, relevantní zpětná vazba a záložní mapa bodů.",
+    "howToUse":["Vyber příležitost a publikum.","Stanov jednu službu a myšlenku.","Nahraj v limitu.","Zkrať na polovinu a otestuj."],
+    "prompts":[{"id":"occasion","label":"Příležitost, publikum a služba","help":"Komu projev slouží a co má po něm zůstat?"},{"id":"boundaries","label":"Citlivé hranice a souhlasy","help":"Co nezmínit, koho chránit a co potřebuje ověření?"},{"id":"structure","label":"Myšlenka, dva momenty a konec","help":"Mapa projevu bez plného textu pro čtení."},{"id":"full","label":"Celý výkon a důkazy","help":"Čas, zapamatování, emoce, srozumitelnost a technické provedení."},{"id":"half","label":"Poloviční verze","help":"Co odstraníš a jak zachováš hlavní myšlenku i důstojný konec?"}]
+  },
+  {
+    "id":"comm-m14-negotiation","courseId":"komunikace-v-praxi","moduleIndex":14,"itemId":"m14-4","categoryLabel":"VYJEDNÁVÁNÍ","title":"Mapa dohody, alternativ a etických hranic","estimatedMinutes":55,"techniqueId":"COM-14",
+    "method":"Připrav pozice, zájmy, kritéria, minimum, alternativu při nedohodě, možné výměny a reakce na tlak dříve, než rozhovor začne.",
+    "boundary":"Deeskalační a vyjednávací postup nenahrazuje bezpečnostní zásah. Při hrozbě, násilí nebo zneužití moci má přednost ochrana a odpovídající pomoc.",
+    "purpose":"Vyjednávat z připravených kritérií a reality místo ústupku jen kvůli nepohodlí, nátlaku nebo falešné naléhavosti.",
+    "canDiscover":"Který zájem je skrytý pod pozicí, co můžeš vyměnit, kdy udělat pauzu a kde přesvědčování přechází v manipulaci.",
+    "takeaway":"Kompletní příprava, úvodní návrh, odpovědi na čtyři tlakové taktiky a jasný bod odchodu.",
+    "howToUse":["Urči cíl, minimum a alternativu.","Mapuj možné zájmy otázkami.","Připrav výměny a kritéria.","Nacvič tlak, pauzu i odchod."],
+    "prompts":[{"id":"positions","label":"Pozice a možné zájmy obou stran","help":"Co kdo říká, že chce, a jaké potřeby za tím mohou být?"},{"id":"limits","label":"Cíl, minimum a alternativa","help":"Co je přijatelná dohoda a co uděláš bez ní?"},{"id":"criteria","label":"Fakta a nezávislá kritéria","help":"Které ceny, standardy, podmínky nebo důkazy pomohou rozhodnout?"},{"id":"trades","label":"Proměnné k výměně","help":"Cena, rozsah, čas, riziko, podpora nebo jiné hodnoty bez skrytého tlaku."},{"id":"pressure","label":"Reakce na čtyři tlakové taktiky","help":"Kotva, falešný termín, osobní útok a manipulativní ticho."}]
+  },
+  {
+    "id":"comm-m15-portfolio","courseId":"komunikace-v-praxi","moduleIndex":15,"itemId":"m15-4","categoryLabel":"CERTIFIKAČNÍ PORTFOLIO","title":"Hodnocení prezentace a závěrečných důkazů","estimatedMinutes":70,"techniqueId":"COM-15",
+    "method":"Přiřaď ke každé z deseti kompetencí čas, větu, reakci publika nebo jiný důkaz a porovnej výchozí a finální výkon bez domýšlení pokroku.",
+    "boundary":"Portfolio nesmí obsahovat nahrávky, citlivé údaje ani rozpoznatelné příběhy bez platného souhlasu, bezpečného uložení a jasné doby smazání.",
+    "purpose":"Prokázat skutečnou změnu komunikace a určit další priority podle záznamů místo dokončení založeného pouze na otevřených stránkách.",
+    "canDiscover":"Které dovednosti mají opakovatelný důkaz, kde funguje jen jedna situace a co potřebuje další nácvik nebo podporu.",
+    "takeaway":"Index portfolia, hodnocení deseti kompetencí, dva celé výkony a devadesátidenní plán.",
+    "howToUse":["Shromáždi povinné výstupy.","Cituj důkaz ke kompetenci.","Zkontroluj souhlas a soukromí.","Naplánuj další dva tréninkové cíle."],
+    "prompts":[{"id":"index","label":"Index všech povinných výstupů","help":"Odkaz, stav, oprávnění, důkaz kvality a chybějící oprava."},{"id":"presentation","label":"Výkon A — prezentace a otázky","help":"Výsledek publika, časové důkazy, zpětná vazba a opravená verze."},{"id":"conversation","label":"Výkon B — obtížný rozhovor","help":"Kontrakt, naslouchání, žádost, odpor, hranice a uzavření."},{"id":"competencies","label":"Deset kompetencí s důkazy","help":"Ke každému stupni uveď konkrétní větu, čas nebo výsledek testu."},{"id":"plan","label":"Devadesátidenní plán","help":"Dvě priority, počet nácviků podle potřeby, zpětná vazba a termíny revize."}]
+  },
+  {
+    "id":"comm-audio-pack","courseId":"komunikace-v-praxi","moduleIndex":0,"itemId":"m0-1","categoryLabel":"AUDIO K NAHRÁNÍ","title":"Přesné scénáře osmi tréninkových audií","estimatedMinutes":100,"techniqueId":"COM-AUDIO",
+    "method":"Prostuduj produkční pokyny a nahraj osm přesně připravených audií pro výklad, řízený nácvik, reflexi a závěr výcviku.",
+    "boundary":"Uprav osobní pozdrav a přirozené spojky, ale zachovej účel, pauzy, možnost zastavit nácvik a formulace, které nehodnotí osobnost studentky.",
+    "purpose":"Dát Nie přímo na webu doslovný podklad, co říct, jakým hlasem, jak dlouho a kam nahrávku v kurzu umístit.",
+    "canDiscover":"Jak se liší výkladové audio, časovaný drill, modelový rozhovor a reflexivní instrukce a kde je potřeba skutečné ticho.",
+    "takeaway":"Osm hotových nahrávek pro web v archivním WAV a webovém MP3 formátu.",
+    "howToUse":["Přečti společné produkční pokyny.","Nahraj pracovní verzi bez hudby.","Ověř tempo a pauzy.","Exportuj a označ hotové nahrávky."],
+    "prompts":[{"id":"a1","label":"Audio 1 — Vítej a první video","help":"Úvod, princip důkazu a přesné zadání výchozího záznamu."},{"id":"a2","label":"Audio 2 — Naslouchací drill","help":"Časované ticho, jedna otázka a závěrečné shrnutí."},{"id":"a3","label":"Audio 3 — Pauza místo výplně","help":"Krátký hlasový nácvik dokončených vět a ticha."},{"id":"a4","label":"Audio 4 — Hlas před vystoupením","help":"Přirozený hlas bez zdravotních nebo terapeutických tvrzení."},{"id":"a5","label":"Audio 5 — Kamerová reflexe","help":"Tři průchody záznamem bez hodnocení vzhledu a osobnosti."},{"id":"a6","label":"Audio 6 — Obtížný rozhovor","help":"Příprava pozorování, dopadu, žádosti a hranice."},{"id":"a7","label":"Audio 7 — Před prezentací","help":"Kontrola cíle, sdělení, publika, techniky a záložního postupu."},{"id":"a8","label":"Audio 8 — Závěr výcviku","help":"Porovnání důkazů a předání do devadesátidenní praxe."}]
+  }
+]

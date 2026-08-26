@@ -1,0 +1,834 @@
+[
+  {
+    "id": "kbt-m0-scope",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 0,
+    "itemId": "m0-4",
+    "categoryLabel": "PROFESNÍ RÁMEC",
+    "title": "Kontrakt, bezpečnostní brána a stop pravidla",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-00",
+    "method": "Zpracuj vlastní rozsah služby, souhlas, ochranu dat a rozhodovací strom pokračovat–upravit–předat.",
+    "boundary": "Materiál neslouží k diagnostice ani krizové intervenci; při ohrožení nebo potřebě léčby se technika zastavuje a navazuje vhodná odborná pomoc.",
+    "purpose": "Převést obecnou etiku do vět a rozhodnutí, která koučka dokáže použít před technikou i v okamžiku, kdy téma překročí její roli.",
+    "canDiscover": "Kde jsou tvé hranice zatím jen deklarací, jak poznáš ztrátu vhodnosti koučinku a jak předáš klientku bez opuštění.",
+    "takeaway": "Jednostránkový kontrakt, pět stop pravidel, osm rozhodnutí ke scénářům a dvě opravené hraniční formulace.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m1-abc",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 1,
+    "itemId": "m1-4",
+    "categoryLabel": "ABC+ MAPA",
+    "title": "Tři mapy ABC+ a společná formulace",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-01",
+    "method": "Odděl situaci, automatickou myšlenku, význam, emoci, tělo, chování a oba časové následky a spoj je do opravitelné hypotézy.",
+    "boundary": "Mapa je neklinická pracovní hypotéza, nikoli diagnóza, definitivní příčina ani důkaz, že reálné prostředí nehraje roli.",
+    "purpose": "Naučit se mapovat od klientčina důsledku zpět ke konkrétní situaci a vytvořit přesný společný obraz bez doplňování příběhu za ni.",
+    "canDiscover": "Které části mapy máš podložené klientčinými slovy, kde chybí data a jakou otázkou lze hypotézu bezpečně ověřit.",
+    "takeaway": "Tři úplné mapy, dvě výjimky, jednostránková formulace a přepis shrnutí, které klientka mohla opravit.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m2-consequence",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 2,
+    "itemId": "m2-4",
+    "categoryLabel": "DŮSLEDKY",
+    "title": "Sedmidenní záznam myšlenek, emocí, těla a chování",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-02",
+    "method": "Sleduj pět konkrétních epizod, odděluj interpretaci od emoce a zapisuj krátkodobou funkci i dlouhodobý dopad chování.",
+    "boundary": "Záznam není zdravotní diagnostika a nové tělesné příznaky nebo závažné omezení fungování patří příslušnému odbornému posouzení.",
+    "purpose": "Zviditelnit celý důsledek a pochopit, proč může okamžitá úleva udržovat dlouhodobě nákladný způsob reagování.",
+    "canDiscover": "Jaká emoce, tělesná změna a nutkání se opakují, co chování chrání a ve kterých situacích se cyklus nerozběhne.",
+    "takeaway": "Nejméně pět záznamů, orientační graf, dvě výjimky a jeden bod, kde lze vytvořit bezpečný prostor pro volbu.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m3-cycle",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 3,
+    "itemId": "m3-4",
+    "categoryLabel": "UDRŽOVACÍ CYKLUS",
+    "title": "Mapa aktivace, kontextu a udržovacího cyklu",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-03",
+    "method": "Zakresli šest uzlů cyklu, důkaz ke každé šipce, reálné podmínky prostředí a tři různá místa možného zásahu.",
+    "boundary": "Nevytvářej jistotu o kořenové příčině ani nepřeváděj násilí, diskriminaci či nevhodné podmínky na pouhý problém klientčina myšlení.",
+    "purpose": "Najít současné mechanismy zpětné vazby, které lze ovlivnit, aniž by bylo nutné spekulovat o skrytém původu nebo měnit vše najednou.",
+    "canDiscover": "Která šipka má nejvíc dat, kde je jen předpoklad, co cyklus krátkodobě posiluje a který zásah má nejlepší poměr učení a rizika.",
+    "takeaway": "Jedna doložená mapa, tři zásahy s výhodami a riziky, dvě výjimky a protokol jednoho týdenního mikroexperimentu.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m4-thoughts",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 4,
+    "itemId": "m4-4",
+    "categoryLabel": "AUTOMATICKÉ MYŠLENKY",
+    "title": "Deník automatických vět, obrazů a ochranných funkcí",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-04",
+    "method": "Zachyť osm situací, doslovné věty nebo obrazy, přesvědčení 0–100, možné vzorce myšlení, ochrannou funkci a cenu.",
+    "boundary": "Názvy kognitivních vzorců jsou navigace, ne diagnóza ani nálepka člověka; reálné riziko nelze zrušit označením myšlenky za zkreslení.",
+    "purpose": "Rozpoznat automatickou myšlenku před jejím přerámováním a naučit se přesně pojmenovat testovatelnou předpověď místo globálního soudu.",
+    "canDiscover": "Kdy se myšlenka objeví, jakou hrozbu předvídá, co se snaží chránit a co v konkrétním kontextu podporuje nebo přehlíží.",
+    "takeaway": "Osm záznamů, dvě funkční analýzy a jedna myšlenka přepsaná do tří přesných a bezpečně zkoumatelných předpovědí.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m5-beliefs",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 5,
+    "itemId": "m5-4",
+    "categoryLabel": "VÝZNAM A PRAVIDLA",
+    "title": "Mapa významu, pravidel a přesvědčení",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-05",
+    "method": "Postupuj od konkrétní věty k významu, podmíněnému pravidlu a možné širší hypotéze, přičemž průběžně kontroluj souhlas a intenzitu.",
+    "boundary": "Nevytěžuj minulost, nevytvářej falešnou jistotu o původu a při traumatu, disociaci, zahlcení či potřebě léčby předej práci odborníkovi.",
+    "purpose": "Odhalit pravidlo, které vysvětluje současný vzorec, a vytvořit jeho pružnější verzi bez násilného hledání nejhlubší příčiny.",
+    "canDiscover": "Co situace pro klientku znamená, kdy pravidlo pomáhá, jakou má cenu, kde neplatí a jak by vypadala uvěřitelná výjimka.",
+    "takeaway": "Bezpečná mapa významu, důkazy pro a proti pravidlu, dvě alternativy a finální pružná formulace s jasným účelem.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m6-evidence",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 6,
+    "itemId": "m6-4",
+    "categoryLabel": "SOKRATOVSKÉ OTÁZKY",
+    "title": "Dvojí tabulka důkazů a sokratovský rozhovor",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-06",
+    "method": "Odděl fakta pro a proti, interpretace a neznámé, posuď kvalitu dat a polož navazující otázky bez předem určeného správného závěru.",
+    "boundary": "Zkoumání nesmí být křížový výslech ani povinný optimismus; výsledek může původní obavu potvrdit a vést k hranici nebo přípravě.",
+    "purpose": "Trénovat zvědavý rozhovor, v němž klientka vlastní závěr a evidence může vést k upřesnění, nikoli jen k oslabení původní myšlenky.",
+    "canDiscover": "Která data jsou přímá, jaké informace chybějí, co nepasuje do původního závěru a jak odpor upozorňuje na tlak koučky.",
+    "takeaway": "Dvě úplné tabulky s odlišným výsledkem, deset navazujících otázek a dva realistické závěry převedené do jednání.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m7-flexibility",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 7,
+    "itemId": "m7-4",
+    "categoryLabel": "KOGNITIVNÍ FLEXIBILITA",
+    "title": "Tři adaptivní alternativy a karta přepnutí",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-07",
+    "method": "Vytvoř důkazní, soucitnou a akční alternativu, ohodnoť přesnost a uvěřitelnost a spoj ji s malým chováním.",
+    "boundary": "Alternativa nesmí zlehčovat skutečnou újmu, nutit klientku odpustit ani nahrazovat hranici pozitivní afirmací, které sama nevěří.",
+    "purpose": "Rozšířit počet dostupných interpretací a nacvičit krátkou sekvenci, která podporuje volbu i v přítomnosti nepříjemné emoce.",
+    "canDiscover": "Která alternativa respektuje fakta, co by viděla jiná perspektiva, kde se objevuje gaslighting a jaký krok zůstává možný při nejistotě.",
+    "takeaway": "Tři varianty s hodnocením, jedna finální věta, mobilní karta šesti kroků a záznam tří nácvikových použití.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m8-identity",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 8,
+    "itemId": "m8-4",
+    "categoryLabel": "IDENTITA A VLIV",
+    "title": "Mapa identity, srovnání a tří kruhů vlivu",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-08",
+    "method": "Rozšiř obraz identity o dvanáct oblastí, rozeber jedno srovnání a rozděl aktuální situaci na přímou kontrolu, vliv a neovlivnitelné.",
+    "boundary": "Koučink nesmí individualizovat systémové překážky, diskriminaci nebo cizí zneužívající jednání ani určovat klientce její identitu.",
+    "purpose": "Oddělit jeden výsledek od hodnoty člověka a přesněji rozdělit odpovědnost, aby klientka nepřebírala vše ani se nevzdávala reálného vlivu.",
+    "canDiscover": "Které identity zůstávají skryté za výkonem, jaké měřítko používáš a co skutečně patří do tvého dalšího rozhodnutí.",
+    "takeaway": "Mapa dvanácti oblastí, rozbor měřítka, tři kruhy s opravami a jedna konkrétní volba odpovídající reálnému vlivu.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m9-values",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 9,
+    "itemId": "m9-4",
+    "categoryLabel": "HODNOTY A DISONANCE",
+    "title": "Audit hodnot, pěti pravidel a jednoho nesouladu",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-09",
+    "method": "Převeď hodnoty do pozorovatelného jednání, prozkoumej pět rigidních musím a navrhni čtyři odpovědi na jeden hodnotový nesoulad.",
+    "boundary": "Koučka neprosazuje své hodnoty, rodinný model ani kariérní preference a nevydává napětí z disonance za pokyn k jediné správné volbě.",
+    "purpose": "Rozlišit hodnotu od cíle a rigidního příkazu a vytvořit pravidla s účelem, rozsahem, výjimkou a vědomou prioritou.",
+    "canDiscover": "Které musím chrání zvolenou hodnotu, které chrání přijetí, jaké hodnoty jsou v konfliktu a jaký kompromis je skutečně vědomý.",
+    "takeaway": "Pět auditovaných pravidel, jedno ponechané a jedno nahrazené pravidlo, mapa disonance a malý krok pro chybějící data.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m10-attention",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 10,
+    "itemId": "m10-4",
+    "categoryLabel": "POZORNOST",
+    "title": "Sedmidenní experiment pozornosti a soustředění",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-10",
+    "method": "Sleduj podmínky soustředěného bloku, počet návratů, dokončený výstup a krátkou volitelnou praxi všímavosti a měň jednu proměnnou.",
+    "boundary": "Výcvik nediagnostikuje ADHD ani jiné zdravotní potíže; výrazné nebo dlouhodobé omezení a nepříjemná reakce na cvičení vyžadují úpravu či odborné posouzení.",
+    "purpose": "Nahradit globální nálepku o disciplíně konkrétními daty o pozornosti, prostředí, energii a návratu k vybranému úkolu.",
+    "canDiscover": "Kdy pozornost zužuje vzorek informací, které podmínky usnadňují start a zda všímavost zvyšuje volbu nebo zahlcení.",
+    "takeaway": "Sedm záznamů soustředění, parkoviště rušivých myšlenek, dvě podpůrné podmínky a realistický plán pro den s nízkou kapacitou.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m11-coping",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 11,
+    "itemId": "m11-4",
+    "categoryLabel": "COPING A PRIORITY",
+    "title": "Matice problémů a osobní coping menu",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-11",
+    "method": "Seřaď deset problémů podle bezpečí, dopadu a ovlivnitelnosti a pro jeden vytvoř repertoár, signál, plán B a měření.",
+    "boundary": "Coping technika nenahrazuje změnu nebezpečných podmínek ani zdravotní péči a nesmí sloužit k přizpůsobení klientky násilí nebo zneužití.",
+    "purpose": "Vybrat správný typ odpovědi pro řešitelný problém, emoční reakci nebo nezměnitelnou nejistotu a zabránit zahlcení mnoha úkoly.",
+    "canDiscover": "Který problém má prioritu, co je řešitelné teď, kdy pauza obnovuje kapacitu a kdy už vyhýbání udržuje obtíž.",
+    "takeaway": "Matice deseti problémů, šestidílné coping menu, včasný signál, plán B, stop podmínka a týdenní vyhodnocení.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m12-plan",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 12,
+    "itemId": "m12-4",
+    "categoryLabel": "PLÁN ZMĚNY",
+    "title": "Dvoustránkový plán zlepšení a behaviorální aktivace",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-12",
+    "method": "Odděl žádoucí chování od emoce, rozlož výsledek na kroky, překážky a zdroje a ověř předpověď náročnosti ve čtyřech aktivitách.",
+    "boundary": "Behaviorální aktivace je zde neklinický koučovací postup; dlouhodobý pokles nálady, riziko nebo výrazná ztráta fungování patří odborné péči.",
+    "purpose": "Převést neurčité přání do klientčina proveditelného plánu, který počítá s překážkami, různou kapacitou a učením z reálných výsledků.",
+    "canDiscover": "Co se má změnit v životě, jaké minimum je významné, která překážka je návrhový problém a co ukázal rozdíl mezi předpovědí a skutečností.",
+    "takeaway": "Dvě stránky plánu, měřítko výchozího stavu, čtyři aktivity, porovnání předpovědí a jedna revize založená na datech.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m13-experiment",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 13,
+    "itemId": "m13-4",
+    "categoryLabel": "BEHAVIORÁLNÍ EXPERIMENT",
+    "title": "Protokol bezpečného experimentu ve třech opakováních",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-13",
+    "method": "Definuj předpověď a pozorovatelný výsledek, zvaž riziko, souhlas a stop podmínku a porovnej tři pokusy bez vybírání jen vhodných dat.",
+    "boundary": "Neexperimentuj s bezpečím, zákonem, léčbou, násilím, významným finančním rizikem ani na úkor nesouhlasících osob; klientka může kdykoli skončit.",
+    "purpose": "Naučit se navrhovat pravdivé testy hypotéz, v nichž potvrzení, vyvrácení i smíšený výsledek vedou k přesnějšímu učení.",
+    "canDiscover": "Je předpověď měřitelná, co by zkreslilo výsledek, jak se liší tři pokusy a co z dat stále nelze uzavřít.",
+    "takeaway": "Kompletní bezpečnostní protokol, tři předpovědi a pozorování, alternativní vysvětlení, revidované přesvědčení a další krok.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m14-toolbox",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 14,
+    "itemId": "m14-4",
+    "categoryLabel": "SADA NÁSTROJŮ",
+    "title": "Klinika dvanácti KBT pracovních listů",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-14",
+    "method": "Přiřaď dvanácti scénářům jeden vhodný nástroj, zdůvodni účel a vyplň tři listy včetně zjednodušené varianty.",
+    "boundary": "Pracovní list nenahrazuje formulaci, souhlas, rozhovor ani klinickou péči a nesmí být použit jen proto, že jej koučka zná nebo má ráda.",
+    "purpose": "Umět volit mezi ABC, Vicious Flower, TIC–TOC, náklad–užitek, dekatastrofizací, starostí, pozorností, emocemi a experimentem.",
+    "canDiscover": "Jakou otázku má list zodpovědět, který proces udržuje problém, co klientku zahltí a zda lze stejnou logiku vést bez formuláře.",
+    "takeaway": "Dvanáct zdůvodněných voleb, tři úplné pracovní listy, jedna odlehčená verze a jasné kritérium jejich dalšího použití.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-m15-portfolio",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 15,
+    "itemId": "m15-4",
+    "categoryLabel": "CERTIFIKAČNÍ PORTFOLIO",
+    "title": "Audit důkazů a závěrečné celé sezení",
+    "estimatedMinutes": 60,
+    "techniqueId": "KBT-15",
+    "method": "Zkontroluj povinné důkazy, porovnej výchozí a závěrečnou nahrávku a dokonči celé sezení s jednou cílenou opravou podle rubriky.",
+    "boundary": "Interní certifikát nepotvrzuje zdravotnickou kvalifikaci, státní rekvalifikaci ani oprávnění k psychoterapii nebo diagnostice.",
+    "purpose": "Prokázat konzistentní bezpečný proces od kontraktu po měřitelné uzavření a schopnost opravit výkon podle konkrétní zpětné vazby.",
+    "canDiscover": "Který důkaz skutečně ukazuje kompetenci, co se změnilo od výchozího výkonu a jak reaguješ, když nová data rozbijí formulaci.",
+    "takeaway": "Úplné portfolio, dva srovnané přepisy, rubrika celého sezení, cílená oprava a pravdivá formulace profesního vzdělání.",
+    "howToUse": [
+      "Nejdřív vymez konkrétní situaci, cíl a bezpečnostní hranici.",
+      "Vyplň pracovní část vlastními slovy a každou domněnku označ jako hypotézu.",
+      "Použij výstup v simulaci s Elitea a vyžádej si zpětnou vazbu s citací.",
+      "Oprav jednu pasáž, zopakuj relevantní krok a ulož obě verze do portfolia."
+    ],
+    "prompts": [
+      {
+        "id": "situation",
+        "label": "Konkrétní situace a cíl",
+        "help": "Popiš pozorovatelnou situaci, čas, kontext a výsledek, který chceš tímto listem získat."
+      },
+      {
+        "id": "evidence",
+        "label": "Důkazy, výjimky a neznámé",
+        "help": "Odděl přímá data, vlastní interpretace, informace proti a vše, co ještě potřebuješ zjistit."
+      },
+      {
+        "id": "process",
+        "label": "Postup a klientčina volba",
+        "help": "Zapiš použité otázky, nabídnuté možnosti, získaný souhlas a místo, kde klientka rozhodla sama."
+      },
+      {
+        "id": "safety",
+        "label": "Hranice, riziko a stop bod",
+        "help": "Uveď možné riziko, hranici kompetence, podmínku zastavení a nejbezpečnější alternativní postup."
+      },
+      {
+        "id": "learning",
+        "label": "Výsledek, učení a další krok",
+        "help": "Co se konkrétně změnilo, jaký důkaz vznikl, co zůstává nejasné a jaký malý krok následuje."
+      }
+    ]
+  },
+  {
+    "id": "kbt-audio-pack",
+    "courseId": "kbt-koucink-v-praxi",
+    "moduleIndex": 0,
+    "itemId": "m0-1",
+    "categoryLabel": "AUDIO PRŮVODCE",
+    "title": "Osm přesných scénářů k namluvení",
+    "estimatedMinutes": 45,
+    "techniqueId": "KBT-AUDIO",
+    "method": "Nahraj osm krátkých průvodců přesně podle produkčních poznámek a doslovného textu; každý zvuk má jasné umístění, účel a bezpečnostní ukončení.",
+    "boundary": "Audia nejsou terapie, krizová intervence ani náhrada odborné péče; posluchačka může kdykoli přestat a při nepříjemné reakci volí bezpečnější podporu.",
+    "purpose": "Dodat Nii jednoznačné nahrávací podklady a studentce opakovatelné vedení pro mapování, rozlišování, zkoumání, experiment a profesní uzavření.",
+    "canDiscover": "Kde hlasové vedení snižuje kognitivní zátěž, kolik ticha studentka potřebuje a která instrukce musí zůstat volitelná.",
+    "takeaway": "Osm finálních audionahrávek, kontrolní poslech každé stopy a jasné propojení s příslušnou lekcí nebo praktickou laboratoří.",
+    "howToUse": [
+      "Otevři produkční scénář konkrétní stopy.",
+      "Nahraj doslovný text v uvedeném tempu.",
+      "Dodrž pauzy a bezpečnostní formulace.",
+      "Po kontrolním poslechu oprav pouze nepřesné místo."
+    ],
+    "prompts": [
+      {
+        "id": "audio_1",
+        "label": "Audio 1 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_2",
+        "label": "Audio 2 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_3",
+        "label": "Audio 3 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_4",
+        "label": "Audio 4 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_5",
+        "label": "Audio 5 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_6",
+        "label": "Audio 6 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_7",
+        "label": "Audio 7 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      },
+      {
+        "id": "audio_8",
+        "label": "Audio 8 — výrobní kontrola",
+        "help": "Zkontroluj umístění, tempo, pauzy, srozumitelnost, bezpečnostní větu a návazný úkol studentky."
+      }
+    ]
+  }
+]
+

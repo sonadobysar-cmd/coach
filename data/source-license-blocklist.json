@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "updated_at": "2026-08-24",
+  "policy": "deny_by_default_for_all_transformation_academy_programs",
+  "product_rule": "No Transformation Academy course transcript, workbook, framework, synthesis, paraphrase, derivative method, or course-specific implementation may enter product knowledge, prompts, technique routing, tests, or generated commercial content without prior written permission covering commercial AI use.",
+  "sources": [
+    {
+      "source_id": "udemy-transformation-life-coach-transformation-academy",
+      "title": "Transformation Life Coach Certification (Accredited)",
+      "provider": "Transformation Academy",
+      "platform": "Udemy",
+      "status": "blocked_from_product_knowledge",
+      "reason": "Provider terms expressly prohibit supplying proprietary course content to AI tools for AI training or machine-learning applications and prohibit AI-derived commercial products or services without prior written permission.",
+      "allowed_use": "Personal educational assistance only, subject to the provider terms.",
+      "required_before_product_use": "Prior written permission from Transformation Academy covering commercial AI use.",
+      "permission_contact": "contact@transformationacademy.com",
+      "terms_audited_at": "2026-08-24"
+    },
+    {
+      "source_id": "udemy-cbt-life-coach-transformation-academy",
+      "title": "CBT Cognitive Behavior Life Coach Certification: Accredited",
+      "provider": "Transformation Academy",
+      "platform": "Udemy",
+      "status": "blocked_from_product_knowledge",
+      "reason": "The same provider terms apply to any Program and prohibit supplying proprietary course materials, methodologies, or frameworks to AI and using AI-generated derivative products or services commercially without prior written permission.",
+      "allowed_use": "Personal educational assistance only, subject to the provider terms.",
+      "required_before_product_use": "Prior written permission from Transformation Academy covering commercial AI use.",
+      "permission_contact": "contact@transformationacademy.com",
+      "terms_audited_at": "2026-08-24"
+    }
+  ]
+}

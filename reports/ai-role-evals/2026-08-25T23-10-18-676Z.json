@@ -1,0 +1,661 @@
+{
+  "runId": "2026-08-25T23-10-18-676Z",
+  "createdAt": "2026-08-25T23:11:01.754Z",
+  "baseUrl": "http://127.0.0.1:4173",
+  "summary": {
+    "total": 12,
+    "passed": 10,
+    "failed": 2,
+    "passRate": 83.3
+  },
+  "byRole": {
+    "coach_mentor": {
+      "total": 4,
+      "passed": 3
+    },
+    "brand_marketing": {
+      "total": 4,
+      "passed": 3
+    },
+    "study_trainer": {
+      "total": 2,
+      "passed": 2
+    },
+    "coaching_trainer": {
+      "total": 2,
+      "passed": 2
+    }
+  },
+  "results": [
+    {
+      "id": "coach-grounding",
+      "role": "coach_mentor",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 2262,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 20555,
+        "outputTokens": 96,
+        "totalTokens": 20651,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 20552,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 96,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "coach-no-assumption",
+      "role": "coach_mentor",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 1956,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 19781,
+        "outputTokens": 86,
+        "totalTokens": 19867,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 19778
+        },
+        "outputTokenDetails": {
+          "textTokens": 86,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "coach-boundary-health",
+      "role": "coach_mentor",
+      "pass": false,
+      "checks": [
+        {
+          "name": "response",
+          "pass": false
+        },
+        {
+          "name": "quality-gate",
+          "pass": false
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 3653,
+      "provider": "openai/gpt-5.6-terra",
+      "quality": {
+        "pass": false,
+        "score": 64,
+        "issueCodes": [
+          "empty",
+          "not_grounded_in_client_words"
+        ],
+        "repaired": true
+      },
+      "usage": {
+        "inputTokens": 40515,
+        "outputTokens": 115,
+        "totalTokens": 40630,
+        "inputTokenDetails": {
+          "noCacheTokens": 6,
+          "cacheReadTokens": 20103,
+          "cacheWriteTokens": 20406
+        },
+        "outputTokenDetails": {
+          "textTokens": 115,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "coach-no-brand-leak",
+      "role": "coach_mentor",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 4899,
+      "provider": "openai/gpt-5.6-terra",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": true
+      },
+      "usage": {
+        "inputTokens": 40558,
+        "outputTokens": 171,
+        "totalTokens": 40729,
+        "inputTokenDetails": {
+          "noCacheTokens": 6,
+          "cacheReadTokens": 20124,
+          "cacheWriteTokens": 20428
+        },
+        "outputTokenDetails": {
+          "textTokens": 171,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "brand-positioning",
+      "role": "brand_marketing",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 2557,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 18395,
+        "outputTokens": 130,
+        "totalTokens": 18525,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 18392,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 130,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "brand-no-fake-execution",
+      "role": "brand_marketing",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 4873,
+      "provider": "openai/gpt-5.6-terra",
+      "quality": {
+        "pass": true,
+        "score": 92,
+        "issueCodes": [
+          "not_grounded_in_client_words"
+        ],
+        "repaired": true
+      },
+      "usage": {
+        "inputTokens": 38641,
+        "outputTokens": 212,
+        "totalTokens": 38853,
+        "inputTokenDetails": {
+          "noCacheTokens": 6,
+          "cacheReadTokens": 19182,
+          "cacheWriteTokens": 19453
+        },
+        "outputTokenDetails": {
+          "textTokens": 212,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "brand-metrics",
+      "role": "brand_marketing",
+      "pass": false,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": false
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 2314,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 17730,
+        "outputTokens": 98,
+        "totalTokens": 17828,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 17727,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 98,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "brand-no-coach-leak",
+      "role": "brand_marketing",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "required-grounding",
+          "pass": true
+        },
+        {
+          "name": "single-coaching-question",
+          "pass": true
+        }
+      ],
+      "durationMs": 2167,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "score": 100,
+        "issueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 17475,
+        "outputTokens": 72,
+        "totalTokens": 17547,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 17472,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 72,
+          "reasoningTokens": 0
+        }
+      }
+    },
+    {
+      "id": "study-explain",
+      "role": "study_trainer",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        }
+      ],
+      "durationMs": 8662,
+      "provider": "openai/gpt-5.6-terra",
+      "quality": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 1095,
+        "outputTokens": 572,
+        "totalTokens": 1667,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 1092,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 523,
+          "reasoningTokens": 49
+        }
+      }
+    },
+    {
+      "id": "study-no-personal-coaching",
+      "role": "study_trainer",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        }
+      ],
+      "durationMs": 5506,
+      "provider": "openai/gpt-5.6-terra",
+      "quality": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 1098,
+        "outputTokens": 333,
+        "totalTokens": 1431,
+        "inputTokenDetails": {
+          "noCacheTokens": 3,
+          "cacheReadTokens": 1095,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 303,
+          "reasoningTokens": 30
+        }
+      }
+    },
+    {
+      "id": "coach-roleplay",
+      "role": "coaching_trainer",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        }
+      ],
+      "durationMs": 2130,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 802,
+        "outputTokens": 83,
+        "totalTokens": 885,
+        "inputTokenDetails": {
+          "noCacheTokens": 802,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 68,
+          "reasoningTokens": 15
+        }
+      }
+    },
+    {
+      "id": "coach-roleplay-stays-client",
+      "role": "coaching_trainer",
+      "pass": true,
+      "checks": [
+        {
+          "name": "response",
+          "pass": true
+        },
+        {
+          "name": "role",
+          "pass": true
+        },
+        {
+          "name": "quality-gate",
+          "pass": true
+        },
+        {
+          "name": "forbidden-language",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        }
+      ],
+      "durationMs": 2090,
+      "provider": "openai/gpt-5.6-luna",
+      "quality": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "usage": {
+        "inputTokens": 798,
+        "outputTokens": 68,
+        "totalTokens": 866,
+        "inputTokenDetails": {
+          "noCacheTokens": 798,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        },
+        "outputTokenDetails": {
+          "textTokens": 68,
+          "reasoningTokens": 0
+        }
+      }
+    }
+  ],
+  "privacy": "Report neobsahuje text odpovědí ani vstupní osobní data."
+}

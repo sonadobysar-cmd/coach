@@ -1,0 +1,222 @@
+{
+  "version": "2026-08-26.2",
+  "capturedAt": "2026-08-26",
+  "purpose": "Kurátorovaný studijní plán pro rozšíření Elitea Brand & Marketing a pro vznik původních praktických programů Elitea Academy.",
+  "governance": {
+    "sourceUse": "Placený kurz slouží jako jeden ze studijních zdrojů. Do Elitea se ukládá vlastní odborná syntéza, rozhodovací pravidla, hranice použití a původní praktické nástroje, nikoli kopie lekcí nebo přepisů.",
+    "publicationRule": "Kurz Elitea lze publikovat až po spojení více zdrojů, samostatném autorském zpracování, praktických úlohách, odborné kontrole a testu AI lektorky, simulace a hodnoticího režimu.",
+    "agentReleaseRule": "Nová znalost se zpřístupní Brand & Marketing mentorce až po schválení, přiřazení use_when/do_not_use_as, vytvoření rozhodovací techniky a úspěšném evaluačním scénáři.",
+    "lessonExperienceRule": "Každá publikovaná část musí mít vedle textu alespoň jeden účelný prvek navíc: animovanou mapu procesu, diagram, rozbor případu, audio, interaktivní rozhodnutí, pracovní výstup nebo simulaci. Animace se používá jen tam, kde zlepšuje pochopení vztahu, vývoje, pořadí nebo zpětné vazby; nesmí být pouhou dekorací.",
+    "certificateRule": "Každý dokončený kurz vystaví certifikát s názvem konkrétního kurzu, jménem absolventky, skutečným datem dokončení, vydavatelem, rozsahem kvalifikace a unikátním identifikátorem. Profesní certifikát se nevystaví pouze za otevření lekcí; vyžaduje splnění definované praxe a závěrečného ověření.",
+    "platformRule": "Platformní postupy z Google, Meta, GA4, SEO nástrojů, Mailchimpu a sociálních sítí se před vydáním ověřují také v aktuální oficiální dokumentaci."
+  },
+  "productDefinition": {
+    "brandMentor": {
+      "mission": "Vést podnikatelku podle logiky Inkubátoru podnikatelek od přesné diagnostiky fáze a úzkého hrdla ke strategii, konkrétnímu výstupu, provedení a měřitelnému vyhodnocení.",
+      "scope": ["business_strategy", "market_research", "offer", "pricing", "positioning", "brand", "copywriting", "content_strategy", "social_media", "organic_distribution", "meta_ads", "google_ads", "email", "sales_funnel", "analytics", "optimization"],
+      "handoff": "Věcný byznysový problém řeší mentorka. Když provedení opakovaně zastavuje vnitřní blok, nabídne se souhlasem přechod k Elitea Coach & Mentor a zachová strategický kontext pro návrat."
+    },
+    "courseLecturer": {
+      "mission": "Učit pouze otevřený kurz a lekci, vysvětlit princip, ověřit porozumění, rozebrat pokus a převést znalost do výkonu.",
+      "modes": ["explanation", "guided_practice", "knowledge_check", "roleplay_handoff"],
+      "forbidden": ["generic_personal_coaching", "unrelated_curriculum", "invented_student_facts", "automatic_fault_finding"]
+    },
+    "simulation": {
+      "mission": "Držet modelovou protistranu podle konkrétního scénáře a po ukončení předat přepis samostatnému hodnoticímu režimu.",
+      "evaluation": "Hodnotí jen pozorovatelné důkazy podle rubriky a smí uzavřít, že výkon byl výborný bez uměle vytvořené výtky."
+    }
+  },
+  "publicProgramRoadmap": [
+    {
+      "priority": 1,
+      "id": "podnikani-od-reality-k-rustu",
+      "title": "Podnikání od reality k růstu",
+      "promise": "Zjisti, kde se podnikání skutečně nachází, vyber správnou prioritu a postav nabídku, ekonomiku a cestu k zákaznici.",
+      "sourcePriorities": [1, 4, 11, 12],
+      "release": "first_flagship"
+    },
+    {
+      "priority": 2,
+      "id": "brand-marketing-strategist",
+      "title": "Brand & Marketing Strategist",
+      "promise": "Komplexní profesní výcvik od výzkumu a positioningu po obsah, kampaně, měření a optimalizaci.",
+      "sourcePriorities": [1, 2, 3, 4, 7, 8, 9, 10],
+      "release": "second_flagship"
+    },
+    {
+      "priority": 3,
+      "id": "obsah-a-socialni-site",
+      "title": "Obsah a sociální sítě, které vedou k výsledku",
+      "promise": "Vybuduj obsahový systém značky pro reálné publikum, kapacitu a obchodní cíl.",
+      "sourcePriorities": [2, 3, 9, 10],
+      "release": "specialization"
+    },
+    {
+      "priority": 4,
+      "id": "vykonnostni-reklama-meta",
+      "title": "Výkonnostní reklama: Meta Ads od nabídky k zisku",
+      "promise": "Připrav, spusť a vyhodnocuj reklamu podle ekonomiky, kvality výsledků a kapacity follow-upu.",
+      "sourcePriorities": [4, 7, 8],
+      "release": "specialization_existing_source"
+    },
+    {
+      "priority": 5,
+      "id": "copy-prodej-email",
+      "title": "Copy, prodejní cesta a e-mail",
+      "promise": "Převáděj zákaznický vhled do sdělení, stránky, e-mailu a prodejního rozhodnutí bez manipulace.",
+      "sourcePriorities": [1, 3, 4, 10],
+      "release": "specialization"
+    },
+    {
+      "priority": 6,
+      "id": "google-seo-analytics",
+      "title": "Google, SEO a marketingová analytika",
+      "promise": "Získej poptávku podle záměru zákaznice a rozhoduj podle dat, kterým lze věřit.",
+      "sourcePriorities": [5, 6, 7, 8],
+      "release": "advanced_specialization"
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Strategické jádro",
+      "releaseGoal": "Mentorka přestane generovat obecný marketing a povede celý cyklus od výzkumu po uvedení nabídky na trh.",
+      "courses": [
+        {
+          "priority": 1,
+          "status": "selected_access_required",
+          "title": "The Complete Market Research Bootcamp",
+          "instructor": "Stephen Tracy",
+          "url": "https://www.udemy.com/course/market-research-bootcamp/",
+          "snapshot": { "rating": 4.5, "ratings": 720, "students": 4218, "duration": "10 h 58 min", "lastUpdated": "2026-04" },
+          "why": "Největší současná mezera je kvalitativní a kvantitativní výzkum bez podsouvání odpovědí, práce se vzorkem, syntéza insightů a převod zjištění do rozhodnutí.",
+          "eliteaProgram": "Zákazník a trh — výzkum bez domněnek",
+          "requiredCapabilities": ["research_brief", "interview_design", "survey_design", "sampling_and_bias_check", "qualitative_synthesis", "market_sizing", "decision_ready_insight"],
+          "requiredEvals": ["agentka se nejdřív zeptá, jaké rozhodnutí má výzkum podpořit", "nevydává názory známých za validaci trhu", "odliší výrok zákaznice, interpretaci a doporučení"]
+        },
+        {
+          "priority": 2,
+          "status": "selected_access_required",
+          "title": "Business Branding: The Complete Course Part 1 — Strategy",
+          "instructor": "Steve Houraghan",
+          "url": "https://www.udemy.com/course/business-branding-complete-course/",
+          "snapshot": { "rating": 4.6, "ratings": 7195, "students": 28698, "duration": "2 h 48 min", "lastUpdated": "2019-11" },
+          "why": "Silně ověřený praktický základ brand strategie, publika, odlišení, positioningu, osobnosti a hlasu značky. Nadčasové principy je nutné doplnit aktuálními zdroji.",
+          "eliteaProgram": "Brand strategie a positioning — od podstaty ke značce, kterou lze poznat",
+          "requiredCapabilities": ["brand_audit", "audience_context", "competitive_frame", "differentiation", "positioning_statement", "brand_personality", "voice_and_tone"],
+          "requiredEvals": ["nezamění logo za značku", "nevyrobí positioning bez zákaznického a konkurenčního kontextu", "udrží rozdíl mezi důkazem, slibem a osobností značky"]
+        },
+        {
+          "priority": 3,
+          "status": "selected_access_required",
+          "title": "Modern Copywriting: Writing Copy That Sells in 2026",
+          "instructor": "Evan Kimbrell",
+          "url": "https://www.udemy.com/course/modern-copywriting-writing-copy-that-sells-in-2018/",
+          "snapshot": { "rating": 4.4, "ratings": 5760, "students": 45564, "duration": "7 h 7 min", "lastUpdated": "2026-05" },
+          "why": "Pokrývá výzkum publika a produktu, hlas značky, strukturu argumentu, headline, landing page, CTA, e-mail, sociální sítě i video.",
+          "eliteaProgram": "Copy, která vede k rozhodnutí — jasně, přesvědčivě a bez manipulace",
+          "requiredCapabilities": ["message_hierarchy", "headline_system", "benefit_proof_copy", "objection_handling", "landing_page_copy", "email_copy", "social_copy", "copy_review"],
+          "requiredEvals": ["copy vychází z ověřeného problému a nabídky", "agentka nevymýšlí reference ani výsledky", "odmítne nátlak, falešnou naléhavost a neprokazatelné sliby"]
+        },
+        {
+          "priority": 4,
+          "status": "selected_access_required",
+          "title": "Product Marketing Launch Plan: Product GTM with Dekker, MBA",
+          "instructor": "Dekker the Marketer, Jyra Galosmo, Neelisha Singhal",
+          "url": "https://www.udemy.com/course/product-launch-how-to-go-to-market/",
+          "snapshot": { "rating": 4.4, "ratings": 6066, "students": 58704, "duration": "5 h 21 min", "lastUpdated": "2026-02" },
+          "why": "Spojuje cílovku, hodnotovou nabídku, messaging, pricing, distribuční cestu, demand generation a plán uvedení na trh.",
+          "eliteaProgram": "Go-to-market a launch — od připravené nabídky k měřitelnému uvedení",
+          "requiredCapabilities": ["launch_readiness", "gtm_strategy", "channel_choice", "launch_sequence", "sales_enablement", "capacity_check", "launch_metrics", "post_launch_review"],
+          "requiredEvals": ["nevytvoří launch plán bez znalosti publika, kanálu a kapacity", "oddělí validaci od škálování", "předem stanoví rozhodovací metriky a stop podmínky"]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Akvizice, měření a optimalizace",
+      "releaseGoal": "Mentorka umí vybrat vhodný kanál, připravit měření, diagnostikovat výkon a zlepšovat konverzi bez univerzálních benchmarků.",
+      "courses": [
+        {
+          "priority": 5,
+          "status": "selected_access_required",
+          "title": "SEO Training Masterclass 2026: Beginner To Advanced SEO",
+          "instructor": "Alex Genadinik",
+          "url": "https://www.udemy.com/course/seo-with-google-other-large-platforms-to-get-great-scale/",
+          "snapshot": { "rating": 4.5, "ratings": 10890, "students": 114916, "duration": "17 h 2 min", "lastUpdated": "2026-08" },
+          "eliteaProgram": "SEO a obsahový růst — od záměru hledání k obchodnímu výsledku"
+        },
+        {
+          "priority": 6,
+          "status": "selected_access_required",
+          "title": "Ultimate 2026 Google Ads Training: Profit with Pay Per Click",
+          "instructor": "Isaac Rudansky",
+          "url": "https://www.udemy.com/course/the-ultimate-google-adwords-training-course/",
+          "snapshot": { "rating": 4.6, "ratings": 55416, "students": 238280, "duration": "35 h 30 min", "lastUpdated": "2026-01" },
+          "eliteaProgram": "Google Ads — záměr, struktura, měření a ziskové rozhodování"
+        },
+        {
+          "priority": 7,
+          "status": "selected_access_required",
+          "title": "The Ultimate Google Analytics Course For Beginners 2026",
+          "instructor": "Joshua George, ClickSlice Ltd",
+          "url": "https://www.udemy.com/course/ultimate-google-analytics-training-for-beginners/",
+          "snapshot": { "rating": 4.8, "ratings": 2097, "students": 11719, "duration": "not captured", "lastUpdated": "2026-08" },
+          "eliteaProgram": "Marketingová analytika — data, kterým lze věřit a podle kterých lze jednat"
+        },
+        {
+          "priority": 8,
+          "status": "selected_access_required",
+          "title": "The Complete Conversion Rate Optimization Course",
+          "instructor": "Ruben de Boer",
+          "url": "https://www.udemy.com/course/complete-conversion-optimization-course/",
+          "snapshot": { "rating": 4.6, "ratings": 2961, "students": 16127, "duration": "not captured", "lastUpdated": "2026-06" },
+          "eliteaProgram": "CRO a experimentování — od problému ke spolehlivému testu"
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "Obsah, vztah a řízení byznysu",
+      "releaseGoal": "Mentorka propojí obsah, e-mail, cenotvorbu a strategický plán s reálnou kapacitou malého podnikání.",
+      "courses": [
+        {
+          "priority": 9,
+          "status": "selected_access_required",
+          "title": "The Social Media Marketing & Management Masterclass 2026",
+          "instructor": "Robin & Jesper, Expert Built",
+          "url": "https://www.udemy.com/course/social-marketing-media-masterclass/",
+          "snapshot": { "rating": 4.4, "ratings": 9641, "students": 55850, "duration": "35 h 53 min", "lastUpdated": "2026-02" },
+          "eliteaProgram": "Obsah a sociální sítě — systém značky, ne továrna na příspěvky"
+        },
+        {
+          "priority": 10,
+          "status": "selected_access_required",
+          "title": "The Complete Mailchimp Email Marketing Course for 2026",
+          "instructor": "COURSE ENVY",
+          "url": "https://www.udemy.com/course/mailchimp-email-marketing/",
+          "snapshot": { "rating": 4.3, "ratings": 4291, "students": 29738, "duration": "not captured", "lastUpdated": "2026-01" },
+          "eliteaProgram": "E-mail a lifecycle — od souhlasu k dlouhodobé hodnotě zákaznice"
+        },
+        {
+          "priority": 11,
+          "status": "selected_access_required",
+          "title": "How to Build and Implement a Winning Pricing Strategy",
+          "instructor": "Kimberley Haley",
+          "url": "https://www.udemy.com/course/how-to-build-a-winning-pricing-strategy/",
+          "snapshot": { "rating": 4.3, "ratings": 980, "students": 3601, "duration": "1 h 9 min", "lastUpdated": "2026-08" },
+          "eliteaProgram": "Cenotvorba a packaging — hodnota, ekonomika a udržitelnost"
+        },
+        {
+          "priority": 12,
+          "status": "selected_access_required",
+          "title": "Strategic Planning & Strategic Thinking | Business Strategy",
+          "instructor": "Salil Dhawan",
+          "url": "https://www.udemy.com/course/strategic-planning-strategic-thinking/",
+          "snapshot": { "rating": 4.4, "ratings": 3055, "students": 9425, "duration": "not captured", "lastUpdated": "2026-08" },
+          "eliteaProgram": "Strategické řízení malého byznysu — volby, zdroje, realizace a kontrola"
+        }
+      ]
+    }
+  ]
+}

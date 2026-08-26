@@ -1,0 +1,386 @@
+[
+  {
+    "id": "elitea_compass",
+    "name": "ELITEA Compass",
+    "tier": "A",
+    "purpose": "Vést hlubokou transformační koučovací práci od jasného směru přes realitu, kapacitu a překážky k vlastní volbě, ověřitelnému experimentu a adaptaci.",
+    "signals": ["chci změnu", "chci transformaci", "zasekla jsem se", "motám se v kruhu", "potřebuji zásadní posun", "nevím kudy dál"],
+    "avoid": ["bezprostřední ohrožení", "požadavek na diagnózu nebo léčbu", "stav, kdy členka nyní nechce pracovat na změně", "téma vyžadující právní, zdravotní nebo finanční posouzení"],
+    "steps": ["S — Směr: dohodnout jedno téma a pozorovatelný výsledek", "E — Evidence: oddělit fakta, interpretace a neznámé", "L — Limity a páky: zmapovat schopnosti, příležitosti, motivaci a kapacitu", "F — Frikce: najít nejsilnější překážku a její funkci", "A — Autonomní volba: vytvořit možnosti a ponechat rozhodnutí člence", "Y — Your experiment: navrhnout malý vratný test a když–tak plán", "A — Adaptace: vyhodnotit data, dopad a upravit další krok"],
+    "quality_check": "Elitea vede vždy jen aktuální fázi, nepodsouvá odpověď, rozlišuje fakta od hypotéz, před akcí ověřuje kapacitu a cyklus končí konkrétním učením, nikoli pouhou motivací.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["ICF-CORE-2025", "ICF-ETHICS-2025", "COM-B-2011", "SDT-2000", "IMPLEMENTATION-META-2006"],
+      "summary": "Originální integrace Elitey spojuje profesní koučovací kompetence, autonomii, diagnostiku podmínek chování a převod záměru do konkrétní situace.",
+      "limits": "ELITEA Compass je nová produktová metodika a nebyla samostatně klinicky validována. Neposkytuje diagnózu, psychoterapii, zdravotní péči ani garanci výsledku."
+    }
+  },
+  {
+    "id": "grow",
+    "name": "GROW",
+    "tier": "A",
+    "purpose": "Převést téma do vlastního cíle, reality, možností a závazku.",
+    "signals": ["cíl", "posun", "nevím jak", "co dál", "plán"],
+    "avoid": ["krize", "bezprostřední ohrožení", "silné zahlcení"],
+    "steps": ["Ujasnit žádoucí výsledek", "Popsat současnou realitu", "Vytvořit možnosti", "Vybrat vlastní další krok"],
+    "quality_check": "Krok zvolila členka a je realistický pro její kapacitu.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["ICF-CORE-2025", "COACH-RCT-META-2023", "GOAL-SETTING-2002"],
+      "summary": "Struktura odpovídá profesnímu koučovacímu standardu a principům cíle, reality, možností a akce; přímá evidence přesně pro GROW je omezenější než evidence coachingu obecně.",
+      "limits": "Nezaměňovat popularitu modelu za důkaz, že je nejlepší pro každou situaci; při silném zahlcení nebo klinických potížích jej nepoužívat automaticky."
+    }
+  },
+  {
+    "id": "solution_focus",
+    "name": "Solution-focused coaching",
+    "tier": "A",
+    "purpose": "Najít žádoucí stav, výjimky a již dostupné zdroje.",
+    "signals": ["pořád řeším problém", "zasekla", "nefunguje", "bez řešení"],
+    "avoid": ["potřeba validace bolesti", "krize"],
+    "steps": ["Uznat realitu problému", "Popsat žádoucí stav", "Najít výjimku", "Navrhnout malý posun"],
+    "quality_check": "Odpověď nezlehčuje problém a vychází z reálných zdrojů členky.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["SOLUTION-RCT-2012", "COACH-META-2023"],
+      "summary": "Randomizovaná studie podporuje přínos solution-focused otázek pro self-efficacy, orientaci na cíl a akční plánování.",
+      "limits": "Jedna technika ani krátkodobá změna afektu negarantují výsledek; metoda nesmí obejít validaci reálné bolesti nebo rizika."
+    }
+  },
+  {
+    "id": "socratic_check",
+    "name": "Sokratovské prověření předpokladu",
+    "tier": "B",
+    "purpose": "Oddělit fakt, domněnku a užitečnější pracovní hypotézu.",
+    "signals": ["určitě", "nikdy", "všichni", "nikdo", "nemůžu", "selžu"],
+    "avoid": ["akutní zranitelnost", "krize", "potřeba okamžité praktické pomoci"],
+    "steps": ["Pojmenovat tvrzení", "Zjistit důkazy pro a proti", "Najít alternativní vysvětlení", "Navrhnout ověřovací krok"],
+    "quality_check": "Elitea se nehádá a nevydává alternativu za jistotu.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["BECK-SOCRATIC", "PERFECTIONISM-META-2022"],
+      "summary": "Sokratovské prověřování myšlenek je zavedenou součástí kognitivních metod; v NiAIe jde pouze o neklinickou adaptaci pro pracovní předpoklady.",
+      "limits": "Elitea neposkytuje CBT, neléčí poruchy a nesmí pomocí otázek zpochybňovat trauma, bezpečí ani odbornou diagnózu."
+    }
+  },
+  {
+    "id": "friend_perspective",
+    "name": "Perspektiva nejlepší kamarádky",
+    "tier": "B",
+    "purpose": "Zmírnit nespravedlivě tvrdý dvojí metr vůči sobě.",
+    "signals": ["nejsem dost dobrá", "nemám na to", "stydím se", "jsem neschopná"],
+    "avoid": ["potřeba konkrétně doplnit dovednost", "krize"],
+    "steps": ["Shrnout konkrétní schopnosti", "Položit otázku třetí osoby", "Pojmenovat férovější závěr", "Vybrat důkaz v praxi"],
+    "quality_check": "Chvála je konkrétní a nezakrývá reálnou mezeru ve schopnostech.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["SELF-COMPASSION-META-2023", "SDT-2000"],
+      "summary": "Laskavější perspektiva a podpora kompetence mohou snižovat nespravedlivou sebekritiku a podporovat realistickou sebedůvěru.",
+      "limits": "Perspektiva kamarádky není diagnostický ani terapeutický nástroj a nesmí zakrýt skutečnou dovednostní mezeru."
+    }
+  },
+  {
+    "id": "ambivalence",
+    "name": "Práce s ambivalencí",
+    "tier": "A",
+    "purpose": "Rozmotat současné chci i nechci bez nátlaku.",
+    "signals": ["chci ale", "ano ale", "nevím jestli", "část mě", "na jednu stranu"],
+    "avoid": ["členka žádá čistě faktickou informaci", "krize"],
+    "steps": ["Popsat obě strany", "Zjistit hodnotu a obavu každé strany", "Najít podmínku bezpečného kroku", "Nechat rozhodnutí člence"],
+    "quality_check": "Elitea nenutí preferovanou variantu a respektuje autonomii.",
+    "evidence": {
+      "grade": "strong",
+      "source_ids": ["MI-REVIEWS-2018", "SDT-2000", "ICF-CORE-2025"],
+      "summary": "Práce s ambivalencí, respekt k autonomii a elicitační styl mají širokou odbornou oporu, i když účinek závisí na kontextu a kvalitě provedení.",
+      "limits": "Elitea nepředstírá klinické motivational interviewing a nesmí skrytě tlačit členku k předem zvolenému závěru."
+    }
+  },
+  {
+    "id": "values_decision",
+    "name": "Rozhodování podle hodnot",
+    "tier": "A",
+    "purpose": "Srovnat volbu s dlouhodobě důležitými hodnotami a hranicemi.",
+    "signals": ["rozhodnout", "dvě možnosti", "co je správně", "rodina", "svoboda", "hranice"],
+    "avoid": ["chybí základní fakta", "právní nebo zdravotní rozhodnutí bez odborníka"],
+    "steps": ["Pojmenovat hodnoty", "Popsat dopady variant", "Přiznat cenu každé volby", "Zvolit další ověření nebo rozhodnutí"],
+    "quality_check": "Použité hodnoty pocházejí od členky, nikoli od Elitea.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["SDT-2000", "ICF-CORE-2025"],
+      "summary": "Autonomní volba a soulad s vlastními hodnotami podporují kvalitnější motivaci; koučovací standard zdůrazňuje klientčinu autonomii.",
+      "limits": "Hodnoty nejsou náhradou dat, odborné rady ani posouzení rizika."
+    }
+  },
+  {
+    "id": "woop",
+    "name": "WOOP a plán překážky",
+    "tier": "A",
+    "purpose": "Propojit žádoucí výsledek s vnitřní překážkou a konkrétním plánem.",
+    "signals": ["chci začít", "odkládám", "prokrastinuji", "neudělala jsem", "nemůžu se dokopat"],
+    "avoid": ["nereálný nebo cizí cíl", "přetížení vyžadující odpočinek"],
+    "steps": ["Přání", "Nejdůležitější výsledek", "Vnitřní překážka", "Když–tak plán"],
+    "quality_check": "Plán pracuje se skutečnou překážkou a není trestem.",
+    "evidence": {
+      "grade": "strong",
+      "source_ids": ["MCII-META-2021", "IMPLEMENTATION-META-2006"],
+      "summary": "Mentální kontrastování propojené s implementačním plánem má meta-analytickou podporu pro dosahování cílů a změnu chování.",
+      "limits": "Průměrné účinky nejsou garancí; metoda není vhodná pro nereálný cíl, nedostatek zdrojů nebo stav vyžadující odbornou péči."
+    }
+  },
+  {
+    "id": "smallest_step",
+    "name": "Nejmenší užitečný krok",
+    "tier": "A",
+    "purpose": "Snížit zahlcení a převést záměr do jedné viditelné akce.",
+    "signals": ["chaos", "nevím kde začít", "moc úkolů", "zahlcená", "všechno"],
+    "avoid": ["krize", "potřeba nejprve odpočívat", "nejasný cíl"],
+    "steps": ["Vybrat jeden výsledek", "Odstranit vedlejší úkoly", "Definovat nejbližší akci", "Ověřit kapacitu a souhlas"],
+    "quality_check": "Výsledkem je pouze jeden krok, který lze skutečně začít.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["IMPLEMENTATION-META-2006", "GOAL-SETTING-2002", "PROCRASTINATION-META-2018"],
+      "summary": "Konkrétní cíle, implementační plány a behaviorální kroky pomáhají převést záměr do jednání.",
+      "limits": "Zmenšení kroku neřeší samo o sobě vyčerpání, depresi, ADHD ani strukturální překážky; Elitea nesmí diagnostikovat."
+    }
+  },
+  {
+    "id": "timebox_good_enough",
+    "name": "Timebox a definice dost dobré verze",
+    "tier": "A",
+    "purpose": "Zastavit nekonečné pilování a dokončit pracovní verzi.",
+    "signals": ["perfektní", "ještě to není hotové", "pořád upravuji", "bojím se zveřejnit"],
+    "avoid": ["úkol vyžaduje bezpečnostní nebo právní přesnost", "skutečný nedostatek kvality"],
+    "steps": ["Definovat minimum kvality", "Ohraničit čas", "Vymezit co se teď nedělá", "Zveřejnit nebo předat k testu"],
+    "quality_check": "Dost dobré neznamená nebezpečné, klamavé nebo nedodělané pro klienta.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["PERFECTIONISM-META-2022", "PROCRASTINATION-META-2018", "GOAL-SETTING-2002"],
+      "summary": "Behaviorální experimenty, konkrétní kritéria dokončení a práce s perfekcionismem mají odbornou oporu; timebox je praktická koučovací implementace.",
+      "limits": "Přímá evidence pro tuto přesnou kombinaci je omezená a metoda nesmí snižovat bezpečnostní, právní nebo klientské standardy."
+    }
+  },
+  {
+    "id": "capacity_audit",
+    "name": "Audit kapacity",
+    "tier": "B",
+    "purpose": "Rozlišit přetížení, změnu priorit a nedostatek disciplíny.",
+    "signals": ["nemám čas", "unavená", "nestíhám", "vyčerpaná", "scrolluji", "víkend"],
+    "avoid": ["diagnostika vyhoření", "akutní zdravotní potíže"],
+    "steps": ["Projít reálný týden", "Oddělit povinnosti, regeneraci a úniky", "Najít největší odtok kapacity", "Navrhnout úpravu"],
+    "quality_check": "Elitea neoznačí přetížení za lenost a nediagnostikuje.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-BURNOUT", "BOUNDARIES-REVIEW-2023"],
+      "summary": "Audit vychází z rozlišení pracovních nároků, regenerace a odpojení od práce; slouží jen k orientaci v kapacitě.",
+      "limits": "Elitea nesmí diagnostikovat vyhoření, depresi ani jiný stav; bez explicitního krizového nebo léčebného požadavku však nepřerušuje koučink preventivním doporučením odborníka."
+    }
+  },
+  {
+    "id": "boundary_map",
+    "name": "Mapa hranic",
+    "tier": "A",
+    "purpose": "Převést osobní hranici do jasné komunikace a následku.",
+    "signals": ["klient píše večer", "něco navíc", "vyčerpává mě", "neumím odmítnout", "hranice"],
+    "avoid": ["bezprostřední nebezpečí", "nejasná smluvní nebo právní povinnost"],
+    "steps": ["Pojmenovat pevnou hranici", "Popsat konkrétní porušení", "Napsat respektující větu", "Stanovit následek"],
+    "quality_check": "Hranice je proveditelná, srozumitelná a není odvetou.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["BOUNDARIES-REVIEW-2023", "ICF-CORE-2025"],
+      "summary": "Výzkum pracovního odpojení a profesní standard podporují jasné dohody, autonomii a ochranu regenerace.",
+      "limits": "Konkrétní smluvní, pracovněprávní nebo bezpečnostní důsledky musí posoudit příslušný odborník."
+    }
+  },
+  {
+    "id": "delegation_audit",
+    "name": "Audit delegování",
+    "tier": "A",
+    "purpose": "Uvolnit mentální a fyzickou kapacitu majitelky.",
+    "signals": ["všechno sama", "delegovat", "nestíhám", "nikdo to neudělá", "tým"],
+    "avoid": ["delegování citlivých dat bez zabezpečení", "chybějící finance bez alternativy"],
+    "steps": ["Sepsat opakované úkoly", "Seřadit čas, odpor a nutnost osobní účasti", "Vybrat první úkol", "Stanovit standard předání"],
+    "quality_check": "Doporučení zohledňuje kvalitu, náklady a ochranu dat.",
+    "evidence": {
+      "grade": "limited",
+      "source_ids": ["ENTREPRENEUR-MENTOR-2025", "GOAL-SETTING-2002"],
+      "summary": "Delegování je zavedená manažerská praxe, ale evidence pro tuto konkrétní auditní techniku a malé podnikatelky je nepřímá.",
+      "limits": "Elitea musí vždy prověřit ekonomiku, kompetence dodavatele, zabezpečení dat a úkoly, které nelze odpovědně předat."
+    }
+  },
+  {
+    "id": "premortem",
+    "name": "Pre-mortem",
+    "tier": "A",
+    "purpose": "Odhalit hlavní rizika před rozhodnutím nebo spuštěním.",
+    "signals": ["spustit", "risk", "co se může pokazit", "velké rozhodnutí", "investice"],
+    "avoid": ["silná úzkost nebo zahlcení", "použití k nekonečnému odkládání"],
+    "steps": ["Představit si neúspěch bez dramatizace", "Najít nejpravděpodobnější příčiny", "Vybrat tři prevence", "Stanovit varovné signály"],
+    "quality_check": "Metoda vede k prevenci, ne k paralýze.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["PREMORTEM-1989"],
+      "summary": "Experimentální výzkum prospective hindsight podporuje mechanismus zpětného vysvětlování budoucího výsledku a hledání příčin.",
+      "limits": "Důkazy nepodporují neomezené katastrofické scénáře; výstup musí skončit prioritizovanou prevencí a rozhodnutím."
+    }
+  },
+  {
+    "id": "evidence_log",
+    "name": "Záznam důkazů pokroku",
+    "tier": "B",
+    "purpose": "Budovat realistickou sebedůvěru na konkrétních důkazech.",
+    "signals": ["nic jsem nedokázala", "nejde mi to", "bez výsledku", "nejsem schopná"],
+    "avoid": ["prázdné lichocení", "ignorování skutečné chyby"],
+    "steps": ["Najít konkrétní čin", "Pojmenovat použitou schopnost", "Popsat výsledek", "Zvolit opakovatelný princip"],
+    "quality_check": "Každé ocenění je pravdivé, konkrétní a ověřitelné z kontextu.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["SDT-2000", "GOAL-SETTING-2002", "SELF-COMPASSION-META-2023"],
+      "summary": "Konkrétní zpětná vazba, vnímaná kompetence a laskavější práce se sebou podporují motivaci a realistické sebehodnocení.",
+      "limits": "Záznam vlastních důkazů není validovaný diagnostický nástroj a nesmí se změnit v prázdné afirmace."
+    }
+  },
+  {
+    "id": "grounding",
+    "name": "Krátké uzemnění",
+    "tier": "B",
+    "purpose": "Podpořit návrat pozornosti do přítomného okamžiku při mírném zahlcení.",
+    "signals": ["jsem ve stresu", "hlava jede", "nemůžu se soustředit", "zahlcená"],
+    "avoid": ["krize", "silné nebo přetrvávající psychické potíže", "nesouhlas členky"],
+    "steps": ["Požádat o souhlas", "Krátce zapojit smysly nebo dech bez nucení", "Ověřit stav", "Rozhodnout zda pokračovat"],
+    "quality_check": "Postup je dobrovolný a není prezentován jako léčba.",
+    "evidence": {
+      "grade": "limited",
+      "source_ids": ["ICF-REFERRAL", "APA-ETHICS"],
+      "summary": "Krátké dobrovolné zaměření pozornosti může sloužit jako podpůrná pauza, ale pro obecné grounding techniky chybí jednotná přímá důkazní základna.",
+      "limits": "Nesmí být vydáváno za léčbu úzkosti, traumatu nebo paniky; samotná zmínka psychických obtíží není důvodem k preventivnímu doporučení odborníka."
+    }
+  },
+  {
+    "id": "nlp_outcome_frame",
+    "name": "Dobře formulovaný výsledek",
+    "tier": "C",
+    "purpose": "Vést plnohodnotnou NLP konzultaci a zpřesnit či proměnit vnitřní reprezentaci cíle v neklinickém koučovacím rámci.",
+    "signals": ["chci být úspěšná", "chci aby", "někdy", "víc sebevědomí", "změnit život"],
+    "avoid": ["skrytá manipulace nebo nátlak", "garantovaná léčba či jistý výsledek", "cíl závisí výhradně na druhých"],
+    "steps": ["Popsat žádoucí stav", "Vymezit vlastní vliv", "Zvolit vhodný postup — jazyk, přerámování, submodality, kotvení, vizualizace, swish nebo časová perspektiva", "Provést jeden krok se souhlasem", "Ověřit účinek a dopady"],
+    "quality_check": "Konzultace je postupná, transparentní, použitelná a členka může krok odmítnout nebo zastavit.",
+    "evidence": {
+      "grade": "limited",
+      "source_ids": ["NLP-SR-2012", "GOAL-SETTING-2002"],
+      "summary": "NLP je potvrzenou součástí metodiky Nii. Elitea může aktivně používat jeho neklinické koučovací postupy a jejich přínos ověřovat přímo s členkou.",
+      "limits": "NLP se nevydává za garantovanou léčbu, diagnózu ani jistý výsledek a nesmí být použito ke skryté manipulaci."
+    }
+  },
+  {
+    "id": "anxiety_stabilization",
+    "name": "Podpůrné zklidnění při úzkosti",
+    "tier": "A",
+    "purpose": "Pomoci člence bezpečně zpomalit, zorientovat se v přítomnosti a zvolit další podporu bez diagnostiky nebo léčebného slibu.",
+    "signals": ["úzkost", "panika", "uklidni mě", "zklidni mě", "jsem rozklepaná", "nemůžu se uklidnit"],
+    "avoid": ["bezprostřední ohrožení", "bolest na hrudi nebo jiné možné akutní zdravotní příznaky", "nesouhlas", "zhoršení při zaměření na dech"],
+    "steps": ["Krátce uznat aktuální stav bez podsouvání krize", "Nabídnout volbu mezi vnější orientací a jemným dechem", "Vést jeden krátký dobrovolný krok", "Ověřit změnu bez slibu", "Navázat na skutečný požadavek členky"],
+    "quality_check": "Elitea nedává diagnózu, nenutí hluboké dýchání, neslibuje odstranění úzkosti a při zhoršení ihned zastaví.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-STRESS-2023", "WHO-SELF-HELP-2026", "NICE-GAD-2011"],
+      "summary": "Relaxace, mindfulness a strukturovaná svépomoc mohou být podpůrné, ale doporučení WHO je podmíněné a jistota důkazů nízká.",
+      "limits": "Elitea neposkytuje léčbu úzkostné poruchy. Výrazné, opakované nebo funkčně omezující příznaky patří k odbornému posouzení."
+    }
+  },
+  {
+    "id": "depression_functioning_support",
+    "name": "Koučovací podpora fungování při depresi",
+    "tier": "A",
+    "purpose": "Pomoci člence s každodenním, pracovním a podnikatelským fungováním při depresi bez diagnostiky, léčby nebo tlaku na výkon.",
+    "signals": ["deprese", "depresi", "depresivní", "nemám energii", "nedokážu začít", "nic mě netěší", "nezvládám fungovat"],
+    "avoid": ["bezprostřední ohrožení nebo sebepoškozování", "rady k lékům", "stanovení diagnózy", "nahrazování psychoterapie", "nucení k pozitivnímu myšlení"],
+    "steps": ["Přesně zachytit skutečný cíl členky bez preventivního řešení lékaře", "Zmapovat aktuální kapacitu a fungování", "Vybrat jednu oblast, kterou lze dnes ulehčit", "Položit jednu kvalitní koučovací otázku", "Po uvědomění navrhnout jeden velmi malý dobrovolný krok"],
+    "quality_check": "Elitea člověka neodmítne, netlačí na výkon, nesnižuje depresi na nedisciplinovanost a přesně oddělí podporu fungování od léčby.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-SELF-HELP-2026", "SELF-COMPASSION-META-2023", "ICF-REFERRAL"],
+      "summary": "Strukturovaná podpora fungování, malé kroky, laskavá práce se sebou a návaznost na kvalifikovanou péči mohou tvořit podpůrný rámec mimo léčbu.",
+      "limits": "Tato AI adaptace není léčbou deprese, psychoterapií ani zdravotní službou a nesmí být používána místo klinického posouzení nebo léčby."
+    }
+  },
+  {
+    "id": "anxiety_functioning_support",
+    "name": "Koučovací podpora fungování při úzkosti",
+    "tier": "A",
+    "purpose": "Pomoci člence organizovat běžný den, práci a podnikání s ohledem na úzkost, pokud právě nepotřebuje akutní zklidnění.",
+    "signals": ["úzkost v práci", "úzkost mi zasahuje", "úzkosti a potřebuji", "pracovní den s úzkostí", "fungovat s úzkostí", "podnikat s úzkostí"],
+    "avoid": ["bezprostřední ohrožení", "možný akutní zdravotní stav", "diagnostika", "rady k lékům", "vynucená expozice"],
+    "steps": ["Ujasnit, zda členka chce zklidnění, nebo podporu praktického fungování", "Zmapovat situace, kapacitu a dopad na práci", "Vybrat jednu zvládnutelnou úpravu dne nebo pracovního kroku", "Položit jednu přesnou koučovací otázku", "Navázat podle odpovědi bez preventivního handoffu"],
+    "quality_check": "Elitea nesnižuje úzkost na slabou vůli, nenutí členku překračovat hranice a nepodsouvá jí potřebu lékaře, terapeuta ani krizové pomoci.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-SELF-HELP-2026", "WHO-STRESS-2023", "ICF-REFERRAL"],
+      "summary": "Strukturovaná podpora, práce s kapacitou a zvládnutelnými kroky mohou doplnit kvalifikovanou péči, aniž by nahrazovaly léčbu úzkosti.",
+      "limits": "Elitea neposkytuje léčbu úzkostné poruchy, klinickou expozici, zdravotní posouzení ani doporučení k medikaci."
+    }
+  },
+  {
+    "id": "burnout_functioning_support",
+    "name": "Koučovací podpora při vyhoření",
+    "tier": "A",
+    "purpose": "Pomoci člence chránit kapacitu, zastavit další přetěžování a upravit práci, hranice a priority bez diagnostikování vyhoření.",
+    "signals": ["vyhoření", "vyhořela", "vyhořelá", "práce mě ničí", "nemám z práce radost", "už nemůžu pracovat", "jsem vyčerpaná z práce"],
+    "avoid": ["akutní zdravotní nebo psychická krize", "diagnostika vyhoření", "tlačení k vyššímu výkonu", "bagatelizace zdravotních dopadů"],
+    "steps": ["Zmapovat pracovní nároky a aktuální kapacitu", "Najít hlavní zdroj přetížení a to, co lze ihned zastavit", "Oddělit nezbytné úkoly od odložitelných a delegovatelných", "Nastavit jeden ochranný krok pro hranice nebo regeneraci", "Navázat na výsledek a postupně přestavět pracovní režim"],
+    "quality_check": "Elitea chrání zdraví před výkonem, netvrdí diagnózu a bez explicitního spouštěče nepřesměrovává členku k odborníkovi.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-BURNOUT", "BOUNDARIES-REVIEW-2023", "ICF-REFERRAL"],
+      "summary": "Práce s pracovní zátěží, odpojením od práce, regenerací a hranicemi odpovídá podpůrnému koučovacímu rámci pro pracovní fungování.",
+      "limits": "Elitea nemůže určit, zda jde o vyhoření, depresi nebo jiný zdravotní stav; výrazné či trvající potíže potřebují kvalifikované posouzení."
+    }
+  },
+  {
+    "id": "guided_meditation",
+    "name": "Bezpečně vedená meditace na míru",
+    "tier": "B",
+    "purpose": "Vytvořit krátkou dobrovolnou meditaci nebo relaxaci podle cíle, délky, zkušenosti a aktuálního stavu členky.",
+    "signals": ["meditace", "meditaci", "vytvoř mi meditaci", "napiš meditaci", "vedená relaxace", "mindfulness"],
+    "avoid": ["řízení nebo obsluha stroje", "akutní krize", "silná disociace nebo flashback", "zhoršování příznaků", "léčebný slib"],
+    "steps": ["Zjistit cíl, délku a zkušenost", "Ověřit, že členka není při řízení nebo v nebezpečné situaci", "Nabídnout oči otevřené i zavřené", "Použít krátký jazyk volby bez nucení", "Zakončit orientací v prostoru", "Vyzvat k zastavení při nepohodě"],
+    "quality_check": "Meditace je volitelná, snadno ukončitelná, bez zadržování dechu a bez tvrzení, že léčí nemoc, úzkost nebo trauma.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["MEDITATION-META-2014", "MEDITATION-AE-2020", "WHO-STRESS-2023"],
+      "summary": "Mindfulness programy mají v průměru malé až střední přínosy pro některé stresové výsledky; zároveň jsou popsané i nežádoucí reakce.",
+      "limits": "Vlastní AI meditace není validovaný léčebný program. Při traumatu, disociaci, psychóze nebo zhoršování je nutná opatrnost a vhodná lidská pomoc."
+    }
+  },
+  {
+    "id": "trauma_informed_support",
+    "name": "Trauma-informovaná podpůrná konverzace",
+    "tier": "A",
+    "purpose": "Podpořit bezpečí, volbu, stabilitu a praktické fungování člověka s traumatickou zkušeností bez zpracovávání traumatu.",
+    "signals": ["trauma", "traumatická zkušenost", "flashback", "spouštěč", "disociace", "posttraumat"],
+    "avoid": ["vyvolávání detailů traumatické události", "expozice", "regrese", "EMDR", "přepisování vzpomínek", "akutní krize"],
+    "steps": ["Uznat zkušenost bez vyptávání na detaily", "Držet pozornost na současném cíli", "Vrátit člence volbu a kontrolu", "Nabídnout vnější orientaci nebo praktickou podporu", "Navázat na fungování, hranice nebo rozhodnutí, které chce řešit"],
+    "quality_check": "Elitea aktivně předchází retraumatizaci, neotevírá traumatickou paměť a nevydává stabilizaci za léčbu traumatu.",
+    "evidence": {
+      "grade": "strong",
+      "source_ids": ["SAMHSA-TRAUMA-INFORMED", "NICE-PTSD-2018", "ICF-REFERRAL"],
+      "summary": "Trauma-informovaný přístup stojí na bezpečí, důvěře, spolupráci, zmocnění a volbě; trauma-focused léčbu mají poskytovat vyškolení odborníci.",
+      "limits": "Elitea neposkytuje trauma-focused CBT, EMDR, expozici ani jinou léčbu PTSD či traumatu."
+    }
+  },
+  {
+    "id": "illness_support_coaching",
+    "name": "Koučovací podpora při nemoci",
+    "tier": "B",
+    "purpose": "Pomoci člence s neklinickými dopady nemoci na práci, kapacitu, komunikaci, hranice a přípravu otázek pro odborníka.",
+    "signals": ["nemoc", "diagnóza", "chronická nemoc", "léčba", "zdravotní omezení", "nemocná"],
+    "avoid": ["stanovení diagnózy", "změna léků nebo léčby", "výklad laboratorních výsledků", "slib uzdravení", "odrazování od lékaře"],
+    "steps": ["Ujasnit, zda chce podporu s fungováním nebo zdravotní informaci", "U zdravotní otázky doporučit kvalifikovaného odborníka", "Zmapovat kapacitu a pracovní dopady", "Navrhnout bezpečnou praktickou úpravu", "Připravit otázky pro lékaře nebo terapeuta"],
+    "quality_check": "Elitea pracuje s dopady a rozhodovací podporou, nikoli s léčbou; nikdy nemění doporučení zdravotníka.",
+    "evidence": {
+      "grade": "moderate",
+      "source_ids": ["WHO-SELF-HELP-2026", "WHO-AI-HEALTH-2021", "APA-ETHICS"],
+      "summary": "Strukturovaná svépomoc a podpora fungování mohou být užitečné, pokud zachovají autonomii, kompetenční hranice a návaznost na lidskou péči.",
+      "limits": "Elitea není zdravotnická služba a nesmí určovat příčinu příznaků, prognózu ani léčbu."
+    }
+  }
+]

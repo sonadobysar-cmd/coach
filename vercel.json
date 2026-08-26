@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/server.js": {
+      "includeFiles": "data/course-komunikace-v-praxi-audio-scripts.md",
+      "maxDuration": 300
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "elitea",
+  "version": "0.26.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:client",
+    "build:client": "esbuild src/browser-cloud.js --bundle --format=esm --platform=browser --target=es2022 --outfile=public/cloud.js",
+    "build:everand": "node scripts/build-everand-knowledge.mjs",
+    "eval:roles": "node scripts/evaluate-ai-roles.mjs",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@browserbasehq/stagehand": "^4.0.2",
+    "@neondatabase/neon-js": "^0.7.0-beta",
+    "@neondatabase/serverless": "^1.1.0",
+    "ai": "^7.0.74",
+    "express": "^5.1.0",
+    "jose": "^6.2.10",
+    "stripe": "^22.5.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
