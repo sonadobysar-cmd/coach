@@ -295,13 +295,18 @@ const elements = {
   authForm: document.querySelector('#auth-form'),
   authNameWrap: document.querySelector('#auth-name-wrap'),
   authName: document.querySelector('#auth-name'),
+  authEmailWrap: document.querySelector('#auth-email-wrap'),
   authEmail: document.querySelector('#auth-email'),
+  authPasswordWrap: document.querySelector('#auth-password-wrap'),
   authPassword: document.querySelector('#auth-password'),
+  authPasswordConfirmWrap: document.querySelector('#auth-password-confirm-wrap'),
+  authPasswordConfirm: document.querySelector('#auth-password-confirm'),
   authConsentWrap: document.querySelector('#auth-consent-wrap'),
   authConsent: document.querySelector('#auth-consent'),
   authTitle: document.querySelector('#auth-title'),
   authCopy: document.querySelector('#auth-copy'),
   authSubmit: document.querySelector('#auth-submit'),
+  authForgot: document.querySelector('#auth-forgot'),
   authSwitch: document.querySelector('#auth-switch'),
   authError: document.querySelector('#auth-error'),
   accountButton: document.querySelector('#account-button'),
@@ -350,6 +355,7 @@ async function initialize() {
   renderMessages();
   renderOutcomeCard();
   bindEvents();
+  openPasswordResetFromUrl();
   const requestedMemberView = window.location.hash.match(/^#app-(member|chat|community|academy|worksheets|library)$/)?.[1];
   if (requestedMemberView) requestMembershipEntry(requestedMemberView);
   else switchView('member');
@@ -558,7 +564,8 @@ function bindEvents() {
     button.addEventListener('click', () => requestMembershipEntry(button.dataset.startView || 'member'));
   });
   document.querySelector('#auth-close')?.addEventListener('click', () => elements.authDialog.close());
-  elements.authSwitch?.addEventListener('click', () => setAuthMode(state.authMode === 'signup' ? 'signin' : 'signup'));
+  elements.authForgot?.addEventListener('click', () => setAuthMode('forgot'));
+  elements.authSwitch?.addEventListener('click', () => setAuthMode(state.authMode === 'signup' ? 'signin' : state.authMode === 'signin' ? 'signup' : 'signin'));
   elements.authForm?.addEventListener('submit', submitAuth);
   elements.accountButton?.addEventListener('click', openAccount);
   document.querySelector('#account-close')?.addEventListener('click', () => elements.accountDialog.close());
@@ -874,17 +881,34 @@ async function requestMembershipEntry(view = 'member') {
 }
 
 function setAuthMode(mode) {
-  state.authMode = mode === 'signin' ? 'signin' : 'signup';
+  state.authMode = ['signup', 'signin', 'forgot', 'reset'].includes(mode) ? mode : 'signup';
   const signup = state.authMode === 'signup';
+  const signin = state.authMode === 'signin';
+  const forgot = state.authMode === 'forgot';
+  const reset = state.authMode === 'reset';
   elements.authNameWrap.hidden = !signup;
   elements.authName.required = signup;
+  elements.authEmailWrap.hidden = reset;
+  elements.authEmail.required = !reset;
+  elements.authPasswordWrap.hidden = forgot;
+  elements.authPassword.required = !forgot;
+  elements.authPasswordConfirmWrap.hidden = !reset;
+  elements.authPasswordConfirm.required = reset;
   elements.authConsentWrap.hidden = !signup;
   elements.authConsent.required = signup;
-  elements.authPassword.autocomplete = signup ? 'new-password' : 'current-password';
-  elements.authTitle.textContent = signup ? 'Začni 7 dní zdarma' : 'Vítej zpět';
-  elements.authCopy.textContent = signup ? 'Vytvoř si soukromý účet. Platební údaje doplníš až v zabezpečené platební bráně.' : 'Přihlas se do svého soukromého prostoru Elitea.';
-  elements.authSubmit.textContent = signup ? 'Vytvořit účet' : 'Přihlásit se';
-  elements.authSwitch.textContent = signup ? 'Už účet mám · Přihlásit se' : 'Nemám účet · Začít 7 dní zdarma';
+  elements.authPassword.autocomplete = signup || reset ? 'new-password' : 'current-password';
+  elements.authTitle.textContent = signup ? 'Začni 7 dní zdarma' : signin ? 'Vítej zpět' : forgot ? 'Obnovit heslo' : 'Nastavit nové heslo';
+  elements.authCopy.textContent = signup
+    ? 'Vytvoř si soukromý účet. Potom ve Stripe bezpečně potvrdíš kartu: dnes 0 Kč, po 7 dnech 990 Kč měsíčně, pokud členství předtím nezrušíš.'
+    : signin
+      ? 'Přihlas se do svého soukromého prostoru Elitea.'
+      : forgot
+        ? 'Zadej e-mail k účtu. Pokud účet existuje, pošleme na něj jednorázový odkaz.'
+        : 'Zvol nové heslo o délce alespoň 10 znaků.';
+  elements.authSubmit.textContent = signup ? 'Vytvořit účet' : signin ? 'Přihlásit se' : forgot ? 'Poslat odkaz' : 'Uložit nové heslo';
+  elements.authForgot.hidden = !signin;
+  elements.authSwitch.hidden = reset;
+  elements.authSwitch.textContent = signup ? 'Už účet mám · Přihlásit se' : signin ? 'Nemám účet · Začít 7 dní zdarma' : 'Zpět k přihlášení';
   elements.authError.hidden = true;
 }
 
@@ -893,6 +917,27 @@ async function submitAuth(event) {
   elements.authSubmit.disabled = true;
   elements.authError.hidden = true;
   try {
+    if (state.authMode === 'forgot') {
+      const redirectTo = `${window.location.origin}/?reset-password=1`;
+      const result = await state.cloud.requestPasswordReset(elements.authEmail.value.trim(), redirectTo);
+      if (result?.error) throw new Error(result.error.message || 'Odkaz se nepodařilo odeslat.');
+      elements.authCopy.textContent = 'Pokud účet s tímto e-mailem existuje, poslali jsme na něj jednorázový odkaz pro změnu hesla.';
+      elements.authSubmit.textContent = 'Odkaz odeslán';
+      return;
+    }
+    if (state.authMode === 'reset') {
+      if (elements.authPassword.value !== elements.authPasswordConfirm.value) throw new Error('Zadaná hesla se neshodují.');
+      const token = new URLSearchParams(window.location.search).get('token');
+      if (!token) throw new Error('Odkaz pro změnu hesla není platný nebo už vypršel.');
+      const result = await state.cloud.resetPassword(elements.authPassword.value, token);
+      if (result?.error) throw new Error(result.error.message || 'Heslo se nepodařilo změnit.');
+      window.history.replaceState({}, '', `${window.location.pathname}#app-member`);
+      elements.authPassword.value = '';
+      elements.authPasswordConfirm.value = '';
+      setAuthMode('signin');
+      elements.authCopy.textContent = 'Heslo je změněné. Teď se můžeš přihlásit.';
+      return;
+    }
     const result = state.authMode === 'signup'
       ? await state.cloud.signUp(elements.authName.value.trim(), elements.authEmail.value.trim(), elements.authPassword.value)
       : await state.cloud.signIn(elements.authEmail.value.trim(), elements.authPassword.value);
@@ -911,6 +956,18 @@ async function submitAuth(event) {
   } finally { elements.authSubmit.disabled = false; }
 }
 
+function openPasswordResetFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('reset-password') !== '1') return;
+  setAuthMode('reset');
+  if (!state.cloud) {
+    elements.authError.textContent = 'Obnova hesla je teď krátce nedostupná. Zkus odkaz otevřít znovu za chvíli.';
+    elements.authError.hidden = false;
+    elements.authSubmit.disabled = true;
+  }
+  if (!elements.authDialog.open) elements.authDialog.showModal();
+}
+
 async function fetchMembership() {
   if (!state.systemStatus?.paymentsConnected || !state.cloudSession) {
     state.membership = { status: state.systemStatus?.paymentsConnected ? 'inactive' : 'setup' };
@@ -925,7 +982,7 @@ async function hasMembershipAccess() {
   if (!state.systemStatus?.paymentsConnected) return true;
   try {
     const membership = await fetchMembership();
-    return ['trialing', 'active'].includes(membership.status);
+    return ['owner', 'trialing', 'active'].includes(membership.status);
   } catch {
     return false;
   }
@@ -957,6 +1014,7 @@ async function openAccount() {
     const labels = {
       setup: ['Připraveno k aktivaci', 'Platební brána bude dostupná po dokončení jejího bezpečného připojení.'],
       inactive: ['Členství není aktivní', 'Spusť 7denní zkušební období a dokonči zabezpečenou platbu.'],
+      owner: ['Vlastnický přístup', 'Plný přístup Elitea bez trialu a bez předplatného.'],
       trialing: ['7 dní zdarma', membership.current_period_end ? `Zkušební období běží do ${formatAccountDate(membership.current_period_end)}.` : 'Zkušební období je aktivní.'],
       active: ['Aktivní členství', membership.current_period_end ? `Aktuální období končí ${formatAccountDate(membership.current_period_end)}.` : 'Členství je aktivní.'],
       past_due: ['Platbu je potřeba zkontrolovat', 'Otevři správu členství a aktualizuj platební údaje.'],
@@ -966,8 +1024,10 @@ async function openAccount() {
     const [title, detail] = labels[membership.status] || labels.inactive;
     elements.accountMembershipStatus.textContent = title;
     elements.accountMembershipDetail.textContent = membership.cancel_at_period_end ? `${detail} Další obnovení je zrušené.` : detail;
-    elements.accountBilling.textContent = ['inactive', 'cancelled'].includes(membership.status) ? 'Aktivovat členství' : 'Spravovat členství';
-    elements.accountBilling.disabled = membership.status === 'setup';
+    elements.accountBilling.textContent = membership.status === 'owner'
+      ? 'Vlastnický účet'
+      : ['inactive', 'cancelled'].includes(membership.status) ? 'Aktivovat členství' : 'Spravovat členství';
+    elements.accountBilling.disabled = ['setup', 'owner'].includes(membership.status);
   } catch (error) {
     elements.accountMembershipStatus.textContent = 'Stav se nepodařilo načíst';
     elements.accountMembershipDetail.textContent = 'Zkus to prosím znovu za chvíli.';
@@ -980,6 +1040,7 @@ async function openBillingPortal() {
   elements.accountBilling.disabled = true;
   elements.accountError.hidden = true;
   try {
+    if (state.membership?.status === 'owner') return;
     if (['inactive', 'cancelled'].includes(state.membership?.status)) return startMembershipCheckout();
     const authorization = await state.cloud.authorization();
     const portal = await request('/api/membership/portal', { method: 'POST', headers: { Authorization: authorization } });
@@ -1327,7 +1388,7 @@ function renderMemberDashboard() {
 async function openCourse(slug) {
   switchView('academy');
   try {
-    const course = await request(`/api/courses/${encodeURIComponent(slug)}?detail=1`, { cache: 'no-store' });
+    const course = await authenticatedRequest(`/api/courses/${encodeURIComponent(slug)}?detail=1`, { cache: 'no-store' });
     if (!Array.isArray(course.modules) || !course.modules.length || !course.trainer) {
       throw new Error('Detail kurzu se nenačetl úplně. Zkus ho prosím otevřít znovu.');
     }
@@ -1563,7 +1624,7 @@ async function startMasteryScenario(scenarioId) {
   if (!item) return alert('Navázaná kurzová část nebyla nalezena.');
   state.pending = true;
   try {
-    const scenario = await request(`/api/training/scenario?courseSlug=${encodeURIComponent(course.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(scenarioEntry.difficulty)}&scenarioId=${encodeURIComponent(scenarioEntry.id)}`);
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(course.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(scenarioEntry.difficulty)}&scenarioId=${encodeURIComponent(scenarioEntry.id)}`);
     beginTrainingSession({
       activity: 'simulation', phase: 'roleplay', course, item,
       difficulty: scenarioEntry.difficulty, scenario,
@@ -1646,7 +1707,7 @@ async function startCurrentLessonSimulation() {
   document.querySelector('#simulate-lesson').disabled = true;
   try {
     const trainer = courseTrainer(state.activeCourse);
-    const scenario = await request(`/api/training/scenario?courseSlug=${encodeURIComponent(state.activeCourse.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(difficulty)}`);
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(state.activeCourse.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(difficulty)}`);
     beginTrainingSession({
       activity: 'simulation',
       phase: 'roleplay',
@@ -2026,7 +2087,7 @@ async function retryTrainingSimulation() {
   state.pending = true;
   try {
     const scenarioId = session.scenario?.id || '';
-    const scenario = await request(`/api/training/scenario?courseSlug=${encodeURIComponent(session.courseSlug)}&itemId=${encodeURIComponent(session.itemId)}&difficulty=${encodeURIComponent(difficulty)}${scenarioId ? `&scenarioId=${encodeURIComponent(scenarioId)}` : ''}`);
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(session.courseSlug)}&itemId=${encodeURIComponent(session.itemId)}&difficulty=${encodeURIComponent(difficulty)}${scenarioId ? `&scenarioId=${encodeURIComponent(scenarioId)}` : ''}`);
     beginTrainingSession({
       activity: 'simulation', phase: 'roleplay', course, item, difficulty, scenario,
       messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(session).counterpart} · ${difficultyLabel(difficulty)}` }],
@@ -3634,6 +3695,17 @@ async function request(path, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || 'Něco se nepovedlo.');
   return payload;
+}
+
+async function authenticatedRequest(path, options = {}) {
+  if (!state.authRequired) return request(path, options);
+  if (!state.cloudSession || !state.cloud) throw new Error('Pro tuto část Elitey se nejprve přihlas.');
+  const authorization = await state.cloud.authorization();
+  if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+  return request(path, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: authorization },
+  });
 }
 
 function humanMode(mode) {

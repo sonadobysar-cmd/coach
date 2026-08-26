@@ -252,9 +252,27 @@ export function courseSummary(course) {
     trainer: course.trainer,
     moduleCount: course.moduleCount,
     itemCount: course.itemCount,
-    materialCount: course.materials?.length || 0,
+    materialCount: publicCourseMaterials(course.materials).length,
     mastery: course.mastery?.summary || null,
     certificate: course.certificate,
+  };
+}
+
+export function isInternalCourseMaterial(material = {}) {
+  const id = String(material.id || '').toLocaleLowerCase('cs');
+  const title = String(material.title || '').toLocaleLowerCase('cs');
+  return /(?:^|-)audio(?:-production)?-pack$/.test(id)
+    || /audio\s+(?:k\s+nahrání|produkce|produkční balíček)/i.test(title);
+}
+
+export function publicCourseMaterials(materials = []) {
+  return Array.isArray(materials) ? materials.filter(material => !isInternalCourseMaterial(material)) : [];
+}
+
+export function publicCourseDetail(course) {
+  return {
+    ...course,
+    materials: publicCourseMaterials(course?.materials),
   };
 }
 

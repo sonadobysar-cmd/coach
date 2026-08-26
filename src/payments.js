@@ -7,6 +7,19 @@ export function paymentsConfigured(env = process.env) {
     && env.STRIPE_WEBHOOK_SECRET && env.DATABASE_URL && (env.NEON_AUTH_JWKS_URL || env.NEON_AUTH_URL));
 }
 
+export function isOwnerMember(member, env = process.env) {
+  const userId = String(member?.id || '').trim().toLowerCase();
+  const email = String(member?.email || '').trim().toLowerCase();
+  const allowedUserIds = csvSet(env.ELITEA_OWNER_USER_IDS);
+  if (userId && allowedUserIds.has(userId)) return true;
+  const allowedEmails = csvSet(env.ELITEA_OWNER_EMAILS);
+  return Boolean(member?.emailVerified && email && allowedEmails.has(email));
+}
+
+function csvSet(value) {
+  return new Set(String(value || '').split(',').map(item => item.trim().toLowerCase()).filter(Boolean));
+}
+
 export async function verifyMemberAuthorization(header, env = process.env) {
   const token = String(header || '').match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) throw unauthorized();
@@ -14,7 +27,11 @@ export async function verifyMemberAuthorization(header, env = process.env) {
   if (!/^https:\/\//.test(jwksUrl)) throw unauthorized();
   const { payload } = await jwtVerify(token, createRemoteJWKSet(new URL(jwksUrl)));
   if (!payload.sub || !/^[0-9a-f-]{36}$/i.test(payload.sub)) throw unauthorized();
-  return { id: payload.sub, email: typeof payload.email === 'string' ? payload.email : '' };
+  return {
+    id: payload.sub,
+    email: typeof payload.email === 'string' ? payload.email : '',
+    emailVerified: payload.email_verified === true || payload.emailVerified === true,
+  };
 }
 
 export async function createMembershipCheckout(member, email, options = {}, env = process.env) {
@@ -36,6 +53,7 @@ export function checkoutSessionParams(member, email, options = {}, env = process
   }
   const params = {
     mode: 'subscription',
+    payment_method_collection: 'always',
     customer_email: safeEmail || undefined,
     client_reference_id: member.id,
     line_items: [{ price: env.STRIPE_PRICE_ID, quantity: 1 }],
@@ -74,6 +92,9 @@ export function portalSessionParams(customer, env = process.env) {
 }
 
 export async function membershipFor(member, env = process.env) {
+  if (isOwnerMember(member, env)) {
+    return { status: 'owner', plan_code: 'elitea-owner', current_period_end: null, cancel_at_period_end: false };
+  }
   if (!env.DATABASE_URL) return { status: 'inactive' };
   const sql = neon(env.DATABASE_URL);
   const rows = await sql`SELECT status, plan_code, current_period_end, cancel_at_period_end FROM memberships WHERE user_id = ${member.id}::uuid LIMIT 1`;

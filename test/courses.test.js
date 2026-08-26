@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COURSE_CATEGORIES, courseSummary, loadCourses, parseCourse } from '../src/courses.js';
+import {
+  COURSE_CATEGORIES,
+  courseSummary,
+  loadCourses,
+  parseCourse,
+  publicCourseDetail,
+} from '../src/courses.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -199,4 +205,18 @@ test('separates lesson, self-practice, client-practice and quiz items', () => {
   const course = parseCourse(`# MODUL 1 — TEST\n## Lekce 1.1 — Úvod\nText\n### Praktická laboratoř 1 — Já\nCvičení\n### Profesní aplikace 1 — Klientka\nPraxe\n## Test modulu 1\n1. Otázka`);
   const kinds = course.modules[0].items.map(item => item.kind);
   assert.deepEqual(kinds, ['lesson', 'self-practice', 'client-practice', 'quiz']);
+});
+
+test('veřejný kurz nezveřejní interní audio produkční balíčky', () => {
+  const course = {
+    id: 'test',
+    materials: [
+      { id: 'worksheet-1', title: 'Pracovní list' },
+      { id: 'test-audio-pack', title: 'Audio k nahrání' },
+      { id: 'test-audio-production-pack', title: 'Produkční audio balíček' },
+    ],
+  };
+  assert.deepEqual(publicCourseDetail(course).materials.map(material => material.id), ['worksheet-1']);
+  assert.equal(courseSummary(course).materialCount, 1);
+  assert.equal(course.materials.length, 3, 'interní serverový kurz se filtrováním nesmí změnit');
 });

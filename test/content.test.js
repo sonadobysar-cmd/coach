@@ -56,8 +56,9 @@ test('knihovna je přístupná z aplikace a má hledání i filtry', () => {
 test('členství obsahuje samostatnou profesionální komunitu', () => {
   assert.match(html, /id="community-panel"/);
   assert.match(html, /ELITEA COMMUNITY/);
-  assert.match(html, /Aktuálně v komunitě/);
-  assert.match(html, /Supervizní kruh s Niou/);
+  assert.match(html, /Jak bude Founding komunita fungovat/);
+  assert.match(html, /vlastní komunitní feed otevřeme až s reálnými členkami/);
+  assert.doesNotMatch(html, /členek online|nových odpovědí dnes|před 35 min|284 členek/);
   assert.match(html, /data-view="community"/);
   assert.match(client, /communityPanel\.hidden/);
 });

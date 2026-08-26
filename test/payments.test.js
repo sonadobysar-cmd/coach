@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Stripe from 'stripe';
-import { checkoutSessionParams, handleStripeWebhook, paymentsConfigured, portalSessionParams } from '../src/payments.js';
+import { checkoutSessionParams, handleStripeWebhook, isOwnerMember, membershipFor, paymentsConfigured, portalSessionParams } from '../src/payments.js';
 
 const complete = {
   STRIPE_SECRET_KEY: 'sk_test_example', STRIPE_PRICE_ID: 'price_example', STRIPE_FOUNDING_COUPON_ID: 'coupon_example',
@@ -25,9 +25,31 @@ test('produkční checkout vždy vyžaduje souhlas s obchodními podmínkami', (
     { ...complete, PUBLIC_APP_URL: 'https://elitea.cz' },
   );
   assert.deepEqual(params.consent_collection, { terms_of_service: 'required' });
+  assert.equal(params.payment_method_collection, 'always');
   assert.equal(params.subscription_data.trial_period_days, 7);
   assert.equal('discounts' in params, false);
   assert.equal(params.metadata.planCode, 'elitea-standard');
+});
+
+test('vlastnický účet používá přihlášení, ale nikdy nepotřebuje Stripe předplatné', async () => {
+  const member = { id: '00000000-0000-4000-8000-000000000001', email: 'nia@example.cz', emailVerified: true };
+  const env = { ELITEA_OWNER_USER_IDS: member.id, ELITEA_OWNER_EMAILS: 'NIA@example.cz' };
+
+  assert.equal(isOwnerMember(member, env), true);
+  assert.equal(isOwnerMember({ ...member, id: '00000000-0000-4000-8000-000000000099', email: 'clenka@example.cz' }, env), false);
+  assert.deepEqual(await membershipFor(member, env), {
+    status: 'owner',
+    plan_code: 'elitea-owner',
+    current_period_end: null,
+    cancel_at_period_end: false,
+  });
+});
+
+test('vlastnický přístup podle e-mailu vyžaduje ověřenou adresu a nepoužívá provozní inbox', () => {
+  const member = { id: '00000000-0000-4000-8000-000000000002', email: 'nia@example.cz', emailVerified: false };
+  assert.equal(isOwnerMember(member, { ELITEA_OWNER_EMAILS: 'nia@example.cz' }), false);
+  assert.equal(isOwnerMember({ ...member, emailVerified: true }, { ELITEA_OWNER_EMAILS: 'nia@example.cz' }), true);
+  assert.equal(isOwnerMember({ ...member, emailVerified: true }, { NIA_TESTER_EMAIL: 'nia@example.cz' }), false);
 });
 
 test('Founding 30 má slevu jen pro explicitně zvolený testerský plán', () => {

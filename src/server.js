@@ -23,7 +23,7 @@ import {
   previewBrowserOperatorAction,
   startBrowserOperatorSession,
 } from './browser-operator.js';
-import { courseSummary, loadCourses } from './courses.js';
+import { courseSummary, loadCourses, publicCourseDetail } from './courses.js';
 import { attachCourseMastery } from './course-mastery.js';
 import { buildWorksheetLibrary } from './worksheets.js';
 import { expandSelfTrustMaterials } from './self-trust-materials.js';
@@ -45,6 +45,7 @@ import {
   createMembershipCheckout,
   createMembershipPortal,
   handleStripeWebhook,
+  isOwnerMember,
   membershipFor,
   paymentsConfigured,
   verifyMemberAuthorization,
@@ -222,6 +223,22 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 });
 app.use(express.json({ limit: '1mb' }));
+
+app.get('/api/health', (_request, response) => {
+  const dependencies = {
+    ai: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1'),
+    auth: Boolean(process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL),
+    payments: paymentsConfigured(),
+    booking: bookingConfigured(),
+  };
+  const ok = Object.values(dependencies).every(Boolean);
+  return response.status(ok ? 200 : 503).set('Cache-Control', 'no-store').json({
+    ok,
+    service: 'elitea',
+    timestamp: new Date().toISOString(),
+    dependencies,
+  });
+});
 
 app.get('/api/status', (_request, response) => {
   const launchReadiness = evaluateLaunchReadiness({
@@ -414,6 +431,9 @@ app.post('/api/membership/checkout', async (request, response) => {
   if (origin && !sameHost(origin, request.get('host'))) return response.status(403).json({ error: 'Neplatný původ platebního požadavku.' });
   try {
     const member = await verifyMemberAuthorization(request.get('authorization'));
+    if (isOwnerMember(member)) {
+      return response.status(409).set('Cache-Control', 'no-store').json({ error: 'Vlastnický účet má plný přístup bez předplatného.' });
+    }
     const planCode = request.body?.planCode === 'founding30' ? 'founding30' : 'standard';
     if (planCode === 'founding30') await assertFoundingEligible(member);
     return response.set('Cache-Control', 'no-store').json(await createMembershipCheckout(member, request.body?.email, { planCode }));
@@ -458,25 +478,35 @@ app.get('/api/courses', (_request, response) => {
   });
 });
 
-app.get('/api/courses/:slug', (request, response) => {
-  const course = courses.find(item => item.slug === request.params.slug);
-  if (!course) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz nebyl nalezen.' });
-  return response.set('Cache-Control', 'private, no-store, max-age=0').json(course);
+app.get('/api/courses/:slug', async (request, response) => {
+  try {
+    await authorizeAiRequest(request);
+    const course = courses.find(item => item.slug === request.params.slug);
+    if (!course) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz nebyl nalezen.' });
+    return response.set('Cache-Control', 'private, no-store, max-age=0').json(publicCourseDetail(course));
+  } catch (error) {
+    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro otevření kurzu se přihlas.' });
+  }
 });
 
-app.get('/api/training/scenario', (request, response) => {
-  const context = findCourseTrainingContext(request.query.courseSlug, request.query.itemId);
-  if (!context) {
-    return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurzová část pro nácvik nebyla nalezena.' });
+app.get('/api/training/scenario', async (request, response) => {
+  try {
+    await authorizeAiRequest(request);
+    const context = findCourseTrainingContext(request.query.courseSlug, request.query.itemId);
+    if (!context) {
+      return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurzová část pro nácvik nebyla nalezena.' });
+    }
+    const scenario = createTrainingScenario(
+      context.course,
+      context.item,
+      sanitizeTrainingDifficulty(request.query.difficulty),
+      request.query.scenarioId,
+      sanitizeTrainingCounterpartHint(request.query.counterpart),
+    );
+    return response.set('Cache-Control', 'no-store').json(publicTrainingScenario(scenario));
+  } catch (error) {
+    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro spuštění nácviku se přihlas.' });
   }
-  const scenario = createTrainingScenario(
-    context.course,
-    context.item,
-    sanitizeTrainingDifficulty(request.query.difficulty),
-    request.query.scenarioId,
-    sanitizeTrainingCounterpartHint(request.query.counterpart),
-  );
-  return response.set('Cache-Control', 'no-store').json(publicTrainingScenario(scenario));
 });
 
 app.get('/api/booking-status', (_request, response) => {
@@ -757,7 +787,7 @@ async function authorizeAiRequest(request) {
   const member = await verifyMemberAuthorization(request.get('authorization'));
   if (!paymentsConfigured()) return member;
   const membership = await membershipFor(member);
-  if (!['trialing', 'active'].includes(membership.status)) {
+  if (!['owner', 'trialing', 'active'].includes(membership.status)) {
     throw Object.assign(new Error('Pro použití Elitey je potřeba aktivní zkušební období nebo členství.'), { statusCode: 403 });
   }
   return member;

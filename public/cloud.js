@@ -23741,6 +23741,9 @@ var STATE_KEYS = {
   outcome_store: "elitea.outcomes",
   approved_memory: "elitea.memory"
 };
+function emailSignUpPayload(name4, email3, password) {
+  return { name: name4, email: email3, password };
+}
 function createEliteaCloud(config2) {
   if (!config2?.authUrl || !config2?.dataApiUrl) return null;
   let jwtToken = "";
@@ -23792,10 +23795,13 @@ function createEliteaCloud(config2) {
       return jwtToken ? `Bearer ${jwtToken}` : "";
     },
     signIn: (email3, password) => client.auth.signIn.email({ email: email3, password, rememberMe: true }),
-    signUp: (name4, email3, password) => client.auth.signUp.email({ name: name4, email: email3, password, callbackURL: "https://elitea.cz/#app-member" }),
+    signUp: (name4, email3, password) => client.auth.signUp.email(emailSignUpPayload(name4, email3, password)),
+    requestPasswordReset: (email3, redirectTo) => client.auth.requestPasswordReset({ email: email3, redirectTo }),
+    resetPassword: (newPassword, token) => client.auth.resetPassword({ newPassword, token }),
     signOut: () => client.auth.signOut()
   };
 }
 export {
-  createEliteaCloud
+  createEliteaCloud,
+  emailSignUpPayload
 };

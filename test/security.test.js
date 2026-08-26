@@ -38,3 +38,22 @@ test('rezervační endpoint má kontrolu původu, validaci a nikdy nepředává 
   const bookingRoute = server.match(/app\.post\('\/api\/booking-request'[\s\S]*?\n}\);/)?.[0] || '';
   assert.doesNotMatch(bookingRoute, /messages|chatHistory|request\.body\?\.messages/);
 });
+
+test('plný kurz i tréninkový scénář vyžadují autorizované členství', () => {
+  const courseRoute = server.match(/app\.get\('\/api\/courses\/:slug'[\s\S]*?\n}\);/)?.[0] || '';
+  const scenarioRoute = server.match(/app\.get\('\/api\/training\/scenario'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(courseRoute, /await authorizeAiRequest\(request\)/);
+  assert.match(courseRoute, /publicCourseDetail\(course\)/);
+  assert.match(scenarioRoute, /await authorizeAiRequest\(request\)/);
+  assert.match(scenarioRoute, /publicTrainingScenario\(scenario\)/);
+});
+
+test('health endpoint kontroluje všechny klíčové produkční závislosti bez tajných hodnot', () => {
+  const healthRoute = server.match(/app\.get\('\/api\/health'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(healthRoute, /ai:/);
+  assert.match(healthRoute, /auth:/);
+  assert.match(healthRoute, /payments:/);
+  assert.match(healthRoute, /booking:/);
+  assert.match(healthRoute, /status\(ok \? 200 : 503\)/);
+  assert.doesNotMatch(healthRoute, /API_KEY\s*:/);
+});
