@@ -63,6 +63,19 @@ test('členství obsahuje samostatnou profesionální komunitu', () => {
   assert.match(client, /communityPanel\.hidden/);
 });
 
+test('členky, odborné role a oficiální vysílání mají jednotnou malou značku identity', () => {
+  assert.match(html, /identity-mark broadcast[^>]*>OFICIÁLNÍ VYSÍLÁNÍ/);
+  assert.match(html, /identity-mark ai[^>]*>AI</);
+  assert.match(client, /label: 'ČLENKA'/);
+  assert.match(client, /label: 'FOUNDING 30'/);
+  assert.match(client, /label: 'ZAKLADATELKA'/);
+  assert.match(client, /label: 'MODELOVÁ KLIENTKA'/);
+  assert.match(client, /label: 'KOUČOVACÍ TRENÉRKA'/);
+  assert.match(client, /label: 'STUDIJNÍ TRENÉRKA'/);
+  assert.match(client, /label: 'OFICIÁLNÍ VYSÍLÁNÍ'/);
+  assert.match(client, /aria-label="Identita:/);
+});
+
 test('prostředí komunikuje personalizaci, bezpečí, členství a mobilní orientaci', () => {
   assert.match(html, /UŠITÁ TOBĚ/);
   assert.match(html, /Paměť máš pod kontrolou/);

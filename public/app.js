@@ -2884,10 +2884,11 @@ function renderMessages(showTyping = false) {
   elements.endSession.hidden = state.assistantRole !== 'coach' || !hasMessages;
   elements.messages.innerHTML = state.messages.map(messageTemplate).join('');
   if (showTyping) {
+    const identity = assistantMessageIdentity();
     elements.messages.insertAdjacentHTML('beforeend', `
       <article class="message assistant" aria-label="Elitea píše">
         <div class="message-avatar">E</div>
-        <div><div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div></div>
+        <div><div class="message-identity">${identityMarkTemplate(identity)}</div><div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div></div>
       </article>`);
   }
   requestAnimationFrame(() => { elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight; });
@@ -2899,22 +2900,57 @@ function renderMessages(showTyping = false) {
 
 function messageTemplate(message, index) {
   const user = message.role === 'user';
+  const broadcast = message.role === 'broadcast' || message.kind === 'broadcast';
   const latestAssistantIndex = state.messages.findLastIndex(item => item.role === 'assistant');
-  const actions = !user && index === latestAssistantIndex && !state.pending
+  const actions = !user && !broadcast && index === latestAssistantIndex && !state.pending
     ? `<div class="message-quality-actions" aria-label="Kontrola odpovědi">
         <button type="button" data-retry-message="${index}">↻ Zkusit odpověď znovu</button>
         <button type="button" data-report-message="${index}" ${message.reported ? 'disabled' : ''}>${message.reported ? '✓ Nahlášeno' : 'Nahlásit chybu'}</button>
       </div>`
     : '';
+  const identity = broadcast ? { variant: 'broadcast', label: 'OFICIÁLNÍ VYSÍLÁNÍ' } : user ? currentMemberIdentity() : assistantMessageIdentity();
   return `
-    <article class="message ${user ? 'user' : 'assistant'}">
+    <article class="message ${user ? 'user' : broadcast ? 'broadcast' : 'assistant'}">
       <div class="message-avatar">${user ? escapeHtml(initials(state.memory?.identity_preferences?.preferred_name) || 'TY') : 'E'}</div>
       <div>
+        <div class="message-identity">${identityMarkTemplate(identity)}</div>
         <div class="bubble">${formatText(message.content)}</div>
         ${message.meta ? `<div class="message-meta">${escapeHtml(message.meta)}</div>` : ''}
         ${actions}
       </div>
     </article>`;
+}
+
+function currentMemberIdentity() {
+  const plan = String(state.membership?.plan_code || '');
+  if (state.membership?.status === 'owner' || plan === 'elitea-owner') return { variant: 'owner', label: 'ZAKLADATELKA' };
+  if (plan === 'elitea-founding30') return { variant: 'founding', label: 'FOUNDING 30' };
+  return { variant: 'member', label: 'ČLENKA' };
+}
+
+function assistantMessageIdentity() {
+  if (state.assistantRole === 'brand') return { variant: 'brand', label: 'AI · BRAND & MARKETING' };
+  if (state.assistantRole === 'coach_training') {
+    const roleplay = state.trainingSession?.activity === 'simulation' && state.trainingSession?.phase === 'roleplay';
+    return roleplay
+      ? { variant: 'simulation', label: 'MODELOVÁ KLIENTKA' }
+      : { variant: 'trainer', label: 'KOUČOVACÍ TRENÉRKA' };
+  }
+  if (state.assistantRole === 'brand_training') {
+    const roleplay = state.trainingSession?.activity === 'simulation' && state.trainingSession?.phase === 'roleplay';
+    return roleplay
+      ? { variant: 'simulation', label: 'MODELOVÁ PROTISTRANA' }
+      : { variant: 'study', label: 'STUDIJNÍ TRENÉRKA' };
+  }
+  return { variant: 'ai', label: 'AI · COACH & MENTOR' };
+}
+
+function identityMarkTemplate(identity = {}) {
+  const variant = ['member', 'founding', 'owner', 'ai', 'brand', 'trainer', 'study', 'simulation', 'team', 'verified', 'broadcast'].includes(identity.variant)
+    ? identity.variant
+    : 'member';
+  const label = String(identity.label || 'ČLENKA').slice(0, 40);
+  return `<span class="identity-mark ${variant}" aria-label="Identita: ${escapeHtml(label)}">${escapeHtml(label)}</span>`;
 }
 
 function renderMemory() {
