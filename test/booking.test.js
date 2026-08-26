@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bookingConfigured, buildBookingEmail, sanitizeBookingRequest, sendBookingRequest } from '../src/booking.js';
+import { bookingConfigured, bookingRecipient, buildBookingEmail, sanitizeBookingRequest, sendBookingRequest } from '../src/booking.js';
 
 const valid = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -61,4 +61,6 @@ test('odeslání používá idempotency key a dokument pouze jako schválenou p�
 test('rezervace se nepovažuje za připojenou bez obou serverových proměnných', () => {
   assert.equal(bookingConfigured({}), false);
   assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', NIA_BOOKING_EMAIL: 'nia@example.com' }), true);
+  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', NIA_TESTER_EMAIL: 'testers@example.com' }), true);
+  assert.equal(bookingRecipient({ NIA_BOOKING_EMAIL: '', NIA_TESTER_EMAIL: 'testers@example.com' }), 'testers@example.com');
 });
