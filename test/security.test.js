@@ -13,6 +13,23 @@ test('server nastavuje základní ochranné hlavičky', () => {
   assert.match(server, /Permissions-Policy/);
   assert.match(server, /X-Content-Type-Options/);
   assert.match(server, /X-Frame-Options/);
+  assert.match(server, /Strict-Transport-Security/);
+});
+
+test('cloudový autentizační balík se načítá dynamicky až při vstupu do členství', async () => {
+  const app = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
+  const packageJson = await readFile(join(ROOT, 'package.json'), 'utf8');
+  assert.doesNotMatch(app, /import \{ createEliteaCloud \} from '\.\/cloud\.js'/);
+  assert.match(app, /import\(cloudModuleUrl\)/);
+  assert.match(packageJson, /--minify/);
+});
+
+test('AI odpověď rezervuje fair-use zprávu ještě před voláním modelu', () => {
+  const chatRoute = server.match(/app\.post\('\/api\/chat'[\s\S]*?\n}\);/)?.[0] || '';
+  const trainingRoute = server.match(/app\.post\('\/api\/training'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(chatRoute, /await reserveAiTurn/);
+  assert.match(trainingRoute, /await reserveAiTurn/);
+  assert.match(server, /app\.get\('\/api\/ai-usage'/);
 });
 
 test('serverové logy nezapisují tělo zprávy ani objekt paměti', () => {
@@ -54,6 +71,9 @@ test('health endpoint kontroluje všechny klíčové produkční závislosti bez
   assert.match(healthRoute, /auth:/);
   assert.match(healthRoute, /payments:/);
   assert.match(healthRoute, /booking:/);
+  assert.match(healthRoute, /lifecycleEmail:/);
+  assert.match(healthRoute, /cron: Boolean\(process\.env\.CRON_SECRET\)/);
+  assert.match(healthRoute, /runtimeSchema:/);
   assert.match(healthRoute, /status\(ok \? 200 : 503\)/);
   assert.doesNotMatch(healthRoute, /API_KEY\s*:/);
 });

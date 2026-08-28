@@ -1,10 +1,17 @@
 import { generateText } from 'ai';
 import { DEFAULT_DEEP_MODEL, mergeUsage, normalizeReasoningEffort, resolveModelId } from './elitea.js';
 import { getCourseTrainerProfile } from './course-trainer-profiles.js';
+import {
+  BUSINESS_ACADEMY_CATEGORY_IDS,
+  listBusinessAcademyFacultyCourses,
+  retrieveBusinessAcademyKnowledge,
+} from './course-knowledge.js';
+import { formatKnowledgeContext } from './knowledge.js';
 import { createLifeCoachLessonScenario } from './life-coach-training.js';
 import {
   assessDebriefResponse,
   assessRoleplayResponse,
+  assessStudyResponse,
   buildTrainingRepairInstruction,
   completeDebriefRubric,
   debriefAchievementSummary,
@@ -14,6 +21,7 @@ const DIFFICULTIES = new Set(['guided', 'standard', 'advanced', 'expert']);
 const ACTIVITIES = new Set(['study', 'simulation']);
 const PHASES = new Set(['study', 'roleplay', 'debrief']);
 const COUNTERPART_HINTS = new Set(['client', 'student', 'audience', 'colleague']);
+const BUSINESS_ACADEMY_CATEGORIES = new Set(BUSINESS_ACADEMY_CATEGORY_IDS);
 
 const BASE_RUBRIC = Object.freeze([
   'Kontrakt a jasný cíl rozhovoru',
@@ -227,9 +235,49 @@ export function publicTrainingScenario(scenario) {
   return publicScenario;
 }
 
-export function buildTrainingInstructions({ course, item, activity, phase, scenario, difficulty }) {
+export function buildBusinessAcademyFacultyContext({
+  course,
+  relatedMethodology = [],
+  businessAcademyFaculty = [],
+} = {}) {
+  if (!BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)) return '';
+
+  const facultyMap = businessAcademyFaculty.length
+    ? businessAcademyFaculty
+      .map(facultyCourse => `- ${facultyCourse.title} (${facultyCourse.categoryLabel})`)
+      .join('\n')
+    : '- Mapa fakulty není v tomto běhu dostupná.';
+  const methodology = relatedMethodology.length
+    ? formatKnowledgeContext(relatedMethodology)
+    : 'Pro aktuální dotaz nebyla dohledána další relevantní část fakulty. Nevymýšlej ji a zůstaň u otevřené lekce.';
+
+  return [
+    '# ODBORNÝ PŘESAH MARKETINGOVÉ A BYZNYSOVÉ FAKULTY',
+    'Jsi lektorka se znalostí celé schválené metodiky těchto kurzů:',
+    facultyMap,
+    '# RELEVANTNÍ SOUVISEJÍCÍ METODIKA PRO TENTO TAH',
+    methodology,
+    'Tento blok je interní odborná opora. Člence automaticky nevypisuj názvy kurzů ani zdrojová ID a netvrď, že jsi kurzy absolvovala. Prokaž znalost přesným vysvětlením, vazbou mezi principy, kvalitní kontrolou práce a praktickou zpětnou vazbou.',
+  ].join('\n\n');
+}
+
+export function buildTrainingInstructions({
+  course,
+  item,
+  activity,
+  phase,
+  scenario,
+  difficulty,
+  relatedMethodology = [],
+  businessAcademyFaculty = [],
+}) {
   const lesson = String(item?.markdown || '').slice(0, 28000);
   const trainerProfile = getCourseTrainerProfile(course?.id);
+  const facultyContext = buildBusinessAcademyFacultyContext({
+    course,
+    relatedMethodology,
+    businessAcademyFaculty,
+  });
   if (activity === 'study') {
     return [
       `# ROLE: ELITEA — ${trainerProfile.label.toLocaleUpperCase('cs-CZ')}`,
@@ -240,9 +288,13 @@ export function buildTrainingInstructions({ course, item, activity, phase, scena
       `Studijní část: ${item.title}`,
       '# OBSAH STUDIJNÍ ČÁSTI',
       lesson,
+      facultyContext,
       '# PRAVIDLA TÉTO ODPOVĚDI',
       [
         'Uč přesně z poskytnuté části kurzu a zřetelně odděluj obsah kurzu od doplňujícího vysvětlení.',
+        BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)
+          ? 'Právě otevřená studijní část je vždy primární. Související metodiku fakulty použij pro odborné propojení, příklad, kontrolu předpokladů nebo navazující praxi; nesmíš jí přepsat zadání lekce ani členku zahltit výčtem jiných kurzů.'
+          : '',
         `Pomáhej látku pochopit, aplikovat, procvičit nebo ověřit v roli „${trainerProfile.studentRole}“. Neodváděj členku do obecného osobního koučinku a nezaměňuj její kurzovou roli za roli koučky.`,
         'Při vysvětlování používej konkrétní příklad a potom jeden ověřovací krok nebo jednu otázku. Nezahlcuj.',
         'Když členka žádá kontrolu své odpovědi, uveď co přesně splnila, co chybí a jak to opravit. Nevymýšlej pochvalu.',
@@ -263,8 +315,12 @@ export function buildTrainingInstructions({ course, item, activity, phase, scena
       `Scénář: ${scenario.title}`,
       `Zadání: ${scenario.assignment}`,
       `Kritéria: ${scenario.rubric.join(' | ')}`,
+      facultyContext,
       '# POVINNÝ FORMÁT',
       [
+        BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)
+          ? 'Při hodnocení můžeš využít související metodiku byznysové a marketingové fakulty pro odbornou přesnost, ale hodnotíš výhradně výkon v tomto scénáři a podle uvedených kritérií.'
+          : '',
         'MAPOVÁNÍ MLUVČÍCH JE ABSOLUTNÍ: zprávy s rolí user jsou vždy intervence studentky; zprávy s rolí assistant jsou vždy výroky modelové protistrany. Nikdy je neprohoď.',
         'Jako důkaz dovednosti studentky smíš citovat výhradně text zprávy s rolí user. Výrok modelové protistrany s rolí assistant nikdy nepřisuzuj studentce.',
         'Použij přesně nadpisy: „Výsledek nácviku“, „Co fungovalo“, „Rozbor kompetencí“, „Co zlepšit“, „Lepší formulace“, „Další pokus“.',
@@ -327,13 +383,31 @@ export function buildDebriefTranscriptMessages(messages = []) {
   }];
 }
 
-export function createCourseTrainer() {
+export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
   return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false }) {
     const safeActivity = sanitizeTrainingActivity(activity);
     const safeDifficulty = sanitizeTrainingDifficulty(difficulty);
     const safePhase = sanitizeTrainingPhase(phase, safeActivity);
     const safeMessages = sanitizeMessages(messages);
     const scenario = createTrainingScenario(course, item, safeDifficulty, scenarioId, counterpartHint);
+    const useFacultyKnowledge = BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)
+      && (safeActivity === 'study' || safePhase === 'debrief');
+    const facultyQuery = [
+      course?.title,
+      course?.subtitle,
+      item?.title,
+      String(item?.markdown || '').slice(0, 6000),
+      ...safeMessages
+        .filter(message => message.role === 'user')
+        .slice(-4)
+        .map(message => message.content),
+    ].filter(Boolean).join('\n');
+    const relatedMethodology = useFacultyKnowledge
+      ? retrieveBusinessAcademyKnowledge(knowledgeRecords, facultyQuery, 5)
+      : [];
+    const businessAcademyFaculty = useFacultyKnowledge
+      ? listBusinessAcademyFacultyCourses(knowledgeRecords)
+      : [];
     const instructions = `${buildTrainingInstructions({
       course,
       item,
@@ -341,6 +415,8 @@ export function createCourseTrainer() {
       phase: safePhase,
       scenario,
       difficulty: safeDifficulty,
+      relatedMethodology,
+      businessAcademyFaculty,
     })}\n\n# SDÍLENÝ ZÁKLADNÍ PROFIL ČLENKY\n${JSON.stringify(trainingMemberProfile(memory), null, 2)}\nToto je jediná paměť sdílená z ostatních rolí. Nevyvozuj z ní osobní koučovací téma a nepřenášej do studia obsah jiných konverzací.`;
     const mode = trainingMode(course, safeActivity);
 
@@ -400,6 +476,8 @@ export function createCourseTrainer() {
       phase: safePhase,
       messages: safeMessages,
       scenario,
+      course,
+      item,
     });
     const initialIssueCodes = [...(quality.issues || [])];
     let repairIssueCodes = [];
@@ -415,7 +493,7 @@ export function createCourseTrainer() {
             rubric: scenario.rubric,
           })}`,
           messages: modelMessages,
-          maxOutputTokens: safePhase === 'debrief' ? 3000 : 450,
+          maxOutputTokens: safePhase === 'debrief' ? 3000 : safeActivity === 'study' ? 1200 : 450,
           reasoning: normalizeReasoningEffort(repairModelId, safePhase === 'debrief' ? 'medium' : 'low'),
         });
         totalUsage = mergeUsage(totalUsage, repairResult.usage);
@@ -428,6 +506,8 @@ export function createCourseTrainer() {
             phase: safePhase,
             messages: safeMessages,
             scenario,
+            course,
+            item,
           });
           repairIssueCodes = [...(repairedQuality.issues || [])];
           if (repairedQuality.pass) {
@@ -449,6 +529,17 @@ export function createCourseTrainer() {
     } else if (!quality.pass && safeActivity === 'simulation') {
       finalText = safeRoleplayFallback();
       quality = assessRoleplayResponse(finalText);
+      finalModelId = 'deterministic-training-fallback';
+    } else if (!quality.pass && safeActivity === 'study') {
+      finalText = demoTrainingAnswer({
+        safeMessages,
+        course,
+        item,
+        activity: safeActivity,
+        phase: safePhase,
+        scenario,
+      }).text;
+      quality = assessStudyResponse(finalText, { messages: safeMessages, course, item });
       finalModelId = 'deterministic-training-fallback';
     }
 
@@ -474,12 +565,15 @@ export function createCourseTrainer() {
   };
 }
 
-function assessTrainingOutput(text, { activity, phase, messages, scenario }) {
+function assessTrainingOutput(text, { activity, phase, messages, scenario, course, item }) {
   if (phase === 'debrief') {
     return assessDebriefResponse(text, { messages, rubric: scenario.rubric });
   }
   if (activity === 'simulation' && phase === 'roleplay') {
     return assessRoleplayResponse(text);
+  }
+  if (activity === 'study' && phase === 'study') {
+    return assessStudyResponse(text, { messages, course, item });
   }
   return { pass: true, issues: [], shouldRepair: false };
 }
@@ -582,19 +676,31 @@ function buildDemoDebrief(messages, scenario) {
   const hasConsent = /můžu|mohu|chceš|souhlas|v pořádku|vyhovuje/i.test(evidence);
   const hasReflection = /slyším|říkáš|zní|vnímám|rozumím tomu tak/i.test(evidence);
   const excellentCore = studentTurns.length >= 3 && hasQuestion && hasConsent && hasReflection;
-  const status = (condition) => condition ? 'ČÁSTEČNĚ' : 'ZATÍM NEPROKÁZÁNO';
+  const evidenceFor = pattern => {
+    const matching = studentTurns.find(message => pattern.test(message.content));
+    return String(matching?.content || '').replace(/\s+/g, ' ').trim().slice(0, 220).replace(/[„“]/g, '"');
+  };
+  const consentEvidence = evidenceFor(/můžu|mohu|chceš|souhlas|v pořádku|vyhovuje/i);
+  const reflectionEvidence = evidenceFor(/slyším|říkáš|zní|vnímám|rozumím tomu tak/i);
+  const questionEvidence = evidenceFor(/\?/);
+  const rubricRow = (label, quote, positiveText, negativeText) => quote
+    ? `- ČÁSTEČNĚ — ${label}: ${positiveText} Důkaz: „${quote}“`
+    : `- ZATÍM NEPROKÁZÁNO — ${label}: ${negativeText}`;
+  const rubricRows = scenario.rubric.map((label, index) => {
+    if (index === 0) return rubricRow(label, consentEvidence, 'Vstup obsahuje jazyk volby nebo souhlasu.', 'V přepisu chybí viditelná nabídka volby.');
+    if (index === 1) return rubricRow(label, reflectionEvidence, 'Vstup obsahuje reflexi sdělení protistrany.', 'V přepisu chybí doložitelná reflexe.');
+    if (index === 2) return rubricRow(label, questionEvidence, 'Otázka je v přepisu přítomná; její přesnost vyžaduje plné AI vyhodnocení.', 'Otázka zatím není v přepisu.');
+    return `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`;
+  });
   return [
     '## Výsledek nácviku',
     excellentCore
       ? `Velmi dobrý základ. Proběhlo ${studentTurns.length} studentských vstupů a všechny tři prvky, které umí základní offline kontrola spolehlivě rozpoznat, jsou v přepisu viditelné.`
       : `Proběhlo ${studentTurns.length} studentských vstupů. Toto základní vyhodnocení posuzuje jen přímo viditelné prvky přepisu a nepřisuzuje kompetenci tam, kde pro ni nemá důkaz.`,
     '## Co fungovalo',
-    hasQuestion ? 'V přepisu je otázka, která vytváří prostor pro odpověď klientky.' : 'Z přepisu zatím nelze doložit konkrétní silnou intervenci.',
+    questionEvidence ? `V přepisu je doložená otázka: „${questionEvidence}“` : 'Z přepisu zatím nelze doložit konkrétní silnou intervenci.',
     '## Rozbor kompetencí',
-    `- ${status(hasConsent)} — souhlas a tempo: ${hasConsent ? 'vstup obsahuje jazyk volby nebo souhlasu.' : 'v přepisu chybí viditelná nabídka volby.'}`,
-    `- ${status(hasReflection)} — naslouchání: ${hasReflection ? 'vstup obsahuje reflexi klientčina sdělení.' : 'v přepisu chybí doložitelná reflexe.'}`,
-    `- ${status(hasQuestion)} — otevřené otázky: ${hasQuestion ? 'otázka je v přepisu přítomná; její přesnost vyžaduje plné AI vyhodnocení.' : 'otázka zatím není v přepisu.'}`,
-    ...scenario.rubric.slice(3).map(label => `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`),
+    ...rubricRows,
     '## Co zlepšit',
     excellentCore
       ? 'V základních rozpoznatelných prvcích není doložená chyba, kterou by bylo poctivé vytýkat. Plné odborné posouzení ostatních kritérií vyžaduje online AI hodnocení.'

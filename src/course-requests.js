@@ -1,7 +1,7 @@
 const USE_CASES = new Set(['pro-sebe', 's-klientkami', 'v-byznysu', 'jine']);
 
 export function courseRequestsConfigured(env = process.env) {
-  return Boolean(env.RESEND_API_KEY && (env.NIA_COURSE_REQUEST_EMAIL || env.NIA_BOOKING_EMAIL));
+  return Boolean(env.RESEND_API_KEY && env.ELITEA_FROM_EMAIL && (env.NIA_COURSE_REQUEST_EMAIL || env.NIA_BOOKING_EMAIL));
 }
 
 export function sanitizeCourseRequest(input = {}) {
@@ -67,7 +67,7 @@ export async function sendCourseRequest(request, env = process.env, fetchImpl = 
       'Idempotency-Key': `elitea-course-request-${request.id}`,
     },
     body: JSON.stringify({
-      from: env.ELITEA_FROM_EMAIL || 'Elitea <onboarding@resend.dev>',
+      from: env.ELITEA_FROM_EMAIL,
       to: [env.NIA_COURSE_REQUEST_EMAIL || env.NIA_BOOKING_EMAIL],
       subject: `Pro Niu: členka navrhuje kurz — ${request.topic.slice(0, 72)}`,
       html: email.html,

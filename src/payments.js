@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { neon } from '@neondatabase/serverless';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { rememberMemberContact } from './lifecycle-email.js';
 
 export function paymentsConfigured(env = process.env) {
   return Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_ID
@@ -36,6 +37,7 @@ export async function verifyMemberAuthorization(header, env = process.env) {
 
 export async function createMembershipCheckout(member, email, options = {}, env = process.env) {
   if (!paymentsConfigured(env)) throw notConfigured();
+  await rememberMemberContact({ ...member, email: email || member.email }, env);
   const planCode = options.planCode === 'founding30' ? 'founding30' : 'standard';
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
   const session = await stripe.checkout.sessions.create(checkoutSessionParams(member, email, { planCode }, env), {
@@ -108,7 +110,7 @@ export async function handleStripeWebhook(rawBody, signature, env = process.env)
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const subscription = await stripe.subscriptions.retrieve(session.subscription);
-    await persistSubscription(subscription, session.client_reference_id || session.metadata?.eliteaUserId, env);
+    await persistSubscription(subscription, session.client_reference_id || session.metadata?.eliteaUserId, env, session.customer_details?.email || session.customer_email || '');
   }
   if (['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'].includes(event.type)) {
     const subscription = event.data.object;
@@ -117,7 +119,7 @@ export async function handleStripeWebhook(rawBody, signature, env = process.env)
   return { received: true };
 }
 
-async function persistSubscription(subscription, userId, env) {
+async function persistSubscription(subscription, userId, env, contactEmail = '') {
   if (!/^[0-9a-f-]{36}$/i.test(userId || '')) return;
   const sql = neon(env.DATABASE_URL);
   const status = normalizeStripeStatus(subscription.status);
@@ -134,6 +136,7 @@ async function persistSubscription(subscription, userId, env) {
       activated_at=COALESCE(activated_at, now()), updated_at=now()
       WHERE user_id=${userId}::uuid AND status IN ('approved','active')`;
   }
+  if (contactEmail) await rememberMemberContact({ id: userId, email: contactEmail }, env);
 }
 
 function normalizeStripeStatus(status) {

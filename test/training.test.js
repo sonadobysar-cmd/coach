@@ -6,7 +6,13 @@ import { loadCourses } from '../src/courses.js';
 import { attachCourseMastery } from '../src/course-mastery.js';
 import { getCourseTrainerProfile } from '../src/course-trainer-profiles.js';
 import { lifeCoachScenarioCount } from '../src/life-coach-training.js';
-import { assessDebriefResponse, assessRoleplayResponse, completeDebriefRubric } from '../src/training-quality.js';
+import {
+  assessDebriefResponse,
+  assessRoleplayResponse,
+  assessStudyResponse,
+  buildTrainingRepairInstruction,
+  completeDebriefRubric,
+} from '../src/training-quality.js';
 import {
   buildTrainingInstructions,
   buildDebriefTranscriptMessages,
@@ -343,8 +349,8 @@ test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze students
     '## Co fungovalo',
     `Přesná reflexe. Důkaz: „${evidence}“`,
     '## Rozbor kompetencí',
-    '- PROKÁZÁNO — Reflexe.',
-    '- PROKÁZÁNO — Ověření.',
+    `- PROKÁZÁNO — Reflexe: důkaz „${evidence}“`,
+    `- PROKÁZÁNO — Ověření: důkaz „${evidence}“`,
     '## Co zlepšit',
     'Nic podstatného.',
     '## Lepší formulace',
@@ -366,7 +372,7 @@ test('brána hodnocení dovolí novou větu v části Lepší formulace', () => 
     '## Co fungovalo',
     'Studentka přesně navázala na přepis.',
     '## Rozbor kompetencí',
-    '- PROKÁZÁNO — Reflexe: důkaz je ve vstupu studentky.',
+    '- PROKÁZÁNO — Reflexe: důkaz „Slyším, že je to pro tebe důležité.“',
     '## Co zlepšit',
     'Jedna konkrétní mezera.',
     '## Lepší formulace',
@@ -398,7 +404,7 @@ test('chybějící kritérium se bezpečně doplní jako zatím neprokázané', 
   const response = [
     '## Výsledek nácviku', 'Dobrý základ.',
     '## Co fungovalo', 'Přesná reflexe.',
-    '## Rozbor kompetencí', '- PROKÁZÁNO — Reflexe.',
+    '## Rozbor kompetencí', '- PROKÁZÁNO — Reflexe: důkaz „Slyším tě.“',
     '## Co zlepšit', 'Bez umělé výtky.',
     '## Lepší formulace', 'Nejsou potřeba.',
     '## Další pokus', 'Vyšší obtížnost.',
@@ -411,6 +417,49 @@ test('chybějící kritérium se bezpečně doplní jako zatím neprokázané', 
     rubric: ['Reflexe', 'Přijetí opravy'],
   });
   assert.equal(assessed.pass, true);
+});
+
+test('hodnocení nesmí označit kompetenci za prokázanou bez přímého důkazu studentky', () => {
+  const response = [
+    '## Výsledek nácviku', 'Dobrý výkon.',
+    '## Co fungovalo', 'Přesná reakce.',
+    '## Rozbor kompetencí', '- PROKÁZÁNO — Reflexe: studentka reagovala správně.',
+    '## Co zlepšit', 'Nic podstatného.',
+    '## Lepší formulace', 'Není potřeba.',
+    '## Další pokus', 'Vyšší obtížnost.',
+  ].join('\n\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: 'Slyším, že se bojíš výsledku.' }],
+    rubric: ['Reflexe'],
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('unsupported_competency_claim'));
+});
+
+test('studijní trenérka zůstává u učiva a brána odmítá osobní koučink', () => {
+  const course = { title: 'Komunikace v praxi' };
+  const item = { title: 'Aktivní naslouchání', markdown: 'Aktivní naslouchání používá parafrázi a ověření porozumění.' };
+  const messages = [{ role: 'user', content: 'Jak mám použít parafrázi?' }];
+  const valid = assessStudyResponse(
+    'V části Aktivní naslouchání použiješ parafrázi tak, že vlastními slovy zachytíš význam a potom ověříš porozumění. Příklad: „Rozumím tomu tak, že termín je pro tebe zásadní — sedí to?“ Zkus nyní parafrázovat jednu větu klientky.',
+    { messages, course, item },
+  );
+  assert.equal(valid.pass, true);
+  const drift = assessStudyResponse(
+    'Teď tě budu koučovat a pojďme zpracovat tvé trauma. Co cítíš v těle?',
+    { messages, course, item },
+  );
+  assert.equal(drift.pass, false);
+  assert.ok(drift.issues.includes('study_role_drift'));
+});
+
+test('opravný pokyn pro studium vrací trenérku k lekci, ne do koučinku', () => {
+  const instruction = buildTrainingRepairInstruction({
+    phase: 'study',
+    assessment: { issues: ['study_role_drift'] },
+  });
+  assert.match(instruction, /odborná lektorka právě otevřeného kurzu/i);
+  assert.match(instruction, /Nepřepínej do osobního koučinku/i);
 });
 
 test('studium a debrief používají hlubší model, živá roleplay zůstává rychlá', () => {

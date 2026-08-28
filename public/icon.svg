@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Elitea</title>
+  <rect width="512" height="512" rx="116" fill="#111114"/>
+  <circle cx="408" cy="104" r="38" fill="#ff681d"/>
+  <path d="M151 111h224v55H223v66h134v53H223v61h158v55H151z" fill="#fffaf4"/>
+</svg>

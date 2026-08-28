@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { touchMemberLifecycle } from './lifecycle-email.js';
 
 const PROGRAM_CAPACITY = 30;
 const FOCUS_VALUES = new Set(['coach_mentor', 'coaching_training', 'brand_marketing', 'academy', 'whole_elitea']);
@@ -155,6 +156,7 @@ export async function recordAiUsage(member, { roleCode, modelId, usage, qualityP
   if (!allowedRoles.has(roleCode)) return;
   const sql = neon(env.DATABASE_URL);
   await sql`INSERT INTO member_profiles (user_id) VALUES (${member.id}::uuid) ON CONFLICT (user_id) DO NOTHING`;
+  await touchMemberLifecycle(member, env);
   await sql`INSERT INTO ai_usage_events (
       user_id, role_code, model_id, input_tokens, output_tokens, total_tokens, cached_input_tokens, quality_passed, repaired
     ) VALUES (

@@ -8,7 +8,7 @@ import {
   buildQualityRepairInstruction,
   extractSessionEvidence,
 } from '../src/coaching-quality.js';
-import { guardedQualityFallback } from '../src/elitea.js';
+import { guardedBrandFallback, guardedQualityFallback } from '../src/elitea.js';
 import { buildConversationContext } from '../src/elitea.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -246,4 +246,56 @@ test('brána zachytí direktivní radu ukrytou ve větě potřebuješ', () => {
     { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
   );
   assert.ok(assessment.issues.some(issue => issue.code === 'premature_prescription'));
+});
+
+test('byznys mentorka nesmí předstírat, že provedla externí akci', () => {
+  const messages = [{ role: 'user', content: 'Připrav mi koncept kampaně pro kurz komunikace.' }];
+  const assessment = assessCoachingResponse(
+    'Hotovo — kampaň jsem spustila a nastavila jsem rozpočet. Výsledky budou určitě skvělé.',
+    {
+      messages,
+      conversationContext: context(messages, 'brand_growth_agent'),
+      responseMode: 'brand_growth_agent',
+      requireQuestion: false,
+    },
+  );
+  assert.equal(assessment.pass, false);
+  assert.ok(assessment.issues.some(issue => issue.code === 'false_external_action_claim'));
+});
+
+test('byznys mentorka může pravdivě říct, že nic nepublikovala', () => {
+  const messages = [{ role: 'user', content: 'Připrav mi koncept kampaně pro kurz komunikace.' }];
+  const assessment = assessCoachingResponse(
+    'Pro kurz komunikace jsem připravila koncept sdělení; nic jsem nepublikovala ani nespustila. Nejdřív potřebuji ověřit cílovou skupinu a hlavní příslib.',
+    {
+      messages,
+      conversationContext: context(messages, 'brand_growth_agent'),
+      responseMode: 'brand_growth_agent',
+      requireQuestion: false,
+    },
+  );
+  assert.ok(!assessment.issues.some(issue => issue.code === 'false_external_action_claim'));
+});
+
+test('byznys mentorka nepřebírá práci koučky a opravný prompt drží hranici role', () => {
+  const messages = [{ role: 'user', content: 'Nevím, proč se bojím zveřejnit nabídku.' }];
+  const assessment = assessCoachingResponse(
+    'Teď pojďme zpracovat tvé trauma a uzdravit tvé vnitřní dítě.',
+    {
+      messages,
+      conversationContext: context(messages, 'brand_growth_agent'),
+      responseMode: 'brand_growth_agent',
+      requireQuestion: false,
+    },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'brand_role_drift'));
+  const instruction = buildQualityRepairInstruction(
+    assessment,
+    context(messages, 'brand_growth_agent'),
+    { responseMode: 'brand_growth_agent' },
+  );
+  assert.match(instruction, /seniorní byznys a marketingová mentorka/i);
+  assert.match(instruction, /Nikdy netvrď, že jsi něco publikovala/i);
+  const fallback = guardedBrandFallback(messages[0].content);
+  assert.match(fallback, /Nic jsem bez skutečného potvrzení nástroje nezveřejnila/i);
 });

@@ -77,7 +77,7 @@ test('anonymní export neobsahuje cíl, poznámky ani domluvený krok', () => {
 test('členské rozhraní zpřístupňuje měření na desktopu i mobilu', async () => {
   const [html, client, css] = await Promise.all([
     readFile(join(ROOT, 'public', 'index.html'), 'utf8'),
-    readFile(join(ROOT, 'public', 'app.js'), 'utf8'),
+    readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8'),
     readFile(join(ROOT, 'public', 'styles.css'), 'utf8'),
   ]);
   assert.match(html, /id="outcome-card"/);

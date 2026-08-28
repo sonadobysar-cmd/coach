@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Elitea — profesionální AI Coach &amp; Mentor s dlouhodobou pamětí, odborné programy a profesní komunita pro ženy, které chtějí růst s kontinuitou.">
     <meta name="theme-color" content="#201b1f">
+    <meta name="application-name" content="Elitea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Elitea">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Elitea — růst pro tvůj byznys i pro tebe">
     <meta property="og:description" content="Profesionální AI Coach &amp; Mentor, který navazuje. Odborné programy a profesní komunita v jednom členském prostoru.">
@@ -18,10 +22,51 @@
     <meta name="twitter:description" content="Profesionální AI Coach &amp; Mentor, který navazuje. Odborné programy a profesní komunita v jednom členském prostoru.">
     <meta name="twitter:image" content="https://elitea.cz/og-elitea.png">
     <title>Elitea — koučka, mentorka a Academy</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700&family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon-192.png" sizes="192x192">
     <link rel="stylesheet" href="/styles.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://elitea.cz/#organization",
+            "name": "Elitea",
+            "url": "https://elitea.cz/",
+            "logo": "https://elitea.cz/icon.svg",
+            "description": "Český členský prostor propojující profesionální AI koučku a mentorku, vzdělávací programy a profesní komunitu."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://elitea.cz/#website",
+            "url": "https://elitea.cz/",
+            "name": "Elitea",
+            "inLanguage": "cs-CZ",
+            "publisher": { "@id": "https://elitea.cz/#organization" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Elitea",
+            "url": "https://elitea.cz/",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "cs-CZ",
+            "description": "Dvě hlavní mentorky, Elitea Academy, pracovní listy a komunita v jednom členském prostoru s návazností.",
+            "featureList": ["Coach & Mentor", "Brand & Marketing mentorka", "Elitea Academy", "Pracovní listy", "Profesní komunita"],
+            "offers": {
+              "@type": "Offer",
+              "price": "990",
+              "priceCurrency": "CZK",
+              "description": "Měsíční členství po sedmidenním bezplatném vyzkoušení",
+              "availability": "https://schema.org/OnlineOnly"
+            },
+            "publisher": { "@id": "https://elitea.cz/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="public-mode">
     <div class="ambient ambient-one"></div>
@@ -44,7 +89,7 @@
 
       <main id="top">
         <section class="public-hero public-hero-poster" aria-labelledby="elitea-hero-title">
-          <img class="public-hero-poster-image" src="/og-elitea.png" alt="Elitea — růst pro tvůj byznys, růst pro tebe. Nia, zakladatelka Elitea.">
+          <img class="public-hero-poster-image" src="/og-elitea.png" width="1730" height="909" fetchpriority="high" alt="Elitea — růst pro tvůj byznys, růst pro tebe. Nia, zakladatelka Elitea.">
           <div class="public-hero-poster-actions">
             <div class="public-hero-summary">
               <p>COACH &amp; MENTOR · COMMUNITY · ACADEMY</p>
@@ -60,8 +105,8 @@
         <section class="public-proof" aria-label="Elitea v číslech">
           <div><strong data-live-count="techniques">140</strong><span>technik a metod pro vedení sezení</span></div>
           <div><strong data-live-count="knowledge">3 446</strong><span>znalostních záznamů dostupných asistentce</span></div>
-          <div><strong>38</strong><span>praktických cvičení a aplikací</span></div>
-          <div><strong>18</strong><span>modulových testů porozumění</span></div>
+          <div><strong>837</strong><span>praktických cvičení a aplikací</span></div>
+          <div><strong>421</strong><span>modulových testů porozumění</span></div>
         </section>
 
         <section class="public-ecosystem" id="ecosystem">
@@ -73,19 +118,19 @@
             <article class="ecosystem-card ecosystem-coach">
               <div class="ecosystem-number">01</div>
               <div class="ecosystem-copy"><span>ELITEA COACH &amp; MENTOR</span><h3>Osobní koučka a mentorka, která nezapomíná souvislosti.</h3><p>Koučink, mentoring, byznysové rozhodování i podpora fungování — podle toho, co právě potřebuješ.</p><button type="button" data-enter-app data-start-view="chat">Otevřít Coach &amp; Mentor →</button></div>
-              <img src="/elitea/coach-sonia-v2.png" alt="Nia v prostředí Elitea Coach &amp; Mentor" loading="lazy">
+              <img src="/elitea/coach-sonia-v2.png" width="1536" height="1024" alt="Nia v prostředí Elitea Coach &amp; Mentor" loading="lazy">
             </article>
             <article class="ecosystem-card ecosystem-circle" id="circle">
               <div class="ecosystem-number">02</div>
               <div class="ecosystem-copy"><span>ELITEA COMMUNITY</span><h3>Profesionální komunita bez hluku a póz.</h3><p>Otázky z praxe, odborná zpětná vazba a ženy, které budují stejně poctivě jako ty.</p><button type="button" data-enter-app data-start-view="community">Vstoupit do Community →</button></div>
-              <img src="/elitea/circle-editorial.jpg" alt="Ženy při profesním setkání Elitea Community" loading="lazy">
+              <img src="/elitea/circle-editorial.jpg" width="1536" height="1024" alt="Ženy při profesním setkání Elitea Community" loading="lazy">
             </article>
             <article class="ecosystem-card ecosystem-academy" id="academy-public">
               <div class="ecosystem-number">03</div>
               <div class="ecosystem-copy"><span>ELITEA ACADEMY</span><h3>Výcviky, které umíš použít — na sobě i s klientkou.</h3><p>Teorie, vlastní zkušenost, modelové situace, praxe, testy a certifikát podepsaný Niou.</p><button type="button" data-enter-app data-start-view="academy">Prohlédnout Academy →</button></div>
               <picture class="ecosystem-picture">
-                <source media="(max-width: 1080px)" srcset="/elitea/academy-sonia-wide-v3.png">
-                <img src="/elitea/academy-sonia-v2.png" alt="Nia představuje praktický výcvik v Elitea Academy" loading="lazy">
+                <source media="(max-width: 1080px)" srcset="/elitea/academy-sonia-wide-v3.png" width="1672" height="941">
+                <img src="/elitea/academy-sonia-v2.png" width="1023" height="1537" alt="Nia představuje praktický výcvik v Elitea Academy" loading="lazy">
               </picture>
             </article>
           </div>
@@ -95,7 +140,7 @@
           <div class="product-copy">
             <p>PROFESIONÁLNÍ AI COACH &amp; MENTOR</p>
             <h2>Neodpovídá obecně.<br><em>Pracuje s tvou realitou.</em></h2>
-            <p>Elitea není obecný chatbot. Je postavená na metodice Nii, stovkách odborně zpracovaných poznatků, rozsáhlé knihovně praktických postupů a kontrolovaných scénářích. Vede celé sezení, pamatuje si souvislosti a volí způsob práce podle tvého tématu — kdykoliv a za zlomek ceny individuálního koučinku.</p>
+            <p>Elitea není obecný chatbot. Je postavená na metodice Nii, tisících odborně zpracovaných poznatků, rozsáhlé knihovně praktických postupů a kontrolovaných scénářích. Vede celé sezení, pamatuje si souvislosti a volí způsob práce podle tvého tématu — kdykoliv a za zlomek ceny individuálního koučinku.</p>
             <ul>
               <li><span>01</span>Koučovací a mentoringový režim</li>
               <li><span>02</span>Kontinuita mezi jednotlivými setkáními</li>
@@ -118,7 +163,7 @@
               <p>CO JE POD POVRCHEM</p>
               <h2 id="method-depth-title">Ne jeden prompt.<br><em>Celý metodický systém.</em></h2>
             </div>
-            <p>Čísla odpovídají aktuální interní knihovně Elitea a devíti programům, které už můžeš v Academy otevřít. S každým novým odborným programem se systém dál rozšiřuje.</p>
+            <p>Čísla odpovídají aktuální interní knihovně Elitea a 27 programům, které už můžeš v Academy otevřít. S každým novým odborným programem se systém dál rozšiřuje.</p>
           </header>
           <div class="method-depth-grid">
             <article class="method-depth-card method-depth-techniques">
@@ -135,27 +180,27 @@
             </article>
             <article class="method-depth-card method-depth-practice">
               <span>ELITEA ACADEMY</span>
-              <strong>291</strong>
+              <strong>837</strong>
               <h3>praktických pracovních částí</h3>
-              <p>142 cvičení na sobě, 148 profesních či modelových aplikací a jedno závěrečné praktikum. Každá část vede ke konkrétnímu výstupu do průběžného portfolia.</p>
+              <p>415 cvičení na sobě, 421 profesních či modelových aplikací a jedno závěrečné praktikum. Každá část vede ke konkrétnímu výstupu do průběžného portfolia.</p>
             </article>
             <article class="method-depth-card method-depth-tests">
               <span>OVĚŘENÍ POROZUMĚNÍ</span>
-              <strong>148</strong>
+              <strong>421</strong>
               <h3>modulových testů</h3>
               <p>Nejen přečíst a odkliknout. Testy ověřují pochopení, bezpečné použití a schopnost převést poznatek do reálné situace.</p>
             </article>
           </div>
           <div class="method-depth-ledger" aria-label="Další obsah Elitea Academy">
-            <span><b>150</b> modulů</span>
-            <span><b>896</b> studijních částí</span>
-            <span><b data-live-count="worksheets">151</b> interaktivních pracovních listů</span>
-            <span><b>540</b> kurzových tréninkových situací</span>
+            <span><b>423</b> modulů</span>
+            <span><b>2 534</b> studijních částí</span>
+            <span><b>715</b> kurzových pracovních materiálů</span>
+            <span><b>2 178</b> kurzových tréninkových situací</span>
           </div>
         </section>
 
         <section class="public-course-feature">
-          <div class="course-feature-art"><img src="/elitea/academy-sonia-v2.png" alt="Nia — Elitea Academy a praktická neuroplasticita" loading="lazy"><span>ELITEA CERTIFIED<br>PRACTITIONER</span><b>01</b></div>
+          <div class="course-feature-art"><img src="/elitea/academy-sonia-v2.png" width="1023" height="1537" alt="Nia — Elitea Academy a praktická neuroplasticita" loading="lazy"><span>ELITEA CERTIFIED<br>PRACTITIONER</span><b>01</b></div>
           <div class="course-feature-copy">
             <p>PRVNÍ PROFESNÍ VÝCVIK</p>
             <h2>Přepiš svůj vzorec</h2>
@@ -218,7 +263,7 @@
         <a class="public-brand" href="#top">Elitea<span>.</span></a>
         <p>Grow your business.<br>Grow yourself.</p>
         <nav><a href="#ecosystem">Jak funguje</a><a href="#circle">Community</a><a href="#academy-public">Academy</a><a href="/legal/terms.html">Podmínky</a><a href="/legal/privacy.html">Soukromí</a><button type="button" data-enter-app>Přihlásit se</button></nav>
-        <small>© 2026 Elitea · <a href="/legal/cookies.html">Cookies</a> · <a href="/legal/ai.html">AI transparentnost</a></small>
+        <small>© 2026 Elitea · <a href="/legal/withdrawal.html">Odstoupení</a> · <a href="/legal/cookies.html">Cookies</a> · <a href="/legal/ai.html">AI transparentnost</a></small>
       </footer>
     </div>
 
@@ -320,7 +365,7 @@
                 </div>
               </div>
               <div class="member-visual-stage">
-                <img src="/elitea/founder-sonia-v3.png" alt="Nia, zakladatelka Elitea" loading="eager">
+                <img src="/elitea/founder-sonia-v3.png" width="1023" height="1537" alt="Nia, zakladatelka Elitea" loading="eager">
                 <div class="member-coach-float">
                   <div class="nia-orb member-orb" aria-hidden="true"><span>E</span></div>
                   <div><span>ELITEA JE PŘIPRAVENÁ</span><strong>Soukromý koučink 24/7</strong></div>
@@ -411,7 +456,7 @@
                 <button class="secondary-button" type="button" data-view="community">Vstoupit do komunity <span>→</span></button>
               </div>
               <div class="community-preview-activity">
-                <img class="community-preview-photo" src="/elitea/circle-editorial.jpg" alt="Ženy při profesním setkání Elitea Community" loading="lazy">
+                <img class="community-preview-photo" src="/elitea/circle-editorial.jpg" width="1536" height="1024" alt="Ženy při profesním setkání Elitea Community" loading="lazy">
                 <div class="avatar-stack" aria-label="Founding program"><span>F</span><span>O</span><span>U</span><span>30</span></div>
                 <strong>Founding komunita se právě otevírá</strong>
                 <p>Prvních 30 vybraných testerek bude sdílet zkušenosti v soukromé WhatsApp skupině a na pravidelných společných setkáních.</p>
@@ -465,7 +510,7 @@
                 <p>Profesionální komunita pro ženy, které koučují, vedou klientky nebo budují vlastní praxi. Začínáme výběrovým programem Founding 30; vlastní komunitní feed otevřeme až s reálnými členkami a skutečnými příspěvky.</p>
               </div>
               <div class="community-hero-visual">
-                <img src="/elitea/circle-editorial.jpg" alt="Ženy při profesní diskuzi v Elitea Community" loading="lazy">
+                <img src="/elitea/circle-editorial.jpg" width="1536" height="1024" alt="Ženy při profesní diskuzi v Elitea Community" loading="lazy">
                 <div class="community-presence"><span class="presence-dot"></span><strong>Founding 30 · přijímáme přihlášky</strong><small>Soukromý a moderovaný start komunity</small></div>
               </div>
             </header>
@@ -670,13 +715,18 @@
             <header class="academy-hero">
               <div><p class="overline">ELITEA ACADEMY</p><h1>Uč se. Vyzkoušej. Použij.</h1><p>Výcviky, ve kterých poznání nekončí přečtenou lekcí. Každou metodu nejdřív použiješ na sobě, potom ji nacvičíš s Elitea a nakonec ve vlastní praxi.</p></div>
               <div class="academy-visual">
-                <img src="/elitea/academy-sonia-v2.png" alt="Praktický profesní výcvik v Elitea Academy" loading="lazy">
+                <img src="/elitea/academy-sonia-v2.png" width="1023" height="1537" alt="Praktický profesní výcvik v Elitea Academy" loading="lazy">
                 <div class="academy-stat"><strong>9</strong><span>silných programů</span><small>teorie, praxe, integrace</small></div>
                 <span class="academy-visual-label">TEORIE · PRAXE · CERTIFIKACE</span>
               </div>
             </header>
             <div class="academy-scroll">
               <section class="academy-intro"><span>E</span><div><strong>Elitea je součástí každé lekce i Mastery Labu</strong><p>Každý kurz má 30denní cestu, 60 tematických situací ve čtyřech úrovních, vstupní a závěrečné měření, profesní balíček a integrovanou zkoušku.</p></div></section>
+              <section class="academy-search" aria-labelledby="academy-search-title">
+                <div><span>PROHLEDEJ CELOU ACADEMY</span><h2 id="academy-search-title">Najdi přesnou lekci během pár vteřin.</h2><p>Hledá napříč názvy programů, moduly i obsahem všech studijních částí.</p></div>
+                <form id="academy-search-form" role="search"><label for="academy-search-input">Co potřebuješ najít?</label><div><input id="academy-search-input" type="search" minlength="2" maxlength="160" placeholder="Např. hranice v rodině, cenotvorba, prokrastinace…"><button type="submit">Hledat <b>→</b></button></div></form>
+                <div class="academy-search-results" id="academy-search-results" aria-live="polite" hidden></div>
+              </section>
               <nav class="academy-category-filters" id="academy-category-filters" aria-label="Oblasti kurzů Elitea Academy"></nav>
               <div class="academy-course-grid" id="academy-course-grid" aria-live="polite"></div>
             </div>
@@ -694,7 +744,7 @@
                 <section class="course-mastery" id="course-mastery" hidden>
                   <header class="mastery-head">
                     <div><span>MASTERY LAB</span><h2>Od přečtení k prokázané dovednosti</h2><p id="course-mastery-promise"></p></div>
-                    <div class="mastery-progress"><strong id="course-mastery-percent">0 %</strong><small>30denní cesty</small><button type="button" id="mastery-toggle">Otevřít Mastery Lab</button></div>
+                    <div class="mastery-progress"><strong id="course-mastery-percent">0 %</strong><small>30denní cesty</small><button type="button" id="mastery-toggle" aria-expanded="false" aria-controls="course-mastery-content">Otevřít Mastery Lab</button></div>
                   </header>
                   <nav class="mastery-tabs" id="mastery-tabs" aria-label="Praktická vrstva kurzu">
                     <button type="button" class="active" data-mastery-tab="journey">30denní cesta</button>
@@ -711,6 +761,12 @@
                 </div>
                 <div class="lesson-meta"><span id="lesson-kind">LEKCE</span><span id="lesson-time">10 min</span></div>
                 <h2 id="lesson-title"></h2>
+                <section class="lesson-audio" id="lesson-audio" aria-labelledby="lesson-audio-title">
+                  <div><span>AUDIO REŽIM</span><strong id="lesson-audio-title">Poslechni si tuto část</strong><small id="lesson-audio-status" aria-live="polite">Automatický český hlas přečte text lekce. Přehrávání zůstává pouze v tomto zařízení.</small></div>
+                  <label for="lesson-audio-rate"><span>Rychlost</span><select id="lesson-audio-rate"><option value="0.85">0,85×</option><option value="1" selected>1×</option><option value="1.15">1,15×</option><option value="1.3">1,3×</option></select></label>
+                  <button type="button" id="lesson-audio-toggle" aria-pressed="false">▶ Poslechnout</button>
+                  <button type="button" id="lesson-audio-stop" class="secondary" disabled>■ Zastavit</button>
+                </section>
                 <section class="lesson-visual" id="lesson-visual" hidden aria-live="polite"></section>
                 <div class="lesson-content" id="lesson-content"></div>
                 <section class="lesson-materials" id="lesson-materials" hidden>
@@ -1212,7 +1268,7 @@
         <label id="auth-email-wrap">E-mail<input id="auth-email" type="email" autocomplete="email" required maxlength="254"></label>
         <label id="auth-password-wrap">Heslo<input id="auth-password" type="password" autocomplete="new-password" required minlength="10"></label>
         <label id="auth-password-confirm-wrap" hidden>Heslo znovu<input id="auth-password-confirm" type="password" autocomplete="new-password" minlength="10"></label>
-        <label class="consent-check" id="auth-consent-wrap"><input id="auth-consent" type="checkbox"><span>Souhlasím s <a href="/legal/terms.html" target="_blank">podmínkami</a>, beru na vědomí <a href="/legal/privacy.html" target="_blank">ochranu soukromí</a> a rozumím tomu, že komunikuji s <a href="/legal/ai.html" target="_blank">AI</a> v neklinickém koučovacím a vzdělávacím prostředí.</span></label>
+        <label class="consent-check" id="auth-consent-wrap"><input id="auth-consent" type="checkbox"><span>Souhlasím s <a href="/legal/terms.html" target="_blank">podmínkami</a>, beru na vědomí <a href="/legal/privacy.html" target="_blank">ochranu soukromí</a>, <a href="/legal/withdrawal.html" target="_blank">poučení o odstoupení</a> a rozumím tomu, že komunikuji s <a href="/legal/ai.html" target="_blank">AI</a> v neklinickém koučovacím a vzdělávacím prostředí.</span></label>
         <p class="booking-error" id="auth-error" role="alert" hidden></p>
         <button class="primary-button wide" id="auth-submit" type="submit">Vytvořit účet</button>
       </form>

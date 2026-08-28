@@ -58,9 +58,10 @@ test('odeslání používá idempotency key a dokument pouze jako schválenou p�
   assert.doesNotMatch(captured.options.body, /messages|chatHistory/);
 });
 
-test('rezervace se nepovažuje za připojenou bez obou serverových proměnných', () => {
+test('rezervace vyžaduje API klíč, ověřeného odesílatele a příjemce', () => {
   assert.equal(bookingConfigured({}), false);
-  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', NIA_BOOKING_EMAIL: 'nia@example.com' }), true);
-  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', NIA_TESTER_EMAIL: 'testers@example.com' }), true);
+  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', NIA_BOOKING_EMAIL: 'nia@example.com' }), false);
+  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', ELITEA_FROM_EMAIL: 'Elitea <hello@elitea.cz>', NIA_BOOKING_EMAIL: 'nia@example.com' }), true);
+  assert.equal(bookingConfigured({ RESEND_API_KEY: 'x', ELITEA_FROM_EMAIL: 'Elitea <hello@elitea.cz>', NIA_TESTER_EMAIL: 'testers@example.com' }), true);
   assert.equal(bookingRecipient({ NIA_BOOKING_EMAIL: '', NIA_TESTER_EMAIL: 'testers@example.com' }), 'testers@example.com');
 });

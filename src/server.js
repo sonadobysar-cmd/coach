@@ -24,6 +24,7 @@ import {
   startBrowserOperatorSession,
 } from './browser-operator.js';
 import { courseSummary, loadCourses, publicCourseDetail } from './courses.js';
+import { buildCourseSearchIndex, searchCourseIndex } from './course-search.js';
 import { attachCourseMastery } from './course-mastery.js';
 import { buildWorksheetLibrary } from './worksheets.js';
 import { expandSelfTrustMaterials } from './self-trust-materials.js';
@@ -31,6 +32,8 @@ import { expandAdhdMaterials } from './adhd-materials.js';
 import { expandBachMaterials } from './bach-materials.js';
 import { expandLifeCoachMaterials } from './life-coach-materials.js';
 import { expandWomensCircleMaterials } from './womens-circle-materials.js';
+import { expandBusinessMaterials } from './business-materials.js';
+import { expandAiAgentMaterials } from './ai-agent-materials.js';
 import {
   createCourseTrainer,
   createTrainingScenario,
@@ -61,6 +64,10 @@ import {
   submitFoundingFeedback,
   updateFoundingApplication,
 } from './founding.js';
+import { readAiUsage, reserveAiTurn } from './usage-limits.js';
+import { reportOperationalError, sanitizeOperationalEvent } from './observability.js';
+import { lifecycleConfigured, runLifecycleEmails } from './lifecycle-email.js';
+import { ensureRuntimeSchema, runtimeSchemaStatus } from './runtime-schema.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -98,9 +105,65 @@ const COURSE_LIFE_AUDIO_PATH = join(ROOT, 'data', 'course-profesionalni-life-coa
 const COURSE_CIRCLE_PATH = join(ROOT, 'data', 'course-zenske-kruhy.md');
 const COURSE_CIRCLE_MATERIALS_PATH = join(ROOT, 'data', 'course-zenske-kruhy-materials.json');
 const COURSE_CIRCLE_AUDIO_PATH = join(ROOT, 'data', 'course-zenske-kruhy-audio-scripts.md');
+const COURSE_BUSINESS_PATH = join(ROOT, 'data', 'course-podnikani-od-napadu-k-rustu.md');
+const COURSE_BUSINESS_MATERIALS_PATH = join(ROOT, 'data', 'course-podnikani-od-napadu-k-rustu-materials.json');
+const COURSE_BUSINESS_AUDIO_PATH = join(ROOT, 'data', 'course-podnikani-od-napadu-k-rustu-audio-scripts.md');
+const COURSE_PART_TIME_BUSINESS_PATH = join(ROOT, 'data', 'course-vedlejsi-byznys-pri-zamestnani.md');
+const COURSE_PART_TIME_BUSINESS_MATERIALS_PATH = join(ROOT, 'data', 'course-vedlejsi-byznys-pri-zamestnani-materials.json');
+const COURSE_PART_TIME_BUSINESS_AUDIO_PATH = join(ROOT, 'data', 'course-vedlejsi-byznys-pri-zamestnani-audio-scripts.md');
+const COURSE_AI_AGENTS_PATH = join(ROOT, 'data', 'course-ai-agenti-a-automatizace.md');
+const COURSE_AI_AGENTS_MATERIALS_PATH = join(ROOT, 'data', 'course-ai-agenti-a-automatizace-materials.json');
+const COURSE_AI_AGENTS_AUDIO_PATH = join(ROOT, 'data', 'course-ai-agenti-a-automatizace-audio-scripts.md');
+const COURSE_STARTUP_IDEA_PATH = join(ROOT, 'data', 'course-napad-k-overene-prilezitosti.md');
+const COURSE_STARTUP_IDEA_MATERIALS_PATH = join(ROOT, 'data', 'course-napad-k-overene-prilezitosti-materials.json');
+const COURSE_STARTUP_IDEA_AUDIO_PATH = join(ROOT, 'data', 'course-napad-k-overene-prilezitosti-audio-scripts.md');
+const COURSE_BUSINESS_DEVELOPMENT_PATH = join(ROOT, 'data', 'course-strategicka-partnerstvi-business-development.md');
+const COURSE_BUSINESS_DEVELOPMENT_MATERIALS_PATH = join(ROOT, 'data', 'course-strategicka-partnerstvi-business-development-materials.json');
+const COURSE_BUSINESS_DEVELOPMENT_AUDIO_PATH = join(ROOT, 'data', 'course-strategicka-partnerstvi-business-development-audio-scripts.md');
+const COURSE_GENERATIVE_AI_MARKETING_PATH = join(ROOT, 'data', 'course-generativni-ai-pro-marketing-a-byznys.md');
+const COURSE_GENERATIVE_AI_MARKETING_MATERIALS_PATH = join(ROOT, 'data', 'course-generativni-ai-pro-marketing-a-byznys-materials.json');
+const COURSE_GENERATIVE_AI_MARKETING_AUDIO_PATH = join(ROOT, 'data', 'course-generativni-ai-pro-marketing-a-byznys-audio-scripts.md');
+const COURSE_SOCIAL_MEDIA_MANAGEMENT_PATH = join(ROOT, 'data', 'course-social-media-management-strategie-a-rust.md');
+const COURSE_SOCIAL_MEDIA_MANAGEMENT_MATERIALS_PATH = join(ROOT, 'data', 'course-social-media-management-strategie-a-rust-materials.json');
+const COURSE_SOCIAL_MEDIA_MANAGEMENT_AUDIO_PATH = join(ROOT, 'data', 'course-social-media-management-strategie-a-rust-audio-scripts.md');
+const COURSE_CANVA_CONTENT_DESIGN_PATH = join(ROOT, 'data', 'course-canva-content-design-studio.md');
+const COURSE_CANVA_CONTENT_DESIGN_MATERIALS_PATH = join(ROOT, 'data', 'course-canva-content-design-studio-materials.json');
+const COURSE_CANVA_CONTENT_DESIGN_AUDIO_PATH = join(ROOT, 'data', 'course-canva-content-design-studio-audio-scripts.md');
+const COURSE_CANVA_AI_SYSTEMS_PATH = join(ROOT, 'data', 'course-canva-ai-business-systems-lab.md');
+const COURSE_CANVA_AI_SYSTEMS_MATERIALS_PATH = join(ROOT, 'data', 'course-canva-ai-business-systems-lab-materials.json');
+const COURSE_CANVA_AI_SYSTEMS_AUDIO_PATH = join(ROOT, 'data', 'course-canva-ai-business-systems-lab-audio-scripts.md');
+const COURSE_CONTENT_MARKETING_PATH = join(ROOT, 'data', 'course-content-marketing-editorial-growth-system.md');
+const COURSE_CONTENT_MARKETING_MATERIALS_PATH = join(ROOT, 'data', 'course-content-marketing-editorial-growth-system-materials.json');
+const COURSE_CONTENT_MARKETING_AUDIO_PATH = join(ROOT, 'data', 'course-content-marketing-editorial-growth-system-audio-scripts.md');
+const COURSE_AI_CONTENT_STUDIO_PATH = join(ROOT, 'data', 'course-ai-content-production-studio.md');
+const COURSE_AI_CONTENT_STUDIO_MATERIALS_PATH = join(ROOT, 'data', 'course-ai-content-production-studio-materials.json');
+const COURSE_AI_CONTENT_STUDIO_AUDIO_PATH = join(ROOT, 'data', 'course-ai-content-production-studio-audio-scripts.md');
+const COURSE_VISUAL_CONTENT_STRATEGY_PATH = join(ROOT, 'data', 'course-visual-content-strategy-campaign-lab.md');
+const COURSE_VISUAL_CONTENT_STRATEGY_MATERIALS_PATH = join(ROOT, 'data', 'course-visual-content-strategy-campaign-lab-materials.json');
+const COURSE_VISUAL_CONTENT_STRATEGY_AUDIO_PATH = join(ROOT, 'data', 'course-visual-content-strategy-campaign-lab-audio-scripts.md');
+const COURSE_FOUNDER_PRODUCTIVITY_PATH = join(ROOT, 'data', 'course-founder-productivity-execution-os.md');
+const COURSE_FOUNDER_PRODUCTIVITY_MATERIALS_PATH = join(ROOT, 'data', 'course-founder-productivity-execution-os-materials.json');
+const COURSE_FOUNDER_PRODUCTIVITY_AUDIO_PATH = join(ROOT, 'data', 'course-founder-productivity-execution-os-audio-scripts.md');
+const COURSE_CAPCUT_SHORT_FORM_PATH = join(ROOT, 'data', 'course-capcut-short-form-video-studio.md');
+const COURSE_CAPCUT_SHORT_FORM_MATERIALS_PATH = join(ROOT, 'data', 'course-capcut-short-form-video-studio-materials.json');
+const COURSE_CAPCUT_SHORT_FORM_AUDIO_PATH = join(ROOT, 'data', 'course-capcut-short-form-video-studio-audio-scripts.md');
+const COURSE_CONTENT_CREATOR_PATH = join(ROOT, 'data', 'course-content-creator-personal-brand-studio.md');
+const COURSE_CONTENT_CREATOR_MATERIALS_PATH = join(ROOT, 'data', 'course-content-creator-personal-brand-studio-materials.json');
+const COURSE_CONTENT_CREATOR_AUDIO_PATH = join(ROOT, 'data', 'course-content-creator-personal-brand-studio-audio-scripts.md');
+const COURSE_STRATEGIC_THINKING_PATH = join(ROOT, 'data', 'course-strategic-thinking-decision-lab.md');
+const COURSE_STRATEGIC_THINKING_MATERIALS_PATH = join(ROOT, 'data', 'course-strategic-thinking-decision-lab-materials.json');
+const COURSE_STRATEGIC_THINKING_AUDIO_PATH = join(ROOT, 'data', 'course-strategic-thinking-decision-lab-audio-scripts.md');
+const COURSE_WORKFLOW_PRODUCTIVITY_PATH = join(ROOT, 'data', 'course-workflow-productivity-toolkit.md');
+const COURSE_WORKFLOW_PRODUCTIVITY_MATERIALS_PATH = join(ROOT, 'data', 'course-workflow-productivity-toolkit-materials.json');
+const COURSE_WORKFLOW_PRODUCTIVITY_AUDIO_PATH = join(ROOT, 'data', 'course-workflow-productivity-toolkit-audio-scripts.md');
+const COURSE_PROJECT_OPERATIONS_PATH = join(ROOT, 'data', 'course-project-workflow-operations-management.md');
+const COURSE_PROJECT_OPERATIONS_MATERIALS_PATH = join(ROOT, 'data', 'course-project-workflow-operations-management-materials.json');
+const COURSE_PROJECT_OPERATIONS_AUDIO_PATH = join(ROOT, 'data', 'course-project-workflow-operations-management-audio-scripts.md');
 const PORT = Number(process.env.PORT || 4173);
 
-const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest, coachingMethods, expertSources, wellbeingProtocols, techniqueAtlas, communityContent, courses, selfTrustMaterialDefinitions, spiritualCourseMaterials, communicationCourseMaterials, cbtCourseMaterials, adhdMaterialDefinitions, bachMaterialDefinitions, lifeMaterialDefinitions, circleMaterialDefinitions, selfTrustAudioScripts, spiritualCoachAudioScripts, communicationAudioScripts, cbtAudioScripts, adhdAudioScripts, bachAudioScripts, lifeAudioScripts, circleAudioScripts] = await Promise.all([
+await ensureRuntimeSchema();
+
+const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest, coachingMethods, expertSources, wellbeingProtocols, techniqueAtlas, communityContent, courses, selfTrustMaterialDefinitions, spiritualCourseMaterials, communicationCourseMaterials, cbtCourseMaterials, adhdMaterialDefinitions, bachMaterialDefinitions, lifeMaterialDefinitions, circleMaterialDefinitions, businessMaterialDefinitions, partTimeBusinessMaterialDefinitions, aiAgentMaterialDefinitions, startupIdeaMaterialDefinitions, businessDevelopmentMaterialDefinitions, generativeAiMarketingMaterialDefinitions, socialMediaManagementMaterialDefinitions, canvaContentDesignMaterialDefinitions, canvaAiSystemsMaterialDefinitions, contentMarketingMaterialDefinitions, aiContentStudioMaterialDefinitions, visualContentStrategyMaterialDefinitions, founderProductivityMaterialDefinitions, capcutShortFormMaterialDefinitions, contentCreatorMaterialDefinitions, selfTrustAudioScripts, spiritualCoachAudioScripts, communicationAudioScripts, cbtAudioScripts, adhdAudioScripts, bachAudioScripts, lifeAudioScripts, circleAudioScripts, businessAudioScripts, partTimeBusinessAudioScripts, aiAgentAudioScripts, startupIdeaAudioScripts, businessDevelopmentAudioScripts, generativeAiMarketingAudioScripts, socialMediaManagementAudioScripts, canvaContentDesignAudioScripts, canvaAiSystemsAudioScripts, contentMarketingAudioScripts, aiContentStudioAudioScripts, visualContentStrategyAudioScripts, founderProductivityAudioScripts, capcutShortFormAudioScripts, contentCreatorAudioScripts] = await Promise.all([
   readFile(SYSTEM_PROMPT_PATH, 'utf8'),
   loadKnowledge(KNOWLEDGE_PATH),
   loadKnowledge(EVERAND_KNOWLEDGE_PATH),
@@ -110,7 +173,7 @@ const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest,
   loadWellbeingProtocols(WELLBEING_PROTOCOLS_PATH),
   loadTechniqueAtlas(TECHNIQUE_ATLAS_PATH),
   readFile(COMMUNITY_CONTENT_PATH, 'utf8').then(value => JSON.parse(value)),
-  loadCourses([COURSE_NEUROPLASTICITY_PATH, COURSE_SELF_TRUST_PATH, COURSE_SPIRITUAL_COACH_PATH, COURSE_COMMUNICATION_PATH, COURSE_CBT_PATH, COURSE_ADHD_PATH, COURSE_BACH_PATH, COURSE_LIFE_PATH, COURSE_CIRCLE_PATH]),
+  loadCourses([COURSE_NEUROPLASTICITY_PATH, COURSE_SELF_TRUST_PATH, COURSE_SPIRITUAL_COACH_PATH, COURSE_COMMUNICATION_PATH, COURSE_CBT_PATH, COURSE_ADHD_PATH, COURSE_BACH_PATH, COURSE_LIFE_PATH, COURSE_CIRCLE_PATH, COURSE_BUSINESS_PATH, COURSE_PART_TIME_BUSINESS_PATH, COURSE_AI_AGENTS_PATH, COURSE_STARTUP_IDEA_PATH, COURSE_BUSINESS_DEVELOPMENT_PATH, COURSE_GENERATIVE_AI_MARKETING_PATH, COURSE_SOCIAL_MEDIA_MANAGEMENT_PATH, COURSE_CANVA_CONTENT_DESIGN_PATH, COURSE_CANVA_AI_SYSTEMS_PATH, COURSE_CONTENT_MARKETING_PATH, COURSE_AI_CONTENT_STUDIO_PATH, COURSE_VISUAL_CONTENT_STRATEGY_PATH, COURSE_FOUNDER_PRODUCTIVITY_PATH, COURSE_CAPCUT_SHORT_FORM_PATH, COURSE_CONTENT_CREATOR_PATH, COURSE_STRATEGIC_THINKING_PATH, COURSE_WORKFLOW_PRODUCTIVITY_PATH, COURSE_PROJECT_OPERATIONS_PATH]),
   readFile(COURSE_SELF_TRUST_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
   readFile(COURSE_SPIRITUAL_COACH_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
   readFile(COURSE_COMMUNICATION_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
@@ -119,6 +182,21 @@ const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest,
   readFile(COURSE_BACH_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
   readFile(COURSE_LIFE_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
   readFile(COURSE_CIRCLE_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_BUSINESS_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_PART_TIME_BUSINESS_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_AI_AGENTS_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_STARTUP_IDEA_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_BUSINESS_DEVELOPMENT_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_GENERATIVE_AI_MARKETING_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_SOCIAL_MEDIA_MANAGEMENT_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_CANVA_CONTENT_DESIGN_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_CANVA_AI_SYSTEMS_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_CONTENT_MARKETING_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_AI_CONTENT_STUDIO_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_VISUAL_CONTENT_STRATEGY_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_FOUNDER_PRODUCTIVITY_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_CAPCUT_SHORT_FORM_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_CONTENT_CREATOR_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
   readFile(COURSE_SELF_TRUST_AUDIO_PATH, 'utf8'),
   readFile(COURSE_SPIRITUAL_COACH_AUDIO_PATH, 'utf8'),
   readFile(COURSE_COMMUNICATION_AUDIO_PATH, 'utf8'),
@@ -127,13 +205,54 @@ const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest,
   readFile(COURSE_BACH_AUDIO_PATH, 'utf8'),
   readFile(COURSE_LIFE_AUDIO_PATH, 'utf8'),
   readFile(COURSE_CIRCLE_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_BUSINESS_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_PART_TIME_BUSINESS_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_AI_AGENTS_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_STARTUP_IDEA_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_BUSINESS_DEVELOPMENT_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_GENERATIVE_AI_MARKETING_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_SOCIAL_MEDIA_MANAGEMENT_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_CANVA_CONTENT_DESIGN_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_CANVA_AI_SYSTEMS_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_CONTENT_MARKETING_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_AI_CONTENT_STUDIO_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_VISUAL_CONTENT_STRATEGY_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_FOUNDER_PRODUCTIVITY_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_CAPCUT_SHORT_FORM_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_CONTENT_CREATOR_AUDIO_PATH, 'utf8'),
+]);
+const [strategicThinkingMaterialDefinitions, workflowProductivityMaterialDefinitions, projectOperationsMaterialDefinitions, strategicThinkingAudioScripts, workflowProductivityAudioScripts, projectOperationsAudioScripts] = await Promise.all([
+  readFile(COURSE_STRATEGIC_THINKING_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_WORKFLOW_PRODUCTIVITY_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_PROJECT_OPERATIONS_MATERIALS_PATH, 'utf8').then(value => JSON.parse(value)),
+  readFile(COURSE_STRATEGIC_THINKING_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_WORKFLOW_PRODUCTIVITY_AUDIO_PATH, 'utf8'),
+  readFile(COURSE_PROJECT_OPERATIONS_AUDIO_PATH, 'utf8'),
 ]);
 const selfTrustCourseMaterials = expandSelfTrustMaterials(selfTrustMaterialDefinitions);
 const adhdCourseMaterials = expandAdhdMaterials(adhdMaterialDefinitions);
 const bachCourseMaterials = expandBachMaterials(bachMaterialDefinitions);
 const lifeCourseMaterials = expandLifeCoachMaterials(lifeMaterialDefinitions);
 const circleCourseMaterials = expandWomensCircleMaterials(circleMaterialDefinitions);
-const courseMaterials = [...selfTrustCourseMaterials, ...spiritualCourseMaterials, ...communicationCourseMaterials, ...cbtCourseMaterials, ...adhdCourseMaterials, ...bachCourseMaterials, ...lifeCourseMaterials, ...circleCourseMaterials];
+const businessCourseMaterials = expandBusinessMaterials(businessMaterialDefinitions);
+const partTimeBusinessCourseMaterials = expandBusinessMaterials(partTimeBusinessMaterialDefinitions);
+const aiAgentCourseMaterials = expandAiAgentMaterials(aiAgentMaterialDefinitions);
+const startupIdeaCourseMaterials = expandBusinessMaterials(startupIdeaMaterialDefinitions);
+const businessDevelopmentCourseMaterials = expandBusinessMaterials(businessDevelopmentMaterialDefinitions);
+const generativeAiMarketingCourseMaterials = expandAiAgentMaterials(generativeAiMarketingMaterialDefinitions);
+const socialMediaManagementCourseMaterials = expandBusinessMaterials(socialMediaManagementMaterialDefinitions);
+const canvaContentDesignCourseMaterials = expandBusinessMaterials(canvaContentDesignMaterialDefinitions);
+const canvaAiSystemsCourseMaterials = expandBusinessMaterials(canvaAiSystemsMaterialDefinitions);
+const contentMarketingCourseMaterials = expandBusinessMaterials(contentMarketingMaterialDefinitions);
+const aiContentStudioCourseMaterials = expandBusinessMaterials(aiContentStudioMaterialDefinitions);
+const visualContentStrategyCourseMaterials = expandBusinessMaterials(visualContentStrategyMaterialDefinitions);
+const founderProductivityCourseMaterials = expandBusinessMaterials(founderProductivityMaterialDefinitions);
+const capcutShortFormCourseMaterials = expandBusinessMaterials(capcutShortFormMaterialDefinitions);
+const contentCreatorCourseMaterials = expandBusinessMaterials(contentCreatorMaterialDefinitions);
+const strategicThinkingCourseMaterials = expandBusinessMaterials(strategicThinkingMaterialDefinitions);
+const workflowProductivityCourseMaterials = expandBusinessMaterials(workflowProductivityMaterialDefinitions);
+const projectOperationsCourseMaterials = expandBusinessMaterials(projectOperationsMaterialDefinitions);
+const courseMaterials = [...selfTrustCourseMaterials, ...spiritualCourseMaterials, ...communicationCourseMaterials, ...cbtCourseMaterials, ...adhdCourseMaterials, ...bachCourseMaterials, ...lifeCourseMaterials, ...circleCourseMaterials, ...businessCourseMaterials, ...partTimeBusinessCourseMaterials, ...aiAgentCourseMaterials, ...startupIdeaCourseMaterials, ...businessDevelopmentCourseMaterials, ...generativeAiMarketingCourseMaterials, ...socialMediaManagementCourseMaterials, ...canvaContentDesignCourseMaterials, ...canvaAiSystemsCourseMaterials, ...contentMarketingCourseMaterials, ...aiContentStudioCourseMaterials, ...visualContentStrategyCourseMaterials, ...founderProductivityCourseMaterials, ...capcutShortFormCourseMaterials, ...contentCreatorCourseMaterials, ...strategicThinkingCourseMaterials, ...workflowProductivityCourseMaterials, ...projectOperationsCourseMaterials];
 const selfTrustAudioPack = courseMaterials.find(material => material.id === 'self-audio-pack');
 if (selfTrustAudioPack) selfTrustAudioPack.resourceMarkdown = selfTrustAudioScripts;
 const audioProductionPack = courseMaterials.find(material => material.id === 'spirit-audio-production-pack');
@@ -150,11 +269,48 @@ const lifeAudioPack = courseMaterials.find(material => material.id === 'life-aud
 if (lifeAudioPack) lifeAudioPack.resourceMarkdown = lifeAudioScripts;
 const circleAudioPack = courseMaterials.find(material => material.id === 'circle-audio-pack');
 if (circleAudioPack) circleAudioPack.resourceMarkdown = circleAudioScripts;
+const businessAudioPack = courseMaterials.find(material => material.id === 'biz-audio-pack');
+if (businessAudioPack) businessAudioPack.resourceMarkdown = businessAudioScripts;
+const partTimeBusinessAudioPack = courseMaterials.find(material => material.id === 'pt-audio-pack');
+if (partTimeBusinessAudioPack) partTimeBusinessAudioPack.resourceMarkdown = partTimeBusinessAudioScripts;
+const aiAgentAudioPack = courseMaterials.find(material => material.id === 'ai-audio-pack');
+if (aiAgentAudioPack) aiAgentAudioPack.resourceMarkdown = aiAgentAudioScripts;
+const startupIdeaAudioPack = courseMaterials.find(material => material.id === 'idea-audio-pack');
+if (startupIdeaAudioPack) startupIdeaAudioPack.resourceMarkdown = startupIdeaAudioScripts;
+const businessDevelopmentAudioPack = courseMaterials.find(material => material.id === 'bd-audio-pack');
+if (businessDevelopmentAudioPack) businessDevelopmentAudioPack.resourceMarkdown = businessDevelopmentAudioScripts;
+const generativeAiMarketingAudioPack = courseMaterials.find(material => material.id === 'genai-audio-pack');
+if (generativeAiMarketingAudioPack) generativeAiMarketingAudioPack.resourceMarkdown = generativeAiMarketingAudioScripts;
+const socialMediaManagementAudioPack = courseMaterials.find(material => material.id === 'smm-audio-pack');
+if (socialMediaManagementAudioPack) socialMediaManagementAudioPack.resourceMarkdown = socialMediaManagementAudioScripts;
+const canvaContentDesignAudioPack = courseMaterials.find(material => material.id === 'canva-audio-pack');
+if (canvaContentDesignAudioPack) canvaContentDesignAudioPack.resourceMarkdown = canvaContentDesignAudioScripts;
+const canvaAiSystemsAudioPack = courseMaterials.find(material => material.id === 'canva-ai-audio-pack');
+if (canvaAiSystemsAudioPack) canvaAiSystemsAudioPack.resourceMarkdown = canvaAiSystemsAudioScripts;
+const contentMarketingAudioPack = courseMaterials.find(material => material.id === 'cm-audio-pack');
+if (contentMarketingAudioPack) contentMarketingAudioPack.resourceMarkdown = contentMarketingAudioScripts;
+const aiContentStudioAudioPack = courseMaterials.find(material => material.id === 'aic-audio-pack');
+if (aiContentStudioAudioPack) aiContentStudioAudioPack.resourceMarkdown = aiContentStudioAudioScripts;
+const visualContentStrategyAudioPack = courseMaterials.find(material => material.id === 'vcs-audio-pack');
+if (visualContentStrategyAudioPack) visualContentStrategyAudioPack.resourceMarkdown = visualContentStrategyAudioScripts;
+const founderProductivityAudioPack = courseMaterials.find(material => material.id === 'fpe-audio-pack');
+if (founderProductivityAudioPack) founderProductivityAudioPack.resourceMarkdown = founderProductivityAudioScripts;
+const capcutShortFormAudioPack = courseMaterials.find(material => material.id === 'cap-audio-pack');
+if (capcutShortFormAudioPack) capcutShortFormAudioPack.resourceMarkdown = capcutShortFormAudioScripts;
+const contentCreatorAudioPack = courseMaterials.find(material => material.id === 'ccp-audio-pack');
+if (contentCreatorAudioPack) contentCreatorAudioPack.resourceMarkdown = contentCreatorAudioScripts;
+const strategicThinkingAudioPack = courseMaterials.find(material => material.id === 'std-audio-pack');
+if (strategicThinkingAudioPack) strategicThinkingAudioPack.resourceMarkdown = strategicThinkingAudioScripts;
+const workflowProductivityAudioPack = courseMaterials.find(material => material.id === 'wpt-audio-pack');
+if (workflowProductivityAudioPack) workflowProductivityAudioPack.resourceMarkdown = workflowProductivityAudioScripts;
+const projectOperationsAudioPack = courseMaterials.find(material => material.id === 'pwo-audio-pack');
+if (projectOperationsAudioPack) projectOperationsAudioPack.resourceMarkdown = projectOperationsAudioScripts;
 for (const course of courses) {
   course.materials = courseMaterials.filter(material => material.courseId === course.id);
   attachCourseMastery(course);
 }
 const courseKnowledgeRecords = buildCourseKnowledge(courses);
+const courseSearchIndex = buildCourseSearchIndex(courses);
 const courseCoverage = courseKnowledgeCoverage(courses, courseKnowledgeRecords);
 if (!courseCoverage.complete) {
   throw new Error(`Kurzová znalostní vrstva není úplná: ${JSON.stringify(courseCoverage)}`);
@@ -180,7 +336,7 @@ const answer = createElitea({
   wellbeingProtocols,
   techniqueAtlas,
 });
-const answerTraining = createCourseTrainer();
+const answerTraining = createCourseTrainer({ knowledgeRecords: courseKnowledgeRecords });
 const worksheets = buildWorksheetLibrary(techniqueAtlas);
 const app = express();
 
@@ -193,12 +349,12 @@ const browserConnectSources = ["'self'", ...new Set([
 }).filter(Boolean))];
 
 app.disable('x-powered-by');
-app.use((_request, response, next) => {
+app.use((request, response, next) => {
   response.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data:",
     "frame-src 'self' https://*.browserbase.com https://browserbase.com",
     `connect-src ${browserConnectSources.join(' ')}`,
@@ -211,6 +367,18 @@ app.use((_request, response, next) => {
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'DENY');
+  response.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  response.on('finish', () => {
+    if (response.statusCode < 500 || request.path === '/api/client-error') return;
+    reportOperationalError({
+      severity: 'error',
+      area: 'http',
+      code: `HTTP_${response.statusCode}`,
+      path: request.path,
+      requestId: request.get('x-vercel-id') || '',
+      summary: 'Server request finished with a 5xx response.',
+    }).catch(() => {});
+  });
   next();
 });
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (request, response) => {
@@ -230,6 +398,9 @@ app.get('/api/health', (_request, response) => {
     auth: Boolean(process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL),
     payments: paymentsConfigured(),
     booking: bookingConfigured(),
+    lifecycleEmail: lifecycleConfigured(),
+    cron: Boolean(process.env.CRON_SECRET),
+    runtimeSchema: runtimeSchemaStatus().ready,
   };
   const ok = Object.values(dependencies).every(Boolean);
   return response.status(ok ? 200 : 503).set('Cache-Control', 'no-store').json({
@@ -238,6 +409,19 @@ app.get('/api/health', (_request, response) => {
     timestamp: new Date().toISOString(),
     dependencies,
   });
+});
+
+app.get('/api/cron/lifecycle', async (request, response) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.get('authorization') !== `Bearer ${secret}`) {
+    return response.status(401).set('Cache-Control', 'no-store').json({ error: 'Nepovolený lifecycle běh.' });
+  }
+  try {
+    return response.set('Cache-Control', 'no-store').json(await runLifecycleEmails());
+  } catch (error) {
+    await reportOperationalError({ area: 'lifecycle_email', code: error?.code || 'LIFECYCLE_RUN_FAILED', path: request.path, summary: error });
+    return response.status(error?.code === 'LIFECYCLE_NOT_CONFIGURED' ? 503 : 500).set('Cache-Control', 'no-store').json({ error: 'Lifecycle e-maily se nepodařilo zpracovat.' });
+  }
 });
 
 app.get('/api/status', (_request, response) => {
@@ -426,6 +610,19 @@ app.get('/api/membership', async (request, response) => {
   }
 });
 
+app.get('/api/ai-usage', async (request, response) => {
+  try {
+    const member = await verifyMemberAuthorization(request.get('authorization'));
+    const membership = await membershipFor(member);
+    if (!['owner', 'trialing', 'active'].includes(membership.status)) {
+      return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Pro přehled využití je potřeba aktivní členství.' });
+    }
+    return response.set('Cache-Control', 'no-store').json(await readAiUsage(member, membership));
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Využití AI se nepodařilo načíst.' });
+  }
+});
+
 app.post('/api/membership/checkout', async (request, response) => {
   const origin = request.get('origin');
   if (origin && !sameHost(origin, request.get('host'))) return response.status(403).json({ error: 'Neplatný původ platebního požadavku.' });
@@ -486,6 +683,18 @@ app.get('/api/courses/:slug', async (request, response) => {
     return response.set('Cache-Control', 'private, no-store, max-age=0').json(publicCourseDetail(course));
   } catch (error) {
     return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro otevření kurzu se přihlas.' });
+  }
+});
+
+app.get('/api/course-search', async (request, response) => {
+  try {
+    await authorizeAiRequest(request);
+    const query = String(request.query.q || '').trim().slice(0, 160);
+    if (query.length < 2) return response.set('Cache-Control', 'private, no-store').json({ query, total: 0, items: [] });
+    const items = searchCourseIndex(courseSearchIndex, query, 30);
+    return response.set('Cache-Control', 'private, no-store').json({ query, total: items.length, items });
+  } catch (error) {
+    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro hledání v Academy se přihlas.' });
   }
 });
 
@@ -596,6 +805,20 @@ app.post('/api/quality-report', (request, response) => {
   return response.status(201).set('Cache-Control', 'no-store').json({ ok: true, reportId: parsed.value.reportId });
 });
 
+app.post('/api/client-error', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ hlášení.' });
+  const event = sanitizeOperationalEvent({
+    severity: 'error',
+    area: 'browser',
+    code: request.body?.code || 'CLIENT_ERROR',
+    path: request.body?.path || request.path,
+    summary: request.body?.summary || 'Client-side error',
+    requestId: request.get('x-vercel-id') || '',
+  });
+  await reportOperationalError(event);
+  return response.status(202).set('Cache-Control', 'no-store').json({ accepted: true });
+});
+
 // Kompatibilní endpointy nic neukládají. Každá členka má paměť pouze ve svém prohlížeči.
 app.get('/api/memory', (_request, response) => {
   response.set('Cache-Control', 'no-store').json(emptyMemory());
@@ -623,6 +846,9 @@ app.post('/api/chat', async (request, response) => {
 
   try {
     const member = await authorizeAiRequest(request);
+    if (member) await reserveAiTurn(member, member.membership, {
+      roleCode: sanitizeConsultationMode(request.body?.consultationMode) === 'brand_growth' ? 'brand_marketing' : 'coach_mentor',
+    });
     const memory = sanitizeMemory(request.body?.memory);
     const consultationMode = sanitizeConsultationMode(request.body?.consultationMode);
     const brandWorkMode = sanitizeBrandWorkMode(request.body?.brandWorkMode);
@@ -675,6 +901,8 @@ app.post('/api/chat', async (request, response) => {
         : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.';
     response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
       error: error?.statusCode ? error.message : message,
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.usage ? { usage: error.usage } : {}),
     });
   }
 });
@@ -703,6 +931,11 @@ app.post('/api/training', async (request, response) => {
 
   try {
     const member = await authorizeAiRequest(request);
+    if (member) await reserveAiTurn(member, member.membership, {
+      roleCode: activity === 'simulation' && context.course.categoryId === 'coaching-mental-health'
+        ? 'coaching_trainer'
+        : 'study_trainer',
+    });
     const result = await answerTraining({
       messages: request.body?.messages,
       memory: sanitizeMemory(request.body?.memory),
@@ -748,6 +981,8 @@ app.post('/api/training', async (request, response) => {
     }));
     return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
       error: error?.statusCode ? error.message : 'Studijní trenérka teď nemohla odpovědět. Zkus to prosím znovu.',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.usage ? { usage: error.usage } : {}),
     });
   }
 });
@@ -785,12 +1020,12 @@ async function authorizeAiRequest(request) {
   const authConfigured = Boolean(process.env.NEON_AUTH_JWKS_URL || process.env.NEON_AUTH_URL);
   if (!authConfigured) return null;
   const member = await verifyMemberAuthorization(request.get('authorization'));
-  if (!paymentsConfigured()) return member;
+  if (!paymentsConfigured()) return { ...member, membership: { status: 'preview', plan_code: 'elitea-preview' } };
   const membership = await membershipFor(member);
   if (!['owner', 'trialing', 'active'].includes(membership.status)) {
     throw Object.assign(new Error('Pro použití Elitey je potřeba aktivní zkušební období nebo členství.'), { statusCode: 403 });
   }
-  return member;
+  return { ...member, membership };
 }
 
 function validMutationOrigin(request) {

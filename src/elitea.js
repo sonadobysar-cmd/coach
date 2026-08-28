@@ -22,6 +22,10 @@ import {
   buildQualityRepairInstruction,
   extractSessionEvidence,
 } from './coaching-quality.js';
+import {
+  listBusinessAcademyFacultyCourses,
+  retrieveBusinessAcademyKnowledge,
+} from './course-knowledge.js';
 
 export const DEFAULT_MODEL = 'openai/gpt-5.6-luna';
 export const DEFAULT_DEEP_MODEL = 'openai/gpt-5.6-terra';
@@ -152,8 +156,19 @@ export function createElitea({
     ].filter(Boolean).join(' ');
 
     const courseKnowledgeRecords = knowledgeRecords.filter(record => record.source_type === 'elitea_academy_course');
-    const primaryMatches = retrieveKnowledge(knowledgeRecords, routingText, 4);
-    const courseMatches = retrieveKnowledge(courseKnowledgeRecords, routingText, 2);
+    const nonCourseKnowledgeRecords = knowledgeRecords.filter(record => record.source_type !== 'elitea_academy_course');
+    const primaryMatches = retrieveKnowledge(
+      isBrandGrowth ? nonCourseKnowledgeRecords : knowledgeRecords,
+      routingText,
+      isBrandGrowth ? 3 : 4,
+    );
+    const courseMatches = isBrandGrowth
+      ? retrieveBusinessAcademyKnowledge(
+        courseKnowledgeRecords,
+        [routingText, memoryQuery].filter(Boolean).join('\n'),
+        6,
+      )
+      : retrieveKnowledge(courseKnowledgeRecords, routingText, 2);
     const techniqueQuery = techniqueTurn.card
       ? [
         techniqueTurn.card.name,
@@ -164,13 +179,20 @@ export function createElitea({
       ].join(' ')
       : '';
     const techniqueMatches = retrieveKnowledge(knowledgeRecords, techniqueQuery, 4);
-    const contextualMatches = retrieveKnowledge(knowledgeRecords, memoryQuery, 3);
+    const contextualMatches = retrieveKnowledge(
+      isBrandGrowth ? nonCourseKnowledgeRecords : knowledgeRecords,
+      memoryQuery,
+      3,
+    );
     const orderedMatches = techniqueTurn.card
       ? [...techniqueMatches, ...courseMatches, ...primaryMatches, ...contextualMatches]
       : [...primaryMatches, ...courseMatches, ...contextualMatches];
     const matches = orderedMatches
       .filter((match, index, all) => all.findIndex(item => item.source_id === match.source_id) === index)
-      .slice(0, 8);
+      .slice(0, isBrandGrowth ? 10 : 8);
+    const businessAcademyFaculty = isBrandGrowth
+      ? listBusinessAcademyFacultyCourses(courseKnowledgeRecords)
+      : [];
     const instructions = buildInstructions(
       systemPrompt,
       memory,
@@ -183,6 +205,7 @@ export function createElitea({
       responseMode,
       conversationContext,
       brandWorkMode,
+      businessAcademyFaculty,
     );
 
     if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN && process.env.VERCEL !== '1') {
@@ -299,7 +322,7 @@ export function createElitea({
           : String(process.env.ELITEA_DEEP_MODEL || DEFAULT_DEEP_MODEL).trim();
         const repairResult = await generateText({
           model: repairModelId,
-          instructions: `${instructions}\n\n${buildQualityRepairInstruction(quality, conversationContext)}`,
+          instructions: `${instructions}\n\n${buildQualityRepairInstruction(quality, conversationContext, { responseMode })}`,
           messages: selectConversationWindow(safeMessages, 18),
           maxOutputTokens: dialogueModes.has(responseMode) ? 700 : 1000,
           reasoning: resolveReasoningEffort(repairModelId),
@@ -330,8 +353,10 @@ export function createElitea({
     // Pokud ani opravný průchod neodstraní závažné podsunutí nebo jinou
     // alianční chybu, pošleme raději stručný tah ukotvený doslova ve zprávě
     // členky. Tím se nepropíše vadná domněnka jen proto, že měla hezký styl.
-    if (!isBrandGrowth && !quality.pass && quality.issues.some(issue => ['critical', 'high'].includes(issue.severity))) {
-      const guardedText = guardedQualityFallback(latest.content, { requireQuestion, closingRequested });
+    if (!quality.pass && quality.issues.some(issue => ['critical', 'high'].includes(issue.severity))) {
+      const guardedText = isBrandGrowth
+        ? guardedBrandFallback(latest.content)
+        : guardedQualityFallback(latest.content, { requireQuestion, closingRequested });
       const guardedQuality = assessCoachingResponse(guardedText, {
         messages: safeMessages,
         conversationContext,
@@ -384,6 +409,12 @@ export function guardedQualityFallback(latestText, { requireQuestion = true, clo
   return `${anchor}. V jaké poslední konkrétní situaci se to stalo?`;
 }
 
+export function guardedBrandFallback(latestText) {
+  const clean = String(latestText || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const anchor = clean ? `Držím se zadání „${clean}“` : 'Držím se posledního zadání.';
+  return `${anchor}. Nic jsem bez skutečného potvrzení nástroje nezveřejnila ani nespustila. Který ověřitelný údaj nebo konkrétní výstup mám zpracovat jako první?`;
+}
+
 export function mergeUsage(current, next) {
   if (!current && !next) return null;
   const sum = (left, right) => {
@@ -419,6 +450,7 @@ function buildInstructions(
   responseMode,
   conversationContext,
   brandWorkMode,
+  businessAcademyFaculty = [],
 ) {
   const brandRole = responseMode === 'brand_growth_agent';
   const activeContinuity = brandRole
@@ -457,6 +489,14 @@ function buildInstructions(
       : 'Vidíš základní profil členky a paměť Coach & Mentor. Nemáš přístup k obsahu Brand & Marketing konverzací a nesmíš tvrdit, že ho znáš.',
     '\n\n# RELEVANTNÍ METODIKA ELITEY — NIA, KURZY A KRITICKY ZPRACOVANÉ KNIHY',
     formatKnowledgeContext(matches),
+    brandRole ? '\n\n# ODBORNÁ FAKULTA BRAND, MARKETING A BYZNYS' : '',
+    brandRole
+      ? businessAcademyFaculty.length
+        ? businessAcademyFaculty
+          .map(course => `- ${course.title} (${course.categoryLabel})`)
+          .join('\n')
+        : 'V tomto běhu není dostupná kurzová znalostní vrstva Marketing a Byznys Academy.'
+      : '',
     '\n\n# DOPORUČENÁ KOUČOVACÍ METODA PRO TENTO VSTUP',
     formatMethodContext(selectedMethod),
     '\n\n# ODBORNÉ ZDROJE A JEJICH OMEZENÍ PRO TENTO VSTUP',
@@ -479,6 +519,9 @@ function buildInstructions(
       responseMode === 'brand_growth_agent'
         ? 'PRACOVNÍ STANDARD INKUBÁTORU PODNIKATELEK: Nejdřív zjisti, kde se podnikání skutečně nachází — fázi, nabídku, zákaznici, dosavadní prodeje a důkazy, kapacitu, ekonomiku, kanály a nejbližší obchodní cíl. Urči právě jedno úzké hrdlo s nejvyšším dopadem. Teprve potom zvol strategii nebo vytvoř výstup. Pro krátké strategické rozhodnutí buď konverzační a přesná; pro skutečný výstup použij vhodnou profesionální strukturu, návrhy textů, brief, tabulku, plán nebo model kampaně. Když členka jen řekne, že reklama nebo kampaň nefunguje, nevymýšlej příčinu: ujasni cíl a vyžádej si pouze rozhodující data, například nabídku, cestu ke konverzi, útratu, zobrazení, CTR, konverze, cenu a kvalitu výsledku. Každá část musí vést k rozhodnutí, použitelnému výstupu nebo měřitelnému ověření — ne pouze působit odborně.'
         : 'PRIORITNÍ KONVERZAČNÍ STANDARD: V běžném živém tahu nepoužívej nadpisy, seznam, číslování ani štítky typu Hlavní závěr, Proč, Riziko a Další krok. Napiš dvě až šest přirozených vět. Udělej jediný kvalitní tah: přesnou reflexi, rozlišení, citlivou konfrontaci, jednu intervenci nebo jednu rozhodující otázku. Nevykonej všechny tyto tahy současně.',
+      responseMode === 'brand_growth_agent'
+        ? 'POVINNÁ PRÁCE S FAKULTOU: Máš k dispozici úplnou schválenou metodiku kurzů v sekcích Marketing a Byznys, mentoring & strategie. U každého úkolu vyber pouze relevantní části, propojuj principy napříč kurzy, kontroluj jejich předpoklady a převeď je do konkrétního rozhodnutí nebo výstupu pro situaci členky. Otevřenou mezeru v datech nepřekrývej obecnou radou. Člence automaticky nevypisuj názvy kurzů ani netvrď, že jsi kurz absolvovala; metodiku prokazuj kvalitou práce. Osobní koučovací a mental-health obsah do této role nepřenášej.'
+        : '',
       'Nezačínej automatickým potvrzením, chválou nebo frázemi „Rozumím“, „To dává smysl“, „Děkuji za sdílení“, „Pojďme se na to podívat“ či „Hlavní závěr“. Neparafrázuj zprávu bez přidaného postřehu. Pokud vidíš napětí nebo rozpor, pojmenuj ho konkrétně a případný výklad označ jako hypotézu k ověření.',
       'Z jedné věty nedělej diagnózu, hotovou nálepku ani zobecnění typu „často to znamená“ nebo „to značí“. Perfekcionismus, syndrom podvodníka, sebesabotáž či blok můžeš vyslovit nanejvýš jako hypotézu k ověření, nikdy jako rychlé vysvětlení. Nejdřív zjišťuj rozhodující okamžik, význam nebo důkaz. Nepředkládej univerzální plán dřív, než rozumíš mechanismu právě u této členky.',
       `Toto je ${conversationContext.stage} rozhovoru; členka napsala v této oblasti ${conversationContext.userTurns}. zprávu. ${conversationContext.userTurns > 1 ? 'Přirozeně navaž na její předchozí odpověď, neotvírej sezení znovu, neopakuj už zjištěné a znovu ji neoslovuj jménem.' : 'Nezahlcuj ji vstupním výkladem; vytvoř přesný první kontakt s tématem a v běžném pracovním tahu ji neoslovuj jménem.'}`,

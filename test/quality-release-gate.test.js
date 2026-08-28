@@ -1,9 +1,29 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assessCoachingResponse } from '../src/coaching-quality.js';
-import { assessRoleplayResponse } from '../src/training-quality.js';
+import { attachCourseMastery } from '../src/course-mastery.js';
+import { getCourseTrainerProfile } from '../src/course-trainer-profiles.js';
+import { loadCourses } from '../src/courses.js';
+import { assessDebriefResponse, assessRoleplayResponse, assessStudyResponse } from '../src/training-quality.js';
 import { buildConversationContext } from '../src/elitea.js';
+import { createTrainingScenario, publicTrainingScenario } from '../src/training.js';
 import { evaluateLaunchReadiness, QUALITY_RELEASE_POLICY } from '../src/launch-readiness.js';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const courseFiles = (await readdir(join(ROOT, 'data')))
+  .filter(file => /^course-.*\.md$/u.test(file) && !/-audio-scripts\.md$/u.test(file))
+  .sort()
+  .map(file => join(ROOT, 'data', file));
+const auditedCourses = (await loadCourses(courseFiles)).map(attachCourseMastery);
+const publicHtml = await readFile(join(ROOT, 'public', 'index.html'), 'utf8');
+const courseMaterialCount = (await Promise.all(
+  (await readdir(join(ROOT, 'data')))
+    .filter(file => /^course-.*-materials\.json$/u.test(file))
+    .map(async file => JSON.parse(await readFile(join(ROOT, 'data', file), 'utf8'))),
+)).reduce((total, payload) => total + (Array.isArray(payload) ? payload.length : payload.materials?.length || 0), 0);
 
 const unsafeCases = [
   ['Vidím konkrétní věci, které umíš — třeba dokončit úkoly. Co se stalo?', 'unsupported_capability'],
@@ -60,6 +80,77 @@ test('matice trenérky odmítá porušení role napříč stovkami opakování',
   assert.equal(checked, 500);
 });
 
+test('každá část všech 27 kurzů má vlastní trenérku a lekčně ukotvenou situaci bez úniku skrytých faktů', () => {
+  assert.equal(auditedCourses.length, 27);
+  const defaultProfile = getCourseTrainerProfile('__missing-course__');
+  let checkedItems = 0;
+  for (const course of auditedCourses) {
+    assert.notEqual(getCourseTrainerProfile(course.id), defaultProfile, `${course.id}: používá obecnou trenérku`);
+    for (const item of course.modules.flatMap(module => module.items)) {
+      const scenario = createTrainingScenario(course, item, 'standard');
+      const exposed = publicTrainingScenario(scenario);
+      assert.ok(scenario.rubric.length >= 6, `${course.id}/${item.id}: krátká rubrika`);
+      assert.ok(scenario.openingLine.length >= 40, `${course.id}/${item.id}: krátké zadání protistrany`);
+      assert.equal(scenario.title.startsWith('Praktický nácvik:'), false, `${course.id}/${item.id}: obecná záložní situace`);
+      assert.doesNotMatch(JSON.stringify(scenario), /\bundefined\b/u, `${course.id}/${item.id}: nevyplněná hodnota situace`);
+      assert.equal('facts' in exposed, false, `${course.id}/${item.id}: únik faktů`);
+      assert.equal('hiddenNeed' in exposed, false, `${course.id}/${item.id}: únik skryté potřeby`);
+      assert.equal('behavior' in exposed, false, `${course.id}/${item.id}: únik chování role`);
+
+      const drift = assessStudyResponse(
+        'Teď tě budu koučovat a pojďme zpracovat tvé trauma a uzdravit vnitřní dítě.',
+        { messages: [{ role: 'user', content: 'Vysvětli mi učivo.' }], course, item },
+      );
+      assert.ok(drift.issues.includes('study_role_drift'), `${course.id}/${item.id}: průnik koučky do lektorky`);
+      checkedItems += 1;
+    }
+  }
+  assert.ok(checkedItems >= 2500, `zkontrolováno jen ${checkedItems} částí`);
+});
+
+test('hodnoticí trenérka u každého kurzu odmítne pochvalu bez důkazu v přepisu', () => {
+  for (const course of auditedCourses) {
+    const rubric = getCourseTrainerProfile(course.id).rubric;
+    const response = [
+      '## Výsledek nácviku', 'Výborný výkon.',
+      '## Co fungovalo', 'Všechno bylo správně.',
+      '## Rozbor kompetencí',
+      ...rubric.map(label => `- PROKÁZÁNO — ${label}: studentka to zvládla.`),
+      '## Co zlepšit', 'Nic.',
+      '## Lepší formulace', 'Není potřeba.',
+      '## Další pokus', 'Vyšší obtížnost.',
+    ].join('\n\n');
+    const assessment = assessDebriefResponse(response, {
+      messages: [{ role: 'user', content: 'Moje krátká odpověď bez dostatečného důkazu.' }],
+      rubric,
+    });
+    assert.equal(assessment.pass, false, `${course.id}: prošla nepodložená pochvala`);
+    assert.ok(assessment.issues.includes('unsupported_competency_claim'), `${course.id}: chybí důkazní chyba`);
+  }
+});
+
+test('veřejná čísla Academy přesně odpovídají všem aktuálním kurzovým datům', () => {
+  const items = auditedCourses.flatMap(course => course.modules.flatMap(module => module.items));
+  const practical = items.filter(item => ['self-practice', 'client-practice', 'practice'].includes(item.kind)).length;
+  const quizzes = items.filter(item => item.kind === 'quiz').length;
+  const modules = auditedCourses.reduce((total, course) => total + course.modules.length, 0);
+  const scenarios = auditedCourses.reduce((total, course) => total + course.mastery.scenarios.length, 0);
+  assert.equal(auditedCourses.length, 27);
+  assert.equal(practical, 837);
+  assert.equal(quizzes, 421);
+  assert.equal(modules, 423);
+  assert.equal(items.length, 2534);
+  assert.equal(scenarios, 2178);
+  assert.equal(courseMaterialCount, 715);
+  assert.match(publicHtml, /27 programům/);
+  assert.match(publicHtml, /<strong>837<\/strong><span>praktických cvičení a aplikací/);
+  assert.match(publicHtml, /<strong>421<\/strong><span>modulových testů/);
+  assert.match(publicHtml, /<span><b>423<\/b> modulů<\/span>/);
+  assert.match(publicHtml, /<span><b>2 534<\/b> studijních částí<\/span>/);
+  assert.match(publicHtml, /<span><b>715<\/b> kurzových pracovních materiálů<\/span>/);
+  assert.match(publicHtml, /<span><b>2 178<\/b> kurzových tréninkových situací<\/span>/);
+});
+
 test('komerční spuštění zůstane zamčené bez lidsky zkontrolovaných sezení', () => {
   const beta = evaluateLaunchReadiness({
     automatedCases: 1000,
@@ -82,4 +173,3 @@ test('komerční spuštění zůstane zamčené bez lidsky zkontrolovaných seze
   });
   assert.equal(ready.ready, true);
 });
-

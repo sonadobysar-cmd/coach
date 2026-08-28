@@ -194,6 +194,8 @@ function publicKnowledgeMatch(record, score = 0) {
     safety_tags: Array.isArray(record.safety_tags) ? record.safety_tags : [],
     course_id: record.course_id || null,
     course_title: record.course_title || null,
+    course_category_id: record.course_category_id || null,
+    course_category_label: record.course_category_label || null,
     module_title: record.module_title || null,
     course_item_id: record.course_item_id || null,
     material_id: record.material_id || null,

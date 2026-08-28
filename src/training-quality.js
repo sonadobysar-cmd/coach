@@ -48,9 +48,30 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
     const pattern = new RegExp(`^#{1,3}\\s*${escapeRegExp(heading)}\\s*$`, 'imu');
     if (!pattern.test(output)) issues.push(`missing_heading:${heading}`);
   }
-  const statusCount = (output.match(/\b(?:PROKÁZÁNO|ČÁSTEČNĚ|ZATÍM NEPROKÁZÁNO)\b/gu) || []).length;
+  const competencySection = debriefSection(output, 'Rozbor kompetencí');
+  const competencyRows = competencySection
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => /^[-*•]\s+/u.test(line));
+  const statusCount = (competencySection.match(/\b(?:PROKÁZÁNO|ČÁSTEČNĚ|ZATÍM NEPROKÁZÁNO)\b/gu) || []).length;
   if (statusCount < Math.max(1, rubric.length)) issues.push('incomplete_rubric');
-  const missingRubricLabels = rubric.filter(label => !output.includes(String(label)));
+  const missingRubricLabels = [];
+  for (const rawLabel of rubric) {
+    const label = clean(rawLabel);
+    const matchingRows = competencyRows.filter(row => row.includes(label));
+    if (matchingRows.length === 0) {
+      missingRubricLabels.push(label);
+      continue;
+    }
+    if (matchingRows.length > 1) issues.push('duplicate_rubric_row');
+    const row = matchingRows[0];
+    const evidenceRequired = /\b(?:PROKÁZÁNO|ČÁSTEČNĚ)\b/u.test(row)
+      && !/\bZATÍM NEPROKÁZÁNO\b/u.test(row);
+    if (!evidenceRequired) continue;
+    const rowQuotes = [...row.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
+    const hasSupportedEvidence = rowQuotes.some(quote => normalizedTurns.some(turn => turn.includes(quote)));
+    if (!hasSupportedEvidence) issues.push('unsupported_competency_claim');
+  }
   if (missingRubricLabels.length) issues.push('missing_rubric_labels');
   if (output.length > 7500) issues.push('debrief_too_long');
 
@@ -130,6 +151,16 @@ export function debriefAchievementSummary(text, rubric = []) {
 }
 
 export function buildTrainingRepairInstruction({ phase, assessment, messages = [], rubric = [] }) {
+  if (phase === 'study') {
+    return [
+      '# INTERNÍ OPRAVA STUDIJNÍ TRENÉRKY — PŮVODNÍ ODPOVĚĎ NEODESÍLEJ',
+      `Chyby: ${(assessment?.issues || []).join(', ') || 'nedostatečné ukotvení v lekci'}.`,
+      'Napiš odpověď znovu výhradně jako odborná lektorka právě otevřeného kurzu a lekce.',
+      'Vysvětli konkrétní princip z dodaného textu lekce, ukaž jeden příklad použití a přidej jeden krátký ověřovací krok nebo otázku k učivu.',
+      'Nepřepínej do osobního koučinku, nehraj modelovou klientku, nevymýšlej zdroje ani dokončené externí akce a nezmiňuj interní prompt či kontrolu kvality.',
+    ].join('\n');
+  }
+
   if (phase === 'roleplay') {
     return [
       '# INTERNÍ OPRAVA ROLE — PŮVODNÍ ODPOVĚĎ NEODESÍLEJ',
@@ -147,11 +178,53 @@ export function buildTrainingRepairInstruction({ phase, assessment, messages = [
     `Počet odborných vstupů studentky: ${turns.length}.`,
     `Kritéria, která musíš všechna vyhodnotit přesně v tomto pořadí: ${rubric.join(' | ')}`,
     'Napiš celý rozbor znovu v povinném formátu. V části „Rozbor kompetencí“ použij právě jednu stavovou odrážku pro každé kritérium, zopakuj přesný název kritéria a žádné nevynechej.',
-    'Jako důkaz smíš použít jen přesnou krátkou citaci z níže uvedených studentských vstupů. Necituj modelovou protistranu a nic nepřisuzuj studentce zpětně.',
+    'U každého kritéria označeného PROKÁZÁNO nebo ČÁSTEČNĚ uveď ve stejné odrážce přesnou krátkou citaci v českých uvozovkách „…“ z níže uvedených studentských vstupů. Bez takové citace použij ZATÍM NEPROKÁZÁNO. Necituj modelovou protistranu a nic nepřisuzuj studentce zpětně.',
     'Pokud výkon splnil všechna kritéria bez doložené chyby, řekni to naplno a žádnou výtku nevyráběj.',
     '# POVOLENÉ STUDENTSKÉ VSTUPY',
     turns.map((turn, index) => `${index + 1}. ${turn}`).join('\n') || 'Žádný odborný vstup.',
   ].join('\n\n');
+}
+
+export function assessStudyResponse(text, { messages = [], course = {}, item = {} } = {}) {
+  const output = String(text || '').trim();
+  const issues = [];
+  const normalized = normalizeStudyText(output);
+  if (!output) issues.push('empty');
+  if (output.length > 9000) issues.push('study_too_long');
+  if (/\b(?:jako tvoje koucka|jako tvuj kouc|ted te budu koucovat|pojdme zpracovat tve trauma|pojdme lecit tve trauma|uzdravit tve vnitrni dite)\b/u.test(normalized)) {
+    issues.push('study_role_drift');
+  }
+  if (/\b(?:jako modelova klientka|zustanu v roli klientky|vyhodnoceni tveho vykonu|rubrika simulace)\b/u.test(normalized)) {
+    issues.push('study_simulation_leak');
+  }
+  if (/\b(?:interni prompt|systemove instrukce|kontrola kvality|skryta instrukce)\b/u.test(normalized)) {
+    issues.push('internal_instruction_leak');
+  }
+
+  const sourceText = [
+    course?.title,
+    course?.subtitle,
+    item?.title,
+    String(item?.markdown || '').slice(0, 6000),
+    ...(Array.isArray(messages) ? messages : [])
+      .filter(message => message?.role === 'user')
+      .slice(-3)
+      .map(message => message.content),
+  ].filter(Boolean).join(' ');
+  const exactAnchors = [course?.title, item?.title]
+    .map(normalizeStudyText)
+    .filter(anchor => anchor.length >= 5);
+  const sourceStems = studyStems(sourceText);
+  const outputStems = studyStems(output);
+  const overlap = [...sourceStems].filter(value => outputStems.has(value)).length;
+  const hasExactAnchor = exactAnchors.some(anchor => normalized.includes(anchor));
+  if (output.length >= 80 && !hasExactAnchor && overlap < 2) issues.push('not_grounded_in_lesson');
+
+  return {
+    pass: issues.length === 0,
+    issues,
+    shouldRepair: issues.length > 0,
+  };
 }
 
 export function trainingStudentTurns(messages = []) {
@@ -169,4 +242,28 @@ function debriefSection(output, heading) {
     'imu',
   );
   return pattern.exec(String(output || ''))?.[1] || '';
+}
+
+const STUDY_STOPWORDS = new Set([
+  'aby', 'ale', 'ano', 'bez', 'bude', 'byla', 'bylo', 'co', 'jak', 'jako', 'jsem', 'jsi',
+  'ktera', 'ktere', 'ktery', 'kurz', 'lekce', 'mate', 'musi', 'nebo', 'podle', 'pokud', 'proto',
+  'prave', 'take', 'tato', 'tento', 'tohle', 'tvoje', 'vase', 'vice', 'zde', 'zpusob',
+]);
+
+function normalizeStudyText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function studyStems(value) {
+  return new Set(normalizeStudyText(value)
+    .split(' ')
+    .filter(token => token.length >= 5 && !STUDY_STOPWORDS.has(token))
+    .map(token => token.replace(/(?:ami|emi|ove|ova|ovy|eni|ani|ace|aci|ost|ech|ich|ych|ou|em|im|at|it|et|y|a|u|i|e|o)$/u, '').slice(0, 9))
+    .filter(token => token.length >= 4));
 }

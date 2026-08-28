@@ -1,6 +1,6 @@
 {
-  "version": "2026-08-26.2",
-  "capturedAt": "2026-08-26",
+  "version": "2026-08-27.1",
+  "capturedAt": "2026-08-27",
   "purpose": "Kurátorovaný studijní plán pro rozšíření Elitea Brand & Marketing a pro vznik původních praktických programů Elitea Academy.",
   "governance": {
     "sourceUse": "Placený kurz slouží jako jeden ze studijních zdrojů. Do Elitea se ukládá vlastní odborná syntéza, rozhodovací pravidla, hranice použití a původní praktické nástroje, nikoli kopie lekcí nebo přepisů.",
@@ -75,6 +75,31 @@
       "sourcePriorities": [5, 6, 7, 8],
       "release": "advanced_specialization"
     }
+  ],
+  "approvedExpansionRoadmap": [
+    { "priority": 1, "id": "strategic-thinking-decision-lab", "title": "Strategické myšlení & Decision-Making Lab", "status": "implemented", "faculty": ["brand_marketing_agent", "academy_lecturer"] },
+    { "priority": 2, "id": "workflow-productivity-toolkit", "title": "Workflow & Productivity Toolkit", "status": "implemented", "faculty": ["brand_marketing_agent", "academy_lecturer"] },
+    { "priority": 3, "id": "project-workflow-operations-management", "title": "Project, Workflow & Operations Management", "status": "implemented", "faculty": ["brand_marketing_agent", "academy_lecturer"] },
+    { "priority": 4, "id": "ethical-sales-consultative-selling", "title": "Etický prodej a consultative selling", "status": "approved" },
+    { "priority": 5, "id": "copywriting-conversion-messaging", "title": "Copywriting, messaging a conversion copy", "status": "approved" },
+    { "priority": 6, "id": "email-lifecycle-automation", "title": "E-mail, lifecycle a automatizace", "status": "approved" },
+    { "priority": 7, "id": "paid-media-meta-google", "title": "Meta Ads, Google Ads a paid-media ekonomika", "status": "approved" },
+    { "priority": 8, "id": "cro-experimentation", "title": "CRO, experimentování a landing-page optimalizace", "status": "approved" },
+    { "priority": 9, "id": "pricing-packaging-unit-economics", "title": "Cenotvorba, packaging a unit economics", "status": "approved" },
+    { "priority": 10, "id": "customer-experience-retention", "title": "Customer experience, retence a doporučení", "status": "approved" },
+    { "priority": 11, "id": "seo-search-strategy", "title": "SEO a strategie organického vyhledávání", "status": "approved" },
+    { "priority": 12, "id": "instructional-design-course-business", "title": "Instructional design a tvorba hodnotných online kurzů", "status": "approved" },
+    { "priority": 13, "id": "leadership-team-management", "title": "Leadership, tým a manažerská komunikace", "status": "approved" },
+    { "priority": 14, "id": "agency-consulting-business", "title": "Agenturní a konzultační byznys", "status": "approved" },
+    { "priority": 15, "id": "pr-media-relations", "title": "PR, média a reputace značky", "status": "approved" },
+    { "priority": 16, "id": "influencer-partnership-marketing", "title": "Influencer a partnership marketing", "status": "approved" },
+    { "priority": 17, "id": "podcast-youtube-growth", "title": "Podcast, YouTube a dlouhodobý creator růst", "status": "approved" },
+    { "priority": 18, "id": "ecommerce-digital-products", "title": "E-commerce a digitální produkty", "status": "approved" },
+    { "priority": 19, "id": "community-membership-business", "title": "Komunita a membership business", "status": "approved" },
+    { "priority": 20, "id": "launch-go-to-market", "title": "Launch a go-to-market systém", "status": "approved" },
+    { "priority": 21, "id": "affiliate-partnership-revenue", "title": "Affiliate a partnerské revenue modely", "status": "approved" },
+    { "priority": 22, "id": "czech-business-legal-gdpr", "title": "České podnikatelské minimum, smlouvy a GDPR", "status": "approved", "requires": "current_czech_primary_sources_and_qualified_review" },
+    { "priority": 23, "id": "business-analytics-decision-system", "title": "Byznysová analytika a rozhodovací dashboardy", "status": "approved" }
   ],
   "waves": [
     {

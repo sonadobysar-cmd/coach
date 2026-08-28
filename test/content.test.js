@@ -8,7 +8,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const content = JSON.parse(await readFile(join(ROOT, 'data', 'community-content.json'), 'utf8'));
 const html = await readFile(join(ROOT, 'public', 'index.html'), 'utf8');
 const css = await readFile(join(ROOT, 'public', 'styles.css'), 'utf8');
-const client = await readFile(join(ROOT, 'public', 'app.js'), 'utf8');
+const client = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
 
 test('komunitní knihovna pokrývá všechny požadované kategorie', () => {
   const categories = new Set(content.map(item => item.category));
@@ -283,14 +283,14 @@ test('veřejný web používá správný název Academy', () => {
 test('veřejný web konkrétně komunikuje ověřitelnou metodickou hloubku', () => {
   assert.match(html, /data-live-count="techniques"[\s\S]{0,80}technik a metod/);
   assert.match(html, /data-live-count="knowledge"[\s\S]{0,100}znalostních záznamů/);
-  assert.match(html, /291[\s\S]{0,100}praktických pracovních částí/);
-  assert.match(html, /142 cvičení na sobě, 148 profesních či modelových aplikací/);
-  assert.match(html, /148[\s\S]{0,80}modulových testů/);
-  assert.match(html, /896[\s\S]{0,80}studijních částí/);
-  assert.match(html, /150[\s\S]{0,80}modulů/);
-  assert.match(html, /devíti programům/);
+  assert.match(html, /837[\s\S]{0,100}praktických pracovních částí/);
+  assert.match(html, /415 cvičení na sobě, 421 profesních či modelových aplikací/);
+  assert.match(html, /421[\s\S]{0,80}modulových testů/);
+  assert.match(html, /2 534[\s\S]{0,80}studijních částí/);
+  assert.match(html, /423[\s\S]{0,80}modulů/);
+  assert.match(html, /27 programům/);
   assert.match(html, /40 h[\s\S]{0,40}studia a praxe/);
-  assert.match(html, /540[\s\S]{0,100}kurzových tréninkových situací/);
+  assert.match(html, /2 178[\s\S]{0,100}kurzových tréninkových situací/);
 });
 
 test('každý kurz zpřístupňuje Mastery Lab s celou praktickou cestou', () => {

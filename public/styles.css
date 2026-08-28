@@ -1,3 +1,12 @@
+@font-face { font-family: "Bodoni Moda"; font-style: normal; font-weight: 500 700; font-display: swap; src: url('/fonts/bodoni-moda-latin-ext.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB; }
+@font-face { font-family: "Bodoni Moda"; font-style: normal; font-weight: 500 700; font-display: swap; src: url('/fonts/bodoni-moda-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+20AC; }
+@font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500 700; font-display: swap; src: url('/fonts/cormorant-garamond-latin-ext.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB; }
+@font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500 700; font-display: swap; src: url('/fonts/cormorant-garamond-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+20AC; }
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/dm-sans-latin-ext.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB; }
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/dm-sans-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+20AC; }
+@font-face { font-family: "Manrope"; font-style: normal; font-weight: 600 800; font-display: swap; src: url('/fonts/manrope-latin-ext.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB; }
+@font-face { font-family: "Manrope"; font-style: normal; font-weight: 600 800; font-display: swap; src: url('/fonts/manrope-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+20AC; }
+
 :root {
   --ink: #251d27;
   --muted: #756c76;
@@ -519,6 +528,34 @@ dialog::backdrop { background: rgba(30,23,29,.42); backdrop-filter: blur(8px); }
 .academy-category-filters button small { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; color: var(--muted); background: #f0ece9; font-size: 8px; }
 .academy-category-filters button.active { color: white; border-color: var(--plum); background: var(--plum); }
 .academy-category-filters button.active small { color: var(--plum); background: white; }
+
+.academy-search { max-width: 1040px; margin: 0 0 24px; padding: 24px; display: grid; grid-template-columns: minmax(0, .85fr) minmax(360px, 1.15fr); gap: 24px; border: 1px solid var(--line); border-radius: 24px; background: linear-gradient(135deg, #fff 0%, #faf7ff 65%, #fff3e8 100%); }
+.academy-search > div > span { color: var(--plum); font: 900 8px/1 Manrope, sans-serif; letter-spacing: .14em; }
+.academy-search h2 { margin: 7px 0 5px; font: 800 24px/1.05 Manrope, sans-serif; letter-spacing: -.04em; }
+.academy-search p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.academy-search form { align-self: center; }
+.academy-search form label { display: block; margin: 0 0 7px; color: var(--muted); font-size: 9px; font-weight: 800; }
+.academy-search form > div { display: flex; min-height: 54px; padding: 5px; border: 1px solid #d9d3df; border-radius: 999px; background: white; }
+.academy-search input { min-width: 0; flex: 1; padding: 0 17px; border: 0; outline: 0; background: transparent; font: 600 11px DM Sans, sans-serif; }
+.academy-search form button { padding: 0 20px; border: 0; border-radius: 999px; color: white; background: var(--ink); font: 800 10px Manrope, sans-serif; cursor: pointer; }
+.academy-search-results { grid-column: 1 / -1; max-height: 520px; padding-top: 18px; overflow: auto; border-top: 1px solid var(--line); }
+.academy-search-results > header { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.academy-search-results > header strong { font-size: 11px; }
+.academy-search-results > header button { border: 0; color: var(--muted); background: transparent; font-size: 9px; cursor: pointer; }
+.academy-search-result { width: 100%; padding: 15px 16px; display: grid; gap: 4px; border: 0; border-top: 1px solid var(--line); text-align: left; color: var(--ink); background: transparent; cursor: pointer; }
+.academy-search-result:hover, .academy-search-result:focus-visible { background: rgba(96,54,214,.06); }
+.academy-search-result span { color: var(--plum); font: 800 8px/1.3 Manrope, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+.academy-search-result strong { font: 800 13px/1.25 Manrope, sans-serif; }
+.academy-search-result p { max-width: 860px; font-size: 10px; }
+.academy-search-result small { color: var(--ink); font-size: 9px; font-weight: 800; }
+.academy-search-empty, .academy-search-loading { padding: 20px; text-align: center; }
+
+@media (max-width: 760px) {
+  .academy-search { grid-template-columns: 1fr; padding: 18px; border-radius: 18px; }
+  .academy-search form > div { align-items: stretch; flex-direction: column; border-radius: 16px; }
+  .academy-search input { min-height: 48px; }
+  .academy-search form button { min-height: 46px; }
+}
 .academy-course-grid { max-width: 1040px; display: grid; gap: 42px; }
 .academy-category-section { min-width: 0; }
 .academy-category-head { margin: 0 0 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
@@ -643,6 +680,16 @@ dialog::backdrop { background: rgba(30,23,29,.42); backdrop-filter: blur(8px); }
 .lesson-meta { display: flex; gap: 10px; color: var(--plum); font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
 .lesson-meta span:last-child { color: var(--muted); }
 .lesson-reader > h2 { max-width: 800px; margin: 13px 0 26px; font: 600 clamp(32px, 4vw, 50px)/1.04 "Cormorant Garamond", Georgia, serif; letter-spacing: -.035em; }
+.lesson-audio { max-width: 790px; margin: -5px 0 28px; padding: 15px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 12px; align-items: center; border: 1px solid rgba(96,53,207,.16); border-radius: 16px; background: linear-gradient(135deg, #fff, #f4f0ff); }
+.lesson-audio > div { display: grid; gap: 2px; }
+.lesson-audio > div > span, .lesson-audio label span { color: #6035cf; font: 800 7px/1.4 Manrope, sans-serif; letter-spacing: .12em; }
+.lesson-audio strong { font: 800 11px/1.35 Manrope, sans-serif; }
+.lesson-audio small { color: var(--muted); font-size: 8px; line-height: 1.45; }
+.lesson-audio label { display: grid; gap: 3px; }
+.lesson-audio select { min-width: 72px; padding: 8px 10px; border: 1px solid rgba(96,53,207,.18); border-radius: 10px; background: white; color: var(--ink); font-size: 9px; }
+.lesson-audio button { min-height: 38px; padding: 9px 13px; border: 0; border-radius: 999px; background: #111114; color: white; font: 800 9px/1 Manrope, sans-serif; cursor: pointer; }
+.lesson-audio button.secondary { border: 1px solid rgba(17,17,20,.13); background: white; color: #111114; }
+.lesson-audio button:disabled { opacity: .4; cursor: not-allowed; }
 .lesson-content { max-width: 790px; color: #4e454d; font-size: 13px; line-height: 1.78; }
 .lesson-visual { max-width: 790px; margin: 18px 0 28px; padding: 22px; overflow: hidden; border: 1px solid rgba(109,48,89,.16); border-radius: 22px; background: radial-gradient(circle at 85% 10%, rgba(212,174,91,.18), transparent 34%), linear-gradient(135deg, #fff 0%, #f7f1f5 100%); }
 .lesson-visual[hidden] { display: none; }
@@ -780,6 +827,9 @@ dialog::backdrop { background: rgba(30,23,29,.42); backdrop-filter: blur(8px); }
   .lesson-module-context { align-items: flex-start; flex-direction: column; gap: 3px; }
   .lesson-module-context span { text-align: left; }
   .lesson-reader > h2 { margin-bottom: 20px; font-size: 34px; }
+  .lesson-audio { grid-template-columns: 1fr 1fr; }
+  .lesson-audio > div { grid-column: 1 / -1; }
+  .lesson-audio label { grid-column: 1 / -1; }
   .lesson-content { font-size: 12.5px; }
   .lesson-materials { padding: 16px; border-radius: 18px; }
   .lesson-materials > header { align-items: flex-start; flex-direction: column; gap: 8px; }

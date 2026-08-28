@@ -1,0 +1,24 @@
+{
+  "name": "Elitea — koučka, mentorka a Academy",
+  "short_name": "Elitea",
+  "description": "Profesionální AI Coach & Mentor, Brand & Marketing mentorka, Academy a komunita.",
+  "lang": "cs-CZ",
+  "id": "/",
+  "start_url": "/#top",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fffaf4",
+  "theme_color": "#201b1f",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Coach & Mentor", "short_name": "Koučka", "url": "/#app-chat", "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Elitea Academy", "short_name": "Academy", "url": "/#app-academy", "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Pracovní listy", "short_name": "Listy", "url": "/#app-worksheets", "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

@@ -1,6 +1,65 @@
-import { tokenize } from './knowledge.js';
+import { retrieveKnowledge, tokenize } from './knowledge.js';
 
 const MAX_CHUNK_CHARS = 3600;
+
+export const BUSINESS_ACADEMY_CATEGORY_IDS = Object.freeze([
+  'business-strategy',
+  'marketing',
+]);
+
+const BUSINESS_ACADEMY_CATEGORIES = new Set(BUSINESS_ACADEMY_CATEGORY_IDS);
+
+export function isBusinessAcademyKnowledge(record = {}) {
+  return record.source_type === 'elitea_academy_course'
+    && BUSINESS_ACADEMY_CATEGORIES.has(record.course_category_id);
+}
+
+export function listBusinessAcademyFacultyCourses(records = []) {
+  const courses = new Map();
+  for (const record of records.filter(isBusinessAcademyKnowledge)) {
+    if (!record.course_id || courses.has(record.course_id)) continue;
+    courses.set(record.course_id, {
+      id: record.course_id,
+      title: record.course_title,
+      categoryId: record.course_category_id,
+      categoryLabel: record.course_category_label,
+      sequence: record.sequence,
+    });
+  }
+  return [...courses.values()]
+    .sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0))
+    .map(({ sequence: _sequence, ...course }) => course);
+}
+
+export function retrieveBusinessAcademyKnowledge(records = [], query = '', limit = 6) {
+  const safeLimit = Math.max(1, Number(limit) || 6);
+  const facultyRecords = records.filter(isBusinessAcademyKnowledge);
+  const candidates = retrieveKnowledge(
+    facultyRecords,
+    query,
+    Math.max(safeLimit * 4, 20),
+  );
+  const selected = [];
+  const selectedIds = new Set();
+  const selectedCourses = new Set();
+
+  // First give the model breadth across relevant courses, then use the
+  // remaining capacity for deeper chunks from the strongest matches.
+  for (const candidate of candidates) {
+    if (!candidate.course_id || selectedCourses.has(candidate.course_id)) continue;
+    selected.push(candidate);
+    selectedIds.add(candidate.source_id);
+    selectedCourses.add(candidate.course_id);
+    if (selected.length >= safeLimit) return selected;
+  }
+  for (const candidate of candidates) {
+    if (selectedIds.has(candidate.source_id)) continue;
+    selected.push(candidate);
+    selectedIds.add(candidate.source_id);
+    if (selected.length >= safeLimit) break;
+  }
+  return selected;
+}
 
 export function buildCourseKnowledge(courses = []) {
   const records = [];
@@ -145,6 +204,8 @@ function prepareCourseRecord({
     course_id: course.id,
     course_slug: course.slug,
     course_title: course.title,
+    course_category_id: course.categoryId || null,
+    course_category_label: course.categoryLabel || null,
     module_id: module?.id || null,
     module_title: module?.title || null,
     course_item_id: item?.id || material?.itemId || null,

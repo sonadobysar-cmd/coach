@@ -223,7 +223,7 @@ test('facilitace ženských kruhů má 21 úplných materiálů a dvanáct přes
 });
 
 test('materiálová vrstva je obecná pro další kurzy a ukládá se lokálně', async () => {
-  const client = await readFile(join(ROOT, 'public', 'app.js'), 'utf8');
+  const client = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
   const html = await readFile(join(ROOT, 'public', 'index.html'), 'utf8');
   assert.match(client, /state\.activeCourse\?\.materials/);
   assert.match(client, /courseMaterialsForItem/);

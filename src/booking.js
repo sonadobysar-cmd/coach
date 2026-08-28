@@ -1,7 +1,7 @@
 const TIME_WINDOWS = new Set(['rano', 'dopoledne', 'odpoledne', 'vecer', 'dle_dohody']);
 
 export function bookingConfigured(env = process.env) {
-  return Boolean(env.RESEND_API_KEY && bookingRecipient(env));
+  return Boolean(env.RESEND_API_KEY && env.ELITEA_FROM_EMAIL && bookingRecipient(env));
 }
 
 export function bookingRecipient(env = process.env) {
@@ -77,7 +77,7 @@ export async function sendBookingRequest(booking, env = process.env, fetchImpl =
 
   const email = buildBookingEmail(booking);
   const payload = {
-    from: env.ELITEA_FROM_EMAIL || 'Elitea <onboarding@resend.dev>',
+    from: env.ELITEA_FROM_EMAIL,
     to: [bookingRecipient(env)],
     reply_to: booking.email,
     subject: `Elitea: žádost o konzultaci — ${booking.name}`,

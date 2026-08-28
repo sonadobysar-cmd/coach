@@ -39,6 +39,7 @@ test('námět se doručuje idempotentně na samostatnou nebo rezervační adresu
   let sent;
   const result = await sendCourseRequest(request, {
     RESEND_API_KEY: 'test-key',
+    ELITEA_FROM_EMAIL: 'Elitea <academy@example.com>',
     NIA_COURSE_REQUEST_EMAIL: 'academy@example.com',
   }, async (url, options) => {
     sent = { url, options, body: JSON.parse(options.body) };
@@ -49,7 +50,7 @@ test('námět se doručuje idempotentně na samostatnou nebo rezervační adresu
   assert.equal(sent.url, 'https://api.resend.com/emails');
   assert.deepEqual(sent.body.to, ['academy@example.com']);
   assert.equal(sent.options.headers['Idempotency-Key'], `elitea-course-request-${request.id}`);
-  assert.equal(courseRequestsConfigured({ RESEND_API_KEY: 'x', NIA_BOOKING_EMAIL: 'team@example.com' }), true);
+  assert.equal(courseRequestsConfigured({ RESEND_API_KEY: 'x', ELITEA_FROM_EMAIL: 'Elitea <hello@elitea.cz>', NIA_BOOKING_EMAIL: 'team@example.com' }), true);
+  assert.equal(courseRequestsConfigured({ RESEND_API_KEY: 'x', NIA_BOOKING_EMAIL: 'team@example.com' }), false);
   assert.equal(courseRequestsConfigured({ NIA_BOOKING_EMAIL: 'team@example.com' }), false);
 });
-

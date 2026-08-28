@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:client",
-    "build:client": "esbuild src/browser-cloud.js --bundle --format=esm --platform=browser --target=es2022 --outfile=public/cloud.js",
+    "build:client": "esbuild src/browser-app.js --bundle --format=esm --platform=browser --target=es2022 --minify --legal-comments=none --outfile=public/app.js && esbuild src/browser-cloud.js --bundle --format=esm --platform=browser --target=es2022 --minify --legal-comments=none --outfile=public/cloud.js && node scripts/clean-generated-assets.mjs",
     "build:everand": "node scripts/build-everand-knowledge.mjs",
     "eval:roles": "node scripts/evaluate-ai-roles.mjs",
     "start": "node src/server.js",
