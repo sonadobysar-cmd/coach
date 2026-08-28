@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elitea-shell-v0.27.0';
+const CACHE_NAME = 'elitea-shell-v0.27.1';
 const CORE_ASSETS = [
   '/', '/index.html', '/styles.css', '/app.js', '/activity.js', '/outcomes.js',
   '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/og-elitea.png',

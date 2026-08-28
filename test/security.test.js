@@ -24,6 +24,13 @@ test('cloudový autentizační balík se načítá dynamicky až při vstupu do 
   assert.match(packageJson, /--minify/);
 });
 
+test('autorizované JSON požadavky zachovají Content-Type i Authorization', async () => {
+  const app = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
+  const requestHelper = app.match(/async function request\(path, options = \{\}\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(requestHelper, /\.\.\.options,[\s\S]*headers: \{ 'Content-Type': 'application\/json', \.\.\.\(options\.headers \|\| \{\}\) \}/);
+  assert.doesNotMatch(requestHelper, /headers:[\s\S]*\.\.\.options,[\s\S]*fetch/);
+});
+
 test('AI odpověď rezervuje fair-use zprávu ještě před voláním modelu', () => {
   const chatRoute = server.match(/app\.post\('\/api\/chat'[\s\S]*?\n}\);/)?.[0] || '';
   const trainingRoute = server.match(/app\.post\('\/api\/training'[\s\S]*?\n}\);/)?.[0] || '';
