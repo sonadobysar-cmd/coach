@@ -565,6 +565,10 @@ export function attachCourseMastery(course) {
   return course;
 }
 
+export function courseMasteryProfile(courseId) {
+  return PROFILES[courseId] || DEFAULT_PROFILE;
+}
+
 function buildScenarios(course, profile) {
   const publicScenarios = [];
   const privateByScenarioId = {};

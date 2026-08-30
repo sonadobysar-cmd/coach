@@ -9,6 +9,7 @@
     "build:everand": "node scripts/build-everand-knowledge.mjs",
     "eval:roles": "node scripts/evaluate-ai-roles.mjs",
     "eval:public-coach": "node scripts/evaluate-public-coach-test.mjs",
+    "audit:courses": "node scripts/audit-course-depth.mjs",
     "start": "node src/server.js",
     "test": "node --test test/*.test.js"
   },

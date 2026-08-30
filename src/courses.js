@@ -5,6 +5,7 @@ import { enrichLifeCoachStudy } from './life-coach-study.js';
 import { enrichWomensCircleStudy } from './womens-circle-study.js';
 import { publicCourseTrainerProfile } from './course-trainer-profiles.js';
 import { extractCourseVisual } from './course-visuals.js';
+import { courseDepthSummary, enrichCourseStudyDepth } from './course-study-depth.js';
 
 export const COURSE_CATEGORIES = Object.freeze({
   COACHING_MENTAL_HEALTH: Object.freeze({ id: 'coaching-mental-health', label: 'Koučink & Mental Health' }),
@@ -579,20 +580,28 @@ export async function loadCourses(coursePaths) {
 
 export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
   const source = String(markdown || '').replace(/\r\n/g, '\n');
-  const modules = splitModules(source).map((module, moduleIndex) => {
+  const sourceModules = splitModules(source);
+  const modules = sourceModules.map((module, moduleIndex) => {
     const baseItems = splitItems(module.body, moduleIndex);
+    const specializedItems = meta.id === SELF_TRUST_META.id
+      ? enrichSelfTrustStudy(baseItems, moduleIndex)
+      : meta.id === LIFE_COACH_META.id
+        ? enrichLifeCoachStudy(baseItems, moduleIndex)
+        : meta.id === WOMENS_CIRCLE_META.id
+          ? enrichWomensCircleStudy(baseItems, moduleIndex)
+          : baseItems;
     return {
       id: `module-${moduleIndex}`,
       number: moduleIndex,
       title: module.title,
       shortTitle: module.title.replace(/^MODUL \d+ —\s*/i, '').replace(/^ÚVODNÍ PROFESNÍ MODUL —\s*/i, ''),
-      items: meta.id === SELF_TRUST_META.id
-        ? enrichSelfTrustStudy(baseItems, moduleIndex)
-        : meta.id === LIFE_COACH_META.id
-          ? enrichLifeCoachStudy(baseItems, moduleIndex)
-          : meta.id === WOMENS_CIRCLE_META.id
-            ? enrichWomensCircleStudy(baseItems, moduleIndex)
-            : baseItems,
+      items: enrichCourseStudyDepth(specializedItems, {
+        courseId: meta.id,
+        courseTitle: meta.title,
+        moduleIndex,
+        moduleCount: sourceModules.length,
+        moduleTitle: module.title,
+      }),
     };
   });
 
@@ -603,6 +612,7 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
     modules,
     moduleCount: modules.length,
     itemCount,
+    depth: courseDepthSummary(modules),
     certificate: meta.certificate === false ? null : {
       title: meta.certificateTitle || 'Elitea Certified Practitioner',
       issuedBy: 'Nia Dobyšar',
@@ -630,6 +640,7 @@ export function courseSummary(course) {
     trainer: course.trainer,
     moduleCount: course.moduleCount,
     itemCount: course.itemCount,
+    depth: course.depth,
     materialCount: publicCourseMaterials(course.materials).length,
     mastery: course.mastery?.summary || null,
     certificate: course.certificate,
