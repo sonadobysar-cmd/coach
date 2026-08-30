@@ -26,6 +26,7 @@ import {
 } from './browser-operator.js';
 import { courseSummary, loadCourses, publicCourseDetail } from './courses.js';
 import { buildCourseSearchIndex, searchCourseIndex } from './course-search.js';
+import { submitCourseQuizAttempt } from './course-quiz-service.js';
 import { attachCourseMastery } from './course-mastery.js';
 import { buildWorksheetLibrary } from './worksheets.js';
 import { expandSelfTrustMaterials } from './self-trust-materials.js';
@@ -704,6 +705,24 @@ app.get('/api/courses/:slug', async (request, response) => {
     return response.set('Cache-Control', 'private, no-store, max-age=0').json(publicCourseDetail(course));
   } catch (error) {
     return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro otevření kurzu se přihlas.' });
+  }
+});
+
+app.post('/api/courses/:slug/quizzes/:itemId/submit', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ testu.' });
+  try {
+    const member = await authorizeAiRequest(request);
+    const course = courses.find(candidate => candidate.slug === request.params.slug);
+    const item = course?.modules.flatMap(module => module.items || []).find(candidate =>
+      candidate.id === request.params.itemId && candidate.kind === 'quiz');
+    if (!course || !item) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Test nebyl nalezen.' });
+    const result = await submitCourseQuizAttempt(member, course, item, request.body?.answers || {});
+    return response.status(201).set('Cache-Control', 'private, no-store, max-age=0').json(result);
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
+      error: error?.message || 'Test se nepodařilo vyhodnotit.',
+      code: error?.code,
+    });
   }
 });
 

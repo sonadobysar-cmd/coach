@@ -1181,13 +1181,11 @@ V porovnání A–B použij tři sloupce: důkaz v sezení A, důkaz v sezení B
 ## Test modulu 12 — Profesní portfolio
 <!-- minutes: 20 -->
 
-Portfolio obsahuje: prohlášení o rozsahu, etický a krizový rámec, dvě mapy kompetencí, intake, klientskou dohodu, scénář meditace, mapu signature metody, syntézu výzkumu, kartu nabídky, kalkulaci ceny, dvě praktické nahrávky nebo schválené simulace, zpětné vazby a vlastní rozvojový plán.
-
-Zkontroluj anonymizaci, souhlasy a dobu smazání. Chybějící důkaz není selhání; znamená, že praktikum ještě není dokončeno.
-
-Portfolio uspořádej jako index, ve kterém má každý požadavek odkaz na soubor, stránku nebo čas nahrávky. Samotná existence dokumentu není důkaz kvality. U každé položky přidej stav: hotovo, potřebuje opravu, chybí, nebo nelze použít kvůli souhlasu či soukromí.
-
-Závěrečná kontrola má tři kola: **obsah** — jsou přítomny všechny požadované výstupy; **důkaz** — dokládají skutečnou kompetenci; **soukromí** — obsahují jen nezbytné a oprávněně uložené údaje. Teprve potom je modul dokončen.
+1. Co musí mít každý požadavek v indexu portfolia? **Odkaz na konkrétní soubor, stránku nebo čas nahrávky a jasně uvedený stav položky.**
+2. Co znamená chybějící důkaz? **Praktikum ještě není dokončeno a je potřeba doplnit nebo zopakovat konkrétní výkon.**
+3. Jaká tři kola má závěrečná kontrola portfolia? **Obsah, důkaz skutečné kompetence a soukromí uložených údajů.**
+4. Co je nutné ověřit u klientských podkladů? **Anonymizaci, platný souhlas, nezbytný rozsah údajů a dobu jejich smazání.**
+5. Dokonči index portfolia: prohlášení o rozsahu, etický a krizový rámec, mapy kompetencí, intake, klientskou dohodu, scénář meditace, signature metodu, výzkum, nabídku, cenu, dvě praxe, zpětnou vazbu a rozvojový plán. U každé položky uveď odkaz a stav.
 
 # CERTIFIKAČNÍ ZKOUŠKA — ELITEA CERTIFIED SPIRITUAL COACH
 

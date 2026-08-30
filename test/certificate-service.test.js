@@ -25,6 +25,7 @@ function completeInput(course) {
   const mastery = course.mastery;
   return {
     completedItemIds: course.modules.flatMap(module => module.items.map(item => item.id)),
+    verifiedQuizItemIds: course.modules.flatMap(module => module.items).filter(item => item.kind === 'quiz').map(item => item.id),
     mastery: {
       days: mastery.journey.map(day => day.id),
       templates: Object.fromEntries(mastery.professionalPack.map(template => [
@@ -43,7 +44,14 @@ function completeInput(course) {
 test('serverový souhrn vyžaduje všechny části, portfolio i měření', () => {
   const complete = summarizeCourseEvidence(communication, completeInput(communication));
   assert.equal(complete.summary.portfolioComplete, true);
+  assert.equal(complete.summary.quizzesComplete, true);
   assert.equal(complete.completedItemIds.length, communication.itemCount);
+  const forged = summarizeCourseEvidence(communication, {
+    ...completeInput(communication),
+    verifiedQuizItemIds: [],
+  });
+  assert.equal(forged.summary.passedQuizzes, 0);
+  assert.equal(forged.completedItemIds.length, communication.itemCount - communication.quiz.testCount);
   const incomplete = summarizeCourseEvidence(communication, { completedItemIds: complete.completedItemIds, mastery: {} });
   assert.equal(incomplete.summary.portfolioComplete, false);
   assert.equal(incomplete.evidenceHash.length, 64);

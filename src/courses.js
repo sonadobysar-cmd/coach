@@ -6,6 +6,7 @@ import { enrichWomensCircleStudy } from './womens-circle-study.js';
 import { publicCourseTrainerProfile } from './course-trainer-profiles.js';
 import { extractCourseVisual } from './course-visuals.js';
 import { courseDepthSummary, enrichCourseStudyDepth } from './course-study-depth.js';
+import { buildCourseQuiz, parseQuizAnswerKeys, publicQuizMarkdown } from './course-quizzes.js';
 
 export const COURSE_CATEGORIES = Object.freeze({
   COACHING_MENTAL_HEALTH: Object.freeze({ id: 'coaching-mental-health', label: 'Koučink & Mental Health' }),
@@ -581,8 +582,9 @@ export async function loadCourses(coursePaths) {
 export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
   const source = String(markdown || '').replace(/\r\n/g, '\n');
   const sourceModules = splitModules(source);
+  const quizAnswerKeys = parseQuizAnswerKeys(source);
   const modules = sourceModules.map((module, moduleIndex) => {
-    const baseItems = splitItems(module.body, moduleIndex);
+    const baseItems = splitItems(module.body, moduleIndex, { courseId: meta.id, quizAnswerKeys });
     const specializedItems = meta.id === SELF_TRUST_META.id
       ? enrichSelfTrustStudy(baseItems, moduleIndex)
       : meta.id === LIFE_COACH_META.id
@@ -606,12 +608,20 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
   });
 
   const itemCount = modules.reduce((sum, module) => sum + module.items.length, 0);
+  const quizItems = modules.flatMap(module => module.items).filter(item => item.kind === 'quiz' && item.quiz);
+  const quiz = {
+    interactive: quizItems.length > 0,
+    testCount: quizItems.length,
+    questionCount: quizItems.reduce((sum, item) => sum + item.quiz.questionCount, 0),
+    passPercent: quizItems[0]?.quiz?.passPercent || 75,
+  };
   return {
     ...meta,
     trainer: publicCourseTrainerProfile(meta.id),
     modules,
     moduleCount: modules.length,
     itemCount,
+    quiz,
     depth: courseDepthSummary(modules),
     certificate: meta.certificate === false ? null : {
       title: meta.certificateTitle || 'Elitea Certified Practitioner',
@@ -640,6 +650,7 @@ export function courseSummary(course) {
     trainer: course.trainer,
     moduleCount: course.moduleCount,
     itemCount: course.itemCount,
+    quiz: course.quiz,
     depth: course.depth,
     materialCount: publicCourseMaterials(course.materials).length,
     mastery: course.mastery?.summary || null,
@@ -661,6 +672,12 @@ export function publicCourseMaterials(materials = []) {
 export function publicCourseDetail(course) {
   return {
     ...course,
+    modules: (course?.modules || []).map(module => ({
+      ...module,
+      items: (module.items || []).map(item => item.kind === 'quiz'
+        ? { ...item, markdown: publicQuizMarkdown(item.quiz) }
+        : item),
+    })),
     materials: publicCourseMaterials(course?.materials),
   };
 }
@@ -687,7 +704,7 @@ function findCourseEnd(lines, fromIndex) {
   return lines.length;
 }
 
-function splitItems(body, moduleIndex) {
+function splitItems(body, moduleIndex, quizContext = {}) {
   const lines = body.split('\n');
   const starts = [];
   lines.forEach((line, index) => {
@@ -707,7 +724,7 @@ function splitItems(body, moduleIndex) {
     const durationMatch = rawMarkdown.match(/^<!--\s*minutes:\s*(\d+)\s*-->\s*/i);
     const withoutDuration = durationMatch ? rawMarkdown.slice(durationMatch[0].length).trim() : rawMarkdown;
     const experience = extractCourseVisual(withoutDuration);
-    return {
+    const item = {
       id: `m${moduleIndex}-${index + 1}`,
       title: start.title,
       kind: start.kind,
@@ -715,6 +732,24 @@ function splitItems(body, moduleIndex) {
       markdown: experience.markdown,
       visual: experience.visual,
     };
+    if (start.kind === 'quiz') {
+      const built = buildCourseQuiz(experience.markdown, {
+        courseId: quizContext.courseId,
+        moduleIndex,
+        itemId: item.id,
+        title: start.title,
+        answerKeys: quizContext.quizAnswerKeys,
+      });
+      if (built) {
+        item.quiz = built.public;
+        Object.defineProperty(item, '_quizAnswerKey', {
+          value: built.answerKey,
+          enumerable: false,
+          configurable: false,
+        });
+      }
+    }
+    return item;
   });
   if (leading) items.unshift({ id: `m${moduleIndex}-overview`, title: 'Výsledek a přehled modulu', kind: 'overview', minutes: 4, markdown: leading });
   return items;

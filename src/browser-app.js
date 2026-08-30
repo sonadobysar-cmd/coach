@@ -237,6 +237,7 @@ const elements = {
   lessonAudioStatus: document.querySelector('#lesson-audio-status'),
   lessonVisual: document.querySelector('#lesson-visual'),
   lessonContent: document.querySelector('#lesson-content'),
+  lessonQuiz: document.querySelector('#lesson-quiz'),
   lessonMaterials: document.querySelector('#lesson-materials'),
   lessonMaterialsTitle: document.querySelector('#lesson-materials-title'),
   lessonMaterialsProgress: document.querySelector('#lesson-materials-progress'),
@@ -800,6 +801,7 @@ function bindEvents() {
   document.querySelector('#previous-lesson').addEventListener('click', () => openCourseItem(state.activeItemIndex - 1));
   document.querySelector('#next-lesson').addEventListener('click', () => openCourseItem(state.activeItemIndex + 1));
   document.querySelector('#complete-lesson').addEventListener('click', toggleCourseItemComplete);
+  elements.lessonQuiz?.addEventListener('submit', submitCurrentCourseQuiz);
   document.querySelector('#discuss-lesson').addEventListener('click', discussCurrentLesson);
   document.querySelector('#simulate-lesson').addEventListener('click', startCurrentLessonSimulation);
   elements.finishTraining.addEventListener('click', finishTrainingSimulation);
@@ -1686,6 +1688,7 @@ function openCourseItem(index) {
   elements.lessonTitle.textContent = item.title;
   renderLessonVisual(item.visual);
   elements.lessonContent.innerHTML = renderMarkdown(item.markdown);
+  renderCourseQuiz(item);
   prepareLessonAudio(item);
   renderCourseMaterials(item);
   const noteKey = progressKey(state.activeCourse, item);
@@ -1697,12 +1700,96 @@ function openCourseItem(index) {
   document.querySelector('#next-lesson').disabled = state.activeItemIndex === items.length - 1;
   const completed = state.courseProgress.has(progressKey(state.activeCourse, item));
   const completeButton = document.querySelector('#complete-lesson');
-  completeButton.textContent = completed ? '✓ Dokončeno' : 'Označit jako dokončené';
+  completeButton.disabled = item.kind === 'quiz';
+  completeButton.textContent = item.kind === 'quiz'
+    ? (completed ? '✓ Test splněn' : 'Vyhodnoť test výše')
+    : (completed ? '✓ Dokončeno' : 'Označit jako dokončené');
   completeButton.classList.toggle('completed', completed);
   renderLessonTrainer();
   renderLessonTrainingStatus(item);
   renderCourseOutline();
   elements.lessonContent.closest('.lesson-reader').scrollTop = 0;
+}
+
+function renderCourseQuiz(item) {
+  if (!elements.lessonQuiz) return;
+  const quiz = item?.quiz;
+  elements.lessonQuiz.hidden = !quiz?.questions?.length;
+  if (!quiz?.questions?.length) {
+    elements.lessonQuiz.innerHTML = '';
+    return;
+  }
+  const progress = masteryStateForCourse();
+  const attempt = progress.quizzes?.[item.id] || null;
+  const resultByQuestion = new Map((attempt?.results || []).map(result => [result.questionId, result]));
+  const resultMarkup = attempt ? `
+    <div class="lesson-quiz-result ${attempt.passed ? 'passed' : 'retry'}" role="status">
+      <span>${attempt.passed ? 'TEST SPLNĚN' : 'JEŠTĚ JEDEN POKUS'}</span>
+      <strong>${attempt.scorePercent} % · ${attempt.correctCount} z ${attempt.questionCount} správně</strong>
+      <p>${attempt.passed ? 'Výsledek je serverově ověřený a tato část se započítala do dokončení kurzu.' : `Pro splnění potřebuješ alespoň ${attempt.passPercent} %. Odpovědi si projdi a test bez sankce zopakuj.`}</p>
+    </div>` : '';
+  elements.lessonQuiz.innerHTML = `
+    <header><div><span>INTERAKTIVNÍ TEST MODULU</span><h3>Ověř si porozumění bez nápovědy</h3><p>${escapeHtml(quiz.instructions)}</p></div><strong>${quiz.questionCount} ${czechCountLabel(quiz.questionCount, 'otázka', 'otázky', 'otázek')}</strong></header>
+    ${resultMarkup}
+    <form id="course-quiz-form">
+      ${quiz.questions.map(question => {
+        const result = resultByQuestion.get(question.id);
+        return `<fieldset class="course-quiz-question ${result ? (result.correct ? 'correct' : 'incorrect') : ''}">
+          <legend><b>${String(question.number).padStart(2, '0')}</b><span>${escapeHtml(question.prompt)}</span></legend>
+          <div>${question.options.map(option => {
+            const selected = attempt?.answers?.[question.id] === option.id;
+            const correct = result?.correctOptionId === option.id;
+            return `<label class="${result && selected ? 'selected' : ''} ${result && correct ? 'answer-correct' : ''}">
+              <input type="radio" name="${escapeHtml(question.id)}" value="${escapeHtml(option.id)}" ${selected ? 'checked' : ''} required>
+              <i aria-hidden="true"></i><span>${escapeHtml(option.text)}</span>
+            </label>`;
+          }).join('')}</div>
+          ${result ? `<small>${result.correct ? 'Správně.' : `Správná odpověď: ${escapeHtml(result.explanation)}`}</small>` : ''}
+        </fieldset>`;
+      }).join('')}
+      <div class="lesson-quiz-submit"><p id="course-quiz-status">${attempt ? `Pokus č. ${attempt.attemptNumber} · odpovědi můžeš upravit a zkusit znovu.` : 'Správné odpovědi se ukážou až po serverovém vyhodnocení.'}</p><button type="submit">${attempt ? 'Odevzdat nový pokus' : 'Odevzdat a vyhodnotit'}</button></div>
+    </form>`;
+}
+
+async function submitCurrentCourseQuiz(event) {
+  event.preventDefault();
+  const course = state.activeCourse;
+  const item = flattenCourseItems(course)[state.activeItemIndex];
+  if (!course || item?.kind !== 'quiz' || state.pending) return;
+  const form = event.target;
+  const answers = Object.fromEntries(item.quiz.questions.map(question => [
+    question.id,
+    String(new FormData(form).get(question.id) || ''),
+  ]));
+  const status = form.querySelector('#course-quiz-status');
+  if (Object.values(answers).some(answer => !answer)) {
+    status.textContent = 'Odpověz prosím na všechny otázky.';
+    return;
+  }
+  state.pending = true;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  status.textContent = 'Elitea právě bezpečně vyhodnocuje odpovědi…';
+  try {
+    const result = await authenticatedRequest(`/api/courses/${encodeURIComponent(course.slug)}/quizzes/${encodeURIComponent(item.id)}/submit`, {
+      method: 'POST', body: JSON.stringify({ answers }),
+    });
+    const progress = masteryStateForCourse();
+    progress.quizzes[item.id] = { ...result, answers, completedAt: new Date().toISOString() };
+    progress.updatedAt = new Date().toISOString();
+    const key = progressKey(course, item);
+    result.passed ? state.courseProgress.add(key) : state.courseProgress.delete(key);
+    localStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));
+    persistCourseMasteryProgress();
+    openCourseItem(state.activeItemIndex);
+    renderMemberDashboard();
+    renderAcademy();
+  } catch (error) {
+    status.textContent = error.message;
+    submit.disabled = false;
+  } finally {
+    state.pending = false;
+  }
 }
 
 function prepareLessonAudio(item) {
@@ -1978,12 +2065,13 @@ async function startMasteryScenario(scenarioId, { finalExam = false } = {}) {
 
 function masteryStateForCourse() {
   const courseId = state.activeCourse?.id;
-  if (!courseId) return { days: [], assessment: { baseline: {}, final: {} }, templates: {} };
-  state.masteryProgress[courseId] ||= { days: [], assessment: { baseline: {}, final: {} }, templates: {}, updatedAt: null };
+  if (!courseId) return { days: [], assessment: { baseline: {}, final: {} }, templates: {}, quizzes: {} };
+  state.masteryProgress[courseId] ||= { days: [], assessment: { baseline: {}, final: {} }, templates: {}, quizzes: {}, updatedAt: null };
   state.masteryProgress[courseId].assessment ||= { baseline: {}, final: {} };
   state.masteryProgress[courseId].assessment.baseline ||= {};
   state.masteryProgress[courseId].assessment.final ||= {};
   state.masteryProgress[courseId].templates ||= {};
+  state.masteryProgress[courseId].quizzes ||= {};
   return state.masteryProgress[courseId];
 }
 
@@ -2076,6 +2164,10 @@ function loadCourseMasteryProgress() {
 function toggleCourseItemComplete() {
   const item = flattenCourseItems(state.activeCourse)[state.activeItemIndex];
   if (!item) return;
+  if (item.kind === 'quiz') {
+    elements.lessonQuiz?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   const key = progressKey(state.activeCourse, item);
   state.courseProgress.has(key) ? state.courseProgress.delete(key) : state.courseProgress.add(key);
   localStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));

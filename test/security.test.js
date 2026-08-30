@@ -88,6 +88,14 @@ test('plný kurz i tréninkový scénář vyžadují autorizované členství', 
   assert.match(scenarioRoute, /publicTrainingScenario\(scenario\)/);
 });
 
+test('bodování kurzového testu je serverové, přihlášené a chráněné původem', () => {
+  const quizRoute = server.match(/app\.post\('\/api\/courses\/:slug\/quizzes\/:itemId\/submit'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(quizRoute, /validMutationOrigin/);
+  assert.match(quizRoute, /authorizeAiRequest/);
+  assert.match(quizRoute, /submitCourseQuizAttempt/);
+  assert.doesNotMatch(quizRoute, /scorePercent\s*=|passed\s*=\s*request\.body/);
+});
+
 test('vydání i stažení certifikátu je serverové, přihlášené a bez veřejného ověřovacího endpointu', () => {
   const issueRoute = server.match(/app\.post\('\/api\/certificates\/:slug\/issue'[\s\S]*?\n}\);/)?.[0] || '';
   const downloadRoute = server.match(/app\.get\('\/api\/certificates\/:slug\/download'[\s\S]*?\n}\);/)?.[0] || '';

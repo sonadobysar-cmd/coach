@@ -3,7 +3,9 @@ const STOP_WORDS = new Set(['a', 'ale', 'bez', 'co', 'do', 'i', 'jak', 'je', 'js
 export function buildCourseSearchIndex(courses = []) {
   return courses.flatMap(course => (course.modules || []).flatMap((module, moduleIndex) =>
     (module.items || []).map((item, itemIndex) => {
-      const plainText = stripMarkdown(item.markdown || '');
+      const plainText = item.kind === 'quiz' && item.quiz
+        ? (item.quiz.questions || []).map(question => question.prompt).join(' ')
+        : stripMarkdown(item.markdown || '');
       return {
         courseSlug: course.slug,
         courseTitle: course.title,

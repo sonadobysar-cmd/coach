@@ -7,12 +7,14 @@ import {
   summarizeCourseEvidence,
 } from './certificates.js';
 import { renderCertificatePdf } from './certificate-renderer.js';
+import { passedCourseQuizItemIds } from './course-quiz-service.js';
 
 export async function syncCertificateEvidence(member, course, input, env = process.env, dependencies = {}) {
   assertStorage(member, env);
-  const evidence = summarizeCourseEvidence(course, input);
   const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
   await ensureMember(sql, member.id);
+  const verifiedQuizItemIds = await passedCourseQuizItemIds(sql, member.id, course.id);
+  const evidence = summarizeCourseEvidence(course, { ...input, verifiedQuizItemIds });
   await sql`INSERT INTO academy_course_evidence (
       user_id, course_id, course_slug, completed_item_ids, portfolio_summary, evidence_hash, updated_at
     ) VALUES (

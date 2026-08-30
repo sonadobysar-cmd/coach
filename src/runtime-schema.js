@@ -116,6 +116,23 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS academy_exam_attempts_lookup_idx
     ON academy_exam_attempts (user_id, course_id, completed_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS academy_quiz_attempts (
+    id uuid PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    course_id text NOT NULL,
+    course_slug text NOT NULL,
+    item_id text NOT NULL,
+    attempt_number integer NOT NULL CHECK (attempt_number > 0),
+    correct_count integer NOT NULL CHECK (correct_count >= 0),
+    question_count integer NOT NULL CHECK (question_count > 0),
+    score_percent integer NOT NULL CHECK (score_percent BETWEEN 0 AND 100),
+    pass_percent integer NOT NULL CHECK (pass_percent BETWEEN 1 AND 100),
+    passed boolean NOT NULL DEFAULT false,
+    selected_answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+    completed_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS academy_quiz_attempts_lookup_idx
+    ON academy_quiz_attempts (user_id, course_id, item_id, passed, completed_at DESC)`,
   `CREATE TABLE IF NOT EXISTS academy_certificates (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
@@ -134,6 +151,7 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     ON academy_certificates (user_id, issued_at DESC)`,
   `ALTER TABLE academy_course_evidence ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE academy_exam_attempts ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE academy_quiz_attempts ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE academy_certificates ENABLE ROW LEVEL SECURITY`,
 ];
 

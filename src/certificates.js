@@ -51,10 +51,12 @@ export function certificateVariant(course) {
 
 export function summarizeCourseEvidence(course, input = {}) {
   const items = (course?.modules || []).flatMap(module => module.items || []);
+  const quizItemIds = new Set(items.filter(item => item.kind === 'quiz').map(item => item.id));
+  const verifiedQuizItemIds = new Set(Array.isArray(input.verifiedQuizItemIds) ? input.verifiedQuizItemIds : []);
   const validItemIds = new Set(items.map(item => item.id));
   const completedItemIds = [...new Set(Array.isArray(input.completedItemIds) ? input.completedItemIds : [])]
     .map(value => String(value || '').slice(0, 120))
-    .filter(value => validItemIds.has(value));
+    .filter(value => validItemIds.has(value) && (!quizItemIds.has(value) || verifiedQuizItemIds.has(value)));
   const mastery = course?.mastery || {};
   const progress = input.mastery && typeof input.mastery === 'object' ? input.mastery : {};
   const completedDays = new Set(Array.isArray(progress.days) ? progress.days : []);
@@ -80,6 +82,9 @@ export function summarizeCourseEvidence(course, input = {}) {
     && filledPortfolioFields === requiredFields.length
     && completedAssessmentDimensions === dimensions.length;
   const summary = {
+    passedQuizzes: [...quizItemIds].filter(id => verifiedQuizItemIds.has(id)).length,
+    requiredQuizzes: quizItemIds.size,
+    quizzesComplete: [...quizItemIds].every(id => verifiedQuizItemIds.has(id)),
     completedDays: requiredDays.length - missingDayIds.length,
     requiredDays: requiredDays.length,
     filledPortfolioFields,
