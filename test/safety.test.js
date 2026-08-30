@@ -33,11 +33,11 @@ test('bezpečnostní odpověď nepokračuje v byznys mentoringu', () => {
   assert.match(text, /byznys počká/i);
 });
 
-test('úzkost a trauma spouští zvýšenou opatrnost bez automatického krizového alarmu', () => {
-  assert.equal(classifySafety('Mám úzkost a potřebuji se zklidnit.').level, 'heightened');
-  assert.equal(classifySafety('Jsem po depresi a chci znovu rozjet podnikání.').level, 'heightened');
-  assert.equal(classifySafety('Vrací se mi trauma a flashback.').level, 'heightened');
-  assert.equal(classifySafety('Jsem vyhořelá a potřebuji změnit pracovní režim.').level, 'heightened');
+test('úzkost, deprese, trauma ani vyhoření samy nespouštějí bezpečnostní režim', () => {
+  assert.equal(classifySafety('Mám úzkost a potřebuji se zklidnit.').level, 'normal');
+  assert.equal(classifySafety('Jsem po depresi a chci znovu rozjet podnikání.').level, 'normal');
+  assert.equal(classifySafety('Vrací se mi trauma a flashback.').level, 'normal');
+  assert.equal(classifySafety('Jsem vyhořelá a potřebuji změnit pracovní režim.').level, 'normal');
 });
 
 test('možné akutní zdravotní příznaky spustí tísňový protokol', () => {

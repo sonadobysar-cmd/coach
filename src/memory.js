@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const EMPTY_MEMORY = {
-  schema_version: '3.2',
+  schema_version: '4.0',
   identity_preferences: {
     preferred_name: '',
     address_form: 'nezvoleno',
@@ -22,6 +22,14 @@ const EMPTY_MEMORY = {
     weekly_capacity: '',
     personal_boundaries: '',
     support_accommodations: '',
+    focus_areas: [],
+    previous_attempts: '',
+    energy_level: 0,
+    spiritual_preference: 'gentle',
+    avoid_preferences: '',
+    additional_context: '',
+    onboarding_version: 0,
+    onboarding_completed_at: null,
   },
   progress: {
     completed_milestones: [],
@@ -47,7 +55,7 @@ export function emptyMemory() {
 
 export function sanitizeMemory(input = {}) {
   return {
-    schema_version: '3.2',
+    schema_version: '4.0',
     identity_preferences: {
       preferred_name: cleanText(input.identity_preferences?.preferred_name, 100),
       address_form: ['tykani', 'vykani', 'nezvoleno'].includes(input.identity_preferences?.address_form)
@@ -74,6 +82,16 @@ export function sanitizeMemory(input = {}) {
       weekly_capacity: cleanText(input.coaching_profile?.weekly_capacity, 200),
       personal_boundaries: cleanText(input.coaching_profile?.personal_boundaries, 1000),
       support_accommodations: cleanText(input.coaching_profile?.support_accommodations, 1000),
+      focus_areas: sanitizeFocusAreas(input.coaching_profile?.focus_areas),
+      previous_attempts: cleanText(input.coaching_profile?.previous_attempts, 1500),
+      energy_level: sanitizeScale(input.coaching_profile?.energy_level),
+      spiritual_preference: ['important', 'gentle', 'self_only', 'none'].includes(input.coaching_profile?.spiritual_preference)
+        ? input.coaching_profile.spiritual_preference
+        : 'gentle',
+      avoid_preferences: cleanText(input.coaching_profile?.avoid_preferences, 1000),
+      additional_context: cleanText(input.coaching_profile?.additional_context, 1500),
+      onboarding_version: sanitizeOnboardingVersion(input.coaching_profile?.onboarding_version),
+      onboarding_completed_at: sanitizeIsoDate(input.coaching_profile?.onboarding_completed_at),
     },
     progress: {
       completed_milestones: sanitizeMilestones(input.progress?.completed_milestones),
@@ -207,4 +225,36 @@ function sanitizeCount(value) {
 
 function sanitizeDayKey(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+const FOCUS_AREAS = new Set([
+  'business',
+  'brand_marketing',
+  'content_social',
+  'ai_automation',
+  'habits_productivity',
+  'adhd_friendly',
+  'wellbeing',
+  'mindset',
+]);
+
+function sanitizeFocusAreas(value) {
+  return Array.isArray(value)
+    ? [...new Set(value.filter(item => FOCUS_AREAS.has(item)))].slice(0, 8)
+    : [];
+}
+
+function sanitizeScale(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+}
+
+function sanitizeOnboardingVersion(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? Math.min(number, 100) : 0;
+}
+
+function sanitizeIsoDate(value) {
+  if (typeof value !== 'string' || !value) return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
 }

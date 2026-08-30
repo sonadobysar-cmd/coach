@@ -36,6 +36,13 @@ test('koučovací profil zachová bezpečné preference a odmítne neznámý sty
       weekly_capacity: '3 hodiny',
       personal_boundaries: 'Bez práce o víkendu',
       support_accommodations: 'Menší kroky a jedna priorita',
+      focus_areas: ['adhd_friendly', 'business', 'neplatna'],
+      previous_attempts: 'Dlouhé seznamy úkolů',
+      energy_level: 2,
+      spiritual_preference: 'self_only',
+      avoid_preferences: 'Nevyžádaná chvála',
+      onboarding_version: 1,
+      onboarding_completed_at: '2026-08-21T10:00:00.000Z',
     },
     progress: {
       active_day_count: 4,
@@ -44,10 +51,14 @@ test('koučovací profil zachová bezpečné preference a odmítne neznámý sty
     },
   });
 
-  assert.equal(safe.schema_version, '3.2');
+  assert.equal(safe.schema_version, '4.0');
   assert.equal(safe.coaching_profile.onboarding_complete, true);
   assert.equal(safe.coaching_profile.support_style, 'kombinace');
   assert.equal(safe.coaching_profile.support_accommodations, 'Menší kroky a jedna priorita');
+  assert.deepEqual(safe.coaching_profile.focus_areas, ['adhd_friendly', 'business']);
+  assert.equal(safe.coaching_profile.energy_level, 2);
+  assert.equal(safe.coaching_profile.spiritual_preference, 'self_only');
+  assert.equal(safe.coaching_profile.onboarding_version, 1);
   assert.equal(safe.progress.active_day_count, 4);
   assert.equal(safe.progress.last_active_day, '2026-08-21');
   assert.equal(safe.progress.completed_milestones[0].title, 'První nabídka');

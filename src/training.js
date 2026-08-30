@@ -671,47 +671,55 @@ export function trainingMemberProfile(memory = {}) {
 
 function buildDemoDebrief(messages, scenario) {
   const studentTurns = messages.filter(message => message.role === 'user' && !/ukončuji simulaci|ukoncuji simulaci|vyhodnoť celý nácvik|vyhodnot cely nacvik/i.test(message.content));
-  const evidence = studentTurns.map(message => message.content).join(' ');
-  const hasQuestion = /\?/.test(evidence);
-  const hasConsent = /můžu|mohu|chceš|souhlas|v pořádku|vyhovuje/i.test(evidence);
-  const hasReflection = /slyším|říkáš|zní|vnímám|rozumím tomu tak/i.test(evidence);
-  const excellentCore = studentTurns.length >= 3 && hasQuestion && hasConsent && hasReflection;
   const evidenceFor = pattern => {
     const matching = studentTurns.find(message => pattern.test(message.content));
     return String(matching?.content || '').replace(/\s+/g, ' ').trim().slice(0, 220).replace(/[„“]/g, '"');
   };
-  const consentEvidence = evidenceFor(/můžu|mohu|chceš|souhlas|v pořádku|vyhovuje/i);
+  const goalEvidence = evidenceFor(/cíl|užitečn\w* výsled|co by\w* (?:pro tebe )?(?:dnes )?(?:bylo|znamenalo)|s čím chceš odejít/i);
   const reflectionEvidence = evidenceFor(/slyším|říkáš|zní|vnímám|rozumím tomu tak/i);
   const questionEvidence = evidenceFor(/\?/);
-  const rubricRow = (label, quote, positiveText, negativeText) => quote
-    ? `- ČÁSTEČNĚ — ${label}: ${positiveText} Důkaz: „${quote}“`
-    : `- ZATÍM NEPROKÁZÁNO — ${label}: ${negativeText}`;
-  const rubricRows = scenario.rubric.map((label, index) => {
-    if (index === 0) return rubricRow(label, consentEvidence, 'Vstup obsahuje jazyk volby nebo souhlasu.', 'V přepisu chybí viditelná nabídka volby.');
-    if (index === 1) return rubricRow(label, reflectionEvidence, 'Vstup obsahuje reflexi sdělení protistrany.', 'V přepisu chybí doložitelná reflexe.');
-    if (index === 2) return rubricRow(label, questionEvidence, 'Otázka je v přepisu přítomná; její přesnost vyžaduje plné AI vyhodnocení.', 'Otázka zatím není v přepisu.');
-    return `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`;
+  const consentEvidence = evidenceFor(/můžu|mohu|chceš|souhlas|v pořádku|vyhovuje|kdykoli (?:to )?zastavit|můžeš (?:to )?(?:odmítnout|zastavit)/i);
+  const boundaryEvidence = evidenceFor(/hranice|rozsah|kompetenc|neklinick|odborn\w* pomoc|zastavit/i);
+  const closingEvidence = evidenceFor(/jaký (?:bude )?(?:tvůj )?(?:konkrétní )?(?:další )?krok|co (?:konkrétně )?uděláš|kdy (?:to|ho) (?:uděláš|zkusíš)|co si odnášíš|na čem se domlouváme/i);
+  const rubricEvidence = label => {
+    if (/kontrakt|jasn\w* cíl|účel a výsledek/i.test(label)) return [goalEvidence, 'Je vidět vyjasňování cíle nebo užitečného výsledku.'];
+    if (/naslouch|návaznost|slova klientky|druhou stranu/i.test(label)) return [reflectionEvidence, 'Je vidět přímá reflexe sdělení modelové klientky.'];
+    if (/otevřené otázky/i.test(label)) return [questionEvidence, 'V přepisu je otevřená otázka; její úplnou odbornou přesnost tato záloha nepředstírá.'];
+    if (/souhlas|tempo|hranice|reálnému kontextu/i.test(label)) return [consentEvidence || boundaryEvidence, 'Je vidět nabídka volby, možnost zastavení nebo pojmenování hranice.'];
+    if (/další krok|uzavření/i.test(label)) return [closingEvidence, 'Je vidět konkrétní uzavírací otázka nebo dohoda o dalším kroku.'];
+    if (/použití dovednosti/i.test(label)) return [questionEvidence, 'Dovednost je v přepisu rozehraná otázkou; plné odborné posouzení vyžaduje online hodnotitelku.'];
+    return ['', ''];
+  };
+  const rubricRows = scenario.rubric.map(label => {
+    const [quote, explanation] = rubricEvidence(label);
+    return quote
+      ? `- ČÁSTEČNĚ — ${label}: ${explanation} Důkaz: „${quote}“`
+      : `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`;
   });
+  const provenSignals = [goalEvidence, reflectionEvidence, questionEvidence, consentEvidence || boundaryEvidence, closingEvidence].filter(Boolean);
+  const improvement = !goalEvidence
+    ? ['Chybí jasně dohodnutý užitečný výsledek dnešního rozhovoru.', '„Co by pro tebe dnes bylo užitečným výsledkem našeho rozhovoru?“', 'Cíl: vyjasnit zakázku dřív, než nabídneš techniku.']
+    : !reflectionEvidence
+      ? ['Chybí přesná reflexe toho, co modelová klientka skutečně řekla.', '„Slyším, že tlak začít tě odvádí od zachycení skutečné zakázky klientky. Sedí to?“', 'Cíl: jeden přesný odraz a teprve potom jedna otázka.']
+      : !(consentEvidence || boundaryEvidence)
+        ? ['Chybí viditelná nabídka volby nebo souhlasu s navrženým postupem.', '„Můžu ti nabídnout krátké mapování? Můžeš ho odmítnout nebo kdykoli zastavit.“', 'Cíl: před technikou výslovně obnovit volbu klientky.']
+        : !closingEvidence
+          ? ['Nácvik skončil před uzavřením konkrétního dalšího kroku.', '„Jakou jednu kotvu si zvolíš a kdy ji při příštím rozhovoru použiješ?“', 'Cíl: uzavřít jeden klientkou zvolený a ověřitelný krok.']
+          : ['V rozpoznatelných prvcích není doložená konkrétní chyba. Ostatní kritéria tato záloha neoznačuje za splněná bez odborného posouzení.', 'Nejsou potřeba pro rozpoznatelné prvky; tato záloha nebude vyrábět umělou opravu.', 'Volitelně zopakuj stejnou dovednost ve vyšší obtížnosti.'];
   return [
     '## Výsledek nácviku',
-    excellentCore
-      ? `Velmi dobrý základ. Proběhlo ${studentTurns.length} studentských vstupů a všechny tři prvky, které umí základní offline kontrola spolehlivě rozpoznat, jsou v přepisu viditelné.`
-      : `Proběhlo ${studentTurns.length} studentských vstupů. Toto základní vyhodnocení posuzuje jen přímo viditelné prvky přepisu a nepřisuzuje kompetenci tam, kde pro ni nemá důkaz.`,
+    `Proběhlo ${studentTurns.length} studentských vstupů. Toto základní vyhodnocení posuzuje jen přímo viditelné prvky přepisu a nepřisuzuje kompetenci tam, kde pro ni nemá důkaz.`,
     '## Co fungovalo',
-    questionEvidence ? `V přepisu je doložená otázka: „${questionEvidence}“` : 'Z přepisu zatím nelze doložit konkrétní silnou intervenci.',
+    provenSignals.length
+      ? `V přepisu je přímo doložený tento studentský vstup: „${provenSignals[0]}“`
+      : 'Z přepisu zatím nelze doložit konkrétní silnou intervenci.',
     '## Rozbor kompetencí',
     ...rubricRows,
     '## Co zlepšit',
-    excellentCore
-      ? 'V základních rozpoznatelných prvcích není doložená chyba, kterou by bylo poctivé vytýkat. Plné odborné posouzení ostatních kritérií vyžaduje online AI hodnocení.'
-      : 'V dalším pokusu nejprve jednou větou zachyť podstatu klientčina sdělení a potom polož jednu přesnou otázku.',
+    improvement[0],
     '## Lepší formulace',
-    excellentCore
-      ? 'Pro tři rozpoznatelné prvky nejsou potřeba; původní formulace už obsahují otázku, reflexi i jazyk volby.'
-      : '„Slyším, že ode mě chceš jistotu, protože vlastní rozhodnutí teď nese velké riziko. Co bys potřebovala vědět, aby sis mohla vybrat sama?“',
+    improvement[1],
     '## Další pokus',
-    excellentCore
-      ? 'Volitelně si zkus stejnou dovednost v náročnějším scénáři; nejde o opravu tohoto výkonu.'
-      : 'Cíl: jeden přesný odraz a jedna nepodsouvající otázka v jediném tahu.',
+    improvement[2],
   ].join('\n\n');
 }

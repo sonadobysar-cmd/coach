@@ -7,6 +7,7 @@ import { isKnowledgeApproved, loadKnowledge } from './knowledge.js';
 import { loadCoachingMethods, loadExpertSources, validateMethodSources } from './coaching.js';
 import { buildCourseKnowledge, courseKnowledgeCoverage } from './course-knowledge.js';
 import { emptyMemory, sanitizeMemory } from './memory.js';
+import { SPECIALIST_REGISTRY } from './specialist-router.js';
 import { loadWellbeingProtocols, validateProtocolSources } from './wellbeing.js';
 import { loadTechniqueAtlas } from './technique-atlas.js';
 import { bookingConfigured, sanitizeBookingRequest, sendBookingRequest } from './booking.js';
@@ -68,6 +69,14 @@ import { readAiUsage, reserveAiTurn } from './usage-limits.js';
 import { reportOperationalError, sanitizeOperationalEvent } from './observability.js';
 import { lifecycleConfigured, runLifecycleEmails } from './lifecycle-email.js';
 import { ensureRuntimeSchema, runtimeSchemaStatus } from './runtime-schema.js';
+import {
+  advancePublicCoachTestSession,
+  issuePublicCoachTestSession,
+  listPublicCoachTestFeedback,
+  publicTestMemory,
+  sanitizePublicCoachTestFeedback,
+  savePublicCoachTestFeedback,
+} from './public-coach-test-service.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -339,6 +348,7 @@ const answer = createElitea({
 const answerTraining = createCourseTrainer({ knowledgeRecords: courseKnowledgeRecords });
 const worksheets = buildWorksheetLibrary(techniqueAtlas);
 const app = express();
+const publicTestRateBuckets = new Map();
 
 const browserConnectSources = ["'self'", ...new Set([
   process.env.NEON_AUTH_URL,
@@ -439,6 +449,7 @@ app.get('/api/status', (_request, response) => {
       process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1'
     ),
     model: resolveModelId(),
+    internalSpecialists: SPECIALIST_REGISTRY.length,
     deepModel: String(process.env.ELITEA_DEEP_MODEL || DEFAULT_DEEP_MODEL).trim(),
     coachModel: String(process.env.ELITEA_COACH_MODEL || DEFAULT_COACH_MODEL).trim(),
     knowledgeRecords: chatbotKnowledgeRecords.length,
@@ -566,7 +577,10 @@ app.post('/api/founding/apply', async (request, response) => {
 app.get('/api/founding/me', async (request, response) => {
   try {
     const member = await verifyMemberAuthorization(request.get('authorization'));
-    return response.set('Cache-Control', 'no-store').json(await foundingForMember(member));
+    return response.set('Cache-Control', 'no-store').json({
+      ...(await foundingForMember(member)),
+      owner: isOwnerMember(member),
+    });
   } catch (error) {
     return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Přihlášení není platné.' });
   }
@@ -858,6 +872,7 @@ app.post('/api/chat', async (request, response) => {
       consultationMode,
       brandWorkMode,
       techniqueSession: request.body?.techniqueSession,
+      specialistSession: request.body?.specialistSession,
     });
     if (member) {
       await recordAiUsage(member, {
@@ -904,6 +919,87 @@ app.post('/api/chat', async (request, response) => {
       ...(error?.code ? { code: error.code } : {}),
       ...(error?.usage ? { usage: error.usage } : {}),
     });
+  }
+});
+
+app.post('/api/public-coach-test/session', (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ testu.' });
+  if (!allowPublicTestRequest(request, 'session', 4, 30 * 60 * 1000)) {
+    return response.status(429).set('Cache-Control', 'no-store').json({ error: 'Z tohoto zařízení už bylo spuštěno několik testů. Zkus to znovu později.' });
+  }
+  try {
+    return response.status(201).set('Cache-Control', 'no-store').json(issuePublicCoachTestSession(request.body));
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Test teď nelze spustit.' });
+  }
+});
+
+app.post('/api/public-coach-test/chat', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ testu.' });
+  if (!allowPublicTestRequest(request, 'chat', 24, 30 * 60 * 1000)) {
+    return response.status(429).set('Cache-Control', 'no-store').json({ error: 'Limit veřejného testu byl vyčerpán. Zkus to později.' });
+  }
+  const startedAt = Date.now();
+  try {
+    const session = advancePublicCoachTestSession(request.body?.sessionToken, request.body?.messages);
+    const result = await answer({
+      messages: session.transcript,
+      memory: publicTestMemory(session.payload.mode),
+      consultationMode: session.payload.mode === 'mentor' ? 'business_mentoring' : 'coaching_session',
+      brandWorkMode: 'collaborate',
+    });
+    console.log(JSON.stringify({
+      level: 'info',
+      message: 'public_coach_test_completed',
+      requestId: request.get('x-vercel-id') || null,
+      durationMs: Date.now() - startedAt,
+      role: session.payload.mode,
+      turn: session.nextSession.turnsUsed,
+      provider: result.provider,
+      qualityPassed: result.qualityGate?.pass ?? null,
+    }));
+    return response.set('Cache-Control', 'no-store').json({
+      answer: result.text,
+      mode: result.mode,
+      provider: result.provider,
+      qualityGate: result.qualityGate,
+      session: session.nextSession,
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ level: 'error', message: 'public_coach_test_failed', code: error?.code || 'UNKNOWN', durationMs: Date.now() - startedAt }));
+    const gatewayLimited = /GatewayRateLimitError|rate-limit|rate limit/i.test(error?.message || '');
+    return response.status(error?.statusCode || (gatewayLimited ? 429 : 500)).set('Cache-Control', 'no-store').json({
+      error: gatewayLimited ? 'Kapacita testu je teď krátce vyčerpaná. Zkus odpověď znovu za chvíli.' : (error?.statusCode ? error.message : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.'),
+      ...(error?.code ? { code: error.code } : {}),
+    });
+  }
+});
+
+app.post('/api/public-coach-test/feedback', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ hodnocení.' });
+  if (!allowPublicTestRequest(request, 'feedback', 8, 60 * 60 * 1000)) {
+    return response.status(429).set('Cache-Control', 'no-store').json({ error: 'Z tohoto zařízení už bylo odesláno více hodnocení.' });
+  }
+  const parsed = sanitizePublicCoachTestFeedback(request.body);
+  if (!parsed.ok) return response.status(400).set('Cache-Control', 'no-store').json({ error: parsed.error });
+  try {
+    const result = await savePublicCoachTestFeedback(parsed.value);
+    return response.status(201).set('Cache-Control', 'no-store').json({ ok: true, received: true, emailed: result.emailed });
+  } catch (error) {
+    await reportOperationalError({ area: 'public_coach_test', code: error?.code || 'FEEDBACK_SAVE_FAILED', path: request.path, summary: error });
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: 'Hodnocení se nepodařilo uložit. Zkus to prosím znovu.' });
+  }
+});
+
+app.get('/api/public-coach-test/admin/feedback', async (request, response) => {
+  try {
+    const member = await verifyMemberAuthorization(request.get('authorization'));
+    if (!isOwnerMember(member)) {
+      return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Tento přehled je dostupný pouze majitelce Elitea.' });
+    }
+    return response.set('Cache-Control', 'no-store').json(await listPublicCoachTestFeedback());
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Testy se nepodařilo načíst.' });
   }
 });
 
@@ -1040,6 +1136,32 @@ function sameHost(origin, host) {
     return false;
   }
 }
+
+function allowPublicTestRequest(request, action, limit, windowMs) {
+  const now = Date.now();
+  const forwarded = String(request.get('x-forwarded-for') || '').split(',')[0].trim();
+  const identity = `${forwarded || request.ip || 'unknown'}|${String(request.get('user-agent') || '').slice(0, 160)}`;
+  const key = `${action}:${identity}`;
+  const bucket = publicTestRateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    publicTestRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    prunePublicTestRateBuckets(now);
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= limit;
+}
+
+function prunePublicTestRateBuckets(now) {
+  if (publicTestRateBuckets.size < 500) return;
+  for (const [key, bucket] of publicTestRateBuckets) {
+    if (bucket.resetAt <= now) publicTestRateBuckets.delete(key);
+  }
+}
+
+app.get('/coach-test', (_request, response) => {
+  response.set('Cache-Control', 'no-store').sendFile(join(PUBLIC_DIR, 'coach-test.html'));
+});
 
 app.use(express.static(PUBLIC_DIR, {
   etag: true,

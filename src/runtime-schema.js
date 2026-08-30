@@ -71,6 +71,26 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   END $$`,
   `CREATE INDEX IF NOT EXISTS member_lifecycle_activity_idx
     ON member_lifecycle (last_activity_at)`,
+  `CREATE TABLE IF NOT EXISTS public_coach_test_feedback (
+    id text PRIMARY KEY,
+    session_id text NOT NULL UNIQUE,
+    role_mode text NOT NULL CHECK (role_mode IN ('coach', 'mentor')),
+    turn_count integer NOT NULL CHECK (turn_count >= 0 AND turn_count <= 6),
+    evaluator_name text NOT NULL CHECK (char_length(evaluator_name) BETWEEN 2 AND 100),
+    contact text NOT NULL DEFAULT '' CHECK (char_length(contact) <= 180),
+    usefulness smallint NOT NULL CHECK (usefulness BETWEEN 1 AND 5),
+    role_fidelity smallint NOT NULL CHECK (role_fidelity BETWEEN 1 AND 5),
+    would_use text NOT NULL CHECK (would_use IN ('yes', 'maybe', 'no')),
+    notes text NOT NULL CHECK (char_length(notes) BETWEEN 10 AND 2400),
+    transcript_consent boolean NOT NULL DEFAULT false,
+    transcript jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (transcript_consent OR transcript IS NULL)
+  )`,
+  `ALTER TABLE public_coach_test_feedback ENABLE ROW LEVEL SECURITY`,
+  `CREATE INDEX IF NOT EXISTS public_coach_test_feedback_created_idx
+    ON public_coach_test_feedback (created_at DESC)`,
 ];
 
 let bootstrapPromise = null;

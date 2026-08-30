@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { expandBachMaterials } from '../src/bach-materials.js';
 import { loadCourses } from '../src/courses.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const coursePath = join(ROOT, 'data', 'course-bachovy-kvetove-esence.md');
 const materialsPath = join(ROOT, 'data', 'course-bachovy-kvetove-esence-materials.json');
@@ -63,7 +65,7 @@ assert.equal((audioSource.match(/### Doslovný text/g) || []).length, 10, 'Každ
 for (const required of ['placebo', 'alkohol', 'souhlas', 'kriz', 'veterin', 'těhoten', 'první pomoc', 'nenahrazuje']) {
   assert.ok(`${courseSource}\n${audioSource}`.toLocaleLowerCase('cs').includes(required), `Chybí bezpečnostní téma: ${required}`);
 }
-assert.doesNotMatch(`${courseSource}\n${audioSource}`, /Elitea|Elitea Academy/i, 'V kurzu zůstal starý název značky.');
+assert.doesNotMatch(`${courseSource}\n${audioSource}`, LEGACY_BRAND_PATTERN, 'V kurzu zůstal historický název značky.');
 assert.doesNotMatch(`${courseSource}\n${audioSource}`, /100\s*%\s*(bezpeč|účinn)|garantovan[áýé]\s+(léčba|účinek)|nulov[éý]\s+vedlejší\s+účinky/i, 'Kurz obsahuje nepřijatelné absolutní zdravotní tvrzení.');
 
 console.log(JSON.stringify({

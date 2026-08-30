@@ -278,6 +278,7 @@
         </a>
         <div class="top-actions">
           <button class="public-return-button" id="public-return" type="button">← Veřejný web</button>
+          <button class="library-top-button" id="coach-test-admin-button" type="button" hidden>AI testy</button>
           <button class="library-top-button" id="founding-admin-button" type="button" hidden>Founding 30</button>
           <button class="library-top-button" id="library-top-button" type="button">Moje kurzy</button>
           <span class="status-pill" id="status-pill">
@@ -376,8 +377,8 @@
 
             <section class="member-pulse" aria-label="Přehled členství">
               <div><strong>24/7</strong><span>Elitea Coach &amp; Mentor</span></div>
-              <div><strong>1</strong><span>profesní certifikační výcvik</span></div>
-              <div><strong>59</strong><span>praktických studijních částí</span></div>
+              <div><strong>27</strong><span>profesních programů</span></div>
+              <div><strong>2 534</strong><span>studijních částí</span></div>
               <div><strong data-live-count="worksheets">151</strong><span>interaktivních pracovních listů</span></div>
             </section>
 
@@ -603,6 +604,7 @@
             <button id="outcome-toolbar-button" class="outcome-toolbar-button" type="button">Měřit sezení</button>
             <button id="end-session" class="end-session-button" type="button" hidden>Uzavřít konzultaci</button>
           </div>
+          <div class="active-expertise" id="active-expertise" hidden aria-live="polite"></div>
 
           <section class="training-banner" id="training-banner" hidden aria-live="polite">
             <div class="training-banner-copy">
@@ -716,7 +718,7 @@
               <div><p class="overline">ELITEA ACADEMY</p><h1>Uč se. Vyzkoušej. Použij.</h1><p>Výcviky, ve kterých poznání nekončí přečtenou lekcí. Každou metodu nejdřív použiješ na sobě, potom ji nacvičíš s Elitea a nakonec ve vlastní praxi.</p></div>
               <div class="academy-visual">
                 <img src="/elitea/academy-sonia-v2.png" width="1023" height="1537" alt="Praktický profesní výcvik v Elitea Academy" loading="lazy">
-                <div class="academy-stat"><strong>9</strong><span>silných programů</span><small>teorie, praxe, integrace</small></div>
+                <div class="academy-stat"><strong>27</strong><span>silných programů</span><small>teorie, praxe, integrace</small></div>
                 <span class="academy-visual-label">TEORIE · PRAXE · CERTIFIKACE</span>
               </div>
             </header>
@@ -1082,6 +1084,81 @@
       </form>
     </dialog>
 
+    <dialog id="client-onboarding-dialog" class="client-onboarding-dialog">
+      <form class="dialog-card client-onboarding-card" id="client-onboarding-form">
+        <div class="dialog-head onboarding-dialog-head">
+          <div><p class="overline">TVÁ OSOBNÍ MAPA</p><h2>Nejdřív tě trochu poznám.</h2></div>
+          <button class="icon-button" id="client-onboarding-close" type="button" aria-label="Dokončit později">×</button>
+        </div>
+        <p class="dialog-copy">Jedna krátká otázka po druhé. Díky tomu nebudu hádat, co potřebuješ, ani ti dávat univerzální rady. Odpovědi můžeš kdykoliv upravit nebo smazat.</p>
+        <div class="client-onboarding-status"><span id="client-onboarding-step-label">1 z 9</span><div class="client-onboarding-progress" aria-hidden="true"><i id="client-onboarding-progress"></i></div></div>
+
+        <section class="client-onboarding-step" data-onboarding-step="0">
+          <p class="onboarding-kicker">ZAČNEME JEDNODUŠE</p><h3>Jak ti mám říkat a jak spolu budeme mluvit?</h3>
+          <div class="form-grid onboarding-form-grid">
+            <label>Jak ti mám říkat?<input name="preferred_name" maxlength="100" autocomplete="given-name" placeholder="Tvoje jméno nebo přezdívka" data-onboarding-required></label>
+            <label>Je ti příjemnější<select name="address_form" data-onboarding-required><option value="">Vyber…</option><option value="tykani">Tykání</option><option value="vykani">Vykání</option></select></label>
+          </div>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="1" hidden>
+          <p class="onboarding-kicker">CO BUDEME ŘEŠIT</p><h3>Kde ti má Elitea nejvíc pomáhat?</h3><p>Vyber klidně více oblastí. Nezamkne tě to do jedné role.</p>
+          <div class="onboarding-choice-grid">
+            <label><input type="checkbox" name="focus_areas" value="business"><span>Byznys a strategie</span></label><label><input type="checkbox" name="focus_areas" value="brand_marketing"><span>Brand a marketing</span></label>
+            <label><input type="checkbox" name="focus_areas" value="content_social"><span>Obsah a sítě</span></label><label><input type="checkbox" name="focus_areas" value="ai_automation"><span>AI a automatizace</span></label>
+            <label><input type="checkbox" name="focus_areas" value="habits_productivity"><span>Návyky a produktivita</span></label><label><input type="checkbox" name="focus_areas" value="adhd_friendly"><span>ADHD-friendly podpora</span></label>
+            <label><input type="checkbox" name="focus_areas" value="wellbeing"><span>Wellbeing a rovnováha</span></label><label><input type="checkbox" name="focus_areas" value="mindset"><span>Mindset a osobní směr</span></label>
+          </div>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="2" hidden>
+          <p class="onboarding-kicker">VÝSLEDEK</p><h3>Co by se díky naší práci mělo reálně změnit?</h3><p>Napiš to po svém. Nemusí to být dokonale formulovaný cíl.</p>
+          <textarea name="desired_outcome" rows="5" maxlength="1000" placeholder="Např. chci konečně spustit nabídku a nebýt přitom každý den zahlcená…" data-onboarding-required></textarea>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="3" hidden>
+          <p class="onboarding-kicker">CO UŽ VÍME</p><h3>Co ti teď nejvíc stojí v cestě?</h3>
+          <textarea name="main_obstacle" rows="4" maxlength="1000" placeholder="Co se opakuje nebo kde se nejčastěji zastavíš?" data-onboarding-required></textarea>
+          <label class="onboarding-followup">Co už jsi zkoušela? <span>volitelné</span><textarea name="previous_attempts" rows="3" maxlength="1500" placeholder="Abych ti nenavrhovala něco, co už nefungovalo."></textarea></label>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="4" hidden>
+          <p class="onboarding-kicker">PRACOVNÍ KONTEXT</p><h3>Pokud podnikáš, kde se právě nacházíš?</h3><p>Tuto část můžeš přeskočit, pokud byznys teď neřešíš.</p>
+          <div class="form-grid onboarding-form-grid">
+            <label>Fáze<select name="stage"><option value="nezjisteno">Netýká se mě / nevím</option><option value="napad">Mám nápad</option><option value="start">Začínám</option><option value="stabilita">Stabilizuji</option><option value="rust">Rostu</option></select></label>
+            <label>Obor<input name="industry" maxlength="200" placeholder="Např. beauty, vzdělávání, služby"></label>
+            <label class="full">Co nabízíš?<textarea name="primary_offer" rows="2" maxlength="1500"></textarea></label><label class="full">Komu pomáháš?<textarea name="target_customer" rows="2" maxlength="1500"></textarea></label>
+          </div>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="5" hidden>
+          <p class="onboarding-kicker">REALISTICKÁ KAPACITA</p><h3>Kolik prostoru na změnu teď opravdu máš?</h3>
+          <label>Reálná týdenní kapacita<input name="weekly_capacity" maxlength="200" placeholder="Např. 3 hodiny týdně nebo 20 minut denně"></label>
+          <fieldset class="energy-scale"><legend>Kolik máš teď obvykle energie?</legend><div><label><input type="radio" name="energy_level" value="1"><span>1<small>minimum</small></span></label><label><input type="radio" name="energy_level" value="2"><span>2</span></label><label><input type="radio" name="energy_level" value="3" checked><span>3</span></label><label><input type="radio" name="energy_level" value="4"><span>4</span></label><label><input type="radio" name="energy_level" value="5"><span>5<small>hodně</small></span></label></div></fieldset>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="6" hidden>
+          <p class="onboarding-kicker">JAK TĚ VÉST</p><h3>Jaký přístup ti bývá nejvíc užitečný?</h3>
+          <div class="onboarding-radio-stack"><label><input type="radio" name="support_style" value="kombinace" checked><span><strong>Podle situace</strong><small>Elitea sama rozliší, kdy se ptát a kdy poradit.</small></span></label><label><input type="radio" name="support_style" value="koucovani"><span><strong>Spíš koučovací</strong><small>Více prostoru pro moje vlastní odpovědi.</small></span></label><label><input type="radio" name="support_style" value="mentoring"><span><strong>Spíš přímý</strong><small>Chci doporučení, strukturu a konkrétní postup.</small></span></label></div>
+          <label class="onboarding-followup">Co mám přizpůsobit tvému fungování? <span>volitelné</span><textarea name="support_accommodations" rows="3" maxlength="1000" placeholder="Např. jedna priorita, malé kroky, častější shrnutí. Nemusíš uvádět diagnózu."></textarea></label>
+        </section>
+
+        <section class="client-onboarding-step" data-onboarding-step="7" hidden>
+          <p class="onboarding-kicker">HRANICE A LADĚNÍ</p><h3>Co mám respektovat, aby ti naše práce opravdu seděla?</h3>
+          <label>Spirituální pohled<select name="spiritual_preference"><option value="gentle">Může se jemně objevit, když sedí</option><option value="important">Je pro mě důležitý</option><option value="self_only">Jen když ho sama otevřu</option><option value="none">Nechci ho používat</option></select></label>
+          <label class="onboarding-followup">Co ti v podobných aplikacích vadí? <span>volitelné</span><textarea name="avoid_preferences" rows="3" maxlength="1000" placeholder="Např. přílišná chvála, moc otázek, dlouhé seznamy…"></textarea></label>
+          <label class="onboarding-followup">Je ještě něco praktického, co mám vědět? <span>volitelné</span><textarea name="additional_context" rows="3" maxlength="1500" placeholder="Nevkládej hesla, platební údaje ani podrobné zdravotní či traumatické informace."></textarea></label>
+        </section>
+
+        <section class="client-onboarding-step onboarding-map-step" data-onboarding-step="8" hidden>
+          <p class="onboarding-kicker">TVÁ OSOBNÍ MAPA</p><h3>Takhle se ti Elitea od začátku přizpůsobí.</h3><div class="client-onboarding-map" id="client-onboarding-map"></div><p class="onboarding-privacy">Mapa je pracovní, ne diagnostická. Kdykoliv ji můžeš změnit v části „Co si pamatuji“.</p>
+        </section>
+
+        <p class="onboarding-validation" id="client-onboarding-validation" role="status" aria-live="polite"></p>
+        <div class="dialog-actions client-onboarding-actions"><button class="secondary-button" id="client-onboarding-back" type="button" disabled>Zpět</button><button class="text-button" id="client-onboarding-later" type="button">Dokončit později</button><button class="primary-button" id="client-onboarding-next" type="button">Pokračovat</button><button class="primary-button" id="client-onboarding-finish" type="submit" hidden>Uložit mapu a začít</button></div>
+      </form>
+    </dialog>
+
     <dialog id="memory-dialog">
       <form method="dialog" class="dialog-card" id="memory-form">
         <div class="dialog-head">
@@ -1106,6 +1183,11 @@
           <label>Kolik máš týdně reálné kapacity?<input name="weekly_capacity" maxlength="200" placeholder="Např. dvě soustředěné hodiny"></label>
           <label class="full">Jaké hranice mám při plánování respektovat?<textarea name="personal_boundaries" rows="2" maxlength="1000" placeholder="Např. večery patří rodině"></textarea></label>
           <label class="full">Jak mám přizpůsobit tempo a kroky tvému fungování?<textarea name="support_accommodations" rows="2" maxlength="1000" placeholder="Např. menší kroky, jemnější tempo, maximálně jedna priorita. Neuváděj diagnózu ani citlivé zdravotní detaily."></textarea></label>
+          <label class="full">Co už jsi zkoušela?<textarea name="previous_attempts" rows="2" maxlength="1500" placeholder="Abych neopakovala postupy, které ti nepomohly."></textarea></label>
+          <label>Spirituální pohled<select name="spiritual_preference"><option value="gentle">Jemně, když sedí</option><option value="important">Je pro mě důležitý</option><option value="self_only">Jen když ho sama otevřu</option><option value="none">Nepoužívat</option></select></label>
+          <label>Energie 1–5<select name="energy_level"><option value="0">Nezadáno</option><option value="1">1 – minimum</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 – hodně</option></select></label>
+          <label class="full">Čemu se má Elitea vyhnout?<textarea name="avoid_preferences" rows="2" maxlength="1000" placeholder="Např. zbytečné chvále, dlouhým seznamům nebo příliš mnoha otázkám."></textarea></label>
+          <label class="full">Další praktický kontext<textarea name="additional_context" rows="2" maxlength="1500"></textarea></label>
         </div>
 
         <div class="dialog-actions">
@@ -1256,6 +1338,20 @@
       <h2>ELITEA FOUNDING 30</h2>
       <p id="founding-admin-summary">Načítám přihlášky…</p>
       <div class="founding-admin-list" id="founding-admin-list"></div>
+    </dialog>
+
+    <dialog class="auth-dialog founding-admin-dialog coach-test-admin-dialog" id="coach-test-admin-dialog">
+      <button class="auth-close" id="coach-test-admin-close" type="button" aria-label="Zavřít">×</button>
+      <p class="auth-overline">INTERNÍ SPRÁVA · JEN PRO TEBE</p>
+      <h2>Testy Coach &amp; Mentor</h2>
+      <div class="coach-test-summary" id="coach-test-admin-summary" aria-live="polite">Načítám testy…</div>
+      <div class="coach-test-filters" aria-label="Filtrovat testy">
+        <button class="active" type="button" data-coach-test-filter="all">Všechny</button>
+        <button type="button" data-coach-test-filter="attention">K opravě</button>
+        <button type="button" data-coach-test-filter="coach">Koučka</button>
+        <button type="button" data-coach-test-filter="mentor">Mentorka</button>
+      </div>
+      <div class="founding-admin-list coach-test-admin-list" id="coach-test-admin-list"></div>
     </dialog>
 
     <dialog class="auth-dialog" id="auth-dialog">

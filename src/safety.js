@@ -31,32 +31,17 @@ const MEDICAL_EMERGENCY_PATTERNS = [
   /tezka alergicka reakce/i,
 ];
 
-const HEIGHTENED_PATTERNS = [
-  /uzkost/i,
-  /panick/i,
-  /trauma/i,
-  /flashback/i,
-  /disoci/i,
-  /posttraumat/i,
-  /depres/i,
-  /vyhor/i,
-  /chronick[aey] nemoc/i,
-  /diagnoz/i,
-  /lecba/i,
-];
-
 export function classifySafety(text = '') {
   const normalized = normalize(text);
   const crisis = CRISIS_PATTERNS.some(pattern => pattern.test(normalized));
   const danger = DANGER_PATTERNS.some(pattern => pattern.test(normalized));
   const medical = MEDICAL_EMERGENCY_PATTERNS.some(pattern => pattern.test(normalized));
-  const heightened = HEIGHTENED_PATTERNS.some(pattern => pattern.test(normalized));
   return {
-    level: crisis || danger || medical ? 'critical' : heightened ? 'heightened' : 'normal',
+    level: crisis || danger || medical ? 'critical' : 'normal',
     crisis,
     danger,
     medical,
-    heightened,
+    heightened: false,
   };
 }
 

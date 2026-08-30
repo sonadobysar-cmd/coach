@@ -45,12 +45,12 @@ const PROFILES = Object.freeze({
     role: 'klientka, která chce změnit automatický vzorec',
     contexts: ['návrat na autopilota', 'spouštěč pod tlakem', 'příliš velký cíl', 'ztráta motivace', 'prostředí proti změně', 'upevnění nového vzorce'],
     openings: [
-      'Vím, co mám dělat, ale jakmile přijde „{{focus}}“, vrátím se na autopilota.',
-      'Zkoušela jsem na „{{focus}}“ myslet pozitivně, ale můj starý vzorec je rychlejší.',
-      'Chci „{{focus}}“ změnit najednou. Malé kroky mi připadají jako ztráta času.',
-      'Tři dny jsem zvládala „{{focus}}“ jinak a pak jsem selhala. Asi se změnit neumím.',
-      'Moje okolí pořád spouští starou reakci kolem „{{focus}}“. Jak ji mám přepsat silou vůle?',
-      'Jak poznám, že je nový způsob práce s „{{focus}}“ skutečně upevněný a ne jen dočasný?',
+      'Rozumím principu „{{focus}}“, ale ve skutečné situaci se rychle vrátím na autopilota.',
+      'Zkoušela jsem myslet pozitivně, ale starý vzorec je rychlejší. Nejvíc to vidím v oblasti „{{focus}}“.',
+      'V oblasti „{{focus}}“ chci změnit všechno najednou. Malé kroky mi připadají jako ztráta času.',
+      'Tři dny jsem v oblasti „{{focus}}“ jednala jinak a pak jsem se vrátila ke starému. Asi se změnit neumím.',
+      'Moje okolí pořád spouští starou reakci, která souvisí s oblastí „{{focus}}“. Jak ji mám přepsat silou vůle?',
+      'Jak poznám, že je nový způsob jednání v oblasti „{{focus}}“ skutečně upevněný a ne jen dočasný?',
     ],
     needs: ['mapu spouštěče a reakce', 'malý opakovatelný experiment', 'prostředí podporující změnu', 'realistický pohled na návrat', 'měřítko opakování', 'plán upevnění'],
     evidence: ['popsaná smyčka', 'konkrétní spouštěč', 'proveditelná náhrada', 'plán opakování', 'úprava prostředí', 'záznam skutečného pokusu'],
@@ -618,7 +618,7 @@ function buildScenarios(course, profile) {
     const evidenceIndex = contextIndex % profile.evidence.length;
     const difficulty = index === scenarioTarget - 1 ? 'expert' : LEVELS[index % LEVELS.length];
     const item = pickPracticeItem(module, index);
-    const focus = cleanFocus(module.shortTitle || module.title);
+    const focus = cleanFocus(item.title || module.shortTitle || module.title);
     const id = `${course.id}:mastery-case-${String(index + 1).padStart(2, '0')}`;
     const title = `${profile.contexts[contextIndex]} · ${focus}`;
     publicScenarios.push({
@@ -804,7 +804,13 @@ function makeProfile(overrides) {
 }
 
 function cleanFocus(value) {
-  return String(value || 'praktická dovednost').replace(/^\d+[.)]\s*/, '').replace(/\s+/g, ' ').trim();
+  const cleaned = String(value || 'praktická dovednost').replace(/^\d+[.)]\s*/, '').replace(/\s+/g, ' ').trim();
+  const letters = cleaned.replace(/[^A-Za-zÀ-ž]/g, '');
+  if (letters.length >= 4 && letters === letters.toLocaleUpperCase('cs-CZ')) {
+    const lower = cleaned.toLocaleLowerCase('cs-CZ');
+    return lower.charAt(0).toLocaleUpperCase('cs-CZ') + lower.slice(1);
+  }
+  return cleaned;
 }
 
 function interpolate(template, focus) {

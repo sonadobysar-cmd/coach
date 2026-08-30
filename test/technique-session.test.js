@@ -100,7 +100,7 @@ test('technika zůstává zamčená po celý pracovní cyklus', () => {
   });
   assert.equal(next.card.id, practicalCard.id);
   assert.equal(next.session.techniqueId, practicalCard.id);
-  assert.equal(next.session.phase, 'application');
+  assert.equal(next.session.phase, 'evaluation');
 });
 
 test('citlivá technika čeká na výslovný souhlas', () => {
@@ -374,7 +374,7 @@ test('zákaznický výzkum po zjištění kanálu nezačne generickým plánem, 
   assert.equal((response.match(/\?/g) || []).length, 1);
 });
 
-test('hluboké sezení drží techniku v průzkumu, dokud nezná konkrétní mechanismus', () => {
+test('hluboké sezení nezůstává v povinné čekárně a citlivý krok si ponechá souhlas', () => {
   const card = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
@@ -415,11 +415,11 @@ test('hluboké sezení drží techniku v průzkumu, dokud nezná konkrétní mec
 
   assert.equal(first.session.stepIndex, 1);
   assert.equal(first.session.phase, 'assessment');
-  assert.equal(stillExploring.session.phase, 'assessment');
+  assert.equal(stillExploring.session.phase, 'application');
   assert.equal(ready.session.phase, 'application');
-  assert.equal(ready.session.stepIndex, 1);
-  assert.equal(newSentence.session.phase, 'application');
-  assert.equal(newSentence.session.stepIndex, 2);
+  assert.equal(ready.session.stepIndex, 2);
+  assert.equal(newSentence.session.phase, 'consent');
+  assert.equal(newSentence.session.stepIndex, 3);
   assert.equal(consent.session.phase, 'consent');
   assert.equal(consent.session.stepIndex, 3);
 });
@@ -498,7 +498,7 @@ test('integrace self-talku neudělá z jediného účinku hotové pravidlo ani n
   assert.equal((response.match(/\?/g) || []).length, 1);
 });
 
-test('behaviorální režim neprovádí techniku během prvních tří odpovědí členky', () => {
+test('behaviorální režim může začít vratným pracovním krokem bez povinného tříkolového čekání', () => {
   const first = createTechniqueTurn({
     atlas: [practicalCard], candidates: [practicalCard], mode: 'behavioralni_konzultace',
     latestText: 'Pořád odkládám.', conversationContext: { userTurns: 1 },
@@ -515,9 +515,10 @@ test('behaviorální režim neprovádí techniku během prvních tří odpověd�
     atlas: [practicalCard], candidates: [], previous: third.session, mode: 'behavioralni_konzultace',
     latestText: 'Děje se to hlavně večer.', conversationContext: { userTurns: 4 },
   });
-  assert.equal(second.session.phase, 'assessment');
-  assert.equal(third.session.phase, 'assessment');
-  assert.equal(fourth.session.phase, 'application');
+  assert.equal(first.session.phase, 'application');
+  assert.equal(second.session.phase, 'evaluation');
+  assert.equal(third.session.phase, 'evaluation');
+  assert.equal(fourth.session.phase, 'evaluation');
 });
 
 test('neplatný klientský stav se zahodí a interní protokol obsahuje jedinou povolenou fázi', () => {
@@ -527,7 +528,7 @@ test('neplatný klientský stav se zahodí a interní protokol obsahuje jedinou 
     latestText: 'Chci se rozhodnout.', conversationContext: { userTurns: 1 },
   });
   const protocol = formatTechniqueExecution(turn);
-  assert.match(protocol, /Aktuální fáze: assessment/);
-  assert.match(protocol, /Neprováděj ještě techniku/);
+  assert.match(protocol, /Aktuální fáze: application/);
+  assert.doesNotMatch(protocol, /Neprováděj ještě techniku/);
   assert.match(protocol, /Metodika Nii, ověřená verze/);
 });

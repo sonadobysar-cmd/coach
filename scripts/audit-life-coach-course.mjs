@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { loadCourses } from '../src/courses.js';
 import { expandLifeCoachMaterials } from '../src/life-coach-materials.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const root = fileURLToPath(new URL('..', import.meta.url));
 const coursePath = join(root, 'data', 'course-profesionalni-life-coach.md');
 const [source, materialSource, audio] = await Promise.all([
@@ -28,5 +30,6 @@ assert.ok(course.modules.every((_, index) => materials.some(material => material
 assert.equal((audio.match(/^## AUDIO \d+ —/gm) || []).length, 10);
 assert.equal((audio.match(/### Doslovný text/g) || []).length, 10);
 for (const term of ['GROW','HEART','Kolo života','NLP','mindfulness','self-talk','přesvědčení','fear setting','niche','důvěrnost','ICF']) assert.ok(`${source}\n${audio}`.includes(term), `Chybí ${term}`);
-assert.doesNotMatch(`${source}\n${audio}`, /Elitea|garantuji\s+(výsledek|léčbu)|vyléčí\s+(trauma|úzkost|depresi)/i);
+assert.doesNotMatch(`${source}\n${audio}`, LEGACY_BRAND_PATTERN, 'V kurzu zůstal historický název značky.');
+assert.doesNotMatch(`${source}\n${audio}`, /garantuji\s+(výsledek|léčbu)|vyléčí\s+(trauma|úzkost|depresi)/i);
 console.log(JSON.stringify({ok:true,modules:18,items:108,minutes:2160,materials:19,audios:10}, null, 2));

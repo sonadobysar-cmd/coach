@@ -76,6 +76,17 @@ test('členky, odborné role a oficiální vysílání mají jednotnou malou zna
   assert.match(client, /aria-label="Identita:/);
 });
 
+test('studijní výklad v koučovacím kurzu se neoznačuje jako koučovací simulace', () => {
+  assert.match(client, /state\.trainingSession\?\.activity === 'simulation'[\s\S]*label: 'KOUČOVACÍ TRENÉRKA'[\s\S]*label: 'STUDIJNÍ TRENÉRKA'/);
+});
+
+test('po debriefu zůstávají starší výroky označené jako modelová klientka', () => {
+  assert.match(client, /trainingActivity: result\.activity \|\| session\.activity/);
+  assert.match(client, /trainingPhase: result\.phase \|\| phase/);
+  assert.match(client, /assistantMessageIdentity\(message\)/);
+  assert.match(client, /message\?\.trainingPhase \|\| message\?\.retryContext\?\.phase/);
+});
+
 test('prostředí komunikuje personalizaci, bezpečí, členství a mobilní orientaci', () => {
   assert.match(html, /UŠITÁ TOBĚ/);
   assert.match(html, /Paměť máš pod kontrolou/);
@@ -93,11 +104,14 @@ test('přímý odkaz do členské sekce se po načtení skutečně otevře', () 
   assert.match(html, /id="account-dialog"/);
 });
 
-test('první poznání probíhá v chatu a ne v povinném formuláři', () => {
+test('první poznání nabízí milou osobní mapu po jedné otázce a potom navazuje chatem', () => {
   assert.match(html, /Napsat, co právě řeším/);
   assert.match(html, /Celou konzultaci povedu krok za krokem/);
-  assert.doesNotMatch(html, /id="onboarding-dialog"/);
-  assert.doesNotMatch(html, /id="onboarding-form"/);
+  assert.match(html, /id="client-onboarding-dialog"/);
+  assert.match(html, /id="client-onboarding-form"/);
+  assert.match(html, /data-onboarding-step="8"/);
+  assert.match(html, /Takhle se ti Elitea od začátku přizpůsobí/);
+  assert.match(client, /function routeSpecialists|specialistSession|openClientOnboarding/);
 });
 
 test('aplikace nabízí pět oddělených konzultačních režimů a automatický výběr', () => {
@@ -222,8 +236,8 @@ test('čtyři odborné role jsou umístěné podle své skutečné práce a maj�
   assert.match(html, /data-open-academy-branch="brand-marketing"/);
   assert.match(html, /Elitea Community/);
   assert.match(html, /id="lesson-trainer-title"/);
-  assert.match(client, /Probrat lekci s AI lektorkou/);
-  assert.match(client, /Spustit praktický nácvik/);
+  assert.match(client, /discussLesson\.textContent = trainer\.studyAction/);
+  assert.match(client, /simulateLesson\.textContent = trainer\.simulationAction/);
   assert.doesNotMatch(html, /Druhá role Elitea/);
   assert.match(html, /id="finish-training"/);
   assert.match(client, /assistantRole: initialAssistantRole/);
@@ -325,4 +339,15 @@ test('členská sekce obsahuje samostatnou knihovnu interaktivních pracovních 
   assert.match(client, /data-open-worksheet/);
   assert.match(client, /K ČEMU JE/);
   assert.match(client, /CO MŮŽEŠ ZJISTIT/);
+});
+
+test('automatický chat viditelně rozlišuje Koučku a Mentorku a uchovává režim odpovědi', () => {
+  assert.match(client, /responseMode: result\.mode/);
+  assert.match(client, /expertRole: result\.activeRole/);
+  assert.match(client, /AI · KOUČKA/);
+  assert.match(client, /AI · MENTORKA/);
+  assert.match(client, /roleTransitionLabel/);
+  assert.match(client, /sama pozná, kdy má vést Koučka a kdy Mentorka/);
+  assert.match(css, /\.identity-mark\.coach/);
+  assert.match(css, /\.identity-mark\.mentor/);
 });

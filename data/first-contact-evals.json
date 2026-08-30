@@ -1,0 +1,148 @@
+[
+  {
+    "id": "mentor-sales-shame",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "mám problém s prodejem, stydím se" }],
+    "require_any": ["Prodej nemusí", "normálním rozhovoru"]
+  },
+  {
+    "id": "mentor-social-typo",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Mám projekt a nevím jak ho rozjet, stydím se vystupovat na sochách a bojím se co řeknou ostatní" }],
+    "require_any": ["sociálních sítích", "konkrétním příspěvkem"]
+  },
+  {
+    "id": "mentor-no-clients",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Nemám žádné klientky a nevím co změnit" }],
+    "require_any": ["nabídce vůbec vědí", "vidí a nekupují"]
+  },
+  {
+    "id": "mentor-low-sales",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Prodej je slabý a zákazníci odcházejí" }],
+    "require_any": ["kde se cesta zastavuje", "zákazník odpadne"]
+  },
+  {
+    "id": "mentor-conversion",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Lidi chodí na web, ale nikdo nekupuje" }],
+    "require_any": ["není jen v dosahu", "těsně před odchodem"]
+  },
+  {
+    "id": "mentor-unclear-offer",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Nevím, co nabízím a pro koho to vlastně je" }],
+    "require_any": ["konkrétního člověka", "Komu chceš pomáhat"]
+  },
+  {
+    "id": "mentor-content-block",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Nevím co mám dávat za obsah a co psát do příspěvků" }],
+    "require_any": ["skutečné otázky", "každý příspěvek"]
+  },
+  {
+    "id": "mentor-pricing",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Nevím kolik si říct a bojím se zdražit" }],
+    "require_any": ["čas a náklady", "hodnotě výsledku"]
+  },
+  {
+    "id": "mentor-launch",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Chci konečně spustit svůj projekt, ale nevím jak začít" }],
+    "require_any": ["ověřením", "konkrétní člověk"]
+  },
+  {
+    "id": "mentor-too-many-ideas",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Mám moc nápadů na projekty a nevím co dřív" }],
+    "require_any": ["jednoduché síto", "nejjasnějšího zákazníka"]
+  },
+  {
+    "id": "mentor-capacity",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Všechno dělám sama, nestíhám a mám moc práce" }],
+    "require_any": ["nepomůže jen rychleji pracovat", "přináší klienty"]
+  },
+  {
+    "id": "mentor-delegation",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "Nevím co delegovat nové asistentce" }],
+    "require_any": ["Delegovat má smysl", "opakovaná činnost"]
+  },
+  {
+    "id": "mentor-fragmented-czech",
+    "role": "mentor",
+    "messages": [{ "role": "user", "content": "projekt mam sluzbu ale nevim rozjet" }],
+    "require_any": ["Nejrychlejší rozjezd", "ověřením"]
+  },
+  {
+    "id": "mentor-style-repair",
+    "role": "mentor",
+    "messages": [
+      { "role": "user", "content": "mám problém s prodejem, stydím se" },
+      { "role": "assistant", "content": "Potřebuji určit nejbližší byznysové rozhodnutí." },
+      { "role": "user", "content": "Můžeš se mnou mluvit jako člověk? Nerozumím ti." }
+    ],
+    "require_any": ["Řeknu to jednoduše", "Prodej nemusí"]
+  },
+  {
+    "id": "coach-self-judgment",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Jsem úplně neschopná" }],
+    "require_any": ["není důkaz o celé tobě", "konkrétní událost"]
+  },
+  {
+    "id": "coach-influencer-life-gap",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Ahoj, chci být influencerka ale nevím jak na to. Mám pocit, že nežiju život, jaký chci." }],
+    "require_any": ["dvě propojené věci", "současný život"]
+  },
+  {
+    "id": "coach-boundary",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Ve vztahu neumím říct ne a pak se na sebe zlobím" }],
+    "require_any": ["těsně předtím", "poslední takové situaci"]
+  },
+  {
+    "id": "coach-fear-of-judgment",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Bojím se ukázat svou práci, co řeknou ostatní" }],
+    "require_any": ["představa reakce ostatních", "okruh lidí"]
+  },
+  {
+    "id": "coach-indecision",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Nemůžu se rozhodnout, co vlastně chci" }],
+    "require_any": ["dokonale správnou volbu", "podle čeho"]
+  },
+  {
+    "id": "coach-overwhelm",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Jsem zahlcená, mám moc toho a nevím kde začít" }],
+    "require_any": ["všechno stejně naléhavé", "největší úlevu"]
+  },
+  {
+    "id": "coach-procrastination",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Pořád odkládám web a nemůžu začít" }],
+    "require_any": ["lenost ani sebesabotáž", "udělala něco jiného"]
+  },
+  {
+    "id": "coach-ambiguous-short",
+    "role": "coach",
+    "messages": [{ "role": "user", "content": "Zase jsem to pokazila" }],
+    "require_any": ["poslední konkrétní situaci", "těsně předtím"]
+  },
+  {
+    "id": "coach-style-repair",
+    "role": "coach",
+    "messages": [
+      { "role": "user", "content": "Pořád odkládám web a nemůžu začít" },
+      { "role": "assistant", "content": "Potřebujeme zachytit mechanismus vyhýbavého chování." },
+      { "role": "user", "content": "Nerozumím, mluv se mnou normálně." }
+    ],
+    "require_any": ["Řeknu to normálně", "udělala něco jiného"]
+  }
+]

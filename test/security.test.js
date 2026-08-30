@@ -31,6 +31,19 @@ test('autorizované JSON požadavky zachovají Content-Type i Authorization', as
   assert.doesNotMatch(requestHelper, /headers:[\s\S]*\.\.\.options,[\s\S]*fetch/);
 });
 
+test('chráněné požadavky obnoví Neon session a nikdy neukážou syrovou JWT chybu', async () => {
+  const [app, cloud] = await Promise.all([
+    readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8'),
+    readFile(join(ROOT, 'src', 'browser-cloud.js'), 'utf8'),
+  ]);
+  assert.match(cloud, /getSession\(forceFetch \? \{ forceFetch: true \} : undefined\)/);
+  assert.match(cloud, /authorization: async \(\{ forceRefresh = true \} = \{\}\)/);
+  assert.match(app, /state\.cloud\.authorization\(\{ forceRefresh: true \}\)/);
+  assert.match(app, /if \(error\?\.status !== 401\) throw error/);
+  assert.match(app, /\(\?:claim\|jwt\|token\|timestamp/);
+  assert.match(app, /Přihlášení vypršelo\. Přihlas se prosím znovu\./);
+});
+
 test('AI odpověď rezervuje fair-use zprávu ještě před voláním modelu', () => {
   const chatRoute = server.match(/app\.post\('\/api\/chat'[\s\S]*?\n}\);/)?.[0] || '';
   const trainingRoute = server.match(/app\.post\('\/api\/training'[\s\S]*?\n}\);/)?.[0] || '';
@@ -83,4 +96,26 @@ test('health endpoint kontroluje všechny klíčové produkční závislosti bez
   assert.match(healthRoute, /runtimeSchema:/);
   assert.match(healthRoute, /status\(ok \? 200 : 503\)/);
   assert.doesNotMatch(healthRoute, /API_KEY\s*:/);
+});
+
+test('veřejný coach test je oddělený, podepsaný, omezený a nekopíruje členskou paměť', () => {
+  const sessionRoute = server.match(/app\.post\('\/api\/public-coach-test\/session'[\s\S]*?\n}\);/)?.[0] || '';
+  const chatRoute = server.match(/app\.post\('\/api\/public-coach-test\/chat'[\s\S]*?\n}\);/)?.[0] || '';
+  const feedbackRoute = server.match(/app\.post\('\/api\/public-coach-test\/feedback'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(sessionRoute, /validMutationOrigin/);
+  assert.match(sessionRoute, /allowPublicTestRequest/);
+  assert.match(chatRoute, /advancePublicCoachTestSession/);
+  assert.match(chatRoute, /publicTestMemory/);
+  assert.doesNotMatch(chatRoute, /authorizeAiRequest|membershipFor/);
+  assert.match(feedbackRoute, /sanitizePublicCoachTestFeedback/);
+  assert.match(feedbackRoute, /savePublicCoachTestFeedback/);
+  assert.doesNotMatch(feedbackRoute, /console\.(?:log|warn|error)\([^)]*(?:notes|messages|transcript)/);
+});
+
+test('přehled coach testů je chráněný přihlášením a vlastnickou rolí', () => {
+  const adminRoute = server.match(/app\.get\('\/api\/public-coach-test\/admin\/feedback'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(adminRoute, /verifyMemberAuthorization/);
+  assert.match(adminRoute, /isOwnerMember/);
+  assert.match(adminRoute, /listPublicCoachTestFeedback/);
+  assert.match(adminRoute, /Cache-Control', 'no-store/);
 });

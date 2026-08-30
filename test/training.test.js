@@ -37,9 +37,11 @@ const courses = await loadCourses([
   join(ROOT, 'data', 'course-profesionalni-life-coach.md'),
 ]);
 const spiritualCourse = courses.find(course => course.slug === 'spiritualni-koucink-v-praxi');
+const neuroplasticityCourse = courses.find(course => course.slug === 'prepis-svuj-vzorec');
 const communicationCourse = courses.find(course => course.slug === 'komunikace-ktera-funguje');
 const lifeCoachCourse = courses.find(course => course.slug === 'profesionalni-life-coach-od-kontraktu-k-vysledku');
 attachCourseMastery(spiritualCourse);
+attachCourseMastery(neuroplasticityCourse);
 attachCourseMastery(communicationCourse);
 attachCourseMastery(lifeCoachCourse);
 const allItems = spiritualCourse.modules.flatMap(module => module.items);
@@ -76,6 +78,14 @@ test('studijní trenérka vytvoří bezpečný scénář ke každé části kurz
     assert.ok(scenario.rubric.length >= 5);
     assert.ok(scenario.private.hiddenNeed.length > 20);
   }
+});
+
+test('úvod neuroplasticitního nácviku používá přirozenou větu místo názvu modulu jako události', () => {
+  const item = neuroplasticityCourse.modules[0].items[0];
+  const scenario = createTrainingScenario(neuroplasticityCourse, item, 'standard');
+  assert.doesNotMatch(scenario.openingLine, /jakmile přijde „Než začneš pracovat s klientkou“/i);
+  assert.match(scenario.openingLine, /ve skutečné situaci|v oblasti/i);
+  assert.doesNotMatch(scenario.openingLine, /„NEŽ ZAČNEŠ PRACOVAT S KLIENTKOU“/);
 });
 
 test('klientský scénář neposílá skrytou potřebu ani interní pravidla do prohlížeče', () => {
@@ -271,18 +281,22 @@ test('základní offline hodnocení nevymýšlí opravu, když rozpoznatelné pr
     difficulty: 'standard',
     messages: [
       { role: 'assistant', content: 'Bojím se, že když se rozhodnu sama, pokazím to.' },
+      { role: 'user', content: 'Co by pro tebe dnes bylo užitečným výsledkem našeho rozhovoru?' },
+      { role: 'assistant', content: 'Chci si umět vybrat bez hledání jistoty u druhých.' },
       { role: 'user', content: 'Slyším, že vlastní rozhodnutí teď vnímáš jako velké riziko. Co je na něm nejtěžší?' },
       { role: 'assistant', content: 'Že pak budu zodpovědná za chybu.' },
       { role: 'user', content: 'Rozumím tomu tak, že tě netíží jen volba, ale i možný pocit viny. Sedí to?' },
       { role: 'assistant', content: 'Ano, přesně.' },
-      { role: 'user', content: 'Chceš dál prozkoumat ten pocit viny, nebo se podívat na samotné možnosti?' },
+      { role: 'user', content: 'Můžu ti nabídnout krátké mapování možností? Můžeš ho kdykoli zastavit.' },
+      { role: 'assistant', content: 'Ano.' },
+      { role: 'user', content: 'Jaký konkrétní další krok uděláš a kdy ho zkusíš?' },
       { role: 'user', content: 'Ukončuji simulaci. Vyhodnoť celý nácvik.' },
     ],
   });
 
-  assert.match(result.text, /Velmi dobrý základ/i);
-  assert.match(result.text, /není doložená chyba, kterou by bylo poctivé vytýkat/i);
-  assert.match(result.text, /nejde o opravu tohoto výkonu/i);
+  assert.match(result.text, /není doložená konkrétní chyba/i);
+  assert.match(result.text, /nebude vyrábět umělou opravu/i);
+  assert.match(result.text, /vyšší obtížnosti/i);
 });
 
 test('life coaching má osmnáct ručně navržených situací zamčených na modul a otevřenou část', () => {
@@ -334,6 +348,9 @@ test('brána simulace odmítne vystoupení z role a trenérskou radu', () => {
   assert.ok(roleBreak.issues.includes('list_or_heading'));
   const valid = assessRoleplayResponse('Nevím. Část mě chce, abys rozhodla za mě, protože se bojím vlastní chyby.');
   assert.equal(valid.pass, true);
+  const trailingFragment = assessRoleplayResponse('Začnu hned řešit obsah, aniž bych ověřila kontrakt.-vesm');
+  assert.equal(trailingFragment.pass, false);
+  assert.ok(trailingFragment.issues.includes('trailing_fragment'));
 });
 
 test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze studentského vstupu', () => {
@@ -363,6 +380,26 @@ test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze students
   const invented = assessDebriefResponse(debrief('Skvěle jsi nastavila hranici.'), { messages, rubric });
   assert.equal(invented.pass, false);
   assert.ok(invented.issues.includes('unsupported_student_quote'));
+});
+
+test('stav ČÁSTEČNĚ se v českém debriefu počítá jako platné vyhodnocení kritéria', () => {
+  const quote = 'Co by pro tebe dnes bylo užitečným výsledkem?';
+  const response = [
+    '## Výsledek nácviku', 'Dobrý základ.',
+    '## Co fungovalo', `Je vidět vyjasňování cíle: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — Kontrakt: důkaz „${quote}“`,
+    `- ČÁSTEČNĚ — Otevřená otázka: důkaz „${quote}“`,
+    '## Co zlepšit', 'Ještě chybí uzavření.',
+    '## Lepší formulace', '„Jaký krok zvolíš?“',
+    '## Další pokus', 'Uzavřít další krok.',
+  ].join('\n\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: ['Kontrakt', 'Otevřená otázka'],
+  });
+  assert.equal(assessed.pass, true);
+  assert.ok(!assessed.issues.includes('incomplete_rubric'));
 });
 
 test('brána hodnocení dovolí novou větu v části Lepší formulace', () => {

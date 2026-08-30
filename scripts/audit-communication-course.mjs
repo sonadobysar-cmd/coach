@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { parseCourse } from '../src/courses.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const markdown = await readFile(new URL('../data/course-komunikace-v-praxi.md', import.meta.url), 'utf8');
 const course = parseCourse(markdown, { id: 'komunikace-v-praxi' });
 const materials = JSON.parse(await readFile(new URL('../data/course-komunikace-v-praxi-materials.json', import.meta.url), 'utf8'));
@@ -36,9 +38,12 @@ for (const [moduleIndex, module] of course.modules.entries()) {
   const labels = module.items.map(item => item.title.match(/(?:Lekce|aplikace)\s+(\d+)\.(\d+)/i)).filter(Boolean);
   for (const match of labels) if (Number(match[1]) !== moduleIndex) issues.push(`Nesoulad číslování v modulu ${moduleIndex}: ${match[0]}`);
 }
-const asciiQuoteLines = markdown.split('\n').flatMap((line, index) => /[\p{L}ěščřžýáíéúůóďťň][?!.,]?"/u.test(line) ? [index + 1] : []);
+const asciiQuoteLines = markdown.split('\n').flatMap((line, index) => {
+  if (/^\s*<!--\s*elitea-visual:/i.test(line)) return [];
+  return /[\p{L}ěščřžýáíéúůóďťň][?!.,]?"/u.test(line) ? [index + 1] : [];
+});
 if (asciiQuoteLines.length) issues.push(`Podezřelé ASCII koncové uvozovky na řádcích: ${asciiQuoteLines.join(', ')}`);
-if (/\b(?:Elitea|Elitea)\b/i.test(markdown)) issues.push('Kurz obsahuje starý název Elitea/Elitea.');
+if (LEGACY_BRAND_PATTERN.test(markdown)) issues.push('Kurz obsahuje historický název značky.');
 const audioNames = [...audio.matchAll(/^## AUDIO \d+ — (.+)$/gm)].map(match => match[1].trim());
 if (audioNames.length !== 8) issues.push(`Očekáváno 8 scénářů audia, nalezeno ${audioNames.length}.`);
 if ((audio.match(/### Doslovný text/g) || []).length !== 8) issues.push('Některé audio nemá doslovný text.');

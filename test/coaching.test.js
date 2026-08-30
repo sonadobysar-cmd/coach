@@ -16,6 +16,7 @@ import {
   selectConversationWindow,
   buildRoutingText,
   fixedGroundingResponse,
+  expertRoleForMode,
   inferMode,
   resolveConversationMode,
   shapeCoachingResponse,
@@ -92,7 +93,7 @@ test('sebeodsudek nedovolí vymyslet schopnosti a nejdřív ukotví práci v kon
     routingText: 'Jsem neschopná.',
     responseMode: 'koucovaci_podpora',
   });
-  assert.match(response, /Nebudu ti proto domýšlet, co umíš/i);
+  assert.match(response, /verdikt o celé tobě|oddělit skutečný problém/i);
   assert.match(response, /Která konkrétní situace/i);
   assert.doesNotMatch(response, /umíš dokončit|komunikovat s klienty|potřeby trhu/i);
   assert.equal((response.match(/\?/g) || []).length, 1);
@@ -113,6 +114,41 @@ test('po upozornění na domněnku ji Elitea přizná a vrátí se k pozorovatel
   assert.match(response, /neměla jsem ti to připsat/i);
   assert.match(response, /konkrétní nedokončený úkol/i);
   assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
+test('první koučovací odpověď není nahrazena povinnou diagnostickou šablonou', () => {
+  const procrastination = fixedGroundingResponse({
+    messages: [{ role: 'user', content: 'Pořád odkládám web a nemůžu začít.' }],
+    latestText: 'Pořád odkládám web a nemůžu začít.',
+    responseMode: 'koucovaci_hodina',
+    conversationContext: { userTurns: 1 },
+  });
+  assert.equal(procrastination, null);
+
+  const boundary = fixedGroundingResponse({
+    messages: [{ role: 'user', content: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.' }],
+    latestText: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.',
+    responseMode: 'koucovaci_hodina',
+    conversationContext: { userTurns: 1 },
+  });
+  assert.equal(boundary, null);
+});
+
+test('žádost o lidskou řeč se vrátí k důkazům bez vymyšleného partnera', () => {
+  const response = fixedGroundingResponse({
+    latestText: 'Nerozumím ti, řekni to normálně.',
+    messages: [
+      { role: 'user', content: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.' },
+      { role: 'assistant', content: 'Předchozí složitá odpověď.' },
+      { role: 'user', content: 'Nerozumím ti, řekni to normálně.' },
+    ],
+    responseMode: 'koucovaci_hodina',
+    conversationContext: { userTurns: 2 },
+  });
+
+  assert.match(response, /^Jasně\. Řeknu to normálně\./);
+  assert.match(response, /poslední takové situaci|těsně před/i);
+  assert.doesNotMatch(response, /partner|přítel|manžel/i);
 });
 
 test('zahlcení volí nejmenší krok', () => {
@@ -155,6 +191,32 @@ test('vědomě zvolený konzultační režim má přednost před automatickým r
   assert.equal(inferMode(input, 'auto'), 'koucovaci_podpora');
 });
 
+test('automatický router rozlišuje byznysovou radu od práce s vnitřní brzdou', () => {
+  assert.equal(inferMode('Nevím, jak nacenit svoji službu a co dát do nabídky.'), 'mentoring');
+  assert.equal(inferMode('Mám problém s prodejem a stydím se.'), 'mentoring');
+  assert.equal(inferMode('Mám projekt, ale stydím se vystupovat na sockách a bojím se reakcí.'), 'mentoring');
+  assert.equal(inferMode('Cenu mám, ale stydím se ji říct a chci pochopit, co mě blokuje.'), 'koucovaci_podpora');
+  assert.equal(inferMode('Napiš mi konkrétní prodejní příspěvek, i když se bojím reakcí.'), 'mentoring');
+  assert.equal(inferMode('Ve vztahu neumím říct ne.'), 'koucovaci_podpora');
+});
+
+test('Koučka a Mentorka si v automatickém chatu plynule předávají aktuální potřebu', () => {
+  assert.equal(
+    resolveConversationMode('Napiš mi konkrétní nabídku a navrhni cenu.', 'auto', null, { previousMode: 'koucovaci_podpora' }),
+    'mentoring',
+  );
+  assert.equal(
+    resolveConversationMode('Plán chápu, ale nedokážu ho zveřejnit, protože se bojím reakcí.', 'auto', null, { previousMode: 'mentoring' }),
+    'koucovaci_podpora',
+  );
+  assert.equal(
+    resolveConversationMode('Ano, přesně.', 'auto', null, { previousMode: 'mentoring' }),
+    'mentoring',
+  );
+  assert.equal(expertRoleForMode('mentoring'), 'mentor');
+  assert.equal(expertRoleForMode('koucovaci_podpora'), 'coach');
+});
+
 test('automatický režim během aktivní techniky nemění uprostřed sezení roli podle poslední krátké odpovědi', () => {
   const activeSession = {
     techniqueId: 'accurate_self_talk_edit',
@@ -162,6 +224,7 @@ test('automatický režim během aktivní techniky nemění uprostřed sezení r
     phase: 'application',
   };
   assert.equal(resolveConversationMode('Ano, chci.', 'auto', activeSession), 'koucovaci_podpora');
+  assert.equal(resolveConversationMode('Připrav mi konkrétní nabídku a cenu.', 'auto', activeSession), 'mentoring');
   assert.equal(resolveConversationMode('Ano, chci.', 'coaching_session', activeSession), 'koucovaci_hodina');
   assert.equal(resolveConversationMode('Ano, chci.', 'auto', { ...activeSession, phase: 'completed' }), 'diagnostika');
 });
@@ -191,15 +254,15 @@ test('kontext metody obsahuje hranice a kontrolu kvality', () => {
   assert.match(context, /Omezení důkazů/);
 });
 
-test('koučovací odpověď neopakuje zvolené tykání a ponechá jedinou otázku', () => {
+test('koučovací odpověď neopakuje zvolené tykání a neodřezává druhou přirozenou otázku', () => {
   const shaped = shapeCoachingResponse(
     'Aneto, budeme si tykat? Vidím, že je to pro tebe těžké. Co bys řekla kamarádce? Chceš pokračovat?',
     { identity_preferences: { address_form: 'tykani' } },
   );
   assert.doesNotMatch(shaped, /budeme si tykat/i);
-  assert.equal((shaped.match(/\?/g) || []).length, 1);
+  assert.equal((shaped.match(/\?/g) || []).length, 2);
   assert.match(shaped, /Co bys řekla kamarádce\?/);
-  assert.doesNotMatch(shaped, /Chceš pokračovat/);
+  assert.match(shaped, /Chceš pokračovat\?/);
 });
 
 test('koučovací odpověď bez otázky dostane bezpečnou navazující otázku', () => {
@@ -211,6 +274,15 @@ test('živý koučovací tah odstraní chatbotové nadpisy a seznamovou fasádu'
   const shaped = shapeCoachingResponse('Hlavní závěr: Nejspíš se chráníš před odmítnutím.\n\n1. Udělej plán.\n2. Zvol termín.\n\nCo se stane, když nabídku opravdu zveřejníš?');
   assert.doesNotMatch(shaped, /Hlavní závěr|^\s*\d+[.)]/m);
   assert.equal((shaped.match(/\?/g) || []).length, 1);
+});
+
+test('živá odpověď odstraní markdown, který se v textovém chatu nezobrazuje', () => {
+  const output = shapeCoachingResponse('Řekni ve videu: **Nečekám na jistotu.** Výzva je *napiš mi čekám*. Co chceš upravit?', {}, {
+    requireQuestion: true,
+    sourceText: 'Vytvoř mi video.',
+  });
+  assert.equal(output, 'Řekni ve videu: Nečekám na jistotu. Výzva je napiš mi čekám. Co chceš upravit?');
+  assert.doesNotMatch(output, /\*|`/u);
 });
 
 test('živý tah odstraní zdvořilostní výplň a mentoring nemusí vyrábět otázku', () => {
@@ -267,6 +339,29 @@ test('konverzační kontext odlišuje otevření od navazující práce', () => 
     { role: 'assistant', content: 'Co se děje?' },
     { role: 'user', content: 'Bojím se odmítnutí.' },
   ]).stage, 'průzkumná fáze');
+});
+
+test('první kontakt s influencer cílem není nahrazen předem napsaným výslechem', () => {
+  const messages = [{ role: 'user', content: 'Ahoj, chci být influencerka ale nevím jak na to. Mám pocit, že nežiju život, jaký chci.' }];
+  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages[0].content,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext,
+  });
+  assert.equal(response, null);
+});
+
+test('po odpovědi na otázku o vnitřní větě je sezení připravené k cílené práci', () => {
+  const context = buildConversationContext([
+    { role: 'user', content: 'Chci být influencerka a mít vliv.' },
+    { role: 'assistant', content: 'Jaká přesná věta ti proběhne hlavou o tobě samotné?' },
+    { role: 'user', content: 'Tohle bych měla být já, ale jsem neschopná a nemám nic.' },
+  ], 'koucovaci_hodina');
+  assert.equal(context.answeredBeliefQuestion, true);
+  assert.equal(context.depthStage, 'pripraveno_k_cilene_praci');
 });
 
 test('dlouhé sezení zachová původní zakázku i poslední pracovní tahy', () => {
@@ -360,6 +455,53 @@ test('při mapování sebeodsudku Elitea zůstane u mechanismu a nedá předčas
   assert.equal((response.match(/\?/g) || []).length, 1);
 });
 
+test('self-talk u influencer cíle nevymyslí nedokončený úkol a vrátí odborné rozlišení', () => {
+  const messages = [
+    { role: 'user', content: 'Chci být influencerka, chci vliv a aby ke mně lidé vzhlíželi.' },
+    { role: 'assistant', content: 'Jaká přesná věta ti proběhne hlavou, když vidíš někoho s takovým vlivem?' },
+    { role: 'user', content: 'Tohle bych měla být já, ale jsem neschopná a nemám nic.' },
+  ];
+  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext,
+    techniqueTurn: { card: { id: 'accurate_self_talk_edit' }, session: { phase: 'assessment' } },
+  });
+  assert.match(response, /porovnala s lidmi/i);
+  assert.match(response, /mezera mezi tím, kde jsi a kde chceš být/i);
+  assert.doesNotMatch(response, /nedokončený úkol|úkol přestaneš dělat/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
+test('po přímé žádosti o první krok se influencer sezení neposune zpět do diagnostiky', () => {
+  const messages = [
+    { role: 'user', content: 'Chci být influencerka a mluvit o sebevědomí a životě podle sebe.' },
+    { role: 'assistant', content: 'Co tě na tom přitahuje?' },
+    { role: 'user', content: 'Chci vliv a aby ke mně lidé vzhlíželi.' },
+    { role: 'assistant', content: 'Co by pro tebe znamenal skutečný dopad?' },
+    { role: 'user', content: 'Tohle bych měla být já, ale jsem neschopná a nemám nic.' },
+    { role: 'assistant', content: 'Mezera se ti mění ve verdikt o celé tobě.' },
+    { role: 'user', content: 'Dobře. Co mám tedy konkrétně udělat jako první, abych jen nepřemýšlela?' },
+  ];
+  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext,
+    techniqueTurn: { card: { id: 'accurate_self_talk_edit' }, session: { phase: 'assessment' } },
+  });
+  assert.match(response, /do 24 hodin/i);
+  assert.match(response, /natoč a zveřejni/i);
+  assert.match(response, /neměř počtem lajků/i);
+  assert.doesNotMatch(response, /co přesně se stalo|nejdřív ho oddělíme od faktů/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
 test('router drží poslední byznysové téma i při krátké navazující odpovědi o kapacitě', () => {
   const text = buildRoutingText([
     { role: 'user', content: 'Potřebuji validovat aplikaci před spuštěním.' },
@@ -427,6 +569,12 @@ test('hlas Elitea zakazuje typické chatbotové návyky', () => {
   assert.match(systemPrompt, /nezačínej automaticky „Rozumím“/i);
   assert.match(systemPrompt, /neoznačuj po jedné větě něco za „typický perfekcionismus“/i);
   assert.match(systemPrompt, /Lidsky působící odpověď není hraní si na člověka/i);
+});
+
+test('prompt odlišuje automatické předání Koučka–Mentorka od souhlasu mezi oddělenými prostředími', () => {
+  assert.match(systemPrompt, /plynulého interního předávání mezi Koučkou a Mentorkou/i);
+  assert.match(systemPrompt, /systém roli mění sám podle aktuální potřeby/i);
+  assert.match(systemPrompt, /dvě oddělené konverzace a paměti/i);
 });
 
 test('uzavření koučovací hodiny nepřidává další automatickou otázku', () => {

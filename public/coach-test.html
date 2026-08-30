@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Rychlý neveřejný test Elitea Coach & Mentor bez registrace.">
+  <title>Vyzkoušej Elitea Coach & Mentor</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/coach-test.css">
+</head>
+<body>
+  <header class="test-header">
+    <a class="wordmark" href="https://elitea.cz" aria-label="Elitea">Elitea<span>.</span></a>
+    <div><b>NEVEŘEJNÝ RYCHLOTEST</b><span>Bez účtu · přibližně 5 minut</span></div>
+  </header>
+
+  <main>
+    <section class="intro" id="intro">
+      <p class="eyebrow">ELITEA COACH &amp; MENTOR</p>
+      <h1>Nečti prezentaci.<br><em>Vyzkoušej ji.</em></h1>
+      <p class="lead">Vyber jednu roli, přines skutečné malé téma a veď s Elitea krátký rozhovor. Na konci ohodnoť konkrétní zkušenost — upřímně, ne pozitivně za každou cenu.</p>
+
+      <div class="role-grid" aria-label="Vyber roli Elitea">
+        <button class="role-card is-selected" type="button" data-mode="coach" aria-pressed="true">
+          <span>01</span><strong>Koučka</strong>
+          <p>Pomůže ti téma uvidět přesněji, položí otázky a dovede tě k vlastnímu dalšímu kroku.</p>
+        </button>
+        <button class="role-card" type="button" data-mode="mentor" aria-pressed="false">
+          <span>02</span><strong>Mentorka</strong>
+          <p>Pomůže ti rozhodnout se, pojmenuje možnosti a nabídne konkrétní doporučení s důvody.</p>
+        </button>
+      </div>
+
+      <div class="test-rules">
+        <strong>Jak testovat férově</strong>
+        <ul>
+          <li>Použij jedno reálné, ale ne citlivé téma.</li>
+          <li>Nevkládej jména klientek, telefon, e-mail, zdravotní údaje ani hesla.</li>
+          <li>Test má nejvýše 6 odpovědí Elitea a nepoužívá dlouhodobou paměť.</li>
+        </ul>
+      </div>
+      <p class="inline-error" id="start-error" hidden></p>
+      <button class="primary" id="start-test" type="button">Spustit test bez registrace <span>→</span></button>
+    </section>
+
+    <section class="workspace" id="workspace" hidden aria-live="polite">
+      <div class="workspace-head">
+        <div><p class="eyebrow" id="active-role-label">ELITEA KOUČKA</p><h2>Krátké testovací sezení</h2></div>
+        <div class="turn-counter"><strong id="remaining-turns">6</strong><span>odpovědí zbývá</span></div>
+      </div>
+
+      <div class="privacy-strip"><span>◇</span> Bez registrace a bez dlouhodobé paměti. Přepis se Soně neodešle bez tvého výslovného souhlasu.</div>
+
+      <div class="messages" id="test-messages" role="log" aria-label="Testovací konverzace"></div>
+
+      <div class="starter-prompts" id="starter-prompts">
+        <button type="button" data-prompt="Odkládám jeden důležitý krok a potřebuji pochopit, co mě skutečně brzdí.">Odkládám důležitý krok</button>
+        <button type="button" data-prompt="Rozhoduji se mezi dvěma možnostmi a pořád se točím v kruhu.">Nemohu se rozhodnout</button>
+        <button type="button" data-prompt="Vím, co bych měla udělat, ale nedaří se mi to opravdu začít dělat.">Vím co, ale nezačnu</button>
+      </div>
+
+      <form class="composer" id="test-chat-form">
+        <label for="test-input">Tvoje zpráva</label>
+        <textarea id="test-input" maxlength="1400" rows="3" required placeholder="Napiš jedno konkrétní téma nebo odpověz Elitea…"></textarea>
+        <div><small>Enter odešle · Shift+Enter nový řádek</small><button type="submit" id="send-test-message">Odeslat <span>↑</span></button></div>
+      </form>
+      <p class="inline-error" id="chat-error" hidden></p>
+      <button class="secondary" id="finish-test" type="button" disabled>Ukončit a ohodnotit test</button>
+    </section>
+
+    <section class="feedback" id="feedback" hidden>
+      <p class="eyebrow">TVŮJ VERDIKT</p>
+      <h2>Co bylo opravdu dobré — a co ještě není?</h2>
+      <p>Nechceme pochvalu. Potřebujeme konkrétní zkušenost, podle které Eliteu zlepšíme.</p>
+
+      <form id="feedback-form">
+        <div class="two-columns">
+          <label>Jméno nebo přezdívka<input name="evaluatorName" maxlength="100" required autocomplete="name"></label>
+          <label>Kontakt <small>(nepovinné)</small><input name="contact" maxlength="180" placeholder="e-mail nebo WhatsApp" autocomplete="email"></label>
+        </div>
+
+        <fieldset>
+          <legend>Jak užitečná pro tebe odpověď byla?</legend>
+          <div class="rating" aria-label="Užitečnost od 1 do 5">
+            <label><input type="radio" name="usefulness" value="1" required><span>1</span></label>
+            <label><input type="radio" name="usefulness" value="2"><span>2</span></label>
+            <label><input type="radio" name="usefulness" value="3"><span>3</span></label>
+            <label><input type="radio" name="usefulness" value="4"><span>4</span></label>
+            <label><input type="radio" name="usefulness" value="5"><span>5</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Jak věrohodně držela roli koučky nebo mentorky?</legend>
+          <div class="rating" aria-label="Věrohodnost role od 1 do 5">
+            <label><input type="radio" name="roleFidelity" value="1" required><span>1</span></label>
+            <label><input type="radio" name="roleFidelity" value="2"><span>2</span></label>
+            <label><input type="radio" name="roleFidelity" value="3"><span>3</span></label>
+            <label><input type="radio" name="roleFidelity" value="4"><span>4</span></label>
+            <label><input type="radio" name="roleFidelity" value="5"><span>5</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Používala bys takovou Eliteu dál?</legend>
+          <div class="choice-row">
+            <label><input type="radio" name="wouldUse" value="yes" required><span>Ano</span></label>
+            <label><input type="radio" name="wouldUse" value="maybe"><span>Možná</span></label>
+            <label><input type="radio" name="wouldUse" value="no"><span>Ne</span></label>
+          </div>
+        </fieldset>
+
+        <label>Co konkrétně fungovalo nebo chybělo?<textarea name="notes" minlength="10" maxlength="2400" rows="5" required placeholder="Například: otázka byla přesná, ale odpověď byla příliš obecná…"></textarea></label>
+
+        <label class="check"><input type="checkbox" name="transcriptConsent"><span>Dobrovolně souhlasím, aby Soňa viděla i anonymizovaný přepis tohoto krátkého testu. Bez zaškrtnutí odešlu pouze hodnocení výše.</span></label>
+        <label class="check"><input type="checkbox" name="privacyNotice" required><span>Beru na vědomí zpracování tohoto hodnocení podle <a href="/legal/public-test.html" target="_blank" rel="noopener">pravidel soukromí rychlotestu</a>.</span></label>
+
+        <p class="inline-error" id="feedback-error" hidden></p>
+        <button class="primary" id="submit-feedback" type="submit">Odeslat hodnocení <span>→</span></button>
+      </form>
+
+      <div class="thanks" id="feedback-thanks" hidden>
+        <span>✓</span><h3>Děkujeme. Tohle je přesně ta pomoc, kterou potřebujeme.</h3>
+        <p>Hodnocení je bezpečně uložené. Můžeš stránku zavřít.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>Elitea.</span><p>Testovací prostředí není zdravotní, krizová ani terapeutická služba.</p></footer>
+  <script type="module" src="/coach-eval.js"></script>
+</body>
+</html>

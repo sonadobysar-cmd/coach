@@ -31,6 +31,7 @@ export function assessRoleplayResponse(text) {
   if (/^(?:měla bys|melas by|zkus|doporučuji|doporucuji|tvým úkolem|tvym ukolem|správná odpověď|spravna odpoved)/iu.test(output)) {
     issues.push('trainer_advice_leak');
   }
+  if (/(?:[.!?]["”']?|\s)-[\p{L}]{2,12}\s*$/u.test(output)) issues.push('trailing_fragment');
   return {
     pass: issues.length === 0,
     issues,
@@ -53,7 +54,7 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
     .split('\n')
     .map(line => line.trim())
     .filter(line => /^[-*•]\s+/u.test(line));
-  const statusCount = (competencySection.match(/\b(?:PROKÁZÁNO|ČÁSTEČNĚ|ZATÍM NEPROKÁZÁNO)\b/gu) || []).length;
+  const statusCount = (competencySection.match(/(?:PROKÁZÁNO|ČÁSTEČNĚ|ZATÍM NEPROKÁZÁNO)/gu) || []).length;
   if (statusCount < Math.max(1, rubric.length)) issues.push('incomplete_rubric');
   const missingRubricLabels = [];
   for (const rawLabel of rubric) {
@@ -65,8 +66,8 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
     }
     if (matchingRows.length > 1) issues.push('duplicate_rubric_row');
     const row = matchingRows[0];
-    const evidenceRequired = /\b(?:PROKÁZÁNO|ČÁSTEČNĚ)\b/u.test(row)
-      && !/\bZATÍM NEPROKÁZÁNO\b/u.test(row);
+    const evidenceRequired = /(?:PROKÁZÁNO|ČÁSTEČNĚ)/u.test(row)
+      && !/ZATÍM NEPROKÁZÁNO/u.test(row);
     if (!evidenceRequired) continue;
     const rowQuotes = [...row.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
     const hasSupportedEvidence = rowQuotes.some(quote => normalizedTurns.some(turn => turn.includes(quote)));
@@ -108,7 +109,13 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
 export function completeDebriefRubric(text, rubric = []) {
   const output = String(text || '').trim();
   const labels = (Array.isArray(rubric) ? rubric : []).map(clean).filter(Boolean);
-  const missingLabels = labels.filter(label => !output.includes(label));
+  const competencyRows = debriefSection(output, 'Rozbor kompetencí')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => /^[-*•]\s+/u.test(line));
+  const missingLabels = labels.filter(label => !competencyRows.some(row => (
+    row.includes(label) && /(?:PROKÁZÁNO|ČÁSTEČNĚ|ZATÍM NEPROKÁZÁNO)/u.test(row)
+  )));
   if (!output || !missingLabels.length) {
     return { text: output, changed: false, missingLabels: [] };
   }

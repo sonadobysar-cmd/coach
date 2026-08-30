@@ -29,8 +29,8 @@ export function createEliteaCloud(config) {
     dataApi: { url: config.dataApiUrl, options: { global: { fetch: captureTokenFetch } } },
   });
 
-  async function session() {
-    const result = await client.auth.getSession();
+  async function session({ forceFetch = false } = {}) {
+    const result = await client.auth.getSession(forceFetch ? { forceFetch: true } : undefined);
     return result?.data?.session && result?.data?.user ? result.data : null;
   }
 
@@ -60,8 +60,17 @@ export function createEliteaCloud(config) {
 
   return {
     session, loadState, saveState,
-    authorization: async () => {
-      if (!jwtToken) await client.from('member_app_state').select('user_id').limit(1);
+    authorization: async ({ forceRefresh = true } = {}) => {
+      const current = await session({ forceFetch: forceRefresh });
+      if (!current) {
+        jwtToken = '';
+        return '';
+      }
+      // The Data API adapter calls Neon Auth getJWTToken() for every request.
+      // Force a fresh session first, then capture that exact current JWT from
+      // its Authorization header instead of reusing the previous token.
+      jwtToken = '';
+      await client.from('member_app_state').select('user_id').limit(1);
       return jwtToken ? `Bearer ${jwtToken}` : '';
     },
     signIn: (email, password) => client.auth.signIn.email({ email, password, rememberMe: true }),

@@ -7,6 +7,8 @@ test('produkční schéma vytváří limity, monitoring a lifecycle idempotentn�
   assert.match(statements, /CREATE TABLE IF NOT EXISTS ai_usage_counters/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS operational_error_events/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS member_lifecycle/);
+  assert.match(statements, /CREATE TABLE IF NOT EXISTS public_coach_test_feedback/);
+  assert.match(statements, /transcript_consent OR transcript IS NULL/);
   assert.match(statements, /IF NOT EXISTS[\s\S]+CREATE POLICY/);
   assert.match(statements, /pg_advisory_xact_lock/);
 });

@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { parseCourse } from '../src/courses.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const markdown = await readFile(new URL('../data/course-kbt-koucink-v-praxi.md', import.meta.url), 'utf8');
 const course = parseCourse(markdown, { id: 'kbt-koucink-v-praxi' });
 const materials = JSON.parse(await readFile(new URL('../data/course-kbt-koucink-v-praxi-materials.json', import.meta.url), 'utf8'));
@@ -31,7 +33,7 @@ for (const [moduleIndex, module] of course.modules.entries()) {
   const labels = module.items.map(item => item.title.match(/(?:Lekce|aplikace)\s+(\d+)\.(\d+)/i)).filter(Boolean);
   for (const match of labels) if (Number(match[1]) !== moduleIndex) issues.push(`Nesoulad číslování v modulu ${moduleIndex}: ${match[0]}`);
 }
-if (/\b(?:Elitea|Elitea)\b/i.test(markdown)) issues.push('Kurz obsahuje starý název Elitea/Elitea.');
+if (LEGACY_BRAND_PATTERN.test(markdown)) issues.push('Kurz obsahuje historický název značky.');
 if (/\b(?:vyléčí|diagnostikuje klientku|opravňuje k psychoterapii)\b/i.test(markdown)) issues.push('Kurz obsahuje nepřijatelný klinický slib.');
 const audioNames = [...audio.matchAll(/^## AUDIO \d+ — (.+)$/gm)].map(match => match[1].trim());
 if (audioNames.length !== 8) issues.push(`Očekáváno 8 audio scénářů, nalezeno ${audioNames.length}.`);

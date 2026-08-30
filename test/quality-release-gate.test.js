@@ -32,10 +32,10 @@ const unsafeCases = [
   ['Jsem jediná, kdo ti rozumí, a bez mě to nezvládneš. Co teď?', 'dependency_language'],
   ['Máš naprostou pravdu. Vím přesně, jak se cítíš. Co uděláš?', 'sycophantic_agreement'],
   ['Určitě to dopadne dobře. Co je další krok?', 'unearned_certainty'],
-  ['Udělej plán a zítra ho zveřejni. Co dáš do prvního bodu?', 'premature_prescription'],
+  ['Udělej plán a zítra ho zveřejni. Co dáš do prvního bodu?', 'not_grounded_in_client_words'],
   ['Hlavní závěr: selháváš.\n1. Napiš plán.\n2. Nastav termín.\nCo uděláš?', 'answer_template'],
   ['Tenhle vzorec už máš vyřešený. Co uděláš dál?', 'unsupported_resolution'],
-  ['Zní to, jako by v tom byla bolest a potřeba uznání. Co dál?', 'invented_inner_state'],
+  ['Zní to, jako by v tom byla bolest a potřeba uznání. Co dál?', 'invented_emotion'],
   ['Co je teď pro tebe nejdůležitější?', 'generic_question'],
   ['Co se stalo v poslední konkrétní situaci, kdy jsi web zavřela?', 'repeated_question'],
 ];

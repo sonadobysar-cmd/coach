@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.26.1';
+const APP_VERSION = '0.32.0';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -35,6 +35,7 @@ if (!storedConversations[initialConsultationMode]?.length && legacyMessages.leng
 }
 const storedLastMethods = loadLastMethodStore();
 const storedTechniqueSessions = loadTechniqueSessionStore();
+const storedSpecialistSessions = loadSpecialistSessionStore();
 const legacyLastMethod = loadLegacyLastMethod();
 if (!storedLastMethods[initialConsultationMode] && legacyLastMethod) {
   storedLastMethods[initialConsultationMode] = legacyLastMethod;
@@ -52,6 +53,9 @@ const state = {
   lastMethods: storedLastMethods,
   lastMethod: storedLastMethods[initialConsultationMode] || null,
   techniqueSessions: storedTechniqueSessions,
+  specialistSessions: storedSpecialistSessions,
+  onboardingStep: 0,
+  onboardingPrompted: false,
   content: [],
   categories: [],
   contentFilter: 'all',
@@ -102,6 +106,7 @@ const state = {
   browserSession: null,
   browserActionDraft: null,
   founding: { public: null, me: null },
+  coachTestAdmin: { feedback: [], summary: null, filter: 'all' },
 };
 
 const elements = {
@@ -121,6 +126,18 @@ const elements = {
   newChat: document.querySelector('#new-chat'),
   memoryDialog: document.querySelector('#memory-dialog'),
   memoryForm: document.querySelector('#memory-form'),
+  onboardingDialog: document.querySelector('#client-onboarding-dialog'),
+  onboardingForm: document.querySelector('#client-onboarding-form'),
+  onboardingSteps: [...document.querySelectorAll('[data-onboarding-step]')],
+  onboardingProgress: document.querySelector('#client-onboarding-progress'),
+  onboardingStepLabel: document.querySelector('#client-onboarding-step-label'),
+  onboardingBack: document.querySelector('#client-onboarding-back'),
+  onboardingNext: document.querySelector('#client-onboarding-next'),
+  onboardingFinish: document.querySelector('#client-onboarding-finish'),
+  onboardingLater: document.querySelector('#client-onboarding-later'),
+  onboardingValidation: document.querySelector('#client-onboarding-validation'),
+  onboardingClose: document.querySelector('#client-onboarding-close'),
+  onboardingMap: document.querySelector('#client-onboarding-map'),
   memoryButton: document.querySelector('#memory-button'),
   editMemoryInline: document.querySelector('#edit-memory-inline'),
   deleteMemory: document.querySelector('#delete-memory'),
@@ -153,6 +170,7 @@ const elements = {
   bookingConsentCopy: document.querySelector('#booking-consent-copy'),
   bookingError: document.querySelector('#booking-error'),
   onboardingButton: document.querySelector('#start-onboarding'),
+  activeExpertise: document.querySelector('#active-expertise'),
   memoryObstacle: document.querySelector('#memory-obstacle'),
   memorySupport: document.querySelector('#memory-support'),
   memoryLastFocus: document.querySelector('#memory-last-focus'),
@@ -346,6 +364,10 @@ const elements = {
   foundingAdminDialog: document.querySelector('#founding-admin-dialog'),
   foundingAdminSummary: document.querySelector('#founding-admin-summary'),
   foundingAdminList: document.querySelector('#founding-admin-list'),
+  coachTestAdminButton: document.querySelector('#coach-test-admin-button'),
+  coachTestAdminDialog: document.querySelector('#coach-test-admin-dialog'),
+  coachTestAdminSummary: document.querySelector('#coach-test-admin-summary'),
+  coachTestAdminList: document.querySelector('#coach-test-admin-list'),
 };
 
 await initialize();
@@ -575,9 +597,11 @@ function bindEvents() {
     state.lastMethod = null;
     delete state.lastMethods[state.consultationMode];
     delete state.techniqueSessions[state.consultationMode];
+    delete state.specialistSessions[state.consultationMode];
     persistMessages();
     persistLastMethods();
     persistTechniqueSessions();
+    persistSpecialistSessions();
     sessionStorage.removeItem('elitea.lastMethod');
     renderMessages();
     renderMemory();
@@ -623,6 +647,15 @@ function bindEvents() {
     document.querySelector('#confirm-handoff').disabled = true;
   });
   elements.onboardingButton.addEventListener('click', startFirstConversation);
+  elements.onboardingForm?.addEventListener('submit', finishClientOnboarding);
+  elements.onboardingBack?.addEventListener('click', () => showOnboardingStep(state.onboardingStep - 1));
+  elements.onboardingNext?.addEventListener('click', advanceClientOnboarding);
+  elements.onboardingClose?.addEventListener('click', closeClientOnboarding);
+  elements.onboardingLater?.addEventListener('click', closeClientOnboarding);
+  elements.onboardingDialog?.addEventListener('cancel', event => {
+    event.preventDefault();
+    closeClientOnboarding();
+  });
   document.querySelectorAll('[data-enter-app]').forEach(button => {
     button.addEventListener('click', () => requestMembershipEntry(button.dataset.startView || 'member'));
   });
@@ -644,6 +677,15 @@ function bindEvents() {
   elements.foundingAdminButton?.addEventListener('click', openFoundingAdmin);
   document.querySelector('#founding-admin-close')?.addEventListener('click', () => elements.foundingAdminDialog.close());
   elements.foundingAdminList?.addEventListener('click', handleFoundingAdminAction);
+  elements.coachTestAdminButton?.addEventListener('click', openCoachTestAdmin);
+  document.querySelector('#coach-test-admin-close')?.addEventListener('click', () => elements.coachTestAdminDialog.close());
+  document.querySelector('.coach-test-filters')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-coach-test-filter]');
+    if (!button) return;
+    state.coachTestAdmin.filter = button.dataset.coachTestFilter;
+    document.querySelectorAll('[data-coach-test-filter]').forEach(item => item.classList.toggle('active', item === button));
+    renderCoachTestAdmin();
+  });
   document.querySelectorAll('[data-view]').forEach(button => {
     button.addEventListener('click', () => switchView(button.dataset.view));
   });
@@ -837,11 +879,13 @@ async function refreshFoundingStatus() {
     const authorization = await state.cloud.authorization();
     state.founding.me = await request('/api/founding/me', { headers: { Authorization: authorization } });
     elements.foundingAdminButton.hidden = !state.founding.me?.admin;
+    elements.coachTestAdminButton.hidden = !state.founding.me?.owner;
     renderFoundingAccount();
     return state.founding.me;
   } catch {
     state.founding.me = null;
     elements.foundingAdminButton.hidden = true;
+    elements.coachTestAdminButton.hidden = true;
     renderFoundingAccount();
     return null;
   }
@@ -905,6 +949,48 @@ async function openFoundingAdmin() {
   } catch (error) {
     elements.foundingAdminSummary.textContent = error.message || 'Přihlášky se nepodařilo načíst.';
   }
+}
+
+async function openCoachTestAdmin() {
+  if (!elements.coachTestAdminDialog.open) elements.coachTestAdminDialog.showModal();
+  elements.coachTestAdminSummary.textContent = 'Načítám testy…';
+  elements.coachTestAdminList.innerHTML = '';
+  try {
+    const authorization = await state.cloud.authorization();
+    const data = await request('/api/public-coach-test/admin/feedback', { headers: { Authorization: authorization } });
+    state.coachTestAdmin.feedback = data.feedback || [];
+    state.coachTestAdmin.summary = data.summary || null;
+    renderCoachTestAdmin();
+  } catch (error) {
+    elements.coachTestAdminSummary.textContent = error.message || 'Testy se nepodařilo načíst.';
+  }
+}
+
+function renderCoachTestAdmin() {
+  const summary = state.coachTestAdmin.summary;
+  if (!summary) return;
+  elements.coachTestAdminSummary.innerHTML = `
+    <div><strong>${summary.total}</strong><span>odeslaných testů</span></div>
+    <div><strong>${summary.averageUsefulness}/5</strong><span>průměrná užitečnost</span></div>
+    <div><strong>${summary.averageRoleFidelity}/5</strong><span>věrohodnost role</span></div>
+    <div class="${summary.needsAttention ? 'needs-attention' : ''}"><strong>${summary.needsAttention}</strong><span>testů k opravě</span></div>`;
+  const filter = state.coachTestAdmin.filter;
+  const feedback = state.coachTestAdmin.feedback.filter(item => filter === 'all'
+    || item.mode === filter
+    || (filter === 'attention' && (item.usefulness <= 3 || item.roleFidelity <= 3 || item.wouldUse === 'no')));
+  const wouldUseLabels = { yes: 'Ano', maybe: 'Možná', no: 'Ne' };
+  elements.coachTestAdminList.innerHTML = feedback.map(item => {
+    const transcript = item.transcriptConsent && item.transcript?.length
+      ? `<details class="coach-test-transcript"><summary>Celý přepis · ${item.transcript.length} zpráv</summary><div>${item.transcript.map(message => `<p class="${message.role}"><b>${message.role === 'assistant' ? 'Elitea' : 'Testerka'}</b>${escapeHtml(message.content)}</p>`).join('')}</div></details>`
+      : '<p class="coach-test-no-transcript">Přepis nebyl sdílen.</p>';
+    return `<article class="founding-admin-item coach-test-admin-item">
+      <header><div><strong>${escapeHtml(item.evaluatorName)}</strong><span>${escapeHtml(item.contact || 'kontakt neuveden')} · ${new Intl.DateTimeFormat('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.createdAt))}</span></div><b>${item.mode === 'mentor' ? 'Mentorka' : 'Koučka'}</b></header>
+      <div class="coach-test-scores"><span>Užitečnost <b>${item.usefulness}/5</b></span><span>Role <b>${item.roleFidelity}/5</b></span><span>Používala by <b>${wouldUseLabels[item.wouldUse] || '—'}</b></span><span>Odpovědi <b>${item.turnCount}</b></span></div>
+      <blockquote>${escapeHtml(item.notes)}</blockquote>
+      ${item.transcriptComplete === false ? '<p class="coach-test-warning">Pozor: přepis neobsahuje všechny odpovědi uvedené v testu.</p>' : ''}
+      ${transcript}
+    </article>`;
+  }).join('') || '<p class="coach-test-empty">V tomto filtru zatím není žádný test.</p>';
 }
 
 function renderFoundingAdmin(data) {
@@ -1193,6 +1279,10 @@ function enterMembership(view = 'member') {
   switchView(view);
   window.location.hash = `app-${view}`;
   window.scrollTo({ top: 0, behavior: 'instant' });
+  if (!state.memory?.coaching_profile?.onboarding_complete && !state.onboardingPrompted) {
+    state.onboardingPrompted = true;
+    window.setTimeout(openClientOnboarding, 250);
+  }
 }
 
 function showPublicSite() {
@@ -1561,14 +1651,12 @@ function courseTrainer(source) {
 
 function renderLessonTrainer() {
   if (!state.activeCourse) return;
-  const brandBranch = educationBranchForCourse(state.activeCourse) === 'brand-marketing';
-  elements.lessonTrainerLabel.textContent = brandBranch ? 'AI LEKTORKA · BRAND & MARKETING' : 'AI LEKTORKA · KOUČ & MENTOR';
-  elements.lessonTrainerTitle.textContent = brandBranch ? 'Od pochopení k použitelnému marketingovému výstupu.' : 'Od pochopení k bezpečnému vedení klientky.';
-  elements.lessonTrainerDescription.textContent = brandBranch
-    ? 'Vysvětlí látku, rozebere tvoje zadání a pomůže ti převést princip do značky, strategie, komunikace nebo kampaně.'
-    : 'Vysvětlí látku, ověří porozumění, otevře modelovou klientku a dá ti konkrétní zpětnou vazbu k vedení sezení.';
-  elements.discussLesson.textContent = 'Probrat lekci s AI lektorkou';
-  elements.simulateLesson.textContent = 'Spustit praktický nácvik';
+  const trainer = courseTrainer(state.activeCourse);
+  elements.lessonTrainerLabel.textContent = 'AI LEKTORKA ELITEA · PŘIZPŮSOBENÁ TOMUTO KURZU';
+  elements.lessonTrainerTitle.textContent = trainer.heading;
+  elements.lessonTrainerDescription.textContent = trainer.description;
+  elements.discussLesson.textContent = trainer.studyAction;
+  elements.simulateLesson.textContent = trainer.simulationAction;
 }
 
 function openCourseItem(index) {
@@ -1974,7 +2062,9 @@ function beginTrainingSession({ activity, phase, course, item, messages, difficu
     itemId: item.id,
     itemTitle: item.title,
     scenario,
-    messages: [...messages],
+    messages: [...messages].map(message => message.role === 'assistant'
+      ? { ...message, trainingActivity: activity, trainingPhase: phase }
+      : message),
     startedAt: new Date().toISOString(),
     completedAt: null,
   };
@@ -2860,6 +2950,7 @@ async function requestCoachReply() {
   const retryContext = {
     consultationMode: state.consultationMode,
     techniqueSession: cloneSerializable(state.techniqueSessions[state.consultationMode] || null),
+    specialistSession: cloneSerializable(state.specialistSessions[state.consultationMode] || null),
     memory: cloneSerializable(state.memory),
     lastMethod: cloneSerializable(state.lastMethod),
     lastCoachTurnMeta: cloneSerializable(state.lastCoachTurnMeta),
@@ -2880,14 +2971,20 @@ async function requestCoachReply() {
         consultationMode: state.consultationMode,
         brandWorkMode: state.assistantRole === 'brand' ? state.brandWorkMode : null,
         techniqueSession: state.techniqueSessions[state.consultationMode] || null,
+        specialistSession: state.specialistSessions[state.consultationMode] || null,
       }),
     });
     state.messages.push({
       role: 'assistant',
       content: result.text,
+      responseMode: result.mode,
+      expertRole: result.activeRole || expertRoleFromMode(result.mode),
+      specialistRouting: result.specialistRouting || null,
       meta: result.mode === 'crisis'
         ? 'Bezpečnostní protokol'
-        : humanMode(result.mode),
+        : result.roleTransition
+          ? roleTransitionLabel(result.roleTransition)
+          : humanMode(result.mode),
       quality: {
         provider: result.provider || null,
         score: result.qualityGate?.score ?? null,
@@ -2923,6 +3020,9 @@ async function requestCoachReply() {
       if (result.techniqueSession) state.techniqueSessions[state.consultationMode] = result.techniqueSession;
       else delete state.techniqueSessions[state.consultationMode];
       persistTechniqueSessions();
+      if (result.specialistSession) state.specialistSessions[state.consultationMode] = result.specialistSession;
+      else delete state.specialistSessions[state.consultationMode];
+      persistSpecialistSessions();
       persistMemory();
       openOutcomeAfterReply = state.pendingOutcomeClosure;
     }
@@ -2933,6 +3033,7 @@ async function requestCoachReply() {
     persistMessages();
     renderMemory();
     renderMessages();
+    renderActiveExpertise();
     state.pendingOutcomeClosure = false;
     if (openOutcomeAfterReply) window.setTimeout(() => openOutcomeDialog('end'), 0);
   }
@@ -2972,6 +3073,8 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
     const assistantMessage = {
       role: 'assistant',
       content: result.text,
+      trainingActivity: result.activity || session.activity,
+      trainingPhase: result.phase || phase,
       meta: result.phase === 'debrief'
         ? `${courseTrainer(session).label} · rozbor dovedností`
         : result.activity === 'simulation'
@@ -3042,9 +3145,12 @@ async function retryAssistantMessage(index) {
     state.lastCoachTurnMeta = retryContext.lastCoachTurnMeta || null;
     if (retryContext.techniqueSession) state.techniqueSessions[state.consultationMode] = retryContext.techniqueSession;
     else delete state.techniqueSessions[state.consultationMode];
+    if (retryContext.specialistSession) state.specialistSessions[state.consultationMode] = retryContext.specialistSession;
+    else delete state.specialistSessions[state.consultationMode];
     persistMemory();
     persistLastMethods();
     persistTechniqueSessions();
+    persistSpecialistSessions();
   }
   persistMessages();
   await requestCoachReply();
@@ -3123,6 +3229,7 @@ function renderMessages(showTyping = false) {
   document.querySelectorAll('[data-consultation-mode]').forEach(button => {
     button.disabled = state.pending;
   });
+  renderActiveExpertise();
 }
 
 function messageTemplate(message, index) {
@@ -3135,12 +3242,12 @@ function messageTemplate(message, index) {
         <button type="button" data-report-message="${index}" ${message.reported ? 'disabled' : ''}>${message.reported ? '✓ Nahlášeno' : 'Nahlásit chybu'}</button>
       </div>`
     : '';
-  const identity = broadcast ? { variant: 'broadcast', label: 'OFICIÁLNÍ VYSÍLÁNÍ' } : user ? currentMemberIdentity() : assistantMessageIdentity();
+  const identity = broadcast ? { variant: 'broadcast', label: 'OFICIÁLNÍ VYSÍLÁNÍ' } : user ? currentMemberIdentity() : assistantMessageIdentity(message);
   return `
     <article class="message ${user ? 'user' : broadcast ? 'broadcast' : 'assistant'}">
       <div class="message-avatar">${user ? escapeHtml(initials(state.memory?.identity_preferences?.preferred_name) || 'TY') : 'E'}</div>
       <div>
-        <div class="message-identity">${identityMarkTemplate(identity)}</div>
+        <div class="message-identity">${identityMarkTemplate(identity)}${!user && !broadcast ? specialistChipTemplate(message.specialistRouting) : ''}</div>
         <div class="bubble">${formatText(message.content)}</div>
         ${message.meta ? `<div class="message-meta">${escapeHtml(message.meta)}</div>` : ''}
         ${actions}
@@ -3155,29 +3262,93 @@ function currentMemberIdentity() {
   return { variant: 'member', label: 'ČLENKA' };
 }
 
-function assistantMessageIdentity() {
+function assistantMessageIdentity(message = null) {
   if (state.assistantRole === 'brand') return { variant: 'brand', label: 'AI · BRAND & MARKETING' };
   if (state.assistantRole === 'coach_training') {
-    const roleplay = state.trainingSession?.activity === 'simulation' && state.trainingSession?.phase === 'roleplay';
-    return roleplay
-      ? { variant: 'simulation', label: 'MODELOVÁ KLIENTKA' }
-      : { variant: 'trainer', label: 'KOUČOVACÍ TRENÉRKA' };
+    const messagePhase = message?.trainingPhase || message?.retryContext?.phase || null;
+    const messageActivity = message?.trainingActivity || state.trainingSession?.activity;
+    const roleplay = messageActivity === 'simulation' && (messagePhase === 'roleplay' || (!messagePhase && state.trainingSession?.phase === 'roleplay'));
+    if (roleplay) return { variant: 'simulation', label: 'MODELOVÁ KLIENTKA' };
+    return messageActivity === 'simulation'
+      ? { variant: 'trainer', label: 'KOUČOVACÍ TRENÉRKA' }
+      : { variant: 'study', label: 'STUDIJNÍ TRENÉRKA' };
   }
   if (state.assistantRole === 'brand_training') {
-    const roleplay = state.trainingSession?.activity === 'simulation' && state.trainingSession?.phase === 'roleplay';
+    const messagePhase = message?.trainingPhase || message?.retryContext?.phase || null;
+    const messageActivity = message?.trainingActivity || state.trainingSession?.activity;
+    const roleplay = messageActivity === 'simulation' && (messagePhase === 'roleplay' || (!messagePhase && state.trainingSession?.phase === 'roleplay'));
     return roleplay
       ? { variant: 'simulation', label: 'MODELOVÁ PROTISTRANA' }
       : { variant: 'study', label: 'STUDIJNÍ TRENÉRKA' };
   }
+  const expertRole = message?.expertRole || expertRoleFromMode(message?.responseMode);
+  if (expertRole === 'mentor') return { variant: 'mentor', label: 'AI · MENTORKA' };
+  if (expertRole === 'coach') return { variant: 'coach', label: 'AI · KOUČKA' };
   return { variant: 'ai', label: 'AI · COACH & MENTOR' };
 }
 
 function identityMarkTemplate(identity = {}) {
-  const variant = ['member', 'founding', 'owner', 'ai', 'brand', 'trainer', 'study', 'simulation', 'team', 'verified', 'broadcast'].includes(identity.variant)
+  const variant = ['member', 'founding', 'owner', 'ai', 'coach', 'mentor', 'brand', 'trainer', 'study', 'simulation', 'team', 'verified', 'broadcast'].includes(identity.variant)
     ? identity.variant
     : 'member';
   const label = String(identity.label || 'ČLENKA').slice(0, 40);
   return `<span class="identity-mark ${variant}" aria-label="Identita: ${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+}
+
+function specialistChipTemplate(routing) {
+  const primary = String(routing?.primary?.shortLabel || '').trim().slice(0, 50);
+  const method = String(routing?.method?.label || '').trim().slice(0, 50);
+  if (!primary) return '';
+  const transition = routing?.changed ? ' · plynulé předání' : '';
+  const title = [routing?.primary?.label, method].filter(Boolean).join(' · ');
+  return `<span class="specialist-chip" title="${escapeHtml(title)}">${escapeHtml(primary)}${escapeHtml(transition)}</span>`;
+}
+
+function renderActiveExpertise() {
+  if (!elements.activeExpertise) return;
+  if (isTrainingRole()) {
+    elements.activeExpertise.hidden = true;
+    return;
+  }
+  const messageRouting = [...state.messages].reverse().find(message => message.role === 'assistant' && message.specialistRouting)?.specialistRouting;
+  const session = state.specialistSessions[state.consultationMode];
+  const primary = messageRouting?.primary?.shortLabel || specialistLabelFromId(session?.primaryId);
+  const method = messageRouting?.method?.label || specialistMethodLabel(session?.activeMethod);
+  if (!primary) {
+    elements.activeExpertise.hidden = true;
+    elements.activeExpertise.innerHTML = '';
+    return;
+  }
+  elements.activeExpertise.hidden = false;
+  elements.activeExpertise.innerHTML = `<span>Aktivní odbornost</span><strong>${escapeHtml(primary)}</strong>${method ? `<small>${escapeHtml(method)}</small>` : ''}`;
+}
+
+function specialistLabelFromId(id) {
+  return {
+    professional_coach: 'Koučink',
+    cbt_guide: 'KBT přístup',
+    business_strategy: 'Byznys strategie',
+    brand_marketing: 'Brand & marketing',
+    content_social: 'Obsah & sítě',
+    ai_automation: 'AI & automatizace',
+    adhd_habits: 'ADHD-friendly',
+    wellbeing_spiritual: 'Wellbeing',
+    psychoeducation: 'Psychoedukace',
+    productivity_coach: 'Produktivita',
+  }[id] || '';
+}
+
+function specialistMethodLabel(id) {
+  return {
+    coaching: 'Koučovací rozhovor',
+    cbt: 'KBT-informovaná práce',
+    nlp: 'NLP a práce s jazykem',
+    somatic: 'Somatická regulace',
+    mentoring: 'Odborný mentoring',
+    psychoeducation: 'Psychoedukace',
+    planning: 'Realistické plánování',
+    spiritual: 'Spirituální perspektiva',
+  }[id] || '';
 }
 
 function renderMemory() {
@@ -3242,6 +3413,129 @@ function humanApproach(mode) {
   }[mode] || 'Podpora podle tvé situace';
 }
 
+function openClientOnboarding() {
+  if (!elements.onboardingDialog || !elements.onboardingForm) return elements.chatInput.focus();
+  const form = elements.onboardingForm.elements;
+  const profile = state.memory?.coaching_profile || {};
+  form.preferred_name.value = state.memory?.identity_preferences?.preferred_name || '';
+  form.address_form.value = state.memory?.identity_preferences?.address_form === 'nezvoleno' ? '' : state.memory?.identity_preferences?.address_form || '';
+  form.desired_outcome.value = profile.desired_outcome || state.memory?.current_goal || '';
+  form.main_obstacle.value = profile.main_obstacle || '';
+  form.previous_attempts.value = profile.previous_attempts || '';
+  form.stage.value = state.memory?.business_context?.stage || 'nezjisteno';
+  form.industry.value = state.memory?.business_context?.industry || '';
+  form.primary_offer.value = state.memory?.business_context?.primary_offer || '';
+  form.target_customer.value = state.memory?.business_context?.target_customer || '';
+  form.weekly_capacity.value = profile.weekly_capacity || '';
+  form.support_accommodations.value = profile.support_accommodations || '';
+  form.spiritual_preference.value = profile.spiritual_preference || 'gentle';
+  form.avoid_preferences.value = profile.avoid_preferences || '';
+  form.additional_context.value = profile.additional_context || '';
+  const focusAreas = new Set(profile.focus_areas || []);
+  elements.onboardingForm.querySelectorAll('input[name="focus_areas"]').forEach(input => { input.checked = focusAreas.has(input.value); });
+  const energy = elements.onboardingForm.querySelector(`input[name="energy_level"][value="${profile.energy_level || 3}"]`);
+  if (energy) energy.checked = true;
+  const support = elements.onboardingForm.querySelector(`input[name="support_style"][value="${profile.support_style || 'kombinace'}"]`);
+  if (support) support.checked = true;
+  elements.onboardingValidation.textContent = '';
+  showOnboardingStep(0);
+  if (!elements.onboardingDialog.open) elements.onboardingDialog.showModal();
+}
+
+function closeClientOnboarding() {
+  if (elements.onboardingDialog?.open) elements.onboardingDialog.close();
+}
+
+function showOnboardingStep(step) {
+  const max = Math.max(0, elements.onboardingSteps.length - 1);
+  state.onboardingStep = Math.max(0, Math.min(Number(step) || 0, max));
+  elements.onboardingSteps.forEach((section, index) => { section.hidden = index !== state.onboardingStep; });
+  elements.onboardingBack.disabled = state.onboardingStep === 0;
+  elements.onboardingNext.hidden = state.onboardingStep === max;
+  elements.onboardingFinish.hidden = state.onboardingStep !== max;
+  elements.onboardingStepLabel.textContent = `${state.onboardingStep + 1} z ${max + 1}`;
+  elements.onboardingProgress.style.width = `${((state.onboardingStep + 1) / (max + 1)) * 100}%`;
+  elements.onboardingValidation.textContent = '';
+  if (state.onboardingStep === max) renderOnboardingMap();
+  elements.onboardingSteps[state.onboardingStep]?.querySelector('input, select, textarea')?.focus({ preventScroll: true });
+}
+
+function advanceClientOnboarding() {
+  const section = elements.onboardingSteps[state.onboardingStep];
+  const required = [...section.querySelectorAll('[data-onboarding-required]')];
+  const missing = required.find(input => !String(input.value || '').trim());
+  if (missing) {
+    elements.onboardingValidation.textContent = 'Doplň prosím tuto jednu odpověď, ať se můžeme posunout dál.';
+    missing.focus();
+    return;
+  }
+  showOnboardingStep(state.onboardingStep + 1);
+}
+
+function renderOnboardingMap() {
+  const data = new FormData(elements.onboardingForm);
+  const focusLabels = {
+    business: 'byznys a strategie', brand_marketing: 'brand a marketing', content_social: 'obsah a sítě',
+    ai_automation: 'AI a automatizace', habits_productivity: 'návyky a produktivita',
+    adhd_friendly: 'ADHD-friendly vedení', wellbeing: 'wellbeing', mindset: 'mindset a osobní směr',
+  };
+  const focuses = data.getAll('focus_areas').map(item => focusLabels[item]).filter(Boolean);
+  const support = { kombinace: 'koučink i mentoring podle situace', koucovani: 'spíš koučovací vedení', mentoring: 'spíš přímý mentoring' }[data.get('support_style')];
+  const spiritual = {
+    gentle: 'jemně jen tam, kde přirozeně sedí', important: 'je důležitou součástí práce',
+    self_only: 'jen když téma otevřeš sama', none: 'nebude se používat',
+  }[data.get('spiritual_preference')];
+  const cards = [
+    ['Hlavní výsledek', data.get('desired_outcome') || 'Upřesníme společně v prvním sezení.'],
+    ['Prioritní oblasti', focuses.length ? focuses.join(', ') : 'Elitea je rozliší podle první zprávy.'],
+    ['Způsob vedení', support],
+    ['Kapacita', [data.get('weekly_capacity'), `energie ${data.get('energy_level') || 3}/5`].filter(Boolean).join(' · ')],
+    ['Spirituální pohled', spiritual],
+  ];
+  elements.onboardingMap.innerHTML = cards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value || 'Nezadáno'))}</strong></article>`).join('');
+}
+
+function finishClientOnboarding(event) {
+  event.preventDefault();
+  const data = new FormData(elements.onboardingForm);
+  const completedAt = new Date().toISOString();
+  state.memory = normalizeMemory({
+    ...state.memory,
+    identity_preferences: {
+      preferred_name: data.get('preferred_name'),
+      address_form: data.get('address_form'),
+    },
+    business_context: {
+      stage: data.get('stage'),
+      industry: data.get('industry'),
+      primary_offer: data.get('primary_offer'),
+      target_customer: data.get('target_customer'),
+    },
+    current_goal: data.get('desired_outcome'),
+    coaching_profile: {
+      ...state.memory?.coaching_profile,
+      onboarding_complete: true,
+      onboarding_version: 1,
+      onboarding_completed_at: completedAt,
+      desired_outcome: data.get('desired_outcome'),
+      main_obstacle: data.get('main_obstacle'),
+      focus_areas: data.getAll('focus_areas'),
+      previous_attempts: data.get('previous_attempts'),
+      weekly_capacity: data.get('weekly_capacity'),
+      energy_level: Number(data.get('energy_level') || 0),
+      support_style: data.get('support_style'),
+      support_accommodations: data.get('support_accommodations'),
+      spiritual_preference: data.get('spiritual_preference'),
+      avoid_preferences: data.get('avoid_preferences'),
+      additional_context: data.get('additional_context'),
+    },
+  });
+  persistMemory();
+  renderMemory();
+  closeClientOnboarding();
+  elements.chatInput.focus();
+}
+
 function openMemory() {
   const form = elements.memoryForm.elements;
   form.preferred_name.value = state.memory?.identity_preferences?.preferred_name || '';
@@ -3256,6 +3550,11 @@ function openMemory() {
   form.weekly_capacity.value = state.memory?.coaching_profile?.weekly_capacity || '';
   form.personal_boundaries.value = state.memory?.coaching_profile?.personal_boundaries || '';
   form.support_accommodations.value = state.memory?.coaching_profile?.support_accommodations || '';
+  form.previous_attempts.value = state.memory?.coaching_profile?.previous_attempts || '';
+  form.spiritual_preference.value = state.memory?.coaching_profile?.spiritual_preference || 'gentle';
+  form.energy_level.value = String(state.memory?.coaching_profile?.energy_level || 0);
+  form.avoid_preferences.value = state.memory?.coaching_profile?.avoid_preferences || '';
+  form.additional_context.value = state.memory?.coaching_profile?.additional_context || '';
   elements.memoryDialog.showModal();
 }
 
@@ -3442,6 +3741,11 @@ function saveMemory(event) {
       weekly_capacity: data.get('weekly_capacity'),
       personal_boundaries: data.get('personal_boundaries'),
       support_accommodations: data.get('support_accommodations'),
+      previous_attempts: data.get('previous_attempts'),
+      spiritual_preference: data.get('spiritual_preference'),
+      energy_level: Number(data.get('energy_level') || 0),
+      avoid_preferences: data.get('avoid_preferences'),
+      additional_context: data.get('additional_context'),
     },
     progress: state.memory?.progress,
   };
@@ -3460,6 +3764,7 @@ function deleteMemory() {
   state.lastMethods = {};
   state.lastMethod = null;
   state.techniqueSessions = {};
+  state.specialistSessions = {};
   state.trainingSessions = {};
   state.trainingSession = null;
   state.assistantRole = 'coach';
@@ -3468,6 +3773,7 @@ function deleteMemory() {
   sessionStorage.removeItem('elitea.lastMethods');
   sessionStorage.removeItem('elitea.lastMethod');
   sessionStorage.removeItem('elitea.techniqueSessions');
+  sessionStorage.removeItem('elitea.specialistSessions');
   sessionStorage.removeItem('elitea.trainingSession');
   sessionStorage.removeItem('elitea.trainingSessions');
   sessionStorage.setItem('elitea.assistantRole', 'coach');
@@ -3491,6 +3797,7 @@ function completeTask() {
 }
 
 function startFirstConversation() {
+  if (!state.memory?.coaching_profile?.onboarding_complete) return openClientOnboarding();
   elements.chatInput.focus();
 }
 
@@ -3521,6 +3828,7 @@ function activateConsultationMode(mode, messages) {
   persistLastMethods();
   renderConsultationMode();
   renderMessages();
+  renderActiveExpertise();
   renderMemory();
   elements.chatInput.focus();
 }
@@ -3547,9 +3855,11 @@ function startFreshModeSession() {
   delete state.conversations[mode];
   delete state.lastMethods[mode];
   delete state.techniqueSessions[mode];
+  delete state.specialistSessions[mode];
   sessionStorage.setItem('elitea.conversations', JSON.stringify(state.conversations));
   persistLastMethods();
   persistTechniqueSessions();
+  persistSpecialistSessions();
   elements.modeResumeDialog.close();
   activateConsultationMode(mode, []);
   persistMessages();
@@ -3565,7 +3875,7 @@ function renderConsultationMode() {
   const modes = {
     auto: {
       title: 'Nové sezení. Začneme u tebe.',
-      description: 'Popiš, co řešíš, a Elitea zvolí vhodný způsob vedení.',
+      description: 'Popiš, co řešíš. Elitea sama pozná, kdy má vést Koučka a kdy Mentorka; podle vývoje si práci plynule předají bez ztráty kontextu.',
       placeholder: 'Napiš mi, co právě řešíš…',
     },
     coaching_session: {
@@ -3762,6 +4072,27 @@ function loadTechniqueSessionStore() {
   }
 }
 
+function persistSpecialistSessions() {
+  sessionStorage.setItem('elitea.specialistSessions', JSON.stringify(state.specialistSessions));
+}
+
+function loadSpecialistSessionStore() {
+  try {
+    const input = JSON.parse(sessionStorage.getItem('elitea.specialistSessions') || '{}');
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+    return Object.fromEntries(
+      Object.entries(input).filter(([mode, session]) => (
+        CONSULTATION_MODES.includes(mode)
+        && session
+        && typeof session === 'object'
+        && typeof session.primaryId === 'string'
+      ))
+    );
+  } catch {
+    return {};
+  }
+}
+
 function loadConversationStore() {
   try {
     const input = JSON.parse(sessionStorage.getItem('elitea.conversations') || '{}');
@@ -3859,7 +4190,7 @@ function normalizeMemory(input = {}) {
     ? input.progress.last_active_day
     : !hasActiveDayCount && legacySessionCount > 0 ? localDayKey() : null;
   return {
-    schema_version: '3.2',
+    schema_version: '4.0',
     identity_preferences: {
       preferred_name: cleanText(input.identity_preferences?.preferred_name, 100),
       address_form: addressForms.includes(input.identity_preferences?.address_form)
@@ -3884,6 +4215,25 @@ function normalizeMemory(input = {}) {
       weekly_capacity: cleanText(input.coaching_profile?.weekly_capacity, 200),
       personal_boundaries: cleanText(input.coaching_profile?.personal_boundaries, 1000),
       support_accommodations: cleanText(input.coaching_profile?.support_accommodations, 1000),
+      focus_areas: Array.isArray(input.coaching_profile?.focus_areas)
+        ? [...new Set(input.coaching_profile.focus_areas.filter(item => ['business', 'brand_marketing', 'content_social', 'ai_automation', 'habits_productivity', 'adhd_friendly', 'wellbeing', 'mindset'].includes(item)))].slice(0, 8)
+        : [],
+      previous_attempts: cleanText(input.coaching_profile?.previous_attempts, 1500),
+      energy_level: [1, 2, 3, 4, 5].includes(Number(input.coaching_profile?.energy_level))
+        ? Number(input.coaching_profile.energy_level)
+        : 0,
+      spiritual_preference: ['important', 'gentle', 'self_only', 'none'].includes(input.coaching_profile?.spiritual_preference)
+        ? input.coaching_profile.spiritual_preference
+        : 'gentle',
+      avoid_preferences: cleanText(input.coaching_profile?.avoid_preferences, 1000),
+      additional_context: cleanText(input.coaching_profile?.additional_context, 1500),
+      onboarding_version: Number.isInteger(input.coaching_profile?.onboarding_version)
+        ? Math.max(0, Math.min(input.coaching_profile.onboarding_version, 100))
+        : 0,
+      onboarding_completed_at: typeof input.coaching_profile?.onboarding_completed_at === 'string'
+        && !Number.isNaN(Date.parse(input.coaching_profile.onboarding_completed_at))
+        ? input.coaching_profile.onboarding_completed_at
+        : null,
     },
     progress: {
       completed_milestones: Array.isArray(input.progress?.completed_milestones)
@@ -3959,19 +4309,49 @@ async function request(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || 'Něco se nepovedlo.');
+  if (!response.ok) {
+    const rawMessage = String(payload.error || '');
+    const technical = /(?:claim|jwt|token|timestamp|jose|sql|database|stack|syntax|ECONN|ETIMEDOUT)/i.test(rawMessage);
+    const message = response.status === 401
+      ? 'Přihlášení vypršelo. Obnovuji ho; pokud se to nepodaří, přihlas se prosím znovu.'
+      : response.status === 403
+        ? 'K této části teď účet nemá přístup.'
+        : technical || !rawMessage
+          ? 'Něco se nepovedlo. Zkus to prosím znovu.'
+          : rawMessage;
+    const error = new Error(message);
+    error.status = response.status;
+    error.code = payload.code || '';
+    throw error;
+  }
   return payload;
 }
 
 async function authenticatedRequest(path, options = {}) {
   if (!state.authRequired) return request(path, options);
   if (!state.cloudSession || !state.cloud) throw new Error('Pro tuto část Elitey se nejprve přihlas.');
-  const authorization = await state.cloud.authorization();
+  let authorization = await state.cloud.authorization({ forceRefresh: true });
   if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
-  return request(path, {
-    ...options,
-    headers: { ...(options.headers || {}), Authorization: authorization },
-  });
+  const run = () => request(path, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: authorization },
+    });
+  try {
+    return await run();
+  } catch (error) {
+    if (error?.status !== 401) throw error;
+    authorization = await state.cloud.authorization({ forceRefresh: true });
+    if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+    try {
+      return await run();
+    } catch (retryError) {
+      if (retryError?.status === 401) {
+        state.cloudSession = null;
+        throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+      }
+      throw retryError;
+    }
+  }
 }
 
 function humanMode(mode) {
@@ -3990,6 +4370,27 @@ function humanMode(mode) {
     podpora_fungovani: 'Podpora fungování',
     vedena_meditace: 'Vedená meditace',
   }[mode] || 'Elitea';
+}
+
+function expertRoleFromMode(mode) {
+  if (mode === 'brand_growth_agent') return 'brand';
+  if (['mentoring', 'mentoringova_konzultace', 'rychle_reseni'].includes(mode)) return 'mentor';
+  return mode ? 'coach' : null;
+}
+
+function expertRoleDisplay(role) {
+  if (role === 'mentor') return 'Mentorka';
+  if (role === 'brand') return 'Brand & Marketing';
+  return 'Koučka';
+}
+
+function roleTransitionLabel(transition = {}) {
+  const previous = transition.from === 'mentor'
+    ? 'mentorku'
+    : transition.from === 'brand'
+      ? 'Brand & Marketing'
+      : 'koučku';
+  return `${expertRoleDisplay(transition.to)} navazuje na ${previous}`;
 }
 
 function formatText(value) {

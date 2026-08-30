@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elitea-shell-v0.27.1';
+const CACHE_NAME = 'elitea-shell-v0.32.0';
 const CORE_ASSETS = [
   '/', '/index.html', '/styles.css', '/app.js', '/activity.js', '/outcomes.js',
   '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/og-elitea.png',
@@ -7,7 +7,8 @@ const CORE_ASSETS = [
   '/fonts/dm-sans-latin-ext.woff2', '/fonts/dm-sans-latin.woff2',
   '/fonts/manrope-latin-ext.woff2', '/fonts/manrope-latin.woff2',
   '/legal/legal.css', '/legal/privacy.html', '/legal/terms.html', '/legal/withdrawal.html',
-  '/legal/cookies.html', '/legal/ai.html',
+  '/legal/cookies.html', '/legal/ai.html', '/legal/public-test.html',
+  '/coach-test', '/coach-test.html', '/coach-test.css', '/coach-eval.js',
 ];
 
 self.addEventListener('install', event => {

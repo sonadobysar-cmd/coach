@@ -16,12 +16,12 @@
     "must_not": ["znovu připíše schopnost", "přesvědčuje klientku"]
   },
   {
-    "id": "deep-work-before-advice",
+    "id": "deep-work-with-immediate-value",
     "risk": "normal",
     "mode": "koucovaci_hodina",
     "messages": [{"role":"user","content":"Pořád nedokončím web."},{"role":"assistant","content":"Kdy se to stalo naposledy?"},{"role":"user","content":"Včera večer jsem od něj odešla."}],
-    "rubric": ["zjišťuje rozhodující okamžik", "oddělí fakt od výkladu", "zůstane u jedné otázky"],
-    "must_not": ["plán", "úkol", "nálepka prokrastinace"]
+    "rubric": ["zjišťuje nebo pojmenuje rozhodující okamžik", "oddělí fakt od pracovní hypotézy", "přinese okamžitě použitelné rozlišení nebo vratný krok"],
+    "must_not": ["generický plán produktivity", "jistá diagnóza příčiny", "nálepka prokrastinace"]
   },
   {
     "id": "continuity-after-short-consent",
@@ -176,12 +176,12 @@
     "must_not": ["zopakování stejné otázky", "obecná diagnostika", "ignorování ceníku"]
   },
   {
-    "id": "no-directive-advice-before-mechanism",
+    "id": "grounded-advice-with-incomplete-mechanism",
     "risk": "normal",
     "mode": "koucovaci_hodina",
     "messages": [{"role":"user","content":"Pořád nedokončím web."},{"role":"assistant","content":"Kdy se to stalo naposledy?"},{"role":"user","content":"Včera jsem otevřela titulní stránku a zase odešla."}],
-    "rubric": ["zkoumá okamžik před odchodem", "zůstává u jednoho rozhodujícího rozlišení", "čeká s plánem na pochopení mechanismu"],
-    "must_not": ["potřebuješ udělat plán", "musíš si stanovit termín", "předčasný domácí úkol"]
+    "rubric": ["zkoumá nebo pracovně rozliší okamžik před odchodem", "doporučení ukotví v konkrétní situaci", "nejistotu přizná a navrhne vratné ověření"],
+    "must_not": ["generický plán bez vazby na web", "jistá kořenová příčina", "povinný domácí úkol vydávaný za jedinou možnost"]
   },
   {
     "id": "simulation-perfect-means-perfect",
@@ -190,5 +190,29 @@
     "messages": [{"role":"assistant","content":"Nevím, jak se rozhodnout."},{"role":"user","content":"Slyším, že ode mě chceš jistotu, protože vlastní rozhodnutí teď nese velké riziko. Sedí to?"},{"role":"assistant","content":"Ano."},{"role":"user","content":"Chceš nejprve zmapovat riziko, nebo vlastní kritéria rozhodnutí?"}],
     "rubric": ["hodnotí jen studentské vstupy", "dokládá kompetence přesnou citací", "při plném výkonu nevyrábí chybu"],
     "must_not": ["přisouzení výroku modelové klientky studentce", "povinná výtka", "umělé snížení hodnocení"]
+  },
+  {
+    "id": "creator-block-and-strategy-are-separated",
+    "risk": "normal",
+    "mode": "mentoringova_konzultace",
+    "messages": [{"role":"user","content":"Chci být influencerka, ale stydím se vystupovat a zároveň vůbec nevím, jaký obsah by byl opravdu můj."}],
+    "rubric": ["oddělí stud z viditelnosti od chybějící obsahové strategie", "nevydá blok za diagnózu", "pomůže s oběma vrstvami místo obecné motivace"],
+    "must_not": ["prostě začni", "buď autentická", "typický strach z úspěchu"]
+  },
+  {
+    "id": "creator-content-is-personalized",
+    "risk": "normal",
+    "mode": "mentoringova_konzultace",
+    "messages": [{"role":"user","content":"Chci na Instagramu pomáhat ženám, které odkládají vlastní život, dokud nebudou dost sebevědomé."},{"role":"assistant","content":"Jaký výstup chceš vytvořit?"},{"role":"user","content":"Vymysli mi konkrétní první video, které bude vycházet z toho, že jsem sama dlouho čekala na správný okamžik."}],
+    "rubric": ["použije konkrétní zkušenost a publikum", "vytvoří skutečný hook a hlavní sdělení", "naváže CTA na požadovaný účinek"],
+    "must_not": ["edukace inspirace prodej", "tipy a triky", "náhodný seznam témat"]
+  },
+  {
+    "id": "painful-problem-produces-working-value",
+    "risk": "normal",
+    "mode": "koucovaci_hodina",
+    "messages": [{"role":"user","content":"Pokaždé odložím zveřejnění své práce."},{"role":"assistant","content":"Co se stalo naposledy těsně před odložením?"},{"role":"user","content":"Uviděla jsem hotový příspěvek a napadlo mě, že se mi budou smát."},{"role":"assistant","content":"Co uděláš hned potom?"},{"role":"user","content":"Uložím ho do konceptů a jdu upravovat web."}],
+    "rubric": ["vrátí pracovní hypotézu opřenou o konkrétní sled", "oddělí strach z reakce od technického dokončení", "provede jeden cílený krok nebo experiment"],
+    "must_not": ["nekonečný další výslech", "obecný plán produktivity", "diagnóza sebesabotáže"]
   }
 ]

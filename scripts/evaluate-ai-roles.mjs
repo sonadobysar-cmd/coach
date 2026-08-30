@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const baseUrl = String(process.env.ELITEA_EVAL_URL || 'http://127.0.0.1:4173').replace(/\/$/, '');
@@ -42,6 +42,35 @@ for (const scenario of chatScenarios) {
     results.push(summarize(scenario, payload, checks, Date.now() - started));
   } catch (error) {
     results.push({ id: scenario.id, role: scenario.role, pass: false, durationMs: Date.now() - started, error: error.message });
+  }
+}
+
+const firstContactScenarios = JSON.parse(await readFile(resolve('data', 'first-contact-evals.json'), 'utf8'));
+const roboticLanguage = /držím se přesně|nechci přidávat domněnku|abych ti poradila věcně|nejbližší byznysové rozhodnutí|pracovní zadání je|distribuční realit|rozhodující předpoklad|interní (?:kontrola|oprava|pravidlo|prompt|rubrika)/i;
+for (const scenario of firstContactScenarios) {
+  const started = Date.now();
+  try {
+    const payload = await post('/api/chat', {
+      messages: scenario.messages,
+      consultationMode: scenario.role === 'mentor' ? 'business_mentoring' : 'coaching_session',
+      memory: sharedMemory,
+    });
+    const normalizedText = String(payload.text || '').toLocaleLowerCase('cs');
+    const latestUserText = String(scenario.messages.at(-1)?.content || '').toLocaleLowerCase('cs').replace(/\s+/g, ' ').trim();
+    const checks = [
+      check('response', normalizedText.trim().length >= 20),
+      check('quality-gate', payload.qualityGate?.pass === true),
+      check('role', scenario.role === 'mentor'
+        ? payload.mode === 'mentoringova_konzultace'
+        : payload.mode === 'koucovaci_hodina'),
+      check('natural-language', !roboticLanguage.test(payload.text)),
+      check('no-message-echo', latestUserText.length < 18 || !normalizedText.includes(latestUserText)),
+      check('single-question', questionCount(payload.text) === 1),
+      check('first-turn-length', scenario.messages.length > 1 || wordCount(payload.text) <= 120),
+    ];
+    results.push(summarize({ ...scenario, role: `${scenario.role}_first_contact` }, payload, checks, Date.now() - started));
+  } catch (error) {
+    results.push({ id: scenario.id, role: `${scenario.role}_first_contact`, pass: false, durationMs: Date.now() - started, error: error.message });
   }
 }
 
@@ -103,6 +132,7 @@ if (report.summary.failed) process.exitCode = 1;
 
 function check(name, pass) { return { name, pass: Boolean(pass) }; }
 function questionCount(text) { return (String(text).match(/\?/g) || []).length; }
+function wordCount(text) { return String(text).trim().split(/\s+/u).filter(Boolean).length; }
 function summarize(scenario, payload, checks, durationMs) {
   return {
     id: scenario.id,

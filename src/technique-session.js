@@ -1,18 +1,9 @@
 const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'completed', 'stopped']);
 const ACTIVE_PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration']);
-const DEEP_EXPLORATION_MODES = new Set([
-  'diagnostika',
-  'koucovaci_podpora',
-  'koucovaci_hodina',
-  'nlp_konzultace',
-]);
-
 const CONSENT_FAMILIES = new Set([
   'trauma_informed_support',
   'mindfulness',
   'relaxation',
-  'emotion_skills',
-  'nlp_inspired',
 ]);
 
 const BUILTIN_TECHNIQUE_STEPS = Object.freeze({
@@ -94,7 +85,10 @@ export function createTechniqueTurn({
     session: {
       techniqueId: card.id,
       mode,
-      phase: 'assessment',
+      // Běžná koučovací metoda může začít svým prvním užitečným krokem.
+      // Samostatné čekání na souhlas zachováváme jen pro imaginaci, práci
+      // s tělem, dechem, vzpomínkou a další citlivé zkušenostní postupy.
+      phase: requiresExplicitConsent(card) ? 'assessment' : 'application',
       stepIndex: inferInitialStepIndex(card, latestText),
       status: 'active',
       turns: 1,
@@ -151,16 +145,16 @@ export function fixedTechniqueResponse(turn) {
 
 export function formatTechniqueExecution(turn) {
   if (!turn?.card || !turn?.session) {
-    return 'Pro tento tah není aktivní žádná technika. Neimprovizuj postup; pokračuj pouze přesným zjištěním kontextu.';
+    return 'Pro tento tah není aktivní zamčená technika. Použij vlastní odborný úsudek a dej člence nejlepší užitečnou odpověď z dostupného kontextu; nemusíš čekat ani pokládat otázku, pokud lze rovnou pomoci.';
   }
 
   const { card, session, steps } = turn;
   const step = steps[Math.min(session.stepIndex, Math.max(steps.length - 1, 0))] || card.core_move;
   const phaseInstruction = {
     assessment: [
-      'Neprováděj ještě techniku.',
-      'Ověř její vhodnost vůči uvedenému účelu, situaci členky a podmínkám „vhodné když“.',
-      'Zjisti právě jednu chybějící rozhodující informaci. Nevyvozuj, že technika sedí, jen podle klíčového slova.',
+      'Ověř pouze informaci, která je skutečně nutná pro citlivou zkušenostní práci.',
+      'Současně dej člence přirozené užitečné rozlišení; nedělej z posouzení administrativní čekárnu.',
+      'Nevyvozuj, že technika sedí, jen podle klíčového slova.',
     ],
     consent: [
       'Vysvětli běžným jazykem, co navrhuješ a k čemu to má sloužit; název techniky není potřeba.',
@@ -213,8 +207,7 @@ export function formatTechniqueExecution(turn) {
 
 export function enforceTechniqueResponse(text, turn, context = {}) {
   if (!turn?.card || !turn?.session) return String(text || '').trim();
-  const { card, session, steps } = turn;
-  const step = steps[Math.min(session.stepIndex, Math.max(steps.length - 1, 0))] || card.core_move;
+  const { card, session } = turn;
 
   if (session.phase === 'consent') {
     if (card.id === 'accurate_self_talk_edit' && session.stepIndex >= 3) {
@@ -245,17 +238,8 @@ export function enforceTechniqueResponse(text, turn, context = {}) {
   if (session.phase === 'integration' && session.transitionReason === 'no_effect' && card.id === 'accurate_self_talk_edit') {
     return 'To, že samotná přesnější věta nic nezměnila, je důležitá informace: problém možná neleží hlavně v tom, jak se označuješ, ale v okamžiku tlaku a nejasného začátku. Tuhle techniku nemusíme opakovat; plynule se vrátíme k mechanismu. Když web otevřeš, které první konkrétní rozhodnutí po tobě situace chce a není ti jasné?';
   }
-  if (session.phase === 'application' && !coversCurrentStep(text, step)) {
-    const cleanStep = lowercaseFirst(step).replace(/[.!?]+$/u, '');
-    if (session.transitionReason) {
-      return `Předchozí krok necháme být a nebudeme ho opakovat. Teď plynule zkusme další možnost: ${cleanStep}. Co při tom konkrétně zjistíš?`;
-    }
-    return `Teď udělej jen tento krok: ${cleanStep}. Kdykoli můžeš přestat nebo krok upravit. Čeho si při tom konkrétně všimneš?`;
-  }
-  if (session.phase === 'assessment'
-    && DEEP_EXPLORATION_MODES.has(session.mode)
-    && startsGuidedPractice(text)) {
-    return 'Než cokoli vyzkoušíme, potřebuji ověřit, jestli tento způsob práce opravdu odpovídá tomu, co potřebuješ. Co by se mělo na konci dnešního kroku změnit, aby pro tebe měl smysl?';
+  if (!String(text || '').trim() && session.phase === 'application' && session.transitionReason) {
+    return 'Předchozí krok necháme být. Zkusme teď jinou cestu: co by ti v této chvíli pomohlo pohnout se o jediný konkrétní krok?';
   }
   return String(text || '').trim();
 }
@@ -317,10 +301,6 @@ function advanceSession(previous, card, latestText, conversationContext) {
   const next = { ...previous, transitionReason: null, turns: previous.turns + 1, status: 'active' };
 
   if (previous.phase === 'assessment') {
-    if (previous.mode === 'behavioralni_konzultace' && Number(conversationContext.userTurns || 0) <= 3) {
-      return next;
-    }
-    if (needsDeeperAssessment(previous, card, conversationContext)) return next;
     next.phase = needsConsentForStep(next, card) ? 'consent' : 'application';
     return next;
   }
@@ -385,13 +365,6 @@ function advanceAfterEvaluation(next, steps, card = null) {
   }
 }
 
-function needsDeeperAssessment(previous, card, conversationContext) {
-  if (!DEEP_EXPLORATION_MODES.has(previous.mode)) return false;
-  if (!conversationContext?.depthStage) return false;
-  if (card?.id === 'customer_discovery' && conversationContext.hasDistributionFacts) return false;
-  return conversationContext.depthStage !== 'pripraveno_k_cilene_praci';
-}
-
 function needsConsentForStep(session, card) {
   if (!session.requiresConsent || session.consentGranted) return false;
   const stepKind = Array.isArray(card?.step_kinds) ? card.step_kinds[session.stepIndex] : null;
@@ -443,31 +416,6 @@ function reportsWorse(value) {
 
 function reportsEffect(value) {
   return /\b(stejne|lepsi|lehci|lehceji|horsi|hur|tezsi|mensi|vetsi|polevil|polevilo|zesilil|zesililo|zmenil|zmenilo|vsimla|citila|citim|napeti|tlak|teplo|chlad|klid|uleva|uvolnilo|uvolneneji)\b/iu.test(normalizeCzech(value));
-}
-
-function startsGuidedPractice(value) {
-  return /\b(zavri|otevri|prenes pozornost|nadechni|vydechni|udelej|opakuj|predstav si|vsimni si|zvedni|spust|zatlac)\b/iu.test(normalizeCzech(value));
-}
-
-function coversCurrentStep(value, step) {
-  const responseTokens = contentTokens(value);
-  const stepTokens = contentTokens(step);
-  if (!stepTokens.size) return true;
-  let shared = 0;
-  for (const token of stepTokens) {
-    if (responseTokens.has(token)) shared += 1;
-  }
-  return shared >= Math.min(2, stepTokens.size) || shared / stepTokens.size >= 0.24;
-}
-
-function contentTokens(value) {
-  return new Set(normalizeCzech(value)
-    .split(/[^a-z0-9]+/u)
-    .filter(token => token.length >= 4 && !['tento', 'krok', 'potom', 'nebo', 'jednu', 'jednim', 'pouze'].includes(token)));
-}
-
-function lowercaseFirst(value) {
-  return String(value || '').replace(/^./u, character => character.toLocaleLowerCase('cs-CZ'));
 }
 
 function normalizeCzech(value) {

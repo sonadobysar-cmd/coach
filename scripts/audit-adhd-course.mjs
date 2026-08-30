@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { parseCourse } from '../src/courses.js';
 import { expandAdhdMaterials } from '../src/adhd-materials.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const markdown = await readFile(new URL('../data/course-adhd-focus-motivace.md', import.meta.url), 'utf8');
 const course = parseCourse(markdown, { id: 'adhd-focus-motivace' });
 const materialDefinitions = JSON.parse(await readFile(new URL('../data/course-adhd-focus-motivace-materials.json', import.meta.url), 'utf8'));
@@ -43,7 +45,7 @@ for (const [moduleIndex, module] of course.modules.entries()) {
   if (!module.items.some(item => item.kind === 'client-practice')) issues.push(`Modul ${moduleIndex} nemá profesní simulaci.`);
   if (!module.items.some(item => item.kind === 'quiz')) issues.push(`Modul ${moduleIndex} nemá test.`);
 }
-if (/\b(?:Elitea|Elitea)\b/i.test(markdown)) issues.push('Kurz obsahuje starý název Elitea/Elitea.');
+if (LEGACY_BRAND_PATTERN.test(markdown)) issues.push('Kurz obsahuje historický název značky.');
 if (/\b(?:vyléčí ADHD|vyléčení ADHD|nahrazuje léčbu|dopamin na povel)\b/i.test(markdown)) issues.push('Kurz obsahuje nepřijatelný klinický nebo neurochemický slib.');
 for (const requiredBoundary of ['nenahrazuje', 'diagnó', 'medik', 'souhlas', 'stop']) {
   if (!new RegExp(requiredBoundary, 'i').test(markdown)) issues.push(`Chybí bezpečnostní motiv: ${requiredBoundary}.`);

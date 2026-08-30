@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { loadCourses } from '../src/courses.js';
 import { expandWomensCircleMaterials } from '../src/womens-circle-materials.js';
 
+const LEGACY_BRAND_PATTERN = new RegExp(`\\b(?:${[['self', 'aya'], ['eli', 'tela'], ['ni', 'aia']].map(parts => parts.join('')).join('|')})\\b`, 'i');
+
 const [course] = await loadCourses(fileURLToPath(new URL('../data/course-zenske-kruhy.md', import.meta.url)));
 const materialDefinitions = JSON.parse(await readFile(new URL('../data/course-zenske-kruhy-materials.json', import.meta.url), 'utf8'));
 const materials = expandWomensCircleMaterials(materialDefinitions);
@@ -23,6 +25,8 @@ assert.equal((audio.match(/### Doslovný text/g) || []).length, 12);
 for (const term of ['důvěrnost','screening','kulturní pokora','souhlas','dotek','oční kontakt','dech','vděčnost','lunární','meditace','marketing','supervize']) {
   assert.ok(`${items.map(item => item.markdown).join('\n')}\n${audio}`.toLowerCase().includes(term.toLowerCase()), `Chybí téma: ${term}`);
 }
-assert.doesNotMatch(`${items.map(item => item.markdown).join('\n')}\n${audio}`, /Elitea|vyléčí\s+(trauma|úzkost|depresi)|garantuji\s+(uzdravení|výsledek)|pradávn[áé]\s+univerzální\s+tradice/i);
+const corpus = `${items.map(item => item.markdown).join('\n')}\n${audio}`;
+assert.doesNotMatch(corpus, LEGACY_BRAND_PATTERN, 'V kurzu zůstal historický název značky.');
+assert.doesNotMatch(corpus, /vyléčí\s+(trauma|úzkost|depresi)|garantuji\s+(uzdravení|výsledek)|pradávn[áé]\s+univerzální\s+tradice/i);
 
 console.log(JSON.stringify({ ok:true, modules:course.moduleCount, items:course.itemCount, minutes:2400, words, materials:materials.length, audios:12 }, null, 2));
