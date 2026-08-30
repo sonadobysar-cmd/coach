@@ -38,10 +38,13 @@ test('chráněné požadavky obnoví Neon session a nikdy neukážou syrovou JWT
   ]);
   assert.match(cloud, /getSession\(forceFetch \? \{ forceFetch: true \} : undefined\)/);
   assert.match(cloud, /authorization: async \(\{ forceRefresh = true \} = \{\}\)/);
-  assert.match(app, /state\.cloud\.authorization\(\{ forceRefresh: true \}\)/);
+  assert.match(app, /state\.cloud\?\.authorization\(\{ forceRefresh: true \}\)/);
   assert.match(app, /if \(error\?\.status !== 401\) throw error/);
   assert.match(app, /\(\?:claim\|jwt\|token\|timestamp/);
   assert.match(app, /Přihlášení vypršelo\. Přihlas se prosím znovu\./);
+  assert.match(cloud, /try \{[\s\S]*current = await session\(\{ forceFetch: forceRefresh \}\)[\s\S]*catch \{[\s\S]*jwtToken = ''[\s\S]*return ''/);
+  assert.match(app, /async function freshAuthorization\(\)[\s\S]*promptExpiredSession\(\)/);
+  assert.match(app, /setAuthMode\('signin'\)[\s\S]*authDialog\.showModal\(\)/);
 });
 
 test('AI odpověď rezervuje fair-use zprávu ještě před voláním modelu', () => {

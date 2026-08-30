@@ -61,7 +61,13 @@ export function createEliteaCloud(config) {
   return {
     session, loadState, saveState,
     authorization: async ({ forceRefresh = true } = {}) => {
-      const current = await session({ forceFetch: forceRefresh });
+      let current;
+      try {
+        current = await session({ forceFetch: forceRefresh });
+      } catch {
+        jwtToken = '';
+        return '';
+      }
       if (!current) {
         jwtToken = '';
         return '';
@@ -70,7 +76,12 @@ export function createEliteaCloud(config) {
       // Force a fresh session first, then capture that exact current JWT from
       // its Authorization header instead of reusing the previous token.
       jwtToken = '';
-      await client.from('member_app_state').select('user_id').limit(1);
+      try {
+        await client.from('member_app_state').select('user_id').limit(1);
+      } catch {
+        jwtToken = '';
+        return '';
+      }
       return jwtToken ? `Bearer ${jwtToken}` : '';
     },
     signIn: (email, password) => client.auth.signIn.email({ email, password, rememberMe: true }),

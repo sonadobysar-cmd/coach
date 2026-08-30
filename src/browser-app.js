@@ -1038,6 +1038,7 @@ async function requestMembershipEntry(view = 'member') {
   await ensureCloudLoaded();
   if (state.cloudSession) {
     if (await hasMembershipAccess()) return enterMembership(view);
+    if (!state.cloudSession) return promptExpiredSession();
     await refreshFoundingStatus();
     return startMembershipCheckout('', foundingPlanCode());
   }
@@ -1143,8 +1144,7 @@ async function fetchMembership() {
     state.membership = { status: state.systemStatus?.paymentsConnected ? 'inactive' : 'setup' };
     return state.membership;
   }
-  const authorization = await state.cloud.authorization();
-  state.membership = await request('/api/membership', { headers: { Authorization: authorization } });
+  state.membership = await authenticatedRequest('/api/membership');
   return state.membership;
 }
 
@@ -4418,11 +4418,33 @@ async function request(path, options = {}) {
   return payload;
 }
 
+function promptExpiredSession() {
+  const message = 'Přihlášení vypršelo. Přihlas se prosím znovu.';
+  state.cloudSession = null;
+  if (state.authRequired && state.cloud) {
+    setAuthMode('signin');
+    elements.authError.textContent = message;
+    elements.authError.hidden = false;
+    if (!elements.authDialog.open) elements.authDialog.showModal();
+  }
+  return null;
+}
+
+async function freshAuthorization() {
+  try {
+    const authorization = await state.cloud?.authorization({ forceRefresh: true });
+    if (authorization) return authorization;
+  } catch {
+    // Authentication SDK errors are intentionally converted to one useful UI state.
+  }
+  promptExpiredSession();
+  throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+}
+
 async function authenticatedRequest(path, options = {}) {
   if (!state.authRequired) return request(path, options);
   if (!state.cloudSession || !state.cloud) throw new Error('Pro tuto část Elitey se nejprve přihlas.');
-  let authorization = await state.cloud.authorization({ forceRefresh: true });
-  if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+  let authorization = await freshAuthorization();
   const run = () => request(path, {
       ...options,
       headers: { ...(options.headers || {}), Authorization: authorization },
@@ -4431,13 +4453,12 @@ async function authenticatedRequest(path, options = {}) {
     return await run();
   } catch (error) {
     if (error?.status !== 401) throw error;
-    authorization = await state.cloud.authorization({ forceRefresh: true });
-    if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+    authorization = await freshAuthorization();
     try {
       return await run();
     } catch (retryError) {
       if (retryError?.status === 401) {
-        state.cloudSession = null;
+        promptExpiredSession();
         throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
       }
       throw retryError;
@@ -4447,16 +4468,16 @@ async function authenticatedRequest(path, options = {}) {
 
 async function authenticatedBlobRequest(path) {
   if (!state.cloudSession || !state.cloud) throw new Error('Pro stažení certifikátu se nejprve přihlas.');
-  let authorization = await state.cloud.authorization({ forceRefresh: true });
-  if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+  let authorization = await freshAuthorization();
   const download = () => fetch(path, { headers: { Authorization: authorization } });
   let response = await download();
   if (response.status === 401) {
-    authorization = await state.cloud.authorization({ forceRefresh: true });
+    authorization = await freshAuthorization();
     response = await download();
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) promptExpiredSession();
     throw new Error(payload.error || 'Certifikát se nepodařilo stáhnout.');
   }
   return response.blob();
