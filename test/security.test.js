@@ -85,6 +85,17 @@ test('plný kurz i tréninkový scénář vyžadují autorizované členství', 
   assert.match(scenarioRoute, /publicTrainingScenario\(scenario\)/);
 });
 
+test('vydání i stažení certifikátu je serverové, přihlášené a bez veřejného ověřovacího endpointu', () => {
+  const issueRoute = server.match(/app\.post\('\/api\/certificates\/:slug\/issue'[\s\S]*?\n}\);/)?.[0] || '';
+  const downloadRoute = server.match(/app\.get\('\/api\/certificates\/:slug\/download'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(issueRoute, /validMutationOrigin/);
+  assert.match(issueRoute, /authorizeAiRequest/);
+  assert.match(issueRoute, /issueCertificate/);
+  assert.match(downloadRoute, /authorizeAiRequest/);
+  assert.match(downloadRoute, /certificatePdf/);
+  assert.doesNotMatch(server, /\/api\/certificates\/verify|\/api\/certificates\/:id\/verify/);
+});
+
 test('health endpoint kontroluje všechny klíčové produkční závislosti bez tajných hodnot', () => {
   const healthRoute = server.match(/app\.get\('\/api\/health'[\s\S]*?\n}\);/)?.[0] || '';
   assert.match(healthRoute, /ai:/);

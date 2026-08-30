@@ -384,12 +384,27 @@ export function buildDebriefTranscriptMessages(messages = []) {
 }
 
 export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
-  return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false }) {
+  return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false, finalExam = false }) {
     const safeActivity = sanitizeTrainingActivity(activity);
     const safeDifficulty = sanitizeTrainingDifficulty(difficulty);
     const safePhase = sanitizeTrainingPhase(phase, safeActivity);
     const safeMessages = sanitizeMessages(messages);
-    const scenario = createTrainingScenario(course, item, safeDifficulty, scenarioId, counterpartHint);
+    const baseScenario = createTrainingScenario(course, item, safeDifficulty, scenarioId, counterpartHint);
+    const finalExamDefinition = course?.mastery?.finalExam;
+    const isFinalExam = finalExam === true
+      && safeActivity === 'simulation'
+      && String(scenarioId || '') === String(finalExamDefinition?.scenarioId || '');
+    const scenario = isFinalExam ? {
+      ...baseScenario,
+      assignment: finalExamDefinition.purpose || baseScenario.assignment,
+      rubric: Array.isArray(finalExamDefinition.criteria) && finalExamDefinition.criteria.length
+        ? finalExamDefinition.criteria
+        : baseScenario.rubric,
+      boundaries: [
+        ...(baseScenario.boundaries || []),
+        `Povinné důkazy závěrečné zkoušky: ${(finalExamDefinition.requiredEvidence || []).join('; ')}.`,
+      ],
+    } : baseScenario;
     const useFacultyKnowledge = BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)
       && (safeActivity === 'study' || safePhase === 'debrief');
     const facultyQuery = [

@@ -86,6 +86,7 @@ const state = {
   trainingSessions: storedTrainingSessions,
   trainingSession: storedTrainingSessions[initialAssistantRole] || null,
   trainingPortfolio: loadTrainingPortfolio(),
+  certificateStatuses: {},
   outcomes: loadOutcomeStore(),
   outcomeDialogStep: 'start',
   selectedOutcomeId: null,
@@ -763,11 +764,12 @@ function bindEvents() {
     const button = event.target.closest('[data-course-item]');
     if (button) openCourseItem(Number(button.dataset.courseItem));
   });
-  elements.masteryTabs?.addEventListener('click', event => {
+  elements.masteryTabs?.addEventListener('click', async event => {
     const button = event.target.closest('[data-mastery-tab]');
     if (!button) return;
     state.masteryTab = button.dataset.masteryTab;
     renderCourseMastery();
+    if (state.masteryTab === 'exam') await refreshCertificateStatus({ sync: true });
   });
   elements.masteryToggle?.addEventListener('click', () => {
     const expanded = elements.courseMastery.classList.toggle('expanded');
@@ -778,9 +780,15 @@ function bindEvents() {
     const day = event.target.closest('[data-mastery-day]');
     const scenario = event.target.closest('[data-mastery-scenario]');
     const exam = event.target.closest('[data-mastery-exam]');
+    const certificateRefresh = event.target.closest('[data-certificate-refresh]');
+    const certificateIssue = event.target.closest('[data-certificate-issue]');
+    const certificateDownload = event.target.closest('[data-certificate-download]');
     if (day) toggleMasteryDay(day.dataset.masteryDay);
     if (scenario) startMasteryScenario(scenario.dataset.masteryScenario);
-    if (exam) startMasteryScenario(state.activeCourse?.mastery?.finalExam?.scenarioId);
+    if (exam) startMasteryScenario(state.activeCourse?.mastery?.finalExam?.scenarioId, { finalExam: true });
+    if (certificateRefresh) refreshCertificateStatus({ sync: true });
+    if (certificateIssue) issueCurrentCertificate();
+    if (certificateDownload) downloadCurrentCertificate();
   });
   elements.courseMasteryContent?.addEventListener('change', saveMasteryField);
   elements.courseMasteryContent?.addEventListener('input', saveMasteryField);
@@ -1899,7 +1907,14 @@ function renderMasteryPack(mastery, progress) {
 function renderMasteryExam(mastery) {
   const exam = mastery.finalExam;
   const attempts = state.trainingPortfolio.filter(entry => entry.courseId === state.activeCourse.id && entry.scenarioId === exam.scenarioId).length;
-  return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article>`;
+  const status = state.certificateStatuses[state.activeCourse.id];
+  const certificate = status?.certificate;
+  const certificateBody = status?.issued
+    ? `<div><span>VYDÁNO</span><h3>Tvůj certifikát je připravený</h3><p>${escapeHtml(certificate.memberName)} · ${escapeHtml(new Date(certificate.completedAt).toLocaleDateString('cs-CZ'))}</p></div><button type="button" data-certificate-download>Stáhnout PDF</button>`
+    : status?.eligible
+      ? `<div><span>SPLNĚNO</span><h3>Vystavit certifikát</h3><p>Na dokumentu bude jen jméno, název programu a skutečné datum absolvování.</p><label><span>Jméno na certifikátu</span><input id="certificate-member-name" maxlength="120" autocomplete="name" value="${escapeHtml(state.cloudSession?.user?.name || '')}" placeholder="Jméno a příjmení"></label></div><button type="button" data-certificate-issue>Vystavit certifikát</button>`
+      : `<div><span>CERTIFIKÁT</span><h3>${status ? 'Ještě zbývá několik kroků' : 'Ověřit splnění programu'}</h3>${status ? `<ul>${status.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : '<p>Elitea bezpečně ověří dokončené části, portfolio a výsledek závěrečné zkoušky.</p>'}</div><button type="button" data-certificate-refresh>${status ? 'Znovu ověřit' : 'Ověřit splnění'}</button>`;
+  return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article><article class="mastery-certificate-card">${certificateBody}</article>`;
 }
 
 function toggleMasteryDay(dayId) {
@@ -1931,7 +1946,7 @@ function saveMasteryField(event) {
   persistCourseMasteryProgress();
 }
 
-async function startMasteryScenario(scenarioId) {
+async function startMasteryScenario(scenarioId, { finalExam = false } = {}) {
   const course = state.activeCourse;
   const scenarioEntry = course?.mastery?.scenarios?.find(item => item.id === scenarioId);
   if (!course || !scenarioEntry || state.pending) return;
@@ -1939,10 +1954,11 @@ async function startMasteryScenario(scenarioId) {
   if (!item) return alert('Navázaná kurzová část nebyla nalezena.');
   state.pending = true;
   try {
-    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(course.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(scenarioEntry.difficulty)}&scenarioId=${encodeURIComponent(scenarioEntry.id)}`);
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(course.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(scenarioEntry.difficulty)}&scenarioId=${encodeURIComponent(scenarioEntry.id)}${finalExam ? '&finalExam=1' : ''}`);
     beginTrainingSession({
       activity: 'simulation', phase: 'roleplay', course, item,
       difficulty: scenarioEntry.difficulty, scenario,
+      finalExam,
       messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(course).counterpart} · ${difficultyLabel(scenarioEntry.difficulty)}` }],
     });
     switchView('chat');
@@ -1969,6 +1985,78 @@ function masteryStateForCourse() {
 function persistCourseMasteryProgress() {
   localStorage.setItem('elitea.courseMastery', JSON.stringify(state.masteryProgress));
   syncCloudState();
+}
+
+function currentCertificateEvidence() {
+  const course = state.activeCourse;
+  return {
+    completedItemIds: flattenCourseItems(course)
+      .filter(item => state.courseProgress.has(progressKey(course, item)))
+      .map(item => item.id),
+    mastery: masteryStateForCourse(),
+  };
+}
+
+async function refreshCertificateStatus({ sync = false } = {}) {
+  const course = state.activeCourse;
+  if (!course?.certificate || state.pending) return;
+  state.pending = true;
+  try {
+    const status = sync
+      ? await authenticatedRequest(`/api/certificates/${encodeURIComponent(course.slug)}/evidence`, {
+          method: 'POST', body: JSON.stringify(currentCertificateEvidence()),
+        })
+      : await authenticatedRequest(`/api/certificates/${encodeURIComponent(course.slug)}/status`);
+    state.certificateStatuses[course.id] = status;
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    state.pending = false;
+    if (state.activeCourse?.id === course.id && state.masteryTab === 'exam') renderCourseMastery();
+  }
+}
+
+async function issueCurrentCertificate() {
+  const course = state.activeCourse;
+  const input = document.querySelector('#certificate-member-name');
+  const memberName = String(input?.value || '').trim();
+  if (!course || !memberName || state.pending) {
+    if (!memberName) alert('Napiš jméno, které má být na certifikátu.');
+    return;
+  }
+  state.pending = true;
+  try {
+    const status = await authenticatedRequest(`/api/certificates/${encodeURIComponent(course.slug)}/issue`, {
+      method: 'POST', body: JSON.stringify({ memberName }),
+    });
+    state.certificateStatuses[course.id] = status;
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    state.pending = false;
+    renderCourseMastery();
+  }
+}
+
+async function downloadCurrentCertificate() {
+  const course = state.activeCourse;
+  if (!course || state.pending) return;
+  state.pending = true;
+  try {
+    const blob = await authenticatedBlobRequest(`/api/certificates/${encodeURIComponent(course.slug)}/download`);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `elitea-${course.slug}-certifikat.pdf`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    state.pending = false;
+  }
 }
 
 function loadCourseMasteryProgress() {
@@ -2043,7 +2131,7 @@ async function startCurrentLessonSimulation() {
   }
 }
 
-function beginTrainingSession({ activity, phase, course, item, messages, difficulty = 'standard', scenario = null }) {
+function beginTrainingSession({ activity, phase, course, item, messages, difficulty = 'standard', scenario = null, finalExam = false }) {
   if (isTrainingRole()) persistTrainingSession();
   else persistMessages();
   const role = trainingRoleForCourse(course);
@@ -2062,6 +2150,7 @@ function beginTrainingSession({ activity, phase, course, item, messages, difficu
     itemId: item.id,
     itemTitle: item.title,
     scenario,
+    finalExam: finalExam === true,
     messages: [...messages].map(message => message.role === 'assistant'
       ? { ...message, trainingActivity: activity, trainingPhase: phase }
       : message),
@@ -3068,6 +3157,7 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
         difficulty: session.difficulty,
         scenarioId: session.scenario?.id || null,
         counterpartHint: session.scenario?.counterpartHint || null,
+        finalExam: session.finalExam === true,
       }),
     });
     const assistantMessage = {
@@ -3099,6 +3189,7 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
       } else {
         session.completedAt = new Date().toISOString();
         saveTrainingPortfolioEntry(session, result.text, result.achievement);
+        if (session.finalExam) window.setTimeout(() => refreshCertificateStatus({ sync: true }), 0);
       }
     }
   } catch (error) {
@@ -4352,6 +4443,23 @@ async function authenticatedRequest(path, options = {}) {
       throw retryError;
     }
   }
+}
+
+async function authenticatedBlobRequest(path) {
+  if (!state.cloudSession || !state.cloud) throw new Error('Pro stažení certifikátu se nejprve přihlas.');
+  let authorization = await state.cloud.authorization({ forceRefresh: true });
+  if (!authorization) throw new Error('Přihlášení vypršelo. Přihlas se prosím znovu.');
+  const download = () => fetch(path, { headers: { Authorization: authorization } });
+  let response = await download();
+  if (response.status === 401) {
+    authorization = await state.cloud.authorization({ forceRefresh: true });
+    response = await download();
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'Certifikát se nepodařilo stáhnout.');
+  }
+  return response.blob();
 }
 
 function humanMode(mode) {

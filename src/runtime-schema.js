@@ -91,6 +91,50 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   `ALTER TABLE public_coach_test_feedback ENABLE ROW LEVEL SECURITY`,
   `CREATE INDEX IF NOT EXISTS public_coach_test_feedback_created_idx
     ON public_coach_test_feedback (created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS academy_course_evidence (
+    user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    course_id text NOT NULL,
+    course_slug text NOT NULL,
+    completed_item_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    portfolio_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+    evidence_hash text NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, course_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS academy_exam_attempts (
+    id uuid PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    course_id text NOT NULL,
+    course_slug text NOT NULL,
+    item_id text NOT NULL,
+    scenario_id text NOT NULL,
+    all_proven boolean NOT NULL DEFAULT false,
+    quality_passed boolean NOT NULL DEFAULT false,
+    provider text NOT NULL,
+    transcript_hash text NOT NULL,
+    completed_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS academy_exam_attempts_lookup_idx
+    ON academy_exam_attempts (user_id, course_id, completed_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS academy_certificates (
+    id uuid PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    course_id text NOT NULL,
+    course_slug text NOT NULL,
+    member_name text NOT NULL CHECK (char_length(member_name) BETWEEN 2 AND 120),
+    course_title text NOT NULL,
+    completed_at timestamptz NOT NULL,
+    issued_at timestamptz NOT NULL DEFAULT now(),
+    template_variant text NOT NULL CHECK (template_variant IN ('light', 'dark')),
+    evidence_hash text NOT NULL,
+    revoked_at timestamptz,
+    UNIQUE (user_id, course_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS academy_certificates_member_idx
+    ON academy_certificates (user_id, issued_at DESC)`,
+  `ALTER TABLE academy_course_evidence ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE academy_exam_attempts ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE academy_certificates ENABLE ROW LEVEL SECURITY`,
 ];
 
 let bootstrapPromise = null;

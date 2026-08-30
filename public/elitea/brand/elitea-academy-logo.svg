@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="480" viewBox="0 0 1600 480" role="img" aria-labelledby="title desc">
+  <title id="title">Elitea Academy</title>
+  <desc id="desc">Oficiální horizontální logo Elitea Academy na průhledném pozadí.</desc>
+  <defs>
+    <style>
+      .elitea {
+        fill: #111114;
+        font-family: "Bodoni Moda", "Bodoni 72", Didot, "Times New Roman", serif;
+        font-size: 246px;
+        font-weight: 600;
+        letter-spacing: -15px;
+      }
+      .academy {
+        fill: #75516a;
+        font-family: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+        font-size: 63px;
+        font-weight: 700;
+        letter-spacing: 22px;
+      }
+    </style>
+  </defs>
+  <g>
+    <text class="elitea" x="56" y="316">Elitea</text>
+    <circle cx="687" cy="139" r="13" fill="#ff681d"/>
+    <rect x="786" y="96" width="2" height="272" rx="1" fill="#d9cfc9"/>
+    <text class="academy" x="868" y="270">ACADEMY</text>
+    <rect x="870" y="305" width="542" height="3" rx="1.5" fill="#c5a46d"/>
+  </g>
+</svg>

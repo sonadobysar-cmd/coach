@@ -70,6 +70,13 @@ import { reportOperationalError, sanitizeOperationalEvent } from './observabilit
 import { lifecycleConfigured, runLifecycleEmails } from './lifecycle-email.js';
 import { ensureRuntimeSchema, runtimeSchemaStatus } from './runtime-schema.js';
 import {
+  certificatePdf,
+  certificateStatus,
+  issueCertificate,
+  recordCertificateExamAttempt,
+  syncCertificateEvidence,
+} from './certificate-service.js';
+import {
   advancePublicCoachTestSession,
   issuePublicCoachTestSession,
   listPublicCoachTestFeedback,
@@ -700,6 +707,59 @@ app.get('/api/courses/:slug', async (request, response) => {
   }
 });
 
+app.post('/api/certificates/:slug/evidence', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ žádosti.' });
+  try {
+    const member = await authorizeAiRequest(request);
+    const course = courses.find(item => item.slug === request.params.slug);
+    if (!course?.certificate) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz s certifikátem nebyl nalezen.' });
+    await syncCertificateEvidence(member, course, request.body || {});
+    return response.set('Cache-Control', 'no-store').json(await certificateStatus(member, course));
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Průběh kurzu se nepodařilo ověřit.', code: error?.code });
+  }
+});
+
+app.get('/api/certificates/:slug/status', async (request, response) => {
+  try {
+    const member = await authorizeAiRequest(request);
+    const course = courses.find(item => item.slug === request.params.slug);
+    if (!course?.certificate) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz s certifikátem nebyl nalezen.' });
+    return response.set('Cache-Control', 'no-store').json(await certificateStatus(member, course));
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Stav certifikátu se nepodařilo načíst.', code: error?.code });
+  }
+});
+
+app.post('/api/certificates/:slug/issue', async (request, response) => {
+  if (!validMutationOrigin(request)) return response.status(403).set('Cache-Control', 'no-store').json({ error: 'Neplatný původ žádosti.' });
+  try {
+    const member = await authorizeAiRequest(request);
+    const course = courses.find(item => item.slug === request.params.slug);
+    if (!course?.certificate) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz s certifikátem nebyl nalezen.' });
+    return response.status(201).set('Cache-Control', 'no-store').json(await issueCertificate(member, course, request.body?.memberName));
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Certifikát se nepodařilo vydat.', code: error?.code });
+  }
+});
+
+app.get('/api/certificates/:slug/download', async (request, response) => {
+  try {
+    const member = await authorizeAiRequest(request);
+    const course = courses.find(item => item.slug === request.params.slug);
+    if (!course?.certificate) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz s certifikátem nebyl nalezen.' });
+    const pdf = await certificatePdf(member, course);
+    const filename = `elitea-${String(course.slug).replace(/[^a-z0-9-]/gi, '-')}-certifikat.pdf`;
+    return response.status(200)
+      .set('Cache-Control', 'private, no-store')
+      .set('Content-Type', 'application/pdf')
+      .set('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(pdf);
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({ error: error?.message || 'Certifikát se nepodařilo stáhnout.', code: error?.code });
+  }
+});
+
 app.get('/api/course-search', async (request, response) => {
   try {
     await authorizeAiRequest(request);
@@ -1023,6 +1083,9 @@ app.post('/api/training', async (request, response) => {
   });
   const { activity, phase, autoTransition, counterpartHint } = turn;
   const difficulty = sanitizeTrainingDifficulty(request.body?.difficulty);
+  const finalExam = request.body?.finalExam === true
+    && activity === 'simulation'
+    && String(request.body?.scenarioId || '') === String(context.course?.mastery?.finalExam?.scenarioId || '');
   console.log(JSON.stringify({ level: 'info', message: 'training_started', requestId, activity, phase, autoTransition, counterpartHint }));
 
   try {
@@ -1043,7 +1106,20 @@ app.post('/api/training', async (request, response) => {
       scenarioId: request.body?.scenarioId,
       counterpartHint,
       autoTransition,
+      finalExam,
     });
+    if (member && finalExam && phase === 'debrief') {
+      await recordCertificateExamAttempt({
+        member,
+        course: context.course,
+        item: context.item,
+        scenarioId: request.body?.scenarioId,
+        messages: request.body?.messages,
+        result,
+      }).catch(async error => {
+        await reportOperationalError({ area: 'academy_certificate', code: error?.code || 'EXAM_RECORD_FAILED', path: request.path, summary: error });
+      });
+    }
     if (member) {
       const coachingTrainer = activity === 'simulation' && context.course.categoryId === 'coaching-mental-health';
       await recordAiUsage(member, {

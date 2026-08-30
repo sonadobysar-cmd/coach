@@ -64,6 +64,6 @@ test('certifikát obsahuje konkrétní kurz a skutečné datum a nevznikne jen z
   assert.equal(payload.courseTitle, communication.title);
   assert.equal(payload.completedAt, '2026-08-26T10:30:00.000Z');
   assert.equal(payload.memberName, 'Anna Nováková');
-  assert.equal(payload.templateVersion, 'pending-owner-design-v1');
+  assert.equal(payload.templateVersion, 'canva-achievement-v1');
   assert.equal(payload.verificationHash.length, 64);
 });

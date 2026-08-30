@@ -676,6 +676,20 @@ dialog::backdrop { background: rgba(30,23,29,.42); backdrop-filter: blur(8px); }
 .mastery-exam footer b { font-size: 9px; }
 .mastery-exam footer p { max-width: 610px; margin: 4px 0 0; color: #bcb2c5; font-size: 7.5px; line-height: 1.5; }
 .mastery-exam footer button { color: #17131c; background: #c9b7ff; }
+.mastery-certificate-card { margin-top: 14px; padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; gap: 22px; border: 1px solid #ddc995; border-radius: 19px; background: radial-gradient(circle at 88% 12%, rgba(214,175,75,.18), transparent 34%), #fffdf8; }
+.mastery-certificate-card > div { min-width: 0; }
+.mastery-certificate-card span { color: #9b6b09; font: 900 7px Manrope, sans-serif; letter-spacing: .14em; }
+.mastery-certificate-card h3 { margin: 5px 0; color: #231d1b; font-size: 15px; }
+.mastery-certificate-card p, .mastery-certificate-card li { color: #716760; font-size: 8px; line-height: 1.55; }
+.mastery-certificate-card ul { margin: 7px 0 0; padding-left: 16px; }
+.mastery-certificate-card label { margin-top: 12px; display: grid; gap: 5px; }
+.mastery-certificate-card label span { color: #554940; letter-spacing: .04em; }
+.mastery-certificate-card input { width: min(360px, 100%); padding: 10px 12px; border: 1px solid #d8c8aa; border-radius: 10px; color: #241f1c; background: white; font: 650 9px Manrope, sans-serif; }
+.mastery-certificate-card button { flex: 0 0 auto; min-height: 40px; padding: 11px 18px; border: 0; border-radius: 999px; color: white; background: #201817; font: 800 8px Manrope, sans-serif; cursor: pointer; }
+@media (max-width: 700px) {
+  .mastery-certificate-card { align-items: stretch; flex-direction: column; }
+  .mastery-certificate-card button { width: 100%; }
+}
 .lesson-module-context { max-width: 790px; margin-bottom: 13px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-left: 3px solid var(--plum); border-radius: 0 10px 10px 0; background: #f4f0ee; }
 .lesson-module-context strong { color: var(--plum-dark); font: 800 8px/1.4 Manrope, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .lesson-module-context span { color: var(--muted); font: 600 8px/1.4 Manrope, sans-serif; text-align: right; }
