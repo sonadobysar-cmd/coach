@@ -374,9 +374,14 @@ const elements = {
 await initialize();
 
 if ('serviceWorker' in navigator && window.isSecureContext) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(error => {
-    console.warn('Elitea offline režim se nepodařilo aktivovat.', error?.message || error);
-  }));
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+      await registration.update();
+    } catch (error) {
+      console.warn('Elitea offline režim se nepodařilo aktivovat.', error?.message || error);
+    }
+  });
 }
 
 window.addEventListener('error', event => {

@@ -24,5 +24,13 @@ test('Elitea je instalovatelná PWA s identitou a zkratkami', () => {
 test('service worker nikdy necachuje API a má offline shell', () => {
   assert.match(worker, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker, /caches\.match\('\/index\.html'\)/);
-  assert.match(app, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
+  assert.match(app, /navigator\.serviceWorker\.register\('\/sw\.js', \{ updateViaCache: 'none' \}\)/);
+});
+
+test('nový produkční JavaScript a CSS mají přednost před starou PWA cache', () => {
+  assert.match(worker, /elitea-shell-v0\.32\.1/);
+  assert.match(worker, /\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\//);
+  const mutableBranch = worker.match(/if \(\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\/[\s\S]*?\n  \}/)?.[0] || '';
+  assert.match(mutableBranch, /fetch\(request\)/);
+  assert.match(mutableBranch, /catch\(\(\) => caches\.match\(request\)\)/);
 });
