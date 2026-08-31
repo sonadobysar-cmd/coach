@@ -8,6 +8,12 @@ import {
 } from './certificates.js';
 import { renderCertificatePdf } from './certificate-renderer.js';
 import { passedCourseQuizItemIds } from './course-quiz-service.js';
+import {
+  certificateSigningConfigured,
+  extractCertificateVerification,
+  signedRecordMatchesDatabase,
+  verifyCertificateVerificationToken,
+} from './certificate-authenticity.js';
 
 export async function syncCertificateEvidence(member, course, input, env = process.env, dependencies = {}) {
   assertStorage(member, env);
@@ -34,7 +40,7 @@ export async function recordCertificateExamAttempt({ member, course, item, scena
   const expectedScenarioId = String(course?.mastery?.finalExam?.scenarioId || '');
   if (!expectedScenarioId || String(scenarioId || '') !== expectedScenarioId) return { recorded: false, reason: 'not_final_exam' };
   const provider = String(result?.provider || '').slice(0, 160);
-  const trustedProvider = provider && !/(fallback|demo|local|deterministic)/i.test(provider);
+  const trustedProvider = isTrustedCertificateProvider(provider);
   const qualityPassed = result?.qualityGate?.pass === true;
   const allProven = result?.achievement?.allProven === true;
   const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
@@ -63,14 +69,23 @@ export async function certificateStatus(member, course, env = process.env, depen
     sql`SELECT all_proven, quality_passed, provider, completed_at
       FROM academy_exam_attempts
       WHERE user_id=${member.id}::uuid AND course_id=${course.id}
-      ORDER BY (all_proven AND quality_passed AND provider !~* '(fallback|demo|local|deterministic)') DESC,
+      ORDER BY (all_proven AND quality_passed
+        AND provider ~* '^(openai|anthropic|google|xai|mistral|meta)/'
+        AND provider !~* '(fallback|demo|local|deterministic)') DESC,
         completed_at DESC LIMIT 1`,
     sql`SELECT member_name, course_title, completed_at, issued_at, template_variant, revoked_at
       FROM academy_certificates WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
   ]);
-  return buildCertificateStatus(course, {
+  const status = buildCertificateStatus(course, {
     evidence: evidenceRows[0], examAttempt: examRows[0], certificate: certificateRows[0],
   });
+  return {
+    ...status,
+    authenticity: status.issued ? {
+      cryptographicallySigned: certificateSigningConfigured(env),
+      externalVerification: '/overit-certifikat',
+    } : null,
+  };
 }
 
 export function buildCertificateStatus(course, { evidence, examAttempt, certificate } = {}) {
@@ -86,7 +101,7 @@ export function buildCertificateStatus(course, { evidence, examAttempt, certific
   });
   const trustedExam = finalExamAchievement.allProven
     && (examAttempt?.quality_passed === true || examAttempt?.qualityPassed === true)
-    && !/(fallback|demo|local|deterministic)/i.test(String(examAttempt?.provider || ''));
+    && isTrustedCertificateProvider(examAttempt?.provider);
   const eligible = eligibility.eligible && trustedExam;
   const reasons = [];
   if (eligibility.missingItemIds.length) reasons.push(`Dokonči ještě ${eligibility.missingItemIds.length} částí kurzu.`);
@@ -114,6 +129,9 @@ export function buildCertificateStatus(course, { evidence, examAttempt, certific
 }
 
 export async function issueCertificate(member, course, memberName, env = process.env, dependencies = {}) {
+  if (!certificateSigningConfigured(env)) {
+    throw certificateError('Kryptografické podepisování certifikátů zatím není připojené.', 503, 'CERTIFICATE_SIGNING_UNAVAILABLE');
+  }
   const safeName = sanitizeCertificateMemberName(memberName);
   const status = await certificateStatus(member, course, env, dependencies);
   if (status.issued) return status;
@@ -124,6 +142,7 @@ export async function issueCertificate(member, course, memberName, env = process
   const [exam] = await sql`SELECT completed_at FROM academy_exam_attempts
     WHERE user_id=${member.id}::uuid AND course_id=${course.id}
       AND all_proven=true AND quality_passed=true
+      AND provider ~* '^(openai|anthropic|google|xai|mistral|meta)/'
       AND provider !~* '(fallback|demo|local|deterministic)'
     ORDER BY completed_at DESC LIMIT 1`;
   if (!evidence || !exam) throw certificateError('Ověřené podklady certifikátu nejsou úplné.', 409, 'CERTIFICATE_EVIDENCE_MISSING');
@@ -139,8 +158,12 @@ export async function issueCertificate(member, course, memberName, env = process
 
 export async function certificatePdf(member, course, env = process.env, dependencies = {}) {
   assertStorage(member, env);
+  if (!certificateSigningConfigured(env)) {
+    throw certificateError('Kryptografické podepisování certifikátů zatím není připojené.', 503, 'CERTIFICATE_SIGNING_UNAVAILABLE');
+  }
   const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
-  const [record] = await sql`SELECT member_name, course_title, completed_at, template_variant, revoked_at
+  const [record] = await sql`SELECT id, course_id, course_slug, member_name, course_title, completed_at,
+      issued_at, template_variant, evidence_hash, revoked_at
     FROM academy_certificates WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`;
   if (!record || record.revoked_at) throw certificateError('Certifikát zatím nebyl vydán.', 404, 'CERTIFICATE_NOT_FOUND');
   return renderCertificatePdf({
@@ -148,7 +171,51 @@ export async function certificatePdf(member, course, env = process.env, dependen
     courseTitle: record.course_title,
     completedAt: record.completed_at,
     variant: record.template_variant,
+    authenticity: record,
+    env,
   });
+}
+
+export async function verifyCertificateDocument(pdfBytes, env = process.env, dependencies = {}) {
+  if (!certificateSigningConfigured(env)) {
+    throw certificateError('Ověření certifikátů zatím není připojené.', 503, 'CERTIFICATE_SIGNING_UNAVAILABLE');
+  }
+  if (!env.DATABASE_URL) throw certificateError('Ověření certifikátů zatím není připojené.', 503, 'CERTIFICATE_STORAGE_UNAVAILABLE');
+  const bytes = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes || []);
+  if (bytes.length < 100 || bytes.subarray(0, 4).toString() !== '%PDF') {
+    throw certificateError('Nahraj platný PDF certifikát Elitea.', 400, 'CERTIFICATE_PDF_INVALID');
+  }
+
+  let extracted;
+  try { extracted = await extractCertificateVerification(bytes); }
+  catch (error) {
+    if (error?.code) throw error;
+    throw certificateError('PDF se nepodařilo bezpečně přečíst.', 400, 'CERTIFICATE_PDF_INVALID');
+  }
+  const signature = verifyCertificateVerificationToken(extracted.token, env);
+  if (!signature.valid) return invalidVerification('signature_invalid');
+  if (signature.payload.visualFingerprint !== extracted.visualFingerprint) {
+    return invalidVerification('document_modified');
+  }
+
+  const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
+  const [record] = await sql`SELECT id, course_id, course_slug, member_name, course_title, completed_at,
+      issued_at, evidence_hash, revoked_at
+    FROM academy_certificates WHERE id=${signature.payload.certificateId}::uuid LIMIT 1`;
+  if (!record) return invalidVerification('record_not_found');
+  if (record.revoked_at) return invalidVerification('certificate_revoked');
+  if (!signedRecordMatchesDatabase(signature.payload, record)) return invalidVerification('record_mismatch');
+  return {
+    verified: true,
+    status: 'valid',
+    certificate: {
+      memberName: record.member_name,
+      courseTitle: record.course_title,
+      completedAt: record.completed_at,
+      issuedAt: record.issued_at,
+      issuer: 'Elitea Academy',
+    },
+  };
 }
 
 async function ensureMember(sql, userId) {
@@ -162,4 +229,14 @@ function assertStorage(member, env) {
 
 function certificateError(message, statusCode, code) {
   return Object.assign(new Error(message), { statusCode, code });
+}
+
+function invalidVerification(reason) {
+  return { verified: false, status: 'invalid', reason };
+}
+
+export function isTrustedCertificateProvider(value) {
+  const provider = String(value || '').trim();
+  return /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i.test(provider)
+    && !/(fallback|demo|local|deterministic)/i.test(provider);
 }

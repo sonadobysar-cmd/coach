@@ -77,7 +77,10 @@ import {
   issueCertificate,
   recordCertificateExamAttempt,
   syncCertificateEvidence,
+  verifyCertificateDocument,
 } from './certificate-service.js';
+import { certificateSigningConfigured } from './certificate-authenticity.js';
+import { authorizeCertificateQaRequest, runCertificateProductionQa } from './certificate-production-qa.js';
 import {
   advancePublicCoachTestSession,
   issuePublicCoachTestSession,
@@ -440,6 +443,7 @@ app.get('/api/health', (_request, response) => {
     lifecycleEmail: lifecycleConfigured(),
     cron: Boolean(process.env.CRON_SECRET),
     runtimeSchema: runtimeSchemaStatus().ready,
+    certificateSigning: certificateSigningConfigured(),
   };
   const ok = Object.values(dependencies).every(Boolean);
   return response.status(ok ? 200 : 503).set('Cache-Control', 'no-store').json({
@@ -522,6 +526,12 @@ app.get('/api/status', (_request, response) => {
     bookingConnected: bookingConfigured(),
     paymentsConnected: paymentsConfigured(),
     foundingProgramConnected: foundingConfigured(),
+    certificateAuthenticity: {
+      signedPdf: certificateSigningConfigured(),
+      externalVerification: certificateSigningConfigured(),
+      verificationPath: '/overit-certifikat',
+      visibleQrOrNumber: false,
+    },
     commercialLaunchReady: launchReadiness.ready,
     launchStage: launchReadiness.stage,
     launchChecks: launchReadiness.checks,
@@ -757,6 +767,41 @@ app.post('/api/courses/:slug/quizzes/:itemId/submit', async (request, response) 
     return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
       error: error?.message || 'Test se nepodařilo vyhodnotit.',
       code: error?.code,
+    });
+  }
+});
+
+app.post('/api/certificates/verify', express.raw({ type: 'application/pdf', limit: '12mb' }), async (request, response) => {
+  if (!allowPublicTestRequest(request, 'certificate-verify', 12, 15 * 60 * 1000)) {
+    return response.status(429).set('Cache-Control', 'no-store').json({ error: 'Příliš mnoho ověření. Zkus to znovu za chvíli.' });
+  }
+  try {
+    const result = await verifyCertificateDocument(request.body);
+    return response.status(200).set('Cache-Control', 'no-store').json(result);
+  } catch (error) {
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
+      error: error?.message || 'Certifikát se nepodařilo ověřit.',
+      code: error?.code,
+    });
+  }
+});
+
+app.post('/api/internal/certificate-production-qa', async (request, response) => {
+  const userId = String(request.body?.userId || '').trim();
+  if (!authorizeCertificateQaRequest(request.get('authorization'), userId)) {
+    return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Nenalezeno.' });
+  }
+  try {
+    const course = courses.find(candidate => candidate.slug === String(request.body?.courseSlug || 'komunikace-ktera-funguje'));
+    if (!course?.certificate) return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurz nebyl nalezen.' });
+    const result = await runCertificateProductionQa({ member: { id: userId }, course, answerTraining });
+    return response.status(200).set('Cache-Control', 'no-store').json(result);
+  } catch (error) {
+    await reportOperationalError({ area: 'academy_certificate', code: error?.code || 'CERTIFICATE_QA_FAILED', path: request.path, summary: error }).catch(() => {});
+    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
+      error: error?.message || 'Produkční QA certifikátu se nepodařilo dokončit.',
+      code: error?.code,
+      ...(error?.details ? { details: error.details } : {}),
     });
   }
 });
@@ -1291,6 +1336,10 @@ function prunePublicTestRateBuckets(now) {
 
 app.get('/coach-test', (_request, response) => {
   response.set('Cache-Control', 'no-store').sendFile(join(PUBLIC_DIR, 'coach-test.html'));
+});
+
+app.get('/overit-certifikat', (_request, response) => {
+  response.set('Cache-Control', 'no-store').sendFile(join(PUBLIC_DIR, 'certificate-verify.html'));
 });
 
 app.use(express.static(PUBLIC_DIR, {

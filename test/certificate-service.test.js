@@ -10,10 +10,16 @@ import {
   sanitizeCertificateMemberName,
   summarizeCourseEvidence,
 } from '../src/certificates.js';
-import { buildCertificateStatus } from '../src/certificate-service.js';
+import { buildCertificateStatus, isTrustedCertificateProvider } from '../src/certificate-service.js';
 import { renderCertificatePdf, wrapCertificateTitle } from '../src/certificate-renderer.js';
+import {
+  CERTIFICATE_AUTH_MARKER,
+  extractCertificateVerification,
+  verifyCertificateVerificationToken,
+} from '../src/certificate-authenticity.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const SIGNING_ENV = { CERTIFICATE_SIGNING_SECRET: 'test-only-certificate-secret-with-at-least-32-bytes' };
 const [communication, selfTrust] = await loadCourses([
   join(ROOT, 'data', 'course-komunikace-v-praxi.md'),
   join(ROOT, 'data', 'course-pevna-v-sobe.md'),
@@ -69,6 +75,8 @@ test('certifikát se nevydá bez důvěryhodné závěrečné AI zkoušky', () =
     examAttempt: { allProven: true, qualityPassed: true, provider: 'openai/gpt-5.6' },
   });
   assert.equal(trusted.eligible, true);
+  assert.equal(isTrustedCertificateProvider('qa-human-verified-live'), false);
+  assert.equal(isTrustedCertificateProvider('openai/gpt-5.6-terra'), true);
 });
 
 test('osobní program používá tmavé osvědčení a profesní kurz světlý certifikát', () => {
@@ -87,15 +95,38 @@ test('dlouhý název se vejde nejvýše do dvou řádků', () => {
   assert.match(lines.join(' '), /CANVA AI/);
 });
 
-test('renderer vytvoří jednostránkové PDF bez QR, čísla a právní doložky', async () => {
-  const bytes = await renderCertificatePdf({
+test('renderer vytvoří jednostránkové podepsané PDF bez viditelného QR a čísla', async () => {
+  const authenticity = {
+    id: '11111111-1111-4111-8111-111111111111',
+    courseId: communication.id,
+    courseSlug: communication.slug,
     memberName: 'Anna Nováková',
     courseTitle: communication.title,
     completedAt: '2026-08-30T10:00:00.000Z',
+    issuedAt: '2026-08-31T10:00:00.000Z',
+    evidenceHash: 'a'.repeat(64),
+  };
+  const bytes = await renderCertificatePdf({
+    memberName: authenticity.memberName,
+    courseTitle: authenticity.courseTitle,
+    completedAt: authenticity.completedAt,
     variant: 'light',
+    authenticity,
+    env: SIGNING_ENV,
   });
   assert.equal(bytes.subarray(0, 4).toString(), '%PDF');
   const pdf = await PDFDocument.load(bytes);
   assert.equal(pdf.getPageCount(), 1);
-  assert.doesNotMatch([pdf.getTitle(), pdf.getSubject(), pdf.getKeywords()].filter(Boolean).join(' '), /QR|verification|certificateId|qualificationNote/i);
+  assert.match(pdf.getKeywords(), new RegExp(CERTIFICATE_AUTH_MARKER));
+  assert.doesNotMatch([pdf.getTitle(), pdf.getSubject()].filter(Boolean).join(' '), /QR|certificateId|qualificationNote/i);
+  const extracted = await extractCertificateVerification(bytes);
+  const verification = verifyCertificateVerificationToken(extracted.token, SIGNING_ENV);
+  assert.equal(verification.valid, true);
+  assert.equal(verification.payload.visualFingerprint, extracted.visualFingerprint);
+
+  const modified = await PDFDocument.load(bytes);
+  modified.getPages()[0].drawText('modified', { x: 12, y: 12, size: 8 });
+  const modifiedBytes = Buffer.from(await modified.save({ useObjectStreams: false }));
+  const modifiedExtraction = await extractCertificateVerification(modifiedBytes);
+  assert.notEqual(verification.payload.visualFingerprint, modifiedExtraction.visualFingerprint);
 });

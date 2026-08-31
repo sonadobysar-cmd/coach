@@ -4,6 +4,11 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 import opentype from 'opentype.js';
+import {
+  CERTIFICATE_AUTH_MARKER,
+  certificateVisualFingerprint,
+  createCertificateVerificationToken,
+} from './certificate-authenticity.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -12,7 +17,14 @@ const HEIGHT = 2482;
 
 let assetPromise;
 
-export async function renderCertificatePdf({ memberName, courseTitle, completedAt, variant = 'light' } = {}) {
+export async function renderCertificatePdf({
+  memberName,
+  courseTitle,
+  completedAt,
+  variant = 'light',
+  authenticity = null,
+  env = process.env,
+} = {}) {
   const assets = await certificateAssets();
   const safeVariant = variant === 'dark' ? 'dark' : 'light';
   const background = safeVariant === 'dark' ? assets.dark : assets.light;
@@ -48,7 +60,13 @@ export async function renderCertificatePdf({ memberName, courseTitle, completedA
   pdf.setCreator('Elitea Academy');
   pdf.setProducer('Elitea Academy');
   pdf.setSubject('Potvrzení o úspěšném absolvování programu');
-  return Buffer.from(await pdf.save({ useObjectStreams: false }));
+  const draft = Buffer.from(await pdf.save({ useObjectStreams: false }));
+  if (!authenticity) return draft;
+  const visualFingerprint = await certificateVisualFingerprint(draft);
+  const token = createCertificateVerificationToken(authenticity, visualFingerprint, env);
+  const signed = await PDFDocument.load(draft, { updateMetadata: false });
+  signed.setKeywords([`${CERTIFICATE_AUTH_MARKER}${token}`]);
+  return Buffer.from(await signed.save({ useObjectStreams: false }));
 }
 
 export function formatCertificateDate(value) {

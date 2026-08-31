@@ -1,6 +1,6 @@
 {
   "name": "elitea",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "eval:academy-trainers": "node scripts/evaluate-academy-trainers.mjs",
     "eval:public-coach": "node scripts/evaluate-public-coach-test.mjs",
     "qa:academy-production": "node scripts/qa-production-academy-e2e.mjs",
+    "qa:certificate-production": "node scripts/qa-issue-production-certificate.mjs",
     "audit:courses": "node scripts/audit-course-depth.mjs",
     "start": "node src/server.js",
     "test": "node --test test/*.test.js"

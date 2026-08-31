@@ -1,0 +1,40 @@
+@font-face { font-family: Manrope; src: url('/fonts/manrope-latin-ext.woff2') format('woff2'); font-display: swap; }
+:root { color-scheme: light; --ink: #171314; --wine: #6f415f; --gold: #bd8514; --paper: #f7f4ef; }
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: radial-gradient(circle at 85% 12%, #eadde5 0, transparent 30%), var(--paper); font-family: Manrope, sans-serif; min-height: 100vh; }
+header, footer { width: min(1180px, calc(100% - 44px)); margin: auto; display: flex; align-items: center; justify-content: space-between; }
+header { min-height: 96px; border-bottom: 1px solid #d9d0cb; }
+.brand { color: var(--ink); text-decoration: none; font: 700 40px Georgia, serif; letter-spacing: -.04em; display: flex; align-items: center; gap: 12px; }
+.brand > span { color: #ff6d2d; }
+.brand small { padding-left: 13px; border-left: 1px solid #bdb1ac; color: var(--wine); font: 800 10px Manrope, sans-serif; letter-spacing: .25em; }
+.back { color: var(--ink); font-size: 12px; font-weight: 800; text-decoration: none; }
+main { width: min(1180px, calc(100% - 44px)); margin: 0 auto; padding: 88px 0 76px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 90px; align-items: center; }
+.eyebrow, .result p { margin: 0 0 14px; color: var(--wine); font-size: 11px; font-weight: 900; letter-spacing: .18em; }
+h1 { margin: 0; font: 400 clamp(44px, 5.7vw, 82px)/.98 Georgia, serif; letter-spacing: -.05em; }
+h1 em { color: var(--wine); font-weight: 400; }
+.intro > p:last-child { max-width: 550px; margin: 30px 0 0; color: #6b6262; font-size: 15px; line-height: 1.75; }
+.verify-card { padding: 30px; border: 1px solid #dfd3d5; border-radius: 30px; background: rgba(255,255,255,.82); box-shadow: 0 30px 70px rgba(59,37,49,.12); }
+.drop { min-height: 270px; padding: 38px 28px; border: 1px dashed #c4aab9; border-radius: 23px; background: #fbf8fa; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: .2s ease; }
+.drop:hover { border-color: var(--wine); transform: translateY(-2px); }
+.drop input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; }
+.seal { width: 70px; height: 70px; margin-bottom: 20px; display: grid; place-items: center; border: 6px double #eadce5; border-radius: 50%; color: white; background: radial-gradient(circle at 35% 26%, #c59eb6, #6f415f 56%, #331629); font: 700 32px Georgia, serif; box-shadow: 0 11px 24px rgba(73,38,61,.2); }
+.drop strong { max-width: 100%; overflow-wrap: anywhere; font-size: 18px; }
+.drop small { margin-top: 9px; color: #85797f; font-size: 11px; }
+button { width: 100%; margin-top: 16px; padding: 17px 24px; border: 0; border-radius: 999px; color: white; background: var(--ink); font: 800 13px Manrope, sans-serif; cursor: pointer; }
+button:disabled { opacity: .55; cursor: wait; }
+.message { margin: 15px 4px 0; color: #a23535; font-size: 12px; }
+.result { margin-top: 18px; padding: 24px; border-radius: 20px; display: grid; grid-template-columns: 54px 1fr; gap: 18px; }
+.result[hidden] { display: none; }
+.result.valid { border: 1px solid #bfd8ca; background: #f1faf5; }
+.result.invalid { border: 1px solid #e1c0c0; background: #fff5f5; }
+.result-icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; color: white; background: #367553; font-size: 25px; font-weight: 900; }
+.invalid .result-icon { background: #a44444; }
+.result h2 { margin: 0; font: 400 24px/1.2 Georgia, serif; }
+.result dl { margin: 18px 0 0; display: grid; gap: 10px; }
+.result dl div { display: grid; grid-template-columns: 135px 1fr; gap: 12px; }
+.result dt { color: #756b6e; font-size: 11px; }
+.result dd { margin: 0; font-size: 11px; font-weight: 800; }
+.result span { color: #756b6e; font-size: 12px; line-height: 1.55; }
+footer { min-height: 80px; border-top: 1px solid #d9d0cb; color: #7a7071; font-size: 11px; }
+footer span { color: var(--ink); font-weight: 900; }
+@media (max-width: 800px) { main { padding-top: 50px; grid-template-columns: 1fr; gap: 42px; } header { min-height: 76px; } .brand { font-size: 32px; } .back { display: none; } .verify-card { padding: 18px; border-radius: 22px; } .drop { min-height: 230px; } footer { padding: 20px 0; align-items: flex-start; gap: 20px; } }

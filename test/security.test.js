@@ -96,15 +96,27 @@ test('bodování kurzového testu je serverové, přihlášené a chráněné p�
   assert.doesNotMatch(quizRoute, /scorePercent\s*=|passed\s*=\s*request\.body/);
 });
 
-test('vydání i stažení certifikátu je serverové, přihlášené a bez veřejného ověřovacího endpointu', () => {
+test('vydání i stažení certifikátu je přihlášené a pravost lze veřejně ověřit nahráním PDF', () => {
   const issueRoute = server.match(/app\.post\('\/api\/certificates\/:slug\/issue'[\s\S]*?\n}\);/)?.[0] || '';
   const downloadRoute = server.match(/app\.get\('\/api\/certificates\/:slug\/download'[\s\S]*?\n}\);/)?.[0] || '';
+  const verifyRoute = server.match(/app\.post\('\/api\/certificates\/verify'[\s\S]*?\n}\);/)?.[0] || '';
   assert.match(issueRoute, /validMutationOrigin/);
   assert.match(issueRoute, /authorizeAiRequest/);
   assert.match(issueRoute, /issueCertificate/);
   assert.match(downloadRoute, /authorizeAiRequest/);
   assert.match(downloadRoute, /certificatePdf/);
-  assert.doesNotMatch(server, /\/api\/certificates\/verify|\/api\/certificates\/:id\/verify/);
+  assert.match(verifyRoute, /express\.raw/);
+  assert.match(verifyRoute, /verifyCertificateDocument/);
+  assert.match(verifyRoute, /allowPublicTestRequest/);
+  assert.doesNotMatch(verifyRoute, /authorizeAiRequest/);
+});
+
+test('produkční QA certifikátu je skryté a chráněné samostatným tajným klíčem i allowlistem účtů', () => {
+  const qaRoute = server.match(/app\.post\('\/api\/internal\/certificate-production-qa'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(qaRoute, /authorizeCertificateQaRequest/);
+  assert.match(qaRoute, /runCertificateProductionQa/);
+  assert.match(qaRoute, /status\(404\)/);
+  assert.doesNotMatch(qaRoute, /ELITEA_CERTIFICATE_QA_SECRET|ELITEA_CERTIFICATE_QA_USER_IDS/);
 });
 
 test('health endpoint kontroluje všechny klíčové produkční závislosti bez tajných hodnot', () => {
@@ -116,6 +128,7 @@ test('health endpoint kontroluje všechny klíčové produkční závislosti bez
   assert.match(healthRoute, /lifecycleEmail:/);
   assert.match(healthRoute, /cron: Boolean\(process\.env\.CRON_SECRET\)/);
   assert.match(healthRoute, /runtimeSchema:/);
+  assert.match(healthRoute, /certificateSigning:/);
   assert.match(healthRoute, /status\(ok \? 200 : 503\)/);
   assert.doesNotMatch(healthRoute, /API_KEY\s*:/);
 });
