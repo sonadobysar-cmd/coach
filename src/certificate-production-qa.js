@@ -76,7 +76,7 @@ export async function runCertificateProductionQa({ member, course, answerTrainin
   if (!status.progress.examPassed) {
     const finalExam = course.mastery.finalExam;
     const examItem = items.find(item => item.kind !== 'quiz' && String(item.markdown || '').length > 400) || items[0];
-    const messages = buildExamTranscript();
+    const messages = buildCertificateQaExamTranscript();
     const result = await answerTraining({
       messages,
       memory: {},
@@ -94,7 +94,10 @@ export async function runCertificateProductionQa({ member, course, answerTrainin
         provider: String(result.provider || 'unknown'),
         qualityPassed: result.qualityGate?.pass === true,
         allProven: result.achievement?.allProven === true,
+        achievement: result.achievement || null,
         issueCodes: result.qualityGate?.issueCodes || [],
+        attemptIssueCodes: result.qualityGate?.attemptIssueCodes || [],
+        repairIssueCodes: result.qualityGate?.repairIssueCodes || [],
       });
     }
     const recorded = await recordCertificateExamAttempt({
@@ -141,19 +144,21 @@ export async function runCertificateProductionQa({ member, course, answerTrainin
   };
 }
 
-function buildExamTranscript() {
+export function buildCertificateQaExamTranscript() {
   return [
-    { role: 'user', content: 'Než začneme: chceš dnes nacvičit přijetí profesní příležitosti a na konci mít vlastní rozhodnutí o jedné konkrétní podmínce? Budu v roli komunikační průvodkyně, nebudu rozhodovat za tebe. Souhlasíš s tímto cílem a tempem?' },
-    { role: 'assistant', content: 'Ano. Chci se rozhodnout, zda příležitost přijmu, a přestat zlehčovat své výsledky. Potřebuji si stanovit jednu podmínku.' },
-    { role: 'user', content: 'Říkáš přesně: „Chci se rozhodnout, zda příležitost přijmu“ a „přestat zlehčovat své výsledky“. Navrhuji nejdřív oddělit doložené výsledky od obavy, potom zformulovat podmínku. Je tento postup pro tebe v pořádku?' },
-    { role: 'assistant', content: 'Ano. Doložené je, že jsem dokončila tři projekty v termínu a klienti je převzali bez reklamace. Přesto mám pocit, že to byla náhoda.' },
-    { role: 'user', content: 'Navazuji na tvoje „tři projekty v termínu“ a „bez reklamace“: to jsou pozorovatelná data. Věta „byla to náhoda“ je interpretace, ne jistota. Zkus nahlas přijmout uznání pouze větou „Děkuji, na těch třech výsledcích jsem odvedla dobrou práci.“ bez omluvy a zlehčení.' },
-    { role: 'assistant', content: 'Děkuji, na těch třech výsledcích jsem odvedla dobrou práci. Je to nezvyklé, ale je to pravdivé.' },
-    { role: 'user', content: 'Teď po mně chceš jistotu, že nabídku musíš přijmout. Tu ti dát nemohu a rozhodnutí za tebe nepřevezmu. Mohu ti pomoci porovnat podmínky a rizika. Jaká jedna podmínka musí platit, aby tvoje ano bylo opravdu tvoje?' },
-    { role: 'assistant', content: 'Potřebuji mít písemně rozsah práce a možnost odmítnout práci navíc bez předchozí dohody.' },
-    { role: 'user', content: 'Jak přesně tuto podmínku sdělíš a podle čeho poznáš, že jsi krok provedla?' },
-    { role: 'assistant', content: 'Zítra do 10:00 pošlu větu: „Nabídku přijmu, pokud bude písemně potvrzený rozsah a každá práce navíc projde novou dohodou.“ Důkaz bude odeslaný e-mail a písemná odpověď.' },
-    { role: 'user', content: 'Sebereflexe: silný důkaz byla moje věta „Tu jistotu ti dát nemohu a rozhodnutí za tebe nepřevezmu“, protože udržela hranici a vrátila volbu klientce. Mezera: mohla jsem dříve ověřit tělesné tempo při nezvyklém přijetí pochvaly. Při dalším cíleném pokusu po větě s uznáním vložím pauzu, zeptám se na míru tlaku 0–10 a teprve potom přejdu k podmínce. Profesní artefakt obsahuje kontrakt, citované intervence, odesílanou větu, důkaz provedení a tento plán opakování.' },
+    { role: 'user', content: 'Máme deset minut. Chceš dnes přesně pojmenovat, co zhoršilo naši spolupráci, a skončit jednou dohodou pro příští prezentaci? Budu mluvit jako tvoje kolegyně, nebudu rozhodovat za tebe. Souhlasíš s tímto cílem, rolí a tempem?' },
+    { role: 'assistant', content: 'Ano. Kvůli poslední prezentaci se naše spolupráce zhoršuje. Podle mě je chyba hlavně na tvé straně.' },
+    { role: 'user', content: 'Slyším tvoje přesná slova „chyba je hlavně na tvé straně“ a nechci se hned bránit. Který jeden pozorovatelný okamžik z poslední prezentace měl podle tebe největší dopad?' },
+    { role: 'assistant', content: 'Mluvila jsi dvacet minut o funkcích, klient přestal reagovat a já jsem pak zachraňovala závěr. Potřebuji, abys mě příště nechala mluvit.' },
+    { role: 'user', content: 'Navazuji na tvoje „dvacet minut o funkcích“ a „klient přestal reagovat“: pozorováním je délka a obsah, dopadem ztráta klientovy pozornosti. Slyším také potřebu jasně rozdělit naše role. Zachytila jsem to přesně, nebo je hlavní dopad jiný?' },
+    { role: 'assistant', content: 'To je přesné. Ale nechci další rozbor, prostě mi slib, že příště nebudeš mluvit vůbec.' },
+    { role: 'user', content: 'Rozumím tlaku na rychlou jistotu a slyším žádost „nebudeš mluvit vůbec“. Takový slib dát nemohu, protože bych se vzdala své odpovědnosti. Protože se mísí obvinění, dopad a konkrétní požadavek, navrhuji teď krátce použít postup pozorování–dopad–potřeba–žádost a potom si vybereš jednu ze dvou dělicích variant. Je tento postup pro tebe v pořádku, nebo chceš zpomalit?' },
+    { role: 'assistant', content: 'Je to v pořádku, pokračuj. Chci ale konkrétní návrh, ne obecné fráze.' },
+    { role: 'user', content: 'Na poslední prezentaci jsem dvacet minut popisovala funkce a klient přestal reagovat. Dopad byl, že jsi převzala závěr pod tlakem. Potřebuji, abychom obě znaly svou část a klient slyšel přínos dřív než funkce. Nabízím dvě varianty: buď uvedu přínos do tří minut a předám ti slovo, nebo první část vedeš ty a já odpovím jen na technické otázky. Kterou variantu volíš?' },
+    { role: 'assistant', content: 'Volím první variantu. Tři minuty na přínos a potom mi předáš slovo. Když se zasekneš u funkcí, dám ti domluvené znamení.' },
+    { role: 'user', content: 'Ty sis zvolila první variantu: nejvýše tři minuty na přínos, potom ti předám slovo a při odbočení použiješ domluvené znamení. Po příští prezentaci zkontrolujeme čas předání a klientovu reakci; podle toho poznáme, zda dohoda proběhla. Potvrzuješ tuto dohodu a způsob vyhodnocení?' },
+    { role: 'assistant', content: 'Potvrzuji. Tohle je pro mě jasné a přijatelné.' },
+    { role: 'user', content: 'Sebereflexe: konkrétním důkazem návaznosti byla moje věta „Navazuji na tvoje ‚dvacet minut o funkcích‘ a ‚klient přestal reagovat‘“. Důkazem hranice byla věta „Takový slib dát nemohu“. Zvolená metoda odpovídala tomu, že bylo potřeba oddělit pozorování, dopad, potřebu a žádost, a před použitím jsem získala souhlas. Mezera: dvě varianty jsem mohla formulovat o jednu větu stručněji. Cíl dalšího pokusu: při stejném typu odporu nabídnu hranici a dvě varianty nejvýše ve třech větách a ověřím, zda druhá strana dokáže vlastními slovy zopakovat dohodu. Profesní artefakt obsahuje kontrakt, obě citované intervence, deeskalační větu, klientkou zvolený krok, měřítko provedení a tento plán opakování.' },
   ];
 }
 

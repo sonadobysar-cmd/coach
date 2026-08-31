@@ -357,9 +357,7 @@ function normalizeEvidence(value) {
   return String(value || '')
     .normalize('NFC')
     .toLocaleLowerCase('cs-CZ')
-    .replace(/[„“”"'’]/gu, '')
-    .replace(/[‐‑‒–—]/gu, '-')
-    .replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/gu, ' ')
     .trim();
 }

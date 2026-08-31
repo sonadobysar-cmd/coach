@@ -34,18 +34,15 @@ export async function renderCertificatePdf({
   const titleFontSize = title.length === 1 ? 92 : 74;
   const titleStart = title.length === 1 ? 1245 : 1198;
   const titleGap = titleFontSize + 18;
-  const titleElements = title.map((line, index) =>
-    `<text x="1755" y="${titleStart + index * titleGap}" text-anchor="middle" class="program">${escapeXml(line)}</text>`).join('');
+  const titleElements = title.map((line, index) => (
+    `<path d="${centeredFontPath(assets.manropeBoldFont, line, 1755, titleStart + index * titleGap, titleFontSize, 16)}" fill="#c98a00"/>`
+  )).join('');
   const namePath = centeredFontPath(assets.nameFont, memberName, 1755, 1645, 132);
+  const datePath = centeredFontPath(assets.manropeRegularFont, date, 2585, 1815, 54);
   const overlay = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <style>
-      @font-face { font-family: 'Elitea Manrope'; src: url(data:font/woff2;base64,${assets.manrope}); font-weight: 700; }
-      .program { font-family: 'Elitea Manrope'; font-size: ${titleFontSize}px; font-weight: 700; letter-spacing: 16px; fill: #c98a00; }
-      .date { font-family: 'Elitea Manrope'; font-size: 54px; font-weight: 700; fill: ${textColor}; }
-    </style>
     ${titleElements}
     <path d="${namePath}" fill="${textColor}"/>
-    <text x="2585" y="1815" text-anchor="middle" class="date">${escapeXml(date)}</text>
+    <path d="${datePath}" fill="${textColor}"/>
   </svg>`);
   const composed = await sharp(background)
     .composite([{ input: overlay, top: 0, left: 0 }])
@@ -101,24 +98,21 @@ async function certificateAssets() {
     readFile(join(PUBLIC_DIR, 'certificates', 'certificate-light-template.png')),
     readFile(join(PUBLIC_DIR, 'certificates', 'certificate-dark-template.png')),
     readFile(join(PUBLIC_DIR, 'fonts', 'great-vibes-latin-ext.ttf')),
-    readFile(join(PUBLIC_DIR, 'fonts', 'manrope-latin-ext.woff2')),
-  ]).then(([light, dark, greatVibes, manrope]) => ({
+    readFile(join(PUBLIC_DIR, 'fonts', 'manrope-bold.ttf')),
+    readFile(join(PUBLIC_DIR, 'fonts', 'manrope-regular.ttf')),
+  ]).then(([light, dark, greatVibes, manropeBold, manropeRegular]) => ({
     light,
     dark,
     nameFont: opentype.parse(greatVibes.buffer.slice(greatVibes.byteOffset, greatVibes.byteOffset + greatVibes.byteLength)),
-    manrope: manrope.toString('base64'),
+    manropeBoldFont: opentype.parse(manropeBold.buffer.slice(manropeBold.byteOffset, manropeBold.byteOffset + manropeBold.byteLength)),
+    manropeRegularFont: opentype.parse(manropeRegular.buffer.slice(manropeRegular.byteOffset, manropeRegular.byteOffset + manropeRegular.byteLength)),
   }));
   return assetPromise;
 }
 
-function centeredFontPath(font, value, centerX, baselineY, fontSize) {
+function centeredFontPath(font, value, centerX, baselineY, fontSize, letterSpacingPx = 0) {
   const text = String(value || '').trim();
-  const width = font.getAdvanceWidth(text, fontSize, { kerning: true });
-  return font.getPath(text, centerX - width / 2, baselineY, fontSize, { kerning: true }).toPathData(2);
-}
-
-function escapeXml(value) {
-  return String(value || '').replace(/[&<>"']/g, character => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
-  }[character]));
+  const options = { kerning: true, letterSpacing: letterSpacingPx / fontSize };
+  const width = font.getAdvanceWidth(text, fontSize, options);
+  return font.getPath(text, centerX - width / 2, baselineY, fontSize, options).toPathData(2);
 }

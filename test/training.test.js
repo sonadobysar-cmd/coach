@@ -379,6 +379,8 @@ test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze students
   ].join('\n\n');
   const valid = assessDebriefResponse(debrief('Slyším, že největší tíhu má pro tebe odpovědnost za možnou chybu.'), { messages, rubric });
   assert.equal(valid.pass, true);
+  const punctuationVariant = assessDebriefResponse(debrief('Slyším že největší tíhu má pro tebe odpovědnost za možnou chybu'), { messages, rubric });
+  assert.equal(punctuationVariant.pass, true);
   const invented = assessDebriefResponse(debrief('Skvěle jsi nastavila hranici.'), { messages, rubric });
   assert.equal(invented.pass, false);
   assert.ok(invented.issues.includes('unsupported_student_quote'));

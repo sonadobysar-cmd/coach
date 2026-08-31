@@ -18,6 +18,7 @@ import {
   syncCertificateEvidence,
   verifyCertificateDocument,
 } from '../src/certificate-service.js';
+import { buildCertificateQaExamTranscript } from '../src/certificate-production-qa.js';
 
 if (!process.env.DATABASE_URL) throw new Error('Chybí DATABASE_URL.');
 if (!process.env.CERTIFICATE_SIGNING_SECRET) throw new Error('Chybí CERTIFICATE_SIGNING_SECRET.');
@@ -71,7 +72,7 @@ assert.equal(evidence.completedItemIds.length, items.length);
 
 const finalExam = course.mastery.finalExam;
 const examItem = items.find(item => item.kind !== 'quiz' && String(item.markdown || '').length > 400) || items[0];
-const examMessages = buildExamTranscript();
+const examMessages = buildCertificateQaExamTranscript();
 const trainer = createCourseTrainer({ knowledgeRecords: buildCourseKnowledge([course]) });
 const examResult = await trainer({
   messages: examMessages,
@@ -156,19 +157,3 @@ console.log(JSON.stringify({
   verified: verification.verified,
   tamperedPdfRejected: !tamperedVerification.verified,
 }));
-
-function buildExamTranscript() {
-  return [
-    { role: 'user', content: 'Než začneme: chceš dnes nacvičit přijetí profesní příležitosti a na konci mít vlastní rozhodnutí o jedné konkrétní podmínce? Budu v roli komunikační průvodkyně, nebudu rozhodovat za tebe. Souhlasíš s tímto cílem a tempem?' },
-    { role: 'assistant', content: 'Ano. Chci se rozhodnout, zda příležitost přijmu, a přestat zlehčovat své výsledky. Potřebuji si stanovit jednu podmínku.' },
-    { role: 'user', content: 'Říkáš přesně: „Chci se rozhodnout, zda příležitost přijmu“ a „přestat zlehčovat své výsledky“. Navrhuji nejdřív oddělit doložené výsledky od obavy, potom zformulovat podmínku. Je tento postup pro tebe v pořádku?' },
-    { role: 'assistant', content: 'Ano. Doložené je, že jsem dokončila tři projekty v termínu a klienti je převzali bez reklamace. Přesto mám pocit, že to byla náhoda.' },
-    { role: 'user', content: 'Navazuji na tvoje „tři projekty v termínu“ a „bez reklamace“: to jsou pozorovatelná data. Věta „byla to náhoda“ je interpretace, ne jistota. Zkus nahlas přijmout uznání pouze větou „Děkuji, na těch třech výsledcích jsem odvedla dobrou práci.“ bez omluvy a zlehčení.' },
-    { role: 'assistant', content: 'Děkuji, na těch třech výsledcích jsem odvedla dobrou práci. Je to nezvyklé, ale je to pravdivé.' },
-    { role: 'user', content: 'Teď po mně chceš jistotu, že nabídku musíš přijmout. Tu ti dát nemohu a rozhodnutí za tebe nepřevezmu. Mohu ti pomoci porovnat podmínky a rizika. Jaká jedna podmínka musí platit, aby tvoje ano bylo opravdu tvoje?' },
-    { role: 'assistant', content: 'Potřebuji mít písemně rozsah práce a možnost odmítnout práci navíc bez předchozí dohody.' },
-    { role: 'user', content: 'Jak přesně tuto podmínku sdělíš a podle čeho poznáš, že jsi krok provedla?' },
-    { role: 'assistant', content: 'Zítra do 10:00 pošlu větu: „Nabídku přijmu, pokud bude písemně potvrzený rozsah a každá práce navíc projde novou dohodou.“ Důkaz bude odeslaný e-mail a písemná odpověď.' },
-    { role: 'user', content: 'Sebereflexe: silný důkaz byla moje věta „Tu jistotu ti dát nemohu a rozhodnutí za tebe nepřevezmu“, protože udržela hranici a vrátila volbu klientce. Mezera: mohla jsem dříve ověřit tělesné tempo při nezvyklém přijetí pochvaly. Při dalším cíleném pokusu po větě s uznáním vložím pauzu, zeptám se na míru tlaku 0–10 a teprve potom přejdu k podmínce. Profesní artefakt obsahuje kontrakt, citované intervence, odesílanou větu, důkaz provedení a tento plán opakování.' },
-  ];
-}

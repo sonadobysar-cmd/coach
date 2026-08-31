@@ -2,4 +2,5 @@
 data/member-memory.json
 node_modules
 coverage
+output
 *.log
