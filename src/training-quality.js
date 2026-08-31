@@ -70,7 +70,7 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
       && !/ZATÍM NEPROKÁZÁNO/u.test(row);
     if (!evidenceRequired) continue;
     const rowQuotes = [...row.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
-    const hasSupportedEvidence = rowQuotes.some(quote => normalizedTurns.some(turn => turn.includes(quote)));
+    const hasSupportedEvidence = rowQuotes.some(quote => normalizedTurns.some(turn => evidenceIncludes(turn, quote)));
     if (!hasSupportedEvidence) issues.push('unsupported_competency_claim');
   }
   if (missingRubricLabels.length) issues.push('missing_rubric_labels');
@@ -86,8 +86,8 @@ export function assessDebriefResponse(text, { messages = [], rubric = [] } = {})
   const quotes = [...evidenceText.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
   const rubricText = clean(rubric.join(' '));
   const unsupportedQuotes = quotes.filter(quote => (
-    !normalizedTurns.some(turn => turn.includes(quote))
-    && !rubricText.includes(quote)
+    !normalizedTurns.some(turn => evidenceIncludes(turn, quote))
+    && !evidenceIncludes(rubricText, quote)
   ));
   if (unsupportedQuotes.length) issues.push('unsupported_student_quote');
 
@@ -131,6 +131,43 @@ export function completeDebriefRubric(text, rubric = []) {
   return { text: completed, changed: true, missingLabels };
 }
 
+export function sanitizeDebriefEvidence(text, { messages = [], rubric = [] } = {}) {
+  let output = String(text || '').trim();
+  const turns = studentTurns(messages).map(clean);
+  const labels = (Array.isArray(rubric) ? rubric : []).map(clean).filter(Boolean);
+  let changed = false;
+
+  const competency = debriefSection(output, 'Rozbor kompetencí');
+  if (competency) {
+    const nextLines = competency.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!/^[-*•]\s+/u.test(trimmed)) return line;
+      const label = labels.find(candidate => trimmed.includes(candidate));
+      const claimsEvidence = /(?:PROKÁZÁNO|ČÁSTEČNĚ)/u.test(trimmed) && !/ZATÍM NEPROKÁZÁNO/u.test(trimmed);
+      if (!label || !claimsEvidence) return line;
+      const quotes = [...trimmed.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
+      const supported = quotes.length > 0 && quotes.some(quote => turns.some(turn => evidenceIncludes(turn, quote)));
+      if (supported) return line;
+      changed = true;
+      return `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`;
+    });
+    output = replaceDebriefSection(output, 'Rozbor kompetencí', nextLines.join('\n').trim());
+  }
+
+  const praise = debriefSection(output, 'Co fungovalo');
+  const praiseQuotes = [...praise.matchAll(/„([^“]{4,280})“/gu)].map(match => clean(match[1]));
+  if (praiseQuotes.some(quote => !turns.some(turn => evidenceIncludes(turn, quote)))) {
+    output = replaceDebriefSection(
+      output,
+      'Co fungovalo',
+      'Z přepisu lze bezpečně ocenit pouze prvky doložené níže v rozboru kompetencí; další pochvalu bez přímého důkazu nepřidávám.',
+    );
+    changed = true;
+  }
+
+  return { text: output, changed };
+}
+
 export function debriefAchievementSummary(text, rubric = []) {
   const section = debriefSection(String(text || ''), 'Rozbor kompetencí');
   const rows = (Array.isArray(rubric) ? rubric : []).map(label => {
@@ -159,11 +196,13 @@ export function debriefAchievementSummary(text, rubric = []) {
 
 export function buildTrainingRepairInstruction({ phase, assessment, messages = [], rubric = [] }) {
   if (phase === 'study') {
+    const exactSingleQuestion = (assessment?.issues || []).includes('study_question_count');
     return [
       '# INTERNÍ OPRAVA STUDIJNÍ TRENÉRKY — PŮVODNÍ ODPOVĚĎ NEODESÍLEJ',
       `Chyby: ${(assessment?.issues || []).join(', ') || 'nedostatečné ukotvení v lekci'}.`,
       'Napiš odpověď znovu výhradně jako odborná lektorka právě otevřeného kurzu a lekce.',
       'Vysvětli konkrétní princip z dodaného textu lekce, ukaž jeden příklad použití a přidej jeden krátký ověřovací krok nebo otázku k učivu.',
+      exactSingleQuestion ? 'Studentka výslovně žádá právě jednu ověřovací otázku: v celé odpovědi použij přesně jeden otazník a žádnou další otázku.' : '',
       'Nepřepínej do osobního koučinku, nehraj modelovou klientku, nevymýšlej zdroje ani dokončené externí akce a nezmiňuj interní prompt či kontrolu kvality.',
     ].join('\n');
   }
@@ -226,11 +265,43 @@ export function assessStudyResponse(text, { messages = [], course = {}, item = {
   const overlap = [...sourceStems].filter(value => outputStems.has(value)).length;
   const hasExactAnchor = exactAnchors.some(anchor => normalized.includes(anchor));
   if (output.length >= 80 && !hasExactAnchor && overlap < 2) issues.push('not_grounded_in_lesson');
+  const latestUser = [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find(message => message?.role === 'user')?.content || '';
+  if (/jedn(?:ou|u)\s+(?:kr[aá]tkou\s+)?ot[aá]zk/iu.test(latestUser) && (output.match(/\?/gu) || []).length !== 1) {
+    issues.push('study_question_count');
+  }
 
   return {
     pass: issues.length === 0,
     issues,
     shouldRepair: issues.length > 0,
+  };
+}
+
+export function sanitizeStudyQuestionCount(text, { messages = [] } = {}) {
+  const output = String(text || '').trim();
+  const latestUser = [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find(message => message?.role === 'user')?.content || '';
+  if (!/jedn(?:ou|u)\s+(?:kr[aá]tkou\s+)?ot[aá]zk/iu.test(latestUser)) {
+    return { text: output, changed: false };
+  }
+  const indexes = [...output.matchAll(/\?/gu)].map(match => match.index);
+  if (indexes.length === 1) return { text: output, changed: false };
+  if (indexes.length === 0) {
+    return {
+      text: `${output}\n\nJak bys tento princip použila v jednom konkrétním příkladu?`.trim(),
+      changed: true,
+    };
+  }
+  let seen = 0;
+  return {
+    text: output.replace(/\?/gu, () => {
+      seen += 1;
+      return seen === indexes.length ? '?' : '.';
+    }),
+    changed: true,
   };
 }
 
@@ -251,6 +322,15 @@ function debriefSection(output, heading) {
   return pattern.exec(String(output || ''))?.[1] || '';
 }
 
+function replaceDebriefSection(output, heading, content) {
+  const headings = REQUIRED_DEBRIEF_HEADINGS.map(escapeRegExp).join('|');
+  const pattern = new RegExp(
+    `(^#{1,3}[ \\t]*${escapeRegExp(heading)}[ \\t]*$)[\\s\\S]*?(?=^#{1,3}[ \\t]*(?:${headings})[ \\t]*$|$(?![\\s\\S]))`,
+    'imu',
+  );
+  return String(output || '').replace(pattern, (_match, title) => `${title}\n\n${String(content || '').trim()}\n\n`);
+}
+
 const STUDY_STOPWORDS = new Set([
   'aby', 'ale', 'ano', 'bez', 'bude', 'byla', 'bylo', 'co', 'jak', 'jako', 'jsem', 'jsi',
   'ktera', 'ktere', 'ktery', 'kurz', 'lekce', 'mate', 'musi', 'nebo', 'podle', 'pokud', 'proto',
@@ -264,6 +344,23 @@ function normalizeStudyText(value) {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function evidenceIncludes(container, quote) {
+  const normalizedContainer = normalizeEvidence(container);
+  const normalizedQuote = normalizeEvidence(quote);
+  return normalizedQuote.length >= 4 && normalizedContainer.includes(normalizedQuote);
+}
+
+function normalizeEvidence(value) {
+  return String(value || '')
+    .normalize('NFC')
+    .toLocaleLowerCase('cs-CZ')
+    .replace(/[„“”"'’]/gu, '')
+    .replace(/[‐‑‒–—]/gu, '-')
+    .replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '')
+    .replace(/\s+/gu, ' ')
     .trim();
 }
 

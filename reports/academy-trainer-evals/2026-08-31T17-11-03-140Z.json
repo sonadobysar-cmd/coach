@@ -1,0 +1,3557 @@
+{
+  "standardVersion": 1,
+  "startedAt": "2026-08-31T17:11:03.140Z",
+  "completedAt": "2026-08-31T17:57:19.529Z",
+  "baseUrl": "http://127.0.0.1:4173",
+  "liveModelCalls": true,
+  "privacy": "Výstupy ani vstupy konverzací se neukládají; report obsahuje jen kontrolní výsledky, délku a otisk odpovědi.",
+  "summary": {
+    "courseCount": 27,
+    "total": 81,
+    "passed": 60,
+    "failed": 21,
+    "passRate": 74.07,
+    "complete": false
+  },
+  "byType": {
+    "study": {
+      "total": 27,
+      "passed": 22
+    },
+    "simulation": {
+      "total": 27,
+      "passed": 22
+    },
+    "debrief": {
+      "total": 27,
+      "passed": 16
+    }
+  },
+  "results": [
+    {
+      "id": "adhd-focus-motivace:debrief",
+      "courseId": "adhd-focus-motivace",
+      "courseSlug": "adhd-soustredeni-a-motivace",
+      "courseTitle": "ADHD: soustředění, motivace a exekutivní dovednosti",
+      "trainer": "Trenérka pozornosti a exekutivních dovedností",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Čtyři dveře k aktivaci",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 378,
+      "responseFingerprint": "f443d4af3ceea841"
+    },
+    {
+      "id": "adhd-focus-motivace:simulation",
+      "courseId": "adhd-focus-motivace",
+      "courseSlug": "adhd-soustredeni-a-motivace",
+      "courseTitle": "ADHD: soustředění, motivace a exekutivní dovednosti",
+      "trainer": "Trenérka pozornosti a exekutivních dovedností",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Čtyři dveře k aktivaci",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 46,
+      "responseFingerprint": "7325149a6c412b6a"
+    },
+    {
+      "id": "adhd-focus-motivace:study",
+      "courseId": "adhd-focus-motivace",
+      "courseSlug": "adhd-soustredeni-a-motivace",
+      "courseTitle": "ADHD: soustředění, motivace a exekutivní dovednosti",
+      "trainer": "Trenérka pozornosti a exekutivních dovedností",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Čtyři dveře k aktivaci",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 319,
+      "responseFingerprint": "32f8b245e3a7727b"
+    },
+    {
+      "id": "ai-agenti-a-automatizace:debrief",
+      "courseId": "ai-agenti-a-automatizace",
+      "courseSlug": "ai-agenti-a-automatizace-v-praxi",
+      "courseTitle": "AI agenti a automatizace v praxi",
+      "trainer": "AI workflow lektorka a bezpečnostní oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři úrovně rizika a lidská brána",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 443,
+      "responseFingerprint": "cf21461c5f622604"
+    },
+    {
+      "id": "ai-agenti-a-automatizace:simulation",
+      "courseId": "ai-agenti-a-automatizace",
+      "courseSlug": "ai-agenti-a-automatizace-v-praxi",
+      "courseTitle": "AI agenti a automatizace v praxi",
+      "trainer": "AI workflow lektorka a bezpečnostní oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři úrovně rizika a lidská brána",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 46,
+      "responseFingerprint": "5824c6d2c4a6f530"
+    },
+    {
+      "id": "ai-agenti-a-automatizace:study",
+      "courseId": "ai-agenti-a-automatizace",
+      "courseSlug": "ai-agenti-a-automatizace-v-praxi",
+      "courseTitle": "AI agenti a automatizace v praxi",
+      "trainer": "AI workflow lektorka a bezpečnostní oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři úrovně rizika a lidská brána",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 416,
+      "responseFingerprint": "71dc10457fbc6e21"
+    },
+    {
+      "id": "ai-content-production-studio:debrief",
+      "courseId": "ai-content-production-studio",
+      "courseSlug": "ai-content-production-studio",
+      "courseTitle": "AI Content Production Studio",
+      "trainer": "Lektorka AI content produkce a multimodálního workflow",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Audit současného obsahu a workflow",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "ai-content-production-studio:simulation",
+      "courseId": "ai-content-production-studio",
+      "courseSlug": "ai-content-production-studio",
+      "courseTitle": "AI Content Production Studio",
+      "trainer": "Lektorka AI content produkce a multimodálního workflow",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Audit současného obsahu a workflow",
+      "type": "simulation",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "ai-content-production-studio:study",
+      "courseId": "ai-content-production-studio",
+      "courseSlug": "ai-content-production-studio",
+      "courseTitle": "AI Content Production Studio",
+      "trainer": "Lektorka AI content produkce a multimodálního workflow",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Audit současného obsahu a workflow",
+      "type": "study",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "bachovy-kvetove-esence:debrief",
+      "courseId": "bachovy-kvetove-esence",
+      "courseSlug": "bachovy-kvetove-esence-bezpecna-praxe",
+      "courseTitle": "Bachovy květové esence: tradice, rozlišování a bezpečná praxe",
+      "trainer": "Trenérka bezpečné praxe Bachových esencí",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Esence, bylinný přípravek a homeopatie",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "bachovy-kvetove-esence:simulation",
+      "courseId": "bachovy-kvetove-esence",
+      "courseSlug": "bachovy-kvetove-esence-bezpecna-praxe",
+      "courseTitle": "Bachovy květové esence: tradice, rozlišování a bezpečná praxe",
+      "trainer": "Trenérka bezpečné praxe Bachových esencí",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Esence, bylinný přípravek a homeopatie",
+      "type": "simulation",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "bachovy-kvetove-esence:study",
+      "courseId": "bachovy-kvetove-esence",
+      "courseSlug": "bachovy-kvetove-esence-bezpecna-praxe",
+      "courseTitle": "Bachovy květové esence: tradice, rozlišování a bezpečná praxe",
+      "trainer": "Trenérka bezpečné praxe Bachových esencí",
+      "itemId": "m1-3",
+      "itemTitle": "Lekce 1.3 — Esence, bylinný přípravek a homeopatie",
+      "type": "study",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "canva-ai-business-systems-lab:debrief",
+      "courseId": "canva-ai-business-systems-lab",
+      "courseSlug": "canva-ai-business-systems-lab",
+      "courseTitle": "Canva AI & Business Systems Lab",
+      "trainer": "Lektorka Canva AI a digitálních pracovních systémů",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Audience decision a story spine",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "canva-ai-business-systems-lab:simulation",
+      "courseId": "canva-ai-business-systems-lab",
+      "courseSlug": "canva-ai-business-systems-lab",
+      "courseTitle": "Canva AI & Business Systems Lab",
+      "trainer": "Lektorka Canva AI a digitálních pracovních systémů",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Audience decision a story spine",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 76,
+      "responseFingerprint": "36043b600df399e5"
+    },
+    {
+      "id": "canva-ai-business-systems-lab:study",
+      "courseId": "canva-ai-business-systems-lab",
+      "courseSlug": "canva-ai-business-systems-lab",
+      "courseTitle": "Canva AI & Business Systems Lab",
+      "trainer": "Lektorka Canva AI a digitálních pracovních systémů",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Audience decision a story spine",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 514,
+      "responseFingerprint": "fecefce83fe2ff19"
+    },
+    {
+      "id": "canva-content-design-studio:debrief",
+      "courseId": "canva-content-design-studio",
+      "courseSlug": "canva-content-design-studio",
+      "courseTitle": "Canva Content Design Studio",
+      "trainer": "Lektorka vizuálního designu a Canva produkce",
+      "itemId": "m13-3",
+      "itemTitle": "Lekce 13.3 — Bulk create, data a variabilní šablony",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 474,
+      "responseFingerprint": "f114b1d3b85c7f87"
+    },
+    {
+      "id": "canva-content-design-studio:simulation",
+      "courseId": "canva-content-design-studio",
+      "courseSlug": "canva-content-design-studio",
+      "courseTitle": "Canva Content Design Studio",
+      "trainer": "Lektorka vizuálního designu a Canva produkce",
+      "itemId": "m13-3",
+      "itemTitle": "Lekce 13.3 — Bulk create, data a variabilní šablony",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 61,
+      "responseFingerprint": "76a1ca5406e27768"
+    },
+    {
+      "id": "canva-content-design-studio:study",
+      "courseId": "canva-content-design-studio",
+      "courseSlug": "canva-content-design-studio",
+      "courseTitle": "Canva Content Design Studio",
+      "trainer": "Lektorka vizuálního designu a Canva produkce",
+      "itemId": "m13-3",
+      "itemTitle": "Lekce 13.3 — Bulk create, data a variabilní šablony",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 384,
+      "responseFingerprint": "0733df6706489c94"
+    },
+    {
+      "id": "capcut-short-form-video-studio:debrief",
+      "courseId": "capcut-short-form-video-studio",
+      "courseSlug": "capcut-short-form-video-studio",
+      "courseTitle": "CapCut Desktop + Mobile + AI Video Studio",
+      "trainer": "Lektorka short-form videa a CapCut production review",
+      "itemId": "m9-3",
+      "itemTitle": "Lekce 9.3 — Silent-view, transcript a alternativní přístup",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "capcut-short-form-video-studio:simulation",
+      "courseId": "capcut-short-form-video-studio",
+      "courseSlug": "capcut-short-form-video-studio",
+      "courseTitle": "CapCut Desktop + Mobile + AI Video Studio",
+      "trainer": "Lektorka short-form videa a CapCut production review",
+      "itemId": "m9-3",
+      "itemTitle": "Lekce 9.3 — Silent-view, transcript a alternativní přístup",
+      "type": "simulation",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "capcut-short-form-video-studio:study",
+      "courseId": "capcut-short-form-video-studio",
+      "courseSlug": "capcut-short-form-video-studio",
+      "courseTitle": "CapCut Desktop + Mobile + AI Video Studio",
+      "trainer": "Lektorka short-form videa a CapCut production review",
+      "itemId": "m9-3",
+      "itemTitle": "Lekce 9.3 — Silent-view, transcript a alternativní přístup",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 325,
+      "responseFingerprint": "d930254daad694a8"
+    },
+    {
+      "id": "content-creator-personal-brand-studio:debrief",
+      "courseId": "content-creator-personal-brand-studio",
+      "courseSlug": "content-creator-personal-brand-studio",
+      "courseTitle": "Content Creator & Personal Brand Studio",
+      "trainer": "Lektorka content creation a personal brand production review",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Portfolio, SOP, rizika a přenositelnost",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "content-creator-personal-brand-studio:simulation",
+      "courseId": "content-creator-personal-brand-studio",
+      "courseSlug": "content-creator-personal-brand-studio",
+      "courseTitle": "Content Creator & Personal Brand Studio",
+      "trainer": "Lektorka content creation a personal brand production review",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Portfolio, SOP, rizika a přenositelnost",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "role_break"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 41,
+      "responseFingerprint": "e900fc046ec24070"
+    },
+    {
+      "id": "content-creator-personal-brand-studio:study",
+      "courseId": "content-creator-personal-brand-studio",
+      "courseSlug": "content-creator-personal-brand-studio",
+      "courseTitle": "Content Creator & Personal Brand Studio",
+      "trainer": "Lektorka content creation a personal brand production review",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Portfolio, SOP, rizika a přenositelnost",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 398,
+      "responseFingerprint": "82f7c375dfa46076"
+    },
+    {
+      "id": "content-marketing-editorial-growth-system:debrief",
+      "courseId": "content-marketing-editorial-growth-system",
+      "courseSlug": "content-marketing-editorial-growth-system",
+      "courseTitle": "Content Marketing: Editorial Growth System",
+      "trainer": "Lektorka content marketingu a editorial growth",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Capstone, ekonomika a board obhajoba",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 431,
+      "responseFingerprint": "3964b6ce8dc6520e"
+    },
+    {
+      "id": "content-marketing-editorial-growth-system:simulation",
+      "courseId": "content-marketing-editorial-growth-system",
+      "courseSlug": "content-marketing-editorial-growth-system",
+      "courseTitle": "Content Marketing: Editorial Growth System",
+      "trainer": "Lektorka content marketingu a editorial growth",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Capstone, ekonomika a board obhajoba",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 40,
+      "responseFingerprint": "def697b828e4f12f"
+    },
+    {
+      "id": "content-marketing-editorial-growth-system:study",
+      "courseId": "content-marketing-editorial-growth-system",
+      "courseSlug": "content-marketing-editorial-growth-system",
+      "courseTitle": "Content Marketing: Editorial Growth System",
+      "trainer": "Lektorka content marketingu a editorial growth",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Capstone, ekonomika a board obhajoba",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 408,
+      "responseFingerprint": "9b6076f0167c13a0"
+    },
+    {
+      "id": "facilitace-zenskych-kruhu:debrief",
+      "courseId": "facilitace-zenskych-kruhu",
+      "courseSlug": "facilitatorka-zenskych-kruhu-bezpeci-spojeni-ritual",
+      "courseTitle": "Facilitátorka ženských kruhů: bezpečí, spojení a rituál",
+      "trainer": "Trenérka facilitace ženských kruhů",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Facilitace, výuka, koučink a odborná péče",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "facilitace-zenskych-kruhu:simulation",
+      "courseId": "facilitace-zenskych-kruhu",
+      "courseSlug": "facilitatorka-zenskych-kruhu-bezpeci-spojeni-ritual",
+      "courseTitle": "Facilitátorka ženských kruhů: bezpečí, spojení a rituál",
+      "trainer": "Trenérka facilitace ženských kruhů",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Facilitace, výuka, koučink a odborná péče",
+      "type": "simulation",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "facilitace-zenskych-kruhu:study",
+      "courseId": "facilitace-zenskych-kruhu",
+      "courseSlug": "facilitatorka-zenskych-kruhu-bezpeci-spojeni-ritual",
+      "courseTitle": "Facilitátorka ženských kruhů: bezpečí, spojení a rituál",
+      "trainer": "Trenérka facilitace ženských kruhů",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Facilitace, výuka, koučink a odborná péče",
+      "type": "study",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "founder-productivity-execution-os:debrief",
+      "courseId": "founder-productivity-execution-os",
+      "courseSlug": "founder-productivity-execution-os",
+      "courseTitle": "Founder Productivity & Execution OS",
+      "trainer": "Lektorka founder productivity a execution systémů",
+      "itemId": "m19-3",
+      "itemTitle": "Lekce 19.3 — Founder Execution OS capstone",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 494,
+      "responseFingerprint": "210216af174b3ccc"
+    },
+    {
+      "id": "founder-productivity-execution-os:simulation",
+      "courseId": "founder-productivity-execution-os",
+      "courseSlug": "founder-productivity-execution-os",
+      "courseTitle": "Founder Productivity & Execution OS",
+      "trainer": "Lektorka founder productivity a execution systémů",
+      "itemId": "m19-3",
+      "itemTitle": "Lekce 19.3 — Founder Execution OS capstone",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 79,
+      "responseFingerprint": "acaaf92f2e2004f3"
+    },
+    {
+      "id": "founder-productivity-execution-os:study",
+      "courseId": "founder-productivity-execution-os",
+      "courseSlug": "founder-productivity-execution-os",
+      "courseTitle": "Founder Productivity & Execution OS",
+      "trainer": "Lektorka founder productivity a execution systémů",
+      "itemId": "m19-3",
+      "itemTitle": "Lekce 19.3 — Founder Execution OS capstone",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 298,
+      "responseFingerprint": "01e4a0ee6ac035b7"
+    },
+    {
+      "id": "generativni-ai-pro-marketing-a-byznys:debrief",
+      "courseId": "generativni-ai-pro-marketing-a-byznys",
+      "courseSlug": "generativni-ai-pro-marketing-tvorbu-a-byznys",
+      "courseTitle": "Generativní AI pro marketing, tvorbu a byznys",
+      "trainer": "Lektorka generativní AI a multimodální produkce",
+      "itemId": "m8-2",
+      "itemTitle": "Lekce 8.2 — Copywriting, e-mail a personalizace bez manipulace",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 461,
+      "responseFingerprint": "97c16944345db051"
+    },
+    {
+      "id": "generativni-ai-pro-marketing-a-byznys:simulation",
+      "courseId": "generativni-ai-pro-marketing-a-byznys",
+      "courseSlug": "generativni-ai-pro-marketing-tvorbu-a-byznys",
+      "courseTitle": "Generativní AI pro marketing, tvorbu a byznys",
+      "trainer": "Lektorka generativní AI a multimodální produkce",
+      "itemId": "m8-2",
+      "itemTitle": "Lekce 8.2 — Copywriting, e-mail a personalizace bez manipulace",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 60,
+      "responseFingerprint": "07cc8b2f6efdfeee"
+    },
+    {
+      "id": "generativni-ai-pro-marketing-a-byznys:study",
+      "courseId": "generativni-ai-pro-marketing-a-byznys",
+      "courseSlug": "generativni-ai-pro-marketing-tvorbu-a-byznys",
+      "courseTitle": "Generativní AI pro marketing, tvorbu a byznys",
+      "trainer": "Lektorka generativní AI a multimodální produkce",
+      "itemId": "m8-2",
+      "itemTitle": "Lekce 8.2 — Copywriting, e-mail a personalizace bez manipulace",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 320,
+      "responseFingerprint": "4e255e4edee6fc15"
+    },
+    {
+      "id": "kbt-koucink-v-praxi:debrief",
+      "courseId": "kbt-koucink-v-praxi",
+      "courseSlug": "kbt-inspirovany-koucink",
+      "courseTitle": "KBT-inspirovaný koučink v praxi",
+      "trainer": "Trenérka KBT-inspirovaného koučinku",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Bezpečnostní brána před každou technikou",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "kbt-koucink-v-praxi:simulation",
+      "courseId": "kbt-koucink-v-praxi",
+      "courseSlug": "kbt-inspirovany-koucink",
+      "courseTitle": "KBT-inspirovaný koučink v praxi",
+      "trainer": "Trenérka KBT-inspirovaného koučinku",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Bezpečnostní brána před každou technikou",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 55,
+      "responseFingerprint": "8eba9c193df283e4"
+    },
+    {
+      "id": "kbt-koucink-v-praxi:study",
+      "courseId": "kbt-koucink-v-praxi",
+      "courseSlug": "kbt-inspirovany-koucink",
+      "courseTitle": "KBT-inspirovaný koučink v praxi",
+      "trainer": "Trenérka KBT-inspirovaného koučinku",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Bezpečnostní brána před každou technikou",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 206,
+      "responseFingerprint": "e05ce46028cf4f6b"
+    },
+    {
+      "id": "komunikace-v-praxi:debrief",
+      "courseId": "komunikace-v-praxi",
+      "courseSlug": "komunikace-ktera-funguje",
+      "courseTitle": "Komunikace, která funguje",
+      "trainer": "Komunikační trenérka",
+      "itemId": "m0-3",
+      "itemTitle": "Lekce 0.3 — Přímá a nepřímá komunikace bez nálepek",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "komunikace-v-praxi:simulation",
+      "courseId": "komunikace-v-praxi",
+      "courseSlug": "komunikace-ktera-funguje",
+      "courseTitle": "Komunikace, která funguje",
+      "trainer": "Komunikační trenérka",
+      "itemId": "m0-3",
+      "itemTitle": "Lekce 0.3 — Přímá a nepřímá komunikace bez nálepek",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 50,
+      "responseFingerprint": "5257dd25397827da"
+    },
+    {
+      "id": "komunikace-v-praxi:study",
+      "courseId": "komunikace-v-praxi",
+      "courseSlug": "komunikace-ktera-funguje",
+      "courseTitle": "Komunikace, která funguje",
+      "trainer": "Komunikační trenérka",
+      "itemId": "m0-3",
+      "itemTitle": "Lekce 0.3 — Přímá a nepřímá komunikace bez nálepek",
+      "type": "study",
+      "pass": false,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": false
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "deterministic-training-fallback",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [
+          "study_question_count"
+        ],
+        "repaired": false
+      },
+      "responseWords": 70,
+      "responseFingerprint": "c2e36ec16af31178"
+    },
+    {
+      "id": "napad-k-overene-prilezitosti:debrief",
+      "courseId": "napad-k-overene-prilezitosti",
+      "courseSlug": "od-napadu-k-overene-prilezitosti",
+      "courseTitle": "Od nápadu k ověřené příležitosti",
+      "trainer": "Validační lektorka a startupová oponentka",
+      "itemId": "m13-4",
+      "itemTitle": "Praktická laboratoř 13 — Startup evidence room a board obhajoba",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 414,
+      "responseFingerprint": "218c813a498d955a"
+    },
+    {
+      "id": "napad-k-overene-prilezitosti:simulation",
+      "courseId": "napad-k-overene-prilezitosti",
+      "courseSlug": "od-napadu-k-overene-prilezitosti",
+      "courseTitle": "Od nápadu k ověřené příležitosti",
+      "trainer": "Validační lektorka a startupová oponentka",
+      "itemId": "m13-4",
+      "itemTitle": "Praktická laboratoř 13 — Startup evidence room a board obhajoba",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 58,
+      "responseFingerprint": "7ae1b9e9d34292f2"
+    },
+    {
+      "id": "napad-k-overene-prilezitosti:study",
+      "courseId": "napad-k-overene-prilezitosti",
+      "courseSlug": "od-napadu-k-overene-prilezitosti",
+      "courseTitle": "Od nápadu k ověřené příležitosti",
+      "trainer": "Validační lektorka a startupová oponentka",
+      "itemId": "m13-4",
+      "itemTitle": "Praktická laboratoř 13 — Startup evidence room a board obhajoba",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 231,
+      "responseFingerprint": "839b29131ab5611e"
+    },
+    {
+      "id": "neuroplasticita-practitioner:debrief",
+      "courseId": "neuroplasticita-practitioner",
+      "courseSlug": "prepis-svuj-vzorec",
+      "courseTitle": "Přepiš svůj vzorec",
+      "trainer": "Trenérka praktické neuroplasticity",
+      "itemId": "m9-1",
+      "itemTitle": "Lekce 9.2 — CERTIFIKAČNÍ ZKOUŠKA",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "unsupported_student_quote"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 366,
+      "responseFingerprint": "af62bdf07e75dab2"
+    },
+    {
+      "id": "neuroplasticita-practitioner:simulation",
+      "courseId": "neuroplasticita-practitioner",
+      "courseSlug": "prepis-svuj-vzorec",
+      "courseTitle": "Přepiš svůj vzorec",
+      "trainer": "Trenérka praktické neuroplasticity",
+      "itemId": "m9-1",
+      "itemTitle": "Lekce 9.2 — CERTIFIKAČNÍ ZKOUŠKA",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 46,
+      "responseFingerprint": "f7cf05573942fe37"
+    },
+    {
+      "id": "neuroplasticita-practitioner:study",
+      "courseId": "neuroplasticita-practitioner",
+      "courseSlug": "prepis-svuj-vzorec",
+      "courseTitle": "Přepiš svůj vzorec",
+      "trainer": "Trenérka praktické neuroplasticity",
+      "itemId": "m9-1",
+      "itemTitle": "Lekce 9.2 — CERTIFIKAČNÍ ZKOUŠKA",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 181,
+      "responseFingerprint": "bb31b067ba5a6fb4"
+    },
+    {
+      "id": "pevna-v-sobe-intensive:debrief",
+      "courseId": "pevna-v-sobe-intensive",
+      "courseSlug": "pevna-v-sobe",
+      "courseTitle": "Pevná v sobě",
+      "trainer": "Trenérka sebedůvěry a hranic",
+      "itemId": "m0-1",
+      "itemTitle": "Lekce 0.1 — Pocit, dovednost a sebeúčinnost",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 404,
+      "responseFingerprint": "959ef6a838fdafba"
+    },
+    {
+      "id": "pevna-v-sobe-intensive:simulation",
+      "courseId": "pevna-v-sobe-intensive",
+      "courseSlug": "pevna-v-sobe",
+      "courseTitle": "Pevná v sobě",
+      "trainer": "Trenérka sebedůvěry a hranic",
+      "itemId": "m0-1",
+      "itemTitle": "Lekce 0.1 — Pocit, dovednost a sebeúčinnost",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 46,
+      "responseFingerprint": "679309eb7ec9a978"
+    },
+    {
+      "id": "pevna-v-sobe-intensive:study",
+      "courseId": "pevna-v-sobe-intensive",
+      "courseSlug": "pevna-v-sobe",
+      "courseTitle": "Pevná v sobě",
+      "trainer": "Trenérka sebedůvěry a hranic",
+      "itemId": "m0-1",
+      "itemTitle": "Lekce 0.1 — Pocit, dovednost a sebeúčinnost",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 142,
+      "responseFingerprint": "0cdc7779622f5c2c"
+    },
+    {
+      "id": "podnikani-od-napadu-k-rustu:debrief",
+      "courseId": "podnikani-od-napadu-k-rustu",
+      "courseSlug": "podnikani-od-napadu-k-rustu",
+      "courseTitle": "Podnikání od nápadu k růstu",
+      "trainer": "Byznys lektorka a strategická oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Úspěch, který odpovídá tvému životu",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 431,
+      "responseFingerprint": "10444dbd0b2d9d33"
+    },
+    {
+      "id": "podnikani-od-napadu-k-rustu:simulation",
+      "courseId": "podnikani-od-napadu-k-rustu",
+      "courseSlug": "podnikani-od-napadu-k-rustu",
+      "courseTitle": "Podnikání od nápadu k růstu",
+      "trainer": "Byznys lektorka a strategická oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Úspěch, který odpovídá tvému životu",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 43,
+      "responseFingerprint": "4d6fd325c1c3c9d2"
+    },
+    {
+      "id": "podnikani-od-napadu-k-rustu:study",
+      "courseId": "podnikani-od-napadu-k-rustu",
+      "courseSlug": "podnikani-od-napadu-k-rustu",
+      "courseTitle": "Podnikání od nápadu k růstu",
+      "trainer": "Byznys lektorka a strategická oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Úspěch, který odpovídá tvému životu",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 344,
+      "responseFingerprint": "f6af74d43afed576"
+    },
+    {
+      "id": "profesionalni-life-coach:debrief",
+      "courseId": "profesionalni-life-coach",
+      "courseSlug": "profesionalni-life-coach-od-kontraktu-k-vysledku",
+      "courseTitle": "Profesionální Life Coach: od kontraktu k výsledku",
+      "trainer": "Supervizorka koučovacího řemesla",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Magnet message, balíček, skupina a etický marketing",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 436,
+      "responseFingerprint": "d77b9f8354900777"
+    },
+    {
+      "id": "profesionalni-life-coach:simulation",
+      "courseId": "profesionalni-life-coach",
+      "courseSlug": "profesionalni-life-coach-od-kontraktu-k-vysledku",
+      "courseTitle": "Profesionální Life Coach: od kontraktu k výsledku",
+      "trainer": "Supervizorka koučovacího řemesla",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Magnet message, balíček, skupina a etický marketing",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 61,
+      "responseFingerprint": "500f66303f768695"
+    },
+    {
+      "id": "profesionalni-life-coach:study",
+      "courseId": "profesionalni-life-coach",
+      "courseSlug": "profesionalni-life-coach-od-kontraktu-k-vysledku",
+      "courseTitle": "Profesionální Life Coach: od kontraktu k výsledku",
+      "trainer": "Supervizorka koučovacího řemesla",
+      "itemId": "m17-3",
+      "itemTitle": "Lekce 17.3 — Magnet message, balíček, skupina a etický marketing",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 325,
+      "responseFingerprint": "7e578300c8527671"
+    },
+    {
+      "id": "project-workflow-operations-management:debrief",
+      "courseId": "project-workflow-operations-management",
+      "courseSlug": "project-workflow-operations-management",
+      "courseTitle": "Project, Workflow & Operations Management",
+      "trainer": "Lektorka projektového a provozního řízení",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Release readiness a rollback",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "project-workflow-operations-management:simulation",
+      "courseId": "project-workflow-operations-management",
+      "courseSlug": "project-workflow-operations-management",
+      "courseTitle": "Project, Workflow & Operations Management",
+      "trainer": "Lektorka projektového a provozního řízení",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Release readiness a rollback",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 40,
+      "responseFingerprint": "bd0d3b7bc7f95de8"
+    },
+    {
+      "id": "project-workflow-operations-management:study",
+      "courseId": "project-workflow-operations-management",
+      "courseSlug": "project-workflow-operations-management",
+      "courseTitle": "Project, Workflow & Operations Management",
+      "trainer": "Lektorka projektového a provozního řízení",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Release readiness a rollback",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 206,
+      "responseFingerprint": "4edd3960c7f99aef"
+    },
+    {
+      "id": "social-media-management-strategie-a-rust:debrief",
+      "courseId": "social-media-management-strategie-a-rust",
+      "courseSlug": "social-media-management-strategie-obsah-a-rust",
+      "courseTitle": "Social Media Management: strategie, obsah a růst",
+      "trainer": "Lektorka social media managementu a klientská oponentka",
+      "itemId": "m14-2",
+      "itemTitle": "Lekce 14.2 — Scheduling, ManyChat a bezpečná automatizace",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "social-media-management-strategie-a-rust:simulation",
+      "courseId": "social-media-management-strategie-a-rust",
+      "courseSlug": "social-media-management-strategie-obsah-a-rust",
+      "courseTitle": "Social Media Management: strategie, obsah a růst",
+      "trainer": "Lektorka social media managementu a klientská oponentka",
+      "itemId": "m14-2",
+      "itemTitle": "Lekce 14.2 — Scheduling, ManyChat a bezpečná automatizace",
+      "type": "simulation",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "social-media-management-strategie-a-rust:study",
+      "courseId": "social-media-management-strategie-a-rust",
+      "courseSlug": "social-media-management-strategie-obsah-a-rust",
+      "courseTitle": "Social Media Management: strategie, obsah a růst",
+      "trainer": "Lektorka social media managementu a klientská oponentka",
+      "itemId": "m14-2",
+      "itemTitle": "Lekce 14.2 — Scheduling, ManyChat a bezpečná automatizace",
+      "type": "study",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "spiritualni-koucink-practice:debrief",
+      "courseId": "spiritualni-koucink-practice",
+      "courseSlug": "spiritualni-koucink-v-praxi",
+      "courseTitle": "Spirituální koučink v praxi",
+      "trainer": "Trenérka spirituálního koučinku",
+      "itemId": "m12-1",
+      "itemTitle": "Lekce 12.1 — Zadání praktika a hodnoticí standard",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 400,
+      "responseFingerprint": "edf47e02b64f0f5f"
+    },
+    {
+      "id": "spiritualni-koucink-practice:simulation",
+      "courseId": "spiritualni-koucink-practice",
+      "courseSlug": "spiritualni-koucink-v-praxi",
+      "courseTitle": "Spirituální koučink v praxi",
+      "trainer": "Trenérka spirituálního koučinku",
+      "itemId": "m12-1",
+      "itemTitle": "Lekce 12.1 — Zadání praktika a hodnoticí standard",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 51,
+      "responseFingerprint": "cef88a9eb459c096"
+    },
+    {
+      "id": "spiritualni-koucink-practice:study",
+      "courseId": "spiritualni-koucink-practice",
+      "courseSlug": "spiritualni-koucink-v-praxi",
+      "courseTitle": "Spirituální koučink v praxi",
+      "trainer": "Trenérka spirituálního koučinku",
+      "itemId": "m12-1",
+      "itemTitle": "Lekce 12.1 — Zadání praktika a hodnoticí standard",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "study_question_count"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 239,
+      "responseFingerprint": "2a79522a8f20bdc4"
+    },
+    {
+      "id": "strategic-thinking-decision-lab:debrief",
+      "courseId": "strategic-thinking-decision-lab",
+      "courseSlug": "strategicke-mysleni-a-rozhodovani",
+      "courseTitle": "Strategické myšlení & Decision-Making Lab",
+      "trainer": "Lektorka strategického myšlení a rozhodování",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Fakta, interpretace, předpoklady a přání",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 446,
+      "responseFingerprint": "f46deb82e4c5df6b"
+    },
+    {
+      "id": "strategic-thinking-decision-lab:simulation",
+      "courseId": "strategic-thinking-decision-lab",
+      "courseSlug": "strategicke-mysleni-a-rozhodovani",
+      "courseTitle": "Strategické myšlení & Decision-Making Lab",
+      "trainer": "Lektorka strategického myšlení a rozhodování",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Fakta, interpretace, předpoklady a přání",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 43,
+      "responseFingerprint": "0a57343022fe56eb"
+    },
+    {
+      "id": "strategic-thinking-decision-lab:study",
+      "courseId": "strategic-thinking-decision-lab",
+      "courseSlug": "strategicke-mysleni-a-rozhodovani",
+      "courseTitle": "Strategické myšlení & Decision-Making Lab",
+      "trainer": "Lektorka strategického myšlení a rozhodování",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Fakta, interpretace, předpoklady a přání",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 358,
+      "responseFingerprint": "8c05b54a5801a270"
+    },
+    {
+      "id": "strategicka-partnerstvi-business-development:debrief",
+      "courseId": "strategicka-partnerstvi-business-development",
+      "courseSlug": "strategicka-partnerstvi-a-business-development",
+      "courseTitle": "Strategická partnerství a Business Development",
+      "trainer": "Lektorka strategických partnerství a dealová oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři zdroje partnerské hodnoty",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 435,
+      "responseFingerprint": "78cbc5b8f67153ff"
+    },
+    {
+      "id": "strategicka-partnerstvi-business-development:simulation",
+      "courseId": "strategicka-partnerstvi-business-development",
+      "courseSlug": "strategicka-partnerstvi-a-business-development",
+      "courseTitle": "Strategická partnerství a Business Development",
+      "trainer": "Lektorka strategických partnerství a dealová oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři zdroje partnerské hodnoty",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 47,
+      "responseFingerprint": "70a4d0a9ae6098db"
+    },
+    {
+      "id": "strategicka-partnerstvi-business-development:study",
+      "courseId": "strategicka-partnerstvi-business-development",
+      "courseSlug": "strategicka-partnerstvi-a-business-development",
+      "courseTitle": "Strategická partnerství a Business Development",
+      "trainer": "Lektorka strategických partnerství a dealová oponentka",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Čtyři zdroje partnerské hodnoty",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 461,
+      "responseFingerprint": "27d167205088248b"
+    },
+    {
+      "id": "vedlejsi-byznys-pri-zamestnani:debrief",
+      "courseId": "vedlejsi-byznys-pri-zamestnani",
+      "courseSlug": "vedlejsi-byznys-pri-zamestnani",
+      "courseTitle": "Vedlejší byznys při zaměstnání",
+      "trainer": "Side-business lektorka a bezpečnostní oponentka",
+      "itemId": "m3-1",
+      "itemTitle": "Lekce 3.1 — Oddělení domácnosti a podnikatelského pokusu",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 467,
+      "responseFingerprint": "2ea877faeb1f5748"
+    },
+    {
+      "id": "vedlejsi-byznys-pri-zamestnani:simulation",
+      "courseId": "vedlejsi-byznys-pri-zamestnani",
+      "courseSlug": "vedlejsi-byznys-pri-zamestnani",
+      "courseTitle": "Vedlejší byznys při zaměstnání",
+      "trainer": "Side-business lektorka a bezpečnostní oponentka",
+      "itemId": "m3-1",
+      "itemTitle": "Lekce 3.1 — Oddělení domácnosti a podnikatelského pokusu",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 75,
+      "responseFingerprint": "3a6221fa1286445d"
+    },
+    {
+      "id": "vedlejsi-byznys-pri-zamestnani:study",
+      "courseId": "vedlejsi-byznys-pri-zamestnani",
+      "courseSlug": "vedlejsi-byznys-pri-zamestnani",
+      "courseTitle": "Vedlejší byznys při zaměstnání",
+      "trainer": "Side-business lektorka a bezpečnostní oponentka",
+      "itemId": "m3-1",
+      "itemTitle": "Lekce 3.1 — Oddělení domácnosti a podnikatelského pokusu",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 267,
+      "responseFingerprint": "beb537608bb14c58"
+    },
+    {
+      "id": "visual-content-strategy-campaign-lab:debrief",
+      "courseId": "visual-content-strategy-campaign-lab",
+      "courseSlug": "visual-content-strategy-campaign-lab",
+      "courseTitle": "Visual Content Strategy & Campaign Lab",
+      "trainer": "Lektorka visual content strategie a campaign review",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Objective, key result a creative evidence",
+      "type": "debrief",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "debrief-mode",
+          "pass": true
+        },
+        {
+          "name": "debrief-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "evidence-grounded-debrief",
+          "pass": true
+        },
+        {
+          "name": "complete-course-rubric",
+          "pass": true
+        },
+        {
+          "name": "no-missing-rubric-status",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [
+          "unsupported_student_quote"
+        ],
+        "repairIssueCodes": [],
+        "repaired": true
+      },
+      "responseWords": 445,
+      "responseFingerprint": "a058f8ff68309111"
+    },
+    {
+      "id": "visual-content-strategy-campaign-lab:simulation",
+      "courseId": "visual-content-strategy-campaign-lab",
+      "courseSlug": "visual-content-strategy-campaign-lab",
+      "courseTitle": "Visual Content Strategy & Campaign Lab",
+      "trainer": "Lektorka visual content strategie a campaign review",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Objective, key result a creative evidence",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 39,
+      "responseFingerprint": "83376aca51952149"
+    },
+    {
+      "id": "visual-content-strategy-campaign-lab:study",
+      "courseId": "visual-content-strategy-campaign-lab",
+      "courseSlug": "visual-content-strategy-campaign-lab",
+      "courseTitle": "Visual Content Strategy & Campaign Lab",
+      "trainer": "Lektorka visual content strategie a campaign review",
+      "itemId": "m0-2",
+      "itemTitle": "Lekce 0.2 — Objective, key result a creative evidence",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 410,
+      "responseFingerprint": "96ca89b680c4fc9a"
+    },
+    {
+      "id": "workflow-productivity-toolkit:debrief",
+      "courseId": "workflow-productivity-toolkit",
+      "courseSlug": "workflow-a-productivity-toolkit",
+      "courseTitle": "Workflow & Productivity Toolkit",
+      "trainer": "Lektorka workflow a produktivních technik",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Weekly review od vstupů k rozhodnutí",
+      "type": "debrief",
+      "pass": false,
+      "checks": [
+        {
+          "name": "request-completed",
+          "pass": false,
+          "detail": [
+            "The operation was aborted due to timeout"
+          ]
+        }
+      ],
+      "provider": null,
+      "qualityGate": null,
+      "responseWords": 0,
+      "responseFingerprint": null
+    },
+    {
+      "id": "workflow-productivity-toolkit:simulation",
+      "courseId": "workflow-productivity-toolkit",
+      "courseSlug": "workflow-a-productivity-toolkit",
+      "courseTitle": "Workflow & Productivity Toolkit",
+      "trainer": "Lektorka workflow a produktivních technik",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Weekly review od vstupů k rozhodnutí",
+      "type": "simulation",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "simulation-mode",
+          "pass": true
+        },
+        {
+          "name": "roleplay-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "counterpart-role-integrity",
+          "pass": true
+        },
+        {
+          "name": "natural-counterpart-turn",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-luna",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 55,
+      "responseFingerprint": "aa51b634602717cd"
+    },
+    {
+      "id": "workflow-productivity-toolkit:study",
+      "courseId": "workflow-productivity-toolkit",
+      "courseSlug": "workflow-a-productivity-toolkit",
+      "courseTitle": "Workflow & Productivity Toolkit",
+      "trainer": "Lektorka workflow a produktivních technik",
+      "itemId": "m11-1",
+      "itemTitle": "Lekce 11.1 — Weekly review od vstupů k rozhodnutí",
+      "type": "study",
+      "pass": true,
+      "checks": [
+        {
+          "name": "real-model-provider",
+          "pass": true
+        },
+        {
+          "name": "study-mode",
+          "pass": true
+        },
+        {
+          "name": "study-phase",
+          "pass": true
+        },
+        {
+          "name": "server-quality-gate",
+          "pass": true
+        },
+        {
+          "name": "lesson-grounding",
+          "pass": true
+        },
+        {
+          "name": "substantive-explanation",
+          "pass": true
+        },
+        {
+          "name": "one-checking-question",
+          "pass": true
+        }
+      ],
+      "provider": "openai/gpt-5.6-terra",
+      "qualityGate": {
+        "pass": true,
+        "issueCodes": [],
+        "attemptIssueCodes": [],
+        "repairIssueCodes": [],
+        "repaired": false
+      },
+      "responseWords": 288,
+      "responseFingerprint": "0c99ec703cd2869e"
+    }
+  ]
+}

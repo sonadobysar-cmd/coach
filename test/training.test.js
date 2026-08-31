@@ -12,6 +12,8 @@ import {
   assessStudyResponse,
   buildTrainingRepairInstruction,
   completeDebriefRubric,
+  sanitizeDebriefEvidence,
+  sanitizeStudyQuestionCount,
 } from '../src/training-quality.js';
 import {
   buildTrainingInstructions,
@@ -380,6 +382,38 @@ test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze students
   const invented = assessDebriefResponse(debrief('Skvěle jsi nastavila hranici.'), { messages, rubric });
   assert.equal(invented.pass, false);
   assert.ok(invented.issues.includes('unsupported_student_quote'));
+});
+
+test('poslední pojistka debriefu odstraní jen nedoložené tvrzení a zachová zbytek AI rozboru', () => {
+  const messages = [{ role: 'user', content: 'Co je v této situaci pro tebe nejdůležitější?' }];
+  const rubric = ['Přesná otázka', 'Konkrétní uzavření'];
+  const response = [
+    '## Výsledek nácviku', 'Dobrý začátek.',
+    '## Co fungovalo', 'Otázka „Co je v této situaci pro tebe nejdůležitější“ navázala na téma.',
+    '## Rozbor kompetencí',
+    '- PROKÁZÁNO — Přesná otázka: důkaz „Co je v této situaci pro tebe nejdůležitější“.',
+    '- PROKÁZÁNO — Konkrétní uzavření: důkaz „Domluvily jsme termín na zítra.“',
+    '## Co zlepšit', 'Doplnit další krok.',
+    '## Lepší formulace', '„Jaký krok zvolíš?“',
+    '## Další pokus', 'Uzavřít dohodou.',
+  ].join('\n\n');
+  assert.equal(assessDebriefResponse(response, { messages, rubric }).pass, false);
+  const sanitized = sanitizeDebriefEvidence(response, { messages, rubric });
+  assert.equal(sanitized.changed, true);
+  assert.match(sanitized.text, /PROKÁZÁNO — Přesná otázka/u);
+  assert.match(sanitized.text, /ZATÍM NEPROKÁZÁNO — Konkrétní uzavření/u);
+  assert.equal(assessDebriefResponse(sanitized.text, { messages, rubric }).pass, true);
+});
+
+test('poslední pojistka studijního výkladu zachová AI obsah a ponechá právě jednu vyžádanou otázku', () => {
+  const messages = [{ role: 'user', content: 'Vysvětli princip a jednou otázkou ověř moje pochopení.' }];
+  const sanitized = sanitizeStudyQuestionCount(
+    'Co je účelem sdělení? Příklad: nejdřív určím příjemce. Jak bys princip použila ty?',
+    { messages },
+  );
+  assert.equal(sanitized.changed, true);
+  assert.equal((sanitized.text.match(/\?/gu) || []).length, 1);
+  assert.match(sanitized.text, /nejdřív určím příjemce/u);
 });
 
 test('stav ČÁSTEČNĚ se v českém debriefu počítá jako platné vyhodnocení kritéria', () => {

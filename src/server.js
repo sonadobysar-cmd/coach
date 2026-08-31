@@ -98,6 +98,7 @@ const EXPERT_SOURCES_PATH = join(ROOT, 'data', 'expert-sources.json');
 const WELLBEING_PROTOCOLS_PATH = join(ROOT, 'data', 'wellbeing-protocols.json');
 const TECHNIQUE_ATLAS_PATH = join(ROOT, 'data', 'master-technique-atlas.json');
 const COMMUNITY_CONTENT_PATH = join(ROOT, 'data', 'community-content.json');
+const ACADEMY_TRAINER_RELEASE_PATH = join(ROOT, 'config', 'academy-trainer-release.json');
 const COURSE_NEUROPLASTICITY_PATH = join(ROOT, 'data', 'course-neuroplasticita-practitioner.md');
 const COURSE_SELF_TRUST_PATH = join(ROOT, 'data', 'course-pevna-v-sobe.md');
 const COURSE_SELF_TRUST_MATERIALS_PATH = join(ROOT, 'data', 'course-pevna-v-sobe-materials.json');
@@ -362,6 +363,7 @@ const chatbotKnowledgeRecords = [
   ...approvedEverandKnowledgeRecords,
   ...courseKnowledgeRecords,
 ];
+const academyTrainerRelease = JSON.parse(await readFile(ACADEMY_TRAINER_RELEASE_PATH, 'utf8'));
 validateMethodSources(coachingMethods, expertSources);
 validateProtocolSources(wellbeingProtocols, expertSources);
 const answer = createElitea({
@@ -464,6 +466,8 @@ app.get('/api/cron/lifecycle', async (request, response) => {
 app.get('/api/status', (_request, response) => {
   const launchReadiness = evaluateLaunchReadiness({
     automatedCases: 1004,
+    academyTrainerCases: Number(academyTrainerRelease.caseCount || 0),
+    academyTrainerPassRate: Number(academyTrainerRelease.passRate || 0) / 100,
     humanReviewedSessions: Number(process.env.ELITEA_HUMAN_REVIEWED_SESSIONS || 0),
     criticalFailures: Number(process.env.ELITEA_CRITICAL_FAILURES || 0),
     groundedPassRate: Number(process.env.ELITEA_GROUNDED_PASS_RATE || 0),
@@ -503,6 +507,7 @@ app.get('/api/status', (_request, response) => {
     worksheets: worksheets.items.length,
     courseMaterials: courseMaterials.length,
     studyTrainer: true,
+    academyTrainerEvaluation: academyTrainerRelease,
     memoryStorage: process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL ? 'account-cloud-approved-state-session-only-chat' : 'local-browser',
     authConnected: Boolean(process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL),
     bookingConnected: bookingConfigured(),

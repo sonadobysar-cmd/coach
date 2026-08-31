@@ -1,0 +1,11 @@
+{
+  "standardVersion": 1,
+  "verifiedAt": "2026-08-31T19:03:23.681Z",
+  "baseUrl": "http://127.0.0.1:4173",
+  "courseCount": 27,
+  "caseCount": 81,
+  "passedCases": 81,
+  "failedCases": 0,
+  "passRate": 100,
+  "complete": true
+}

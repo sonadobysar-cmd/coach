@@ -15,6 +15,8 @@ import {
   buildTrainingRepairInstruction,
   completeDebriefRubric,
   debriefAchievementSummary,
+  sanitizeDebriefEvidence,
+  sanitizeStudyQuestionCount,
 } from './training-quality.js';
 
 const DIFFICULTIES = new Set(['guided', 'standard', 'advanced', 'expert']);
@@ -534,6 +536,40 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
         }
       } catch {
         // Níže zůstává deterministická bezpečná záloha; vadný výstup se nepropustí jen kvůli chybě opravného volání.
+      }
+    }
+
+    if (!quality.pass && safePhase === 'debrief') {
+      const evidenceSanitized = sanitizeDebriefEvidence(finalText, {
+        messages: safeMessages,
+        rubric: scenario.rubric,
+      });
+      if (evidenceSanitized.changed) {
+        const sanitizedQuality = assessDebriefResponse(evidenceSanitized.text, {
+          messages: safeMessages,
+          rubric: scenario.rubric,
+        });
+        if (sanitizedQuality.pass) {
+          finalText = evidenceSanitized.text;
+          quality = sanitizedQuality;
+          repaired = true;
+        }
+      }
+    }
+
+    if (!quality.pass && safeActivity === 'study' && safePhase === 'study') {
+      const questionSanitized = sanitizeStudyQuestionCount(finalText, { messages: safeMessages });
+      if (questionSanitized.changed) {
+        const sanitizedQuality = assessStudyResponse(questionSanitized.text, {
+          messages: safeMessages,
+          course,
+          item,
+        });
+        if (sanitizedQuality.pass) {
+          finalText = questionSanitized.text;
+          quality = sanitizedQuality;
+          repaired = true;
+        }
       }
     }
 

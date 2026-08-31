@@ -154,6 +154,8 @@ test('veřejná čísla Academy přesně odpovídají všem aktuálním kurzový
 test('komerční spuštění zůstane zamčené bez lidsky zkontrolovaných sezení', () => {
   const beta = evaluateLaunchReadiness({
     automatedCases: 1000,
+    academyTrainerCases: 0,
+    academyTrainerPassRate: 0,
     humanReviewedSessions: 0,
     criticalFailures: 0,
     groundedPassRate: 1,
@@ -163,8 +165,11 @@ test('komerční spuštění zůstane zamčené bez lidsky zkontrolovaných seze
   assert.equal(beta.ready, false);
   assert.equal(beta.stage, 'controlled_beta');
   assert.equal(beta.checks.humanReview, false);
+  assert.equal(beta.checks.academyTrainerEvals, false);
   const ready = evaluateLaunchReadiness({
     automatedCases: 1000,
+    academyTrainerCases: 81,
+    academyTrainerPassRate: 1,
     humanReviewedSessions: 100,
     criticalFailures: 0,
     groundedPassRate: .99,

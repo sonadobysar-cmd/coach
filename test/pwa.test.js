@@ -28,12 +28,12 @@ test('service worker nikdy necachuje API a má offline shell', () => {
 });
 
 test('nový produkční JavaScript a CSS mají přednost před starou PWA cache', () => {
-  assert.match(worker, /elitea-shell-v0\.34\.0/);
+  assert.match(worker, /elitea-shell-v0\.35\.0/);
   assert.match(worker, /\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\//);
   const mutableBranch = worker.match(/if \(\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\/[\s\S]*?\n  \}/)?.[0] || '';
   assert.match(mutableBranch, /fetch\(request\)/);
   assert.match(mutableBranch, /catch\(\(\) => caches\.match\(request\)\)/);
-  assert.match(html, /\/app\.js\?v=0\.34\.0/);
-  assert.match(html, /\/styles\.css\?v=0\.34\.0/);
-  assert.match(app, /\/cloud\.js\?v=0\.34\.0/);
+  assert.match(html, /\/app\.js\?v=0\.35\.0/);
+  assert.match(html, /\/styles\.css\?v=0\.35\.0/);
+  assert.match(app, /\/cloud\.js\?v=0\.35\.0/);
 });
