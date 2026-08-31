@@ -77,7 +77,6 @@ import {
   issueCertificate,
   recordCertificateExamAttempt,
   syncCertificateEvidence,
-  verifyCertificateDocument,
 } from './certificate-service.js';
 import { certificateSigningConfigured } from './certificate-authenticity.js';
 import { authorizeCertificateQaRequest, runCertificateProductionQa } from './certificate-production-qa.js';
@@ -526,10 +525,9 @@ app.get('/api/status', (_request, response) => {
     bookingConnected: bookingConfigured(),
     paymentsConnected: paymentsConfigured(),
     foundingProgramConnected: foundingConfigured(),
-    certificateAuthenticity: {
-      signedPdf: certificateSigningConfigured(),
-      externalVerification: certificateSigningConfigured(),
-      verificationPath: '/overit-certifikat',
+    certificateIssuance: {
+      serverControlled: true,
+      downloadablePdf: certificateSigningConfigured(),
       visibleQrOrNumber: false,
     },
     commercialLaunchReady: launchReadiness.ready,
@@ -766,21 +764,6 @@ app.post('/api/courses/:slug/quizzes/:itemId/submit', async (request, response) 
   } catch (error) {
     return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
       error: error?.message || 'Test se nepodařilo vyhodnotit.',
-      code: error?.code,
-    });
-  }
-});
-
-app.post('/api/certificates/verify', express.raw({ type: 'application/pdf', limit: '12mb' }), async (request, response) => {
-  if (!allowPublicTestRequest(request, 'certificate-verify', 12, 15 * 60 * 1000)) {
-    return response.status(429).set('Cache-Control', 'no-store').json({ error: 'Příliš mnoho ověření. Zkus to znovu za chvíli.' });
-  }
-  try {
-    const result = await verifyCertificateDocument(request.body);
-    return response.status(200).set('Cache-Control', 'no-store').json(result);
-  } catch (error) {
-    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
-      error: error?.message || 'Certifikát se nepodařilo ověřit.',
       code: error?.code,
     });
   }
@@ -1336,10 +1319,6 @@ function prunePublicTestRateBuckets(now) {
 
 app.get('/coach-test', (_request, response) => {
   response.set('Cache-Control', 'no-store').sendFile(join(PUBLIC_DIR, 'coach-test.html'));
-});
-
-app.get('/overit-certifikat', (_request, response) => {
-  response.set('Cache-Control', 'no-store').sendFile(join(PUBLIC_DIR, 'certificate-verify.html'));
 });
 
 app.use(express.static(PUBLIC_DIR, {

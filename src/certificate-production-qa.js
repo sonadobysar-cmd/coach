@@ -139,7 +139,6 @@ export async function runCertificateProductionQa({ member, course, answerTrainin
       cryptographicallySigned: issued.authenticity?.cryptographicallySigned === true,
       originalVerified: verification.verified,
       tamperedPdfRejected: !tamperedVerification.verified,
-      verificationPath: issued.authenticity?.externalVerification,
     },
   };
 }

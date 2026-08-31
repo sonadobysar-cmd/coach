@@ -83,7 +83,6 @@ export async function certificateStatus(member, course, env = process.env, depen
     ...status,
     authenticity: status.issued ? {
       cryptographicallySigned: certificateSigningConfigured(env),
-      externalVerification: '/overit-certifikat',
     } : null,
   };
 }

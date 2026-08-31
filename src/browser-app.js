@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.36.0';
+const APP_VERSION = '0.36.1';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -441,7 +441,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.36.0';
+  const cloudModuleUrl = '/cloud.js?v=0.36.1';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -2043,8 +2043,8 @@ function renderMasteryExam(mastery) {
   const certificateBody = status?.issued
     ? `<div><span>VYDÁNO</span><h3>Tvůj certifikát je připravený</h3><p>${escapeHtml(certificate.memberName)} · ${escapeHtml(new Date(certificate.completedAt).toLocaleDateString('cs-CZ'))}</p></div><button type="button" data-certificate-download>Stáhnout PDF</button>`
     : status?.eligible
-      ? `<div><span>SPLNĚNO</span><h3>Vystavit certifikát</h3><p>Na dokumentu bude jen jméno, název programu a skutečné datum absolvování.</p><label><span>Jméno na certifikátu</span><input id="certificate-member-name" maxlength="120" autocomplete="name" value="${escapeHtml(state.cloudSession?.user?.name || '')}" placeholder="Jméno a příjmení"></label></div><button type="button" data-certificate-issue>Vystavit certifikát</button>`
-      : `<div><span>CERTIFIKÁT</span><h3>${status ? 'Ještě zbývá několik kroků' : 'Ověřit splnění programu'}</h3>${status ? `<ul>${status.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : '<p>Elitea bezpečně ověří dokončené části, portfolio a výsledek závěrečné zkoušky.</p>'}</div><button type="button" data-certificate-refresh>${status ? 'Znovu ověřit' : 'Ověřit splnění'}</button>`;
+      ? `<div><span>SPLNĚNO</span><h3>Tvůj certifikát je připravený</h3><p>Doplň jméno. Elitea vytvoří PDF s názvem programu a skutečným datem absolvování.</p><label><span>Jméno na certifikátu</span><input id="certificate-member-name" maxlength="120" autocomplete="name" value="${escapeHtml(state.cloudSession?.user?.name || '')}" placeholder="Jméno a příjmení"></label></div><button type="button" data-certificate-issue>Vystavit a stáhnout PDF</button>`
+      : `<div><span>CERTIFIKÁT</span><h3>${status ? 'Ještě zbývá několik kroků' : 'Zkontrolovat dokončení programu'}</h3>${status ? `<ul>${status.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : '<p>Elitea zkontroluje dokončené části, portfolio a výsledek závěrečné zkoušky.</p>'}</div><button type="button" data-certificate-refresh>${status ? 'Zkontrolovat znovu' : 'Zkontrolovat dokončení'}</button>`;
   return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article><article class="mastery-certificate-card">${certificateBody}</article>`;
 }
 
@@ -2157,21 +2157,23 @@ async function issueCurrentCertificate() {
     return;
   }
   state.pending = true;
+  let issued = false;
   try {
     const status = await authenticatedRequest(`/api/certificates/${encodeURIComponent(course.slug)}/issue`, {
       method: 'POST', body: JSON.stringify({ memberName }),
     });
     state.certificateStatuses[course.id] = status;
+    issued = status.issued === true;
   } catch (error) {
     alert(error.message);
   } finally {
     state.pending = false;
     renderCourseMastery();
   }
+  if (issued) await downloadCurrentCertificate(course);
 }
 
-async function downloadCurrentCertificate() {
-  const course = state.activeCourse;
+async function downloadCurrentCertificate(course = state.activeCourse) {
   if (!course || state.pending) return;
   state.pending = true;
   try {

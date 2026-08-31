@@ -96,19 +96,19 @@ test('bodování kurzového testu je serverové, přihlášené a chráněné p�
   assert.doesNotMatch(quizRoute, /scorePercent\s*=|passed\s*=\s*request\.body/);
 });
 
-test('vydání i stažení certifikátu je přihlášené a pravost lze veřejně ověřit nahráním PDF', () => {
+test('vydání i stažení certifikátu je přihlášené, jednokrokové a veřejné ověřování není vystavené', async () => {
+  const app = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
   const issueRoute = server.match(/app\.post\('\/api\/certificates\/:slug\/issue'[\s\S]*?\n}\);/)?.[0] || '';
   const downloadRoute = server.match(/app\.get\('\/api\/certificates\/:slug\/download'[\s\S]*?\n}\);/)?.[0] || '';
-  const verifyRoute = server.match(/app\.post\('\/api\/certificates\/verify'[\s\S]*?\n}\);/)?.[0] || '';
   assert.match(issueRoute, /validMutationOrigin/);
   assert.match(issueRoute, /authorizeAiRequest/);
   assert.match(issueRoute, /issueCertificate/);
   assert.match(downloadRoute, /authorizeAiRequest/);
   assert.match(downloadRoute, /certificatePdf/);
-  assert.match(verifyRoute, /express\.raw/);
-  assert.match(verifyRoute, /verifyCertificateDocument/);
-  assert.match(verifyRoute, /allowPublicTestRequest/);
-  assert.doesNotMatch(verifyRoute, /authorizeAiRequest/);
+  assert.match(app, /Vystavit a stáhnout PDF/);
+  assert.match(app, /if \(issued\) await downloadCurrentCertificate\(course\)/);
+  assert.doesNotMatch(server, /app\.post\('\/api\/certificates\/verify'/);
+  assert.doesNotMatch(server, /app\.get\('\/overit-certifikat'/);
 });
 
 test('produkční QA certifikátu je skryté a chráněné samostatným tajným klíčem i allowlistem účtů', () => {

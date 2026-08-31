@@ -1,6 +1,6 @@
-const CACHE_NAME = 'elitea-shell-v0.36.0';
+const CACHE_NAME = 'elitea-shell-v0.36.1';
 const CORE_ASSETS = [
-  '/', '/index.html', '/styles.css?v=0.36.0', '/app.js?v=0.36.0', '/cloud.js?v=0.36.0', '/activity.js', '/outcomes.js',
+  '/', '/index.html', '/styles.css?v=0.36.1', '/app.js?v=0.36.1', '/cloud.js?v=0.36.1', '/activity.js', '/outcomes.js',
   '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/og-elitea.png',
   '/fonts/bodoni-moda-latin-ext.woff2', '/fonts/bodoni-moda-latin.woff2',
   '/fonts/cormorant-garamond-latin-ext.woff2', '/fonts/cormorant-garamond-latin.woff2',
@@ -9,7 +9,6 @@ const CORE_ASSETS = [
   '/legal/legal.css', '/legal/privacy.html', '/legal/terms.html', '/legal/withdrawal.html',
   '/legal/cookies.html', '/legal/ai.html', '/legal/public-test.html',
   '/coach-test', '/coach-test.html', '/coach-test.css', '/coach-eval.js',
-  '/overit-certifikat', '/certificate-verify.html', '/certificate-verify.css?v=0.36.0', '/certificate-verify.js?v=0.36.0',
 ];
 
 self.addEventListener('install', event => {
