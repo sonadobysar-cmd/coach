@@ -300,7 +300,7 @@ test('veřejný web konkrétně komunikuje ověřitelnou metodickou hloubku', ()
   assert.match(html, /837[\s\S]{0,100}praktických pracovních částí/);
   assert.match(html, /415 cvičení na sobě, 421 profesních či modelových aplikací/);
   assert.match(html, /421[\s\S]{0,80}modulových testů/);
-  assert.match(html, /2 534[\s\S]{0,80}studijních částí/);
+  assert.match(html, /2 534[\s\S]{0,80}částí s vlastní vizuální mapou/);
   assert.match(html, /423[\s\S]{0,80}modulů/);
   assert.match(html, /27 programům/);
   assert.match(html, /40 h[\s\S]{0,40}studia a praxe/);

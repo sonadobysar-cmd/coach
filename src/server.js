@@ -332,6 +332,20 @@ const courseCoverage = courseKnowledgeCoverage(courses, courseKnowledgeRecords);
 if (!courseCoverage.complete) {
   throw new Error(`Kurzová znalostní vrstva není úplná: ${JSON.stringify(courseCoverage)}`);
 }
+const courseVisualCoverageStatus = courses.reduce((summary, course) => ({
+  items: summary.items + Number(course.visuals?.itemCount || 0),
+  visuals: summary.visuals + Number(course.visuals?.visualCount || 0),
+  authored: summary.authored + Number(course.visuals?.authoredCount || 0),
+  contentDerived: summary.contentDerived + Number(course.visuals?.contentDerivedCount || 0),
+}), { items: 0, visuals: 0, authored: 0, contentDerived: 0 });
+courseVisualCoverageStatus.coveragePercent = courseVisualCoverageStatus.items
+  ? Number((courseVisualCoverageStatus.visuals / courseVisualCoverageStatus.items * 100).toFixed(2))
+  : 0;
+courseVisualCoverageStatus.complete = courseVisualCoverageStatus.items > 0
+  && courseVisualCoverageStatus.items === courseVisualCoverageStatus.visuals;
+if (!courseVisualCoverageStatus.complete) {
+  throw new Error(`Kurzová vizuální vrstva není úplná: ${JSON.stringify(courseVisualCoverageStatus)}`);
+}
 const approvedSourceKnowledgeRecords = knowledgeRecords.filter(isKnowledgeApproved);
 const blockedSourceKnowledgeRecords = knowledgeRecords.length - approvedSourceKnowledgeRecords.length;
 const approvedEverandKnowledgeRecords = everandKnowledgeRecords.filter(isKnowledgeApproved);
@@ -470,6 +484,7 @@ app.get('/api/status', (_request, response) => {
     everandSourceCheckpoint: everandManifest.source_checkpoint,
     courseKnowledgeRecords: courseKnowledgeRecords.length,
     courseKnowledgeCoverage: courseCoverage,
+    courseVisualCoverage: courseVisualCoverageStatus,
     coachingMethods: coachingMethods.length,
     expertSources: expertSources.length,
     wellbeingProtocols: wellbeingProtocols.length,

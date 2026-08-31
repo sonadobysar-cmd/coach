@@ -4,7 +4,7 @@ import { enrichSelfTrustStudy } from './self-trust-study.js';
 import { enrichLifeCoachStudy } from './life-coach-study.js';
 import { enrichWomensCircleStudy } from './womens-circle-study.js';
 import { publicCourseTrainerProfile } from './course-trainer-profiles.js';
-import { extractCourseVisual } from './course-visuals.js';
+import { courseVisualCoverage, ensureCourseVisual, extractCourseVisual } from './course-visuals.js';
 import { courseDepthSummary, enrichCourseStudyDepth } from './course-study-depth.js';
 import { buildCourseQuiz, parseQuizAnswerKeys, publicQuizMarkdown } from './course-quizzes.js';
 
@@ -592,18 +592,28 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
         : meta.id === WOMENS_CIRCLE_META.id
           ? enrichWomensCircleStudy(baseItems, moduleIndex)
           : baseItems;
+    const items = enrichCourseStudyDepth(specializedItems, {
+      courseId: meta.id,
+      courseTitle: meta.title,
+      moduleIndex,
+      moduleCount: sourceModules.length,
+      moduleTitle: module.title,
+    });
+    for (const [itemIndex, item] of items.entries()) {
+      item.visual = ensureCourseVisual(item, {
+        courseId: meta.id,
+        courseTitle: meta.title,
+        moduleIndex,
+        moduleTitle: module.title,
+        itemIndex,
+      });
+    }
     return {
       id: `module-${moduleIndex}`,
       number: moduleIndex,
       title: module.title,
       shortTitle: module.title.replace(/^MODUL \d+ —\s*/i, '').replace(/^ÚVODNÍ PROFESNÍ MODUL —\s*/i, ''),
-      items: enrichCourseStudyDepth(specializedItems, {
-        courseId: meta.id,
-        courseTitle: meta.title,
-        moduleIndex,
-        moduleCount: sourceModules.length,
-        moduleTitle: module.title,
-      }),
+      items,
     };
   });
 
@@ -623,6 +633,7 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
     itemCount,
     quiz,
     depth: courseDepthSummary(modules),
+    visuals: courseVisualCoverage(modules),
     certificate: meta.certificate === false ? null : {
       title: meta.certificateTitle || 'Elitea Certified Practitioner',
       issuedBy: 'Nia Dobyšar',
@@ -652,6 +663,7 @@ export function courseSummary(course) {
     itemCount: course.itemCount,
     quiz: course.quiz,
     depth: course.depth,
+    visuals: course.visuals,
     materialCount: publicCourseMaterials(course.materials).length,
     mastery: course.mastery?.summary || null,
     certificate: course.certificate,

@@ -146,7 +146,7 @@ test('veřejná čísla Academy přesně odpovídají všem aktuálním kurzový
   assert.match(publicHtml, /<strong>837<\/strong><span>praktických cvičení a aplikací/);
   assert.match(publicHtml, /<strong>421<\/strong><span>modulových testů/);
   assert.match(publicHtml, /<span><b>423<\/b> modulů<\/span>/);
-  assert.match(publicHtml, /<span><b>2 534<\/b> studijních částí<\/span>/);
+  assert.match(publicHtml, /<span><b>2 534<\/b> částí s vlastní vizuální mapou<\/span>/);
   assert.match(publicHtml, /<span><b>715<\/b> kurzových pracovních materiálů<\/span>/);
   assert.match(publicHtml, /<span><b>2 178<\/b> kurzových tréninkových situací<\/span>/);
 });

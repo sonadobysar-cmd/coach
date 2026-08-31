@@ -59,7 +59,7 @@ test('banner lekce zobrazuje skutečnou odbornou trenérku otevřeného kurzu', 
 test('Academy uvádí skutečný počet všech dostupných programů', () => {
   assert.match(html, /<div class="academy-stat"><strong>27<\/strong><span>silných programů<\/span>/);
   assert.match(html, /<strong>27<\/strong><span>profesních programů<\/span>/);
-  assert.match(html, /<strong>2 534<\/strong><span>studijních částí<\/span>/);
+  assert.match(html, /<strong>2 534<\/strong><span>částí s vizuálním výkladem<\/span>/);
 });
 
 test('rychlotest koučky a mentorky funguje bez registračního formuláře a se samostatným feedbackem', () => {

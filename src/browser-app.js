@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.32.0';
+const APP_VERSION = '0.33.0';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -437,7 +437,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.32.2';
+  const cloudModuleUrl = '/cloud.js?v=0.33.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -1907,14 +1907,26 @@ function renderLessonVisual(visual) {
   elements.lessonVisual.hidden = !visual;
   if (!visual) {
     elements.lessonVisual.innerHTML = '';
+    elements.lessonVisual.removeAttribute('aria-label');
     return;
   }
   const items = Array.isArray(visual.items) ? visual.items : [];
-  elements.lessonVisual.className = `lesson-visual visual-${escapeHtml(visual.type || 'process')}`;
+  const type = visual.type || 'process';
+  const typeLabels = {
+    process: 'POSTUP',
+    cycle: 'PRACOVNÍ SMYČKA',
+    comparison: 'SROVNÁNÍ',
+    funnel: 'VÝBĚR A PRIORITA',
+    journey: 'CESTA',
+    metrics: 'KONTROLNÍ BODY',
+  };
+  elements.lessonVisual.className = `lesson-visual visual-${escapeHtml(type)}`;
+  elements.lessonVisual.setAttribute('role', 'figure');
+  elements.lessonVisual.setAttribute('aria-label', `Vizuální výklad: ${visual.title}`);
   elements.lessonVisual.innerHTML = `
-    <header><span>VIZUÁLNÍ VÝKLAD</span><h3>${escapeHtml(visual.title)}</h3>${visual.caption ? `<p>${escapeHtml(visual.caption)}</p>` : ''}</header>
-    <div class="lesson-visual-track">${items.map((item, index) => `
-      <article style="--visual-index:${index}"><i>${String(index + 1).padStart(2, '0')}</i><strong>${escapeHtml(item.label)}</strong>${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}</article>
+    <header><span class="lesson-visual-kicker"><i aria-hidden="true"></i>VIZUÁLNÍ VÝKLAD · ${escapeHtml(typeLabels[type] || typeLabels.process)}</span><h3>${escapeHtml(visual.title)}</h3>${visual.caption ? `<p>${escapeHtml(visual.caption)}</p>` : ''}</header>
+    <div class="lesson-visual-track" role="list">${items.map((item, index) => `
+      <article role="listitem" style="--visual-index:${index}"><i aria-hidden="true">${String(index + 1).padStart(2, '0')}</i><strong>${escapeHtml(item.label)}</strong>${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}</article>
     `).join('')}</div>`;
 }
 
