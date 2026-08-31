@@ -12,13 +12,15 @@ const courses = await loadCourses(coursePaths);
 const rows = courses
   .sort((left, right) => left.title.localeCompare(right.title, 'cs'))
   .map(course => ({
-    status: course.depth.meetsLessonDepthStandard ? 'OK' : 'CHYBA',
+    status: course.depth.meetsLessonDepthStandard && course.studyLoad.complete ? 'OK' : 'CHYBA',
     course: course.title,
     lessons: course.depth.lessonCount,
     averageWords: course.depth.averageLessonWords,
     shortestWords: course.depth.shortestLessonWords,
-    scheduledHours: Number((course.depth.scheduledMinutes / 60).toFixed(1)),
+    scheduledHours: course.studyLoad.scheduledHours,
     declaredHours: course.durationHours,
+    varianceMinutes: course.studyLoad.varianceMinutes,
+    requiredBlocks: course.studyLoad.requiredStudyBlockCount,
   }));
 
 console.table(rows);
@@ -27,5 +29,5 @@ if (courses.length !== 27 || failed.length) {
   console.error(`Kurzový audit selhal: programů ${courses.length}/27, nevyhovujících ${failed.length}.`);
   process.exitCode = 1;
 } else {
-  console.log(`Kurzový audit prošel: 27/27 programů, každá odborná lekce splňuje standard hloubky.`);
+  console.log(`Kurzový audit prošel: 27/27 programů, každá odborná lekce splňuje standard hloubky a každá deklarovaná hodina má konkrétní studijní aktivitu.`);
 }

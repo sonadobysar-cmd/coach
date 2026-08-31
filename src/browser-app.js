@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.33.0';
+const APP_VERSION = '0.34.0';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -225,6 +225,10 @@ const elements = {
   courseMasteryContent: document.querySelector('#course-mastery-content'),
   readerCourseTitle: document.querySelector('#reader-course-title'),
   readerCourseBadge: document.querySelector('.course-reader-head .course-badge'),
+  courseStudyLoad: document.querySelector('#course-study-load'),
+  courseStudyLoadTotal: document.querySelector('#course-study-load-total'),
+  courseStudyLoadCategories: document.querySelector('#course-study-load-categories'),
+  courseStudyLoadNote: document.querySelector('#course-study-load-note'),
   lessonModuleLabel: document.querySelector('#lesson-module-label'),
   lessonModulePosition: document.querySelector('#lesson-module-position'),
   lessonTitle: document.querySelector('#lesson-title'),
@@ -437,7 +441,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.33.0';
+  const cloudModuleUrl = '/cloud.js?v=0.34.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -1551,7 +1555,7 @@ function renderAcademyCourseCard(course) {
           <h2>${escapeHtml(course.title)}</h2>
           <h3>${escapeHtml(course.subtitle)}</h3>
           <p>${escapeHtml(course.description)}</p>
-          <div class="course-facts"><span>${course.moduleCount} ${czechCountLabel(course.moduleCount, 'modul', 'moduly', 'modulů')}</span><span>${course.itemCount} ${czechCountLabel(course.itemCount, 'část', 'části', 'částí')}</span>${course.materialCount ? `<span>${course.materialCount} ${czechCountLabel(course.materialCount, 'pracovní list', 'pracovní listy', 'pracovních listů')}</span>` : ''}<span>${course.durationHours} ${czechCountLabel(course.durationHours, 'hodina', 'hodiny', 'hodin')}</span>${course.mastery ? `<span>${course.mastery.journeyDays}denní cesta</span><span>${course.mastery.scenarioCount} situací · ${course.mastery.levelCount} úrovně</span>` : ''}</div>
+          <div class="course-facts"><span>${course.moduleCount} ${czechCountLabel(course.moduleCount, 'modul', 'moduly', 'modulů')}</span><span>${course.itemCount} ${czechCountLabel(course.itemCount, 'část', 'části', 'částí')}</span>${course.materialCount ? `<span>${course.materialCount} ${czechCountLabel(course.materialCount, 'pracovní list', 'pracovní listy', 'pracovních listů')}</span>` : ''}<span>${course.durationHours} ${czechCountLabel(course.durationHours, 'hodina', 'hodiny', 'hodin')}${course.studyLoad?.complete ? ' · přesně rozepsáno' : ''}</span>${course.mastery ? `<span>${course.mastery.journeyDays}denní cesta</span><span>${course.mastery.scenarioCount} situací · ${course.mastery.levelCount} úrovně</span>` : ''}</div>
           <div class="course-progress-line"><span style="width:${progress}%"></span></div>
           <div class="course-card-footer"><small>${progress ? `${progress} % dokončeno` : 'Připraveno začít'}</small><button class="primary-button" type="button" data-open-course="${escapeHtml(course.slug)}">${progress ? `Pokračovat ${program ? 'v programu' : 've výcviku'}` : `Otevřít ${program ? 'program' : 'výcvik'}`}</button></div>
         </div>
@@ -1611,6 +1615,7 @@ async function openCourse(slug, itemId = '') {
     state.activeCourse = course;
     elements.readerCourseTitle.textContent = state.activeCourse.title;
     elements.readerCourseBadge.textContent = state.activeCourse.badge;
+    renderCourseStudyLoad();
     state.masteryTab = 'journey';
     elements.courseMastery.classList.remove('expanded');
     elements.masteryToggle.textContent = 'Otevřít Mastery Lab';
@@ -1647,6 +1652,28 @@ function flattenCourseItems(course) {
     moduleItemIndex,
     moduleItemCount: module.items.length,
   })));
+}
+
+function renderCourseStudyLoad() {
+  if (!elements.courseStudyLoad) return;
+  const load = state.activeCourse?.studyLoad;
+  elements.courseStudyLoad.hidden = !load?.complete;
+  if (!load?.complete) {
+    elements.courseStudyLoadCategories.innerHTML = '';
+    elements.courseStudyLoadNote.textContent = '';
+    return;
+  }
+  elements.courseStudyLoadTotal.textContent = `${formatStudyTime(load.scheduledMinutes)} · 100 % rozepsáno`;
+  elements.courseStudyLoadCategories.innerHTML = load.categories.map(category => `
+    <article>
+      <span>${escapeHtml(category.label)}</span>
+      <strong>${formatStudyTime(category.minutes)}</strong>
+      <small>${category.itemCount} ${czechCountLabel(category.itemCount, 'část', 'části', 'částí')}</small>
+    </article>`).join('');
+  const required = Number(load.requiredStudyBlockCount || 0);
+  elements.courseStudyLoadNote.textContent = required
+    ? `${required} povinných praktických bloků má vlastní zadání, výstup a důkaz dokončení. Celkem ${load.scheduledMinutes} z ${load.declaredMinutes} minut.`
+    : `Rozsah vychází ze součtu všech lekcí, praxí, simulací a testů: ${load.scheduledMinutes} z ${load.declaredMinutes} minut.`;
 }
 
 function courseTrainer(source) {

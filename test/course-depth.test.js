@@ -43,6 +43,46 @@ test('všech 27 programů splňuje trvalý standard hloubky každé odborné lek
   }
 });
 
+test('všech 27 programů má přesně a transparentně doloženou každou deklarovanou minutu', () => {
+  assert.equal(courses.length, 27);
+  for (const course of courses) {
+    const items = course.modules.flatMap(module => module.items);
+    assert.ok(course.studyLoad.complete, `${course.id}: časový plán není úplný`);
+    assert.equal(course.studyLoad.declaredMinutes, course.durationHours * 60, `${course.id}: chybná deklarace`);
+    assert.equal(course.studyLoad.scheduledMinutes, course.studyLoad.declaredMinutes, `${course.id}: časový nesoulad`);
+    assert.equal(course.studyLoad.varianceMinutes, 0, `${course.id}: nenulový rozdíl`);
+    assert.equal(course.studyLoad.itemCount, items.length, `${course.id}: plán nepokrývá všechny části`);
+    assert.equal(course.studyLoad.uncategorizedItemCount, 0, `${course.id}: nezařazené části`);
+    assert.equal(course.studyLoad.categories.reduce((sum, category) => sum + category.minutes, 0), course.durationHours * 60);
+    assert.ok(items.every(item => Number(item.minutes) > 0 && item.studyCategory), `${course.id}: část bez času nebo kategorie`);
+  }
+});
+
+test('neuroplasticita má skutečných 40 hodin včetně povinné praxe, AI simulací a portfolia', () => {
+  const course = courses.find(item => item.id === 'neuroplasticita-practitioner');
+  const requiredBlocks = course.modules.flatMap(module => module.items).filter(item => item.requiredStudyBlock);
+  const categoryMinutes = Object.fromEntries(course.studyLoad.categories.map(category => [category.id, category.minutes]));
+  assert.equal(course.studyLoad.scheduledMinutes, 2400);
+  assert.equal(course.studyLoad.requiredStudyBlockCount, 27);
+  assert.equal(course.studyLoad.requiredEvidenceItemCount, 27);
+  assert.equal(requiredBlocks.length, 27);
+  assert.equal(requiredBlocks.reduce((sum, item) => sum + item.minutes, 0), 1638);
+  assert.deepEqual(categoryMinutes, {
+    orientation: 36,
+    instruction: 250,
+    'guided-practice': 720,
+    simulation: 725,
+    portfolio: 573,
+    assessment: 96,
+  });
+  for (const block of requiredBlocks) {
+    assert.match(block.markdown, /### Povinný výstup/);
+    assert.match(block.markdown, /### Důkaz dokončení/);
+    assert.ok(block.requiredOutput.length > 40);
+    assert.ok(block.requiredEvidence.length > 40);
+  }
+});
+
 test('sedmnáct dříve mělkých kurzů má výklad, aktivní přenos i doložený časový rozsah', () => {
   const selected = courses.filter(course => previouslyShallowCourseIds.has(course.id));
   assert.equal(selected.length, 17);
@@ -52,7 +92,7 @@ test('sedmnáct dříve mělkých kurzů má výklad, aktivní přenos i dolože
     assert.ok(lessons.every(item => item.markdown.includes('Aktivní část lekce')));
     assert.ok(lessons.every(item => item.markdown.includes('### Přenos do praxe')));
     assert.ok(lessons.every(item => item.markdown.includes('### Kontrola zvládnutí')));
-    assert.equal(course.depth.scheduledMinutes, course.durationHours * 60, `${course.id}: deklarované hodiny nemají oporu v plánu`);
+    assert.equal(course.studyLoad.scheduledMinutes, course.durationHours * 60, `${course.id}: deklarované hodiny nemají oporu v plánu`);
   }
 });
 

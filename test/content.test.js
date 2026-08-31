@@ -297,10 +297,10 @@ test('veřejný web používá správný název Academy', () => {
 test('veřejný web konkrétně komunikuje ověřitelnou metodickou hloubku', () => {
   assert.match(html, /data-live-count="techniques"[\s\S]{0,80}technik a metod/);
   assert.match(html, /data-live-count="knowledge"[\s\S]{0,100}znalostních záznamů/);
-  assert.match(html, /837[\s\S]{0,100}praktických pracovních částí/);
-  assert.match(html, /415 cvičení na sobě, 421 profesních či modelových aplikací/);
+  assert.match(html, /864[\s\S]{0,100}praktických pracovních částí/);
+  assert.match(html, /434 cvičení na sobě či portfoliových výstupů a 430 profesních nebo modelových aplikací/);
   assert.match(html, /421[\s\S]{0,80}modulových testů/);
-  assert.match(html, /2 534[\s\S]{0,80}částí s vlastní vizuální mapou/);
+  assert.match(html, /2 561[\s\S]{0,80}částí s vlastní vizuální mapou/);
   assert.match(html, /423[\s\S]{0,80}modulů/);
   assert.match(html, /27 programům/);
   assert.match(html, /40 h[\s\S]{0,40}studia a praxe/);
@@ -320,6 +320,15 @@ test('každý kurz zpřístupňuje Mastery Lab s celou praktickou cestou', () =>
   assert.match(client, /scenarioId: session\.scenario/);
   assert.match(css, /\.course-mastery/);
   assert.match(css, /\.mastery-exam/);
+});
+
+test('Academy ukazuje členkám transparentní rozpad deklarovaných hodin', () => {
+  assert.match(html, /id="course-study-load"/);
+  assert.match(html, /Každá deklarovaná hodina má konkrétní práci/);
+  assert.match(client, /function renderCourseStudyLoad/);
+  assert.match(client, /100 % rozepsáno/);
+  assert.match(client, /povinných praktických bloků má vlastní zadání, výstup a důkaz dokončení/);
+  assert.match(css, /\.course-study-load/);
 });
 
 test('členská sekce obsahuje samostatnou knihovnu interaktivních pracovních listů', () => {

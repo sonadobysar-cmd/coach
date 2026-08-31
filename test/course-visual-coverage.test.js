@@ -14,13 +14,13 @@ const courseFiles = (await readdir(join(ROOT, 'data')))
 const courses = await loadCourses(courseFiles);
 const items = courses.flatMap(course => course.modules.flatMap(module => module.items));
 
-test('všech 2 534 částí Academy má obsahově ukotvený vizuální výklad', () => {
+test('všech 2 561 částí Academy má obsahově ukotvený vizuální výklad', () => {
   assert.equal(courses.length, 27);
-  assert.equal(items.length, 2534);
-  assert.equal(items.filter(item => item.visual).length, 2534);
+  assert.equal(items.length, 2561);
+  assert.equal(items.filter(item => item.visual).length, 2561);
   assert.ok(courses.every(course => course.visuals.complete));
   assert.ok(courses.every(course => course.visuals.coveragePercent === 100));
-  assert.equal(courses.reduce((sum, course) => sum + course.visuals.visualCount, 0), 2534);
+  assert.equal(courses.reduce((sum, course) => sum + course.visuals.visualCount, 0), 2561);
 });
 
 test('každá vizuální mapa je čitelná, smysluplná a bez duplicitních kroků', () => {
@@ -43,7 +43,7 @@ test('vizuální systém používá všech šest významových variant a nepůso
   assert.deepEqual([...types].sort(), courseVisualTypes().sort());
   assert.ok(new Set(items.map(item => item.visual.caption)).size >= 2000);
   assert.equal(items.filter(item => item.visual.origin === 'authored').length, 2);
-  assert.equal(items.filter(item => item.visual.origin === 'content-derived').length, 2532);
+  assert.equal(items.filter(item => item.visual.origin === 'content-derived').length, 2559);
 });
 
 test('mapa testu ukazuje pouze otázky a nikdy správné odpovědi', () => {

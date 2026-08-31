@@ -25,6 +25,7 @@ import {
   startBrowserOperatorSession,
 } from './browser-operator.js';
 import { courseSummary, loadCourses, publicCourseDetail } from './courses.js';
+import { aggregateCourseStudyLoad } from './course-study-load.js';
 import { buildCourseSearchIndex, searchCourseIndex } from './course-search.js';
 import { submitCourseQuizAttempt } from './course-quiz-service.js';
 import { attachCourseMastery } from './course-mastery.js';
@@ -346,6 +347,10 @@ courseVisualCoverageStatus.complete = courseVisualCoverageStatus.items > 0
 if (!courseVisualCoverageStatus.complete) {
   throw new Error(`Kurzová vizuální vrstva není úplná: ${JSON.stringify(courseVisualCoverageStatus)}`);
 }
+const courseStudyLoadCoverage = aggregateCourseStudyLoad(courses);
+if (!courseStudyLoadCoverage.complete) {
+  throw new Error(`Časový rozsah kurzů není úplně doložený: ${JSON.stringify(courseStudyLoadCoverage)}`);
+}
 const approvedSourceKnowledgeRecords = knowledgeRecords.filter(isKnowledgeApproved);
 const blockedSourceKnowledgeRecords = knowledgeRecords.length - approvedSourceKnowledgeRecords.length;
 const approvedEverandKnowledgeRecords = everandKnowledgeRecords.filter(isKnowledgeApproved);
@@ -485,6 +490,7 @@ app.get('/api/status', (_request, response) => {
     courseKnowledgeRecords: courseKnowledgeRecords.length,
     courseKnowledgeCoverage: courseCoverage,
     courseVisualCoverage: courseVisualCoverageStatus,
+    courseStudyLoadCoverage,
     coachingMethods: coachingMethods.length,
     expertSources: expertSources.length,
     wellbeingProtocols: wellbeingProtocols.length,

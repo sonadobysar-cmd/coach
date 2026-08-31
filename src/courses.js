@@ -7,6 +7,7 @@ import { publicCourseTrainerProfile } from './course-trainer-profiles.js';
 import { courseVisualCoverage, ensureCourseVisual, extractCourseVisual } from './course-visuals.js';
 import { courseDepthSummary, enrichCourseStudyDepth } from './course-study-depth.js';
 import { buildCourseQuiz, parseQuizAnswerKeys, publicQuizMarkdown } from './course-quizzes.js';
+import { courseStudyLoad, requiredCourseStudyBlocks, studyCategoryForItem } from './course-study-load.js';
 
 export const COURSE_CATEGORIES = Object.freeze({
   COACHING_MENTAL_HEALTH: Object.freeze({ id: 'coaching-mental-health', label: 'Koučink & Mental Health' }),
@@ -575,11 +576,16 @@ export async function loadCourses(coursePaths) {
   const paths = Array.isArray(coursePaths) ? coursePaths : [coursePaths];
   return Promise.all(paths.map(async coursePath => {
     const markdown = await readFile(coursePath, 'utf8');
-    return parseCourse(markdown, COURSE_META_BY_FILE[basename(coursePath)] || NEUROPLASTICITY_META);
+    const meta = COURSE_META_BY_FILE[basename(coursePath)] || NEUROPLASTICITY_META;
+    const course = parseCourse(markdown, meta, { includeRequiredStudyBlocks: true });
+    if (!course.studyLoad.complete) {
+      throw new Error(`Časový plán kurzu ${course.id} neodpovídá deklarovanému rozsahu: ${course.studyLoad.scheduledMinutes}/${course.studyLoad.declaredMinutes} min.`);
+    }
+    return course;
   }));
 }
 
-export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
+export function parseCourse(markdown, meta = NEUROPLASTICITY_META, options = {}) {
   const source = String(markdown || '').replace(/\r\n/g, '\n');
   const sourceModules = splitModules(source);
   const quizAnswerKeys = parseQuizAnswerKeys(source);
@@ -592,7 +598,10 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
         : meta.id === WOMENS_CIRCLE_META.id
           ? enrichWomensCircleStudy(baseItems, moduleIndex)
           : baseItems;
-    const items = enrichCourseStudyDepth(specializedItems, {
+    const requiredStudyBlocks = options.includeRequiredStudyBlocks
+      ? requiredCourseStudyBlocks(meta.id, moduleIndex, module)
+      : [];
+    const items = enrichCourseStudyDepth([...specializedItems, ...requiredStudyBlocks], {
       courseId: meta.id,
       courseTitle: meta.title,
       moduleIndex,
@@ -625,6 +634,7 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
     questionCount: quizItems.reduce((sum, item) => sum + item.quiz.questionCount, 0),
     passPercent: quizItems[0]?.quiz?.passPercent || 75,
   };
+  const studyLoad = courseStudyLoad(modules, meta.durationHours);
   return {
     ...meta,
     trainer: publicCourseTrainerProfile(meta.id),
@@ -633,6 +643,7 @@ export function parseCourse(markdown, meta = NEUROPLASTICITY_META) {
     itemCount,
     quiz,
     depth: courseDepthSummary(modules),
+    studyLoad,
     visuals: courseVisualCoverage(modules),
     certificate: meta.certificate === false ? null : {
       title: meta.certificateTitle || 'Elitea Certified Practitioner',
@@ -663,6 +674,7 @@ export function courseSummary(course) {
     itemCount: course.itemCount,
     quiz: course.quiz,
     depth: course.depth,
+    studyLoad: course.studyLoad,
     visuals: course.visuals,
     materialCount: publicCourseMaterials(course.materials).length,
     mastery: course.mastery?.summary || null,
@@ -726,7 +738,7 @@ function splitItems(body, moduleIndex, quizContext = {}) {
   });
 
   if (!starts.length) {
-    return body ? [{ id: `m${moduleIndex}-intro`, title: 'Profesní rámec a praxe', kind: 'practice', minutes: 20, markdown: body }] : [];
+    return body ? [{ id: `m${moduleIndex}-intro`, title: 'Profesní rámec a praxe', kind: 'practice', studyCategory: 'guided-practice', minutes: 20, markdown: body }] : [];
   }
 
   const leading = lines.slice(0, starts[0].index).join('\n').trim();
@@ -740,6 +752,7 @@ function splitItems(body, moduleIndex, quizContext = {}) {
       id: `m${moduleIndex}-${index + 1}`,
       title: start.title,
       kind: start.kind,
+      studyCategory: studyCategoryForItem({ kind: start.kind }),
       minutes: durationMatch ? Number(durationMatch[1]) : itemMinutes(start.kind),
       markdown: experience.markdown,
       visual: experience.visual,
@@ -763,7 +776,7 @@ function splitItems(body, moduleIndex, quizContext = {}) {
     }
     return item;
   });
-  if (leading) items.unshift({ id: `m${moduleIndex}-overview`, title: 'Výsledek a přehled modulu', kind: 'overview', minutes: 4, markdown: leading });
+  if (leading) items.unshift({ id: `m${moduleIndex}-overview`, title: 'Výsledek a přehled modulu', kind: 'overview', studyCategory: 'orientation', minutes: 4, markdown: leading });
   return items;
 }
 
