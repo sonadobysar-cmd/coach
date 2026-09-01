@@ -11,9 +11,11 @@ import { formatWellbeingProtocol, selectWellbeingProtocol } from './wellbeing.js
 import { formatTechniqueCards, selectTechniqueCards } from './technique-atlas.js';
 import {
   createTechniqueTurn,
+  classifyStopIntent,
   enforceTechniqueResponse,
   fixedTechniqueResponse,
   formatTechniqueExecution,
+  isConversationRepairRequest,
   techniqueFallbackQuestion,
 } from './technique-session.js';
 import { buildContinuityPatch } from './memory.js';
@@ -1026,6 +1028,27 @@ export function fixedGroundingResponse({
     .map(message => String(message.content || '').trim())
     .filter(Boolean)
     .join('\n');
+  const normalizedLatest = normalizeDialogueText(latest);
+  const normalizedFacts = normalizeDialogueText(userFacts);
+  const workshopContext = /\bworkshop\w*\b/u.test(normalizedFacts);
+
+  if (/\bworkshop\w*\b/u.test(normalizedLatest)
+    && /\b(?:dopadl|dopadlo|nepovedl|nepovedlo)\w*\s+(?:spatne|hrozne)|\bnemam\s+na\s+podnikani\b/u.test(normalizedLatest)) {
+    return 'Jeden workshop může ukázat skutečný problém, ale sám ještě nerozhoduje o tom, zda máš na podnikání. Nechci ho ani zlehčit, ani z něj udělat rozsudek o tobě. Co přesně znamená „dopadl špatně“ — kolik žen přišlo, co se během něj dělo a jakou zpětnou vazbu jsi dostala?';
+  }
+
+  if (isConversationRepairRequest(latest) && workshopContext) {
+    if (/\b(?:nepochopil|nepochopila|co na tom nechapes|workshop)\b/u.test(normalizedLatest)) {
+      return 'Máš pravdu — mluvíš o tom, že uvažuješ skončit s pořádáním workshopů, ne o ukončení tohoto rozhovoru. Nechci ti to rozhodnutí ani vymlouvat, ani ho udělat za tebe. Potřebujeme rozlišit, zda nechceš tento formát vůbec dělat, nebo zda tě po prvním výsledku zastavil strach z dalšího neúspěchu. Co z toho je blíž?';
+    }
+    return 'Máš pravdu — ztratila jsem téma a začala reagovat na interní postup místo na tebe. Vrátím se k workshopu: zvažuješ, že s nimi skončíš, a nevíš, jestli je to tvoje skutečné rozhodnutí, nebo reakce na první nepovedený pokus. Co tě na představě dalšího workshopu děsí nejvíc?';
+  }
+
+  if (classifyStopIntent(latest) === 'external_or_ambiguous') {
+    return workshopContext
+      ? 'Nechci hádat, co chceš zastavit. Myslíš, že už nechceš pořádat další workshopy, nebo že teď nechceš pokračovat v našem rozhovoru?'
+      : 'Nechci hádat, co chceš zastavit. Myslíš tím činnost nebo rozhodnutí, které řešíme, anebo dnešní rozhovor?';
+  }
 
   if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)
     && Number(conversationContext.userTurns || 0) === 1

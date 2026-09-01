@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  classifyStopIntent,
   createTechniqueTurn,
   deriveTechniqueSteps,
   enforceTechniqueResponse,
   fixedTechniqueResponse,
   formatTechniqueExecution,
+  isConversationRepairRequest,
   sanitizeTechniqueSession,
   techniqueFallbackQuestion,
 } from '../src/technique-session.js';
@@ -100,7 +102,60 @@ test('technika zůstává zamčená po celý pracovní cyklus', () => {
   });
   assert.equal(next.card.id, practicalCard.id);
   assert.equal(next.session.techniqueId, practicalCard.id);
-  assert.equal(next.session.phase, 'evaluation');
+  assert.equal(next.session.phase, 'application');
+});
+
+test('konec workshopů se nezamění za ukončení rozhovoru', () => {
+  const active = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+    status: 'active', turns: 2, requiresConsent: false,
+  };
+  assert.equal(classifyStopIntent('Už nechci pokračovat, bojím se.'), 'external_or_ambiguous');
+  assert.equal(classifyStopIntent('Nechci pokračovat s workshopem.'), 'external_or_ambiguous');
+  assert.equal(classifyStopIntent('Přestaň, chci ukončit sezení.'), 'conversation_stop');
+
+  const turn = createTechniqueTurn({
+    atlas: [practicalCard], candidates: [practicalCard], previous: active,
+    mode: 'koucovaci_hodina', latestText: 'Nechci pokračovat s workshopem.',
+    conversationContext: { userTurns: 2 },
+  });
+  assert.equal(turn.card, null);
+  assert.equal(turn.session, null);
+});
+
+test('oprava klientky okamžitě uvolní techniku místo dalšího vynuceného kroku', () => {
+  const evaluation = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
+    status: 'active', turns: 3, requiresConsent: false,
+  };
+  for (const latestText of ['Nerozumím ti.', 'Meleš nesmysly.', 'Jak jsme se sem dostaly?', 'Zase se opakuješ.']) {
+    assert.equal(isConversationRepairRequest(latestText), true);
+    const turn = createTechniqueTurn({
+      atlas: [practicalCard], candidates: [practicalCard], previous: evaluation,
+      mode: 'koucovaci_hodina', latestText, conversationContext: { userTurns: 4 },
+    });
+    assert.equal(turn.card, null);
+    assert.equal(turn.session, null);
+  }
+});
+
+test('účinek se neměří bez důkazu že členka krok skutečně provedla', () => {
+  const application = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+    status: 'active', turns: 2, requiresConsent: false,
+  };
+  const noAction = createTechniqueTurn({
+    atlas: [practicalCard], candidates: [], previous: application,
+    mode: 'koucovaci_hodina', latestText: 'No to já nevím, proto tu jsem.',
+    conversationContext: { userTurns: 3 },
+  });
+  const action = createTechniqueTurn({
+    atlas: [practicalCard], candidates: [], previous: application,
+    mode: 'koucovaci_hodina', latestText: 'Zkusila jsem ten krok.',
+    conversationContext: { userTurns: 3 },
+  });
+  assert.equal(noAction.session.phase, 'application');
+  assert.equal(action.session.phase, 'evaluation');
 });
 
 test('citlivá technika čeká na výslovný souhlas', () => {
@@ -259,7 +314,7 @@ test('běžné slovo viditelný nespouští souhlas určený pro tělesné nebo 
   assert.equal(turn.session.requiresConsent, false);
 });
 
-test('upozornění na zaseknutí obnoví kontakt a plynule posune techniku', () => {
+test('upozornění na zaseknutí nejprve uvolní techniku a obnoví kontakt', () => {
   const evaluation = {
     techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
     status: 'active', turns: 5, requiresConsent: false,
@@ -268,14 +323,8 @@ test('upozornění na zaseknutí obnoví kontakt a plynule posune techniku', () 
     atlas: [practicalCard], candidates: [], previous: evaluation, mode: 'koucovaci_hodina',
     latestText: 'Haló, slyšíš mě?', conversationContext: { userTurns: 6 },
   });
-  const response = enforceTechniqueResponse('', repair);
-
-  assert.equal(repair.session.phase, 'application');
-  assert.equal(repair.session.stepIndex, 1);
-  assert.equal(repair.session.transitionReason, 'stuck_repair');
-  assert.match(response, /předchozí krok necháme být/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-  assert.doesNotMatch(response, /\.\./);
+  assert.equal(repair.card, null);
+  assert.equal(repair.session, null);
 });
 
 test('nulový účinek posledního kroku vede k intuitivní adaptaci, nikoli k falešnému úspěchu', () => {
@@ -509,16 +558,16 @@ test('behaviorální režim může začít vratným pracovním krokem bez povinn
   });
   const third = createTechniqueTurn({
     atlas: [practicalCard], candidates: [], previous: second.session, mode: 'behavioralni_konzultace',
-    latestText: 'Uleví se mi, že to ještě nemusím poslat.', conversationContext: { userTurns: 3 },
+    latestText: 'Upravila jsem první odstavec.', conversationContext: { userTurns: 3 },
   });
   const fourth = createTechniqueTurn({
     atlas: [practicalCard], candidates: [], previous: third.session, mode: 'behavioralni_konzultace',
-    latestText: 'Děje se to hlavně večer.', conversationContext: { userTurns: 4 },
+    latestText: 'Ulevilo se mi, že už jsem začala.', conversationContext: { userTurns: 4 },
   });
   assert.equal(first.session.phase, 'application');
-  assert.equal(second.session.phase, 'evaluation');
+  assert.equal(second.session.phase, 'application');
   assert.equal(third.session.phase, 'evaluation');
-  assert.equal(fourth.session.phase, 'evaluation');
+  assert.equal(fourth.session.phase, 'application');
 });
 
 test('neplatný klientský stav se zahodí a interní protokol obsahuje jedinou povolenou fázi', () => {

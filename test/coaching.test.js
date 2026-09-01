@@ -151,6 +151,56 @@ test('žádost o lidskou řeč se vrátí k důkazům bez vymyšleného partnera
   assert.doesNotMatch(response, /partner|přítel|manžel/i);
 });
 
+test('workshopový neúspěch se otevře fakty místo otázky na spánek a fungování', () => {
+  const latestText = 'První workshop dopadl špatně. Asi na podnikání prostě nemám.';
+  const response = fixedGroundingResponse({
+    messages: [{ role: 'user', content: latestText }],
+    latestText,
+    routingText: latestText,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: { userTurns: 1 },
+  });
+  assert.match(response, /co přesně znamená.*dopadl špatně/i);
+  assert.match(response, /kolik žen přišlo|zpětnou vazbu/i);
+  assert.doesNotMatch(response, /spán|energ|normálně fungovat/i);
+});
+
+test('nejasné nechci pokračovat u workshopu vyžádá rozlišení cíle zastavení', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání prostě nemám.' },
+    { role: 'assistant', content: 'Co přesně se na workshopu stalo?' },
+    { role: 'user', content: 'Už nechci pokračovat, bojím se.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /další workshopy/i);
+  assert.match(response, /našem rozhovoru/i);
+  assert.doesNotMatch(response, /Zastavíme to/i);
+});
+
+test('oprava významu workshopu obnoví zakázku místo zastavení techniky', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Chceš dnešek uzavřít?' },
+    { role: 'user', content: 'Nechci pokračovat s workshopem, to jsi nepochopila.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /skončit s pořádáním workshopů/i);
+  assert.match(response, /ne o ukončení tohoto rozhovoru/i);
+  assert.doesNotMatch(response, /účinku právě provedeného kroku/i);
+});
+
 test('zahlcení volí nejmenší krok', () => {
   assert.equal(selectCoachingMethod(methods, 'Mám v tom chaos a vůbec nevím, kde začít.').id, 'smallest_step');
 });

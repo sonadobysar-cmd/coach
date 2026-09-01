@@ -36,16 +36,36 @@ export function createTechniqueTurn({
 } = {}) {
   const byId = new Map(atlas.map(card => [card.id, card]));
   const safePrevious = sanitizeTechniqueSession(previous, byId);
-  const explicitStop = wantsToStop(latestText);
+  const stopIntent = classifyStopIntent(latestText);
+  const explicitStop = stopIntent === 'conversation_stop';
+  const ambiguousOrExternalStop = stopIntent === 'external_or_ambiguous';
   const explicitNoEffect = reportsNoEffect(latestText);
-  const explicitRepair = requestsRepair(latestText);
+  const explicitRepair = isConversationRepairRequest(latestText);
   const explicitRestart = wantsAnotherTechnique(latestText);
   const noEffectFeedback = explicitNoEffect && safePrevious
     && ['application', 'evaluation'].includes(safePrevious.phase);
-  const repairFeedback = explicitRepair && safePrevious && ACTIVE_PHASES.has(safePrevious.phase);
+  // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
+  // jako další krok techniky. Nejprve se musí obnovit společné porozumění.
+  if (explicitRepair || ambiguousOrExternalStop) {
+    return { card: null, session: null, steps: [] };
+  }
+
+  // Po zastavení už starý stav nesmí v dalším tahu znovu rozběhnout techniku.
+  if (safePrevious?.phase === 'stopped' && !explicitStop) {
+    return { card: null, session: null, steps: [] };
+  }
+
+  // Pokud členka neodpověděla na měření účinku, pevnou otázku neopakujeme.
+  // Techniku uvolníme a necháme rozhovor opravit význam nebo směr.
+  if (safePrevious?.phase === 'evaluation'
+    && !explicitNoEffect
+    && !reportsEffect(latestText)
+    && !reportsWorse(latestText)) {
+    return { card: null, session: null, steps: [] };
+  }
 
   if (safePrevious && ACTIVE_PHASES.has(safePrevious.phase)
-    && !explicitStop && !noEffectFeedback && !repairFeedback && !explicitRestart) {
+    && !explicitStop && !noEffectFeedback && !explicitRestart) {
     const card = byId.get(safePrevious.techniqueId);
     const session = advanceSession(safePrevious, card, latestText, conversationContext);
     return { card, session, steps: deriveTechniqueSteps(card) };
@@ -66,13 +86,13 @@ export function createTechniqueTurn({
     };
   }
 
-  if ((noEffectFeedback || repairFeedback) && safePrevious) {
+  if (noEffectFeedback && safePrevious) {
     const card = byId.get(safePrevious.techniqueId);
     const steps = deriveTechniqueSteps(card);
     const session = adaptAfterFeedback(
       safePrevious,
       steps,
-      noEffectFeedback ? 'no_effect' : 'stuck_repair',
+      'no_effect',
     );
     return { card, session, steps };
   }
@@ -321,8 +341,12 @@ function advanceSession(previous, card, latestText, conversationContext) {
       advanceAfterEvaluation(next, steps, card);
     } else if (reportsEffect(latestText)) {
       advanceAfterEvaluation(next, steps, card);
-    } else {
+    } else if (reportsStepAttempt(latestText)) {
       next.phase = 'evaluation';
+    } else {
+      // Samotná další odpověď klientky není důkaz, že provedla krok.
+      // Zůstaneme v aplikaci a model musí přirozeně reagovat na její význam.
+      next.phase = 'application';
     }
     return next;
   }
@@ -394,8 +418,17 @@ function hasConsent(value) {
   return /\b(ano|souhlasim|muzeme|zkusme|pojdme|pojd|chci to zkusit|klidne)\b/iu.test(normalizeCzech(value));
 }
 
-function wantsToStop(value) {
-  return /\b(stop|zastav|nechci pokracovat|nechci tu techniku|prestan|je mi hur)\b/iu.test(normalizeCzech(value));
+export function classifyStopIntent(value) {
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  if (/\b(stop|zastav(?:me|it)?|prestan|nechci tu techniku|je mi hur)\b/iu.test(normalized)) {
+    return 'conversation_stop';
+  }
+  if (/\b(?:nechci|nemuzu)\s+pokracovat\b|\bchci\s+(?:to\s+)?ukoncit\b|\bchci\s+skoncit\b/iu.test(normalized)) {
+    return /\b(sezen|rozhovor|technik|tady|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)
+      ? 'conversation_stop'
+      : 'external_or_ambiguous';
+  }
+  return 'none';
 }
 
 function wantsAnotherTechnique(value) {
@@ -406,8 +439,12 @@ function reportsNoEffect(value) {
   return /\b((?:zatim )?nic (?:mi )?(?:to )?(?:nedela|neudelalo|neudelava|nezmenilo)|nic se nezmenilo|zadna zmena|bez zmeny|necitim zadnou zmenu|nefunguje|nepomohlo|nepomaha|nezabralo)\b/iu.test(normalizeCzech(value));
 }
 
-function requestsRepair(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|neopakuj se|odpovez mi)\b/iu.test(normalizeCzech(value));
+export function isConversationRepairRequest(value) {
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+}
+
+function reportsStepAttempt(value) {
+  return /\b(udelal|udelala|zkusil|zkusila|provedl|provedla|napsal|napsala|upravil|upravila|rekl|rekla|vyslovil|vyslovila|predstavil|predstavila|vybral|vybrala|zvolil|zvolila|hotovo|mam to|dokoncila|dokonceno)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsWorse(value) {
@@ -415,7 +452,7 @@ function reportsWorse(value) {
 }
 
 function reportsEffect(value) {
-  return /\b(stejne|lepsi|lehci|lehceji|horsi|hur|tezsi|mensi|vetsi|polevil|polevilo|zesilil|zesililo|zmenil|zmenilo|vsimla|citila|citim|napeti|tlak|teplo|chlad|klid|uleva|uvolnilo|uvolneneji)\b/iu.test(normalizeCzech(value));
+  return /\b(stejne|lepsi|lehci|lehceji|horsi|hur|tezsi|mensi|vetsi|polevil|polevilo|zesilil|zesililo|zmenil|zmenilo|vsimla|citila|citim|napeti|tlak|teplo|chlad|klid|uleva|ulevil|ulevilo|uvolnilo|uvolneneji)\b/iu.test(normalizeCzech(value));
 }
 
 function normalizeCzech(value) {

@@ -100,7 +100,7 @@ export function assessCoachingResponse(text, {
   const normalizedLatestUserText = normalize(latestUserText).replace(/\s+/g, ' ').trim();
   const firstUserTurn = Number(conversationContext.userTurns || 0) <= 1;
   const outputWordCount = output.split(/\s+/u).filter(Boolean).length;
-  const asksForHumanLanguage = /\b(?:mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(?:clovek|lidsk|normaln|jednodus)|\b(?:nerozumim|nechapu|moc slozit|co tim myslis)\b/u.test(normalizedLatestUserText);
+  const asksForHumanLanguage = /\b(?:mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(?:clovek|lidsk|normaln|jednodus)|\b(?:nerozumim|nechapu|moc slozit|co tim myslis|nepochopil|nepochopila|meles nesmysly|jak jsme se (?:sem )?dostal\w*|opakujes)\b/u.test(normalizedLatestUserText);
   const assistantAssertions = normalized.replace(/[„“"][^„“"]+[„“"]/gu, ' ');
   const userEvidenceText = normalize((evidence.recentUserEvidence || []).join(' '));
   const emotionRoots = ['bolest', 'smut', 'vztek', 'zlost', 'strach', 'obav', 'stud', 'vin', 'bezmoc', 'frustr', 'uzkost', 'radost', 'zklaman', 'napeti'];
@@ -209,8 +209,7 @@ export function assessCoachingResponse(text, {
   if (/\b(?:tohle|tento problem|tenhle problem|tenhle vzorec|tento vzorec)\s+(?:uz\s+)?(?:mas\s+)?(?:vyresen[ey]|uzavren[ey]|zpracovan[ey])\b/u.test(assistantAssertions)) {
     issues.push({ code: 'unsupported_resolution', severity: 'critical' });
   }
-  if (!proceduralPhase
-    && normalizedLastQuestion.length >= 12
+  if (normalizedLastQuestion.length >= 12
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
   }
