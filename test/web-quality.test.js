@@ -79,4 +79,6 @@ test('majitelka má v Elitea jednoduchý interní přehled testů a přepisů', 
   assert.match(app, /\/api\/public-coach-test\/admin\/feedback/);
   assert.match(app, /Celý přepis/);
   assert.match(app, /data-coach-test-filter/);
+  assert.match(app, /if \(elements\.coachTestAdminButton\) elements\.coachTestAdminButton\.hidden/);
+  assert.match(app, /friendlyAuthErrorMessage/);
 });

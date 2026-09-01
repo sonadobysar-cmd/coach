@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.36.1';
+const APP_VERSION = '0.36.2';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -441,7 +441,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.36.1';
+  const cloudModuleUrl = '/cloud.js?v=0.36.2';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -897,20 +897,21 @@ async function refreshFoundingStatus() {
   try {
     const authorization = await state.cloud.authorization();
     state.founding.me = await request('/api/founding/me', { headers: { Authorization: authorization } });
-    elements.foundingAdminButton.hidden = !state.founding.me?.admin;
-    elements.coachTestAdminButton.hidden = !state.founding.me?.owner;
+    if (elements.foundingAdminButton) elements.foundingAdminButton.hidden = !state.founding.me?.admin;
+    if (elements.coachTestAdminButton) elements.coachTestAdminButton.hidden = !state.founding.me?.owner;
     renderFoundingAccount();
     return state.founding.me;
   } catch {
     state.founding.me = null;
-    elements.foundingAdminButton.hidden = true;
-    elements.coachTestAdminButton.hidden = true;
+    if (elements.foundingAdminButton) elements.foundingAdminButton.hidden = true;
+    if (elements.coachTestAdminButton) elements.coachTestAdminButton.hidden = true;
     renderFoundingAccount();
     return null;
   }
 }
 
 function renderFoundingAccount() {
+  if (!elements.foundingAccountCard) return;
   const application = state.founding.me?.application;
   const active = application && ['approved', 'active'].includes(application.status);
   elements.foundingAccountCard.hidden = !active;
@@ -1133,9 +1134,18 @@ async function submitAuth(event) {
     elements.authDialog.close();
     enterMembership(state.pendingEntryView);
   } catch (error) {
-    elements.authError.textContent = error.message || 'Zkus to prosím znovu.';
+    reportClientError('AUTH_FLOW_ERROR', error?.message || 'Unknown auth flow error').catch(() => {});
+    elements.authError.textContent = friendlyAuthErrorMessage(error);
     elements.authError.hidden = false;
   } finally { elements.authSubmit.disabled = false; }
+}
+
+function friendlyAuthErrorMessage(error) {
+  const rawMessage = String(error?.message || '').trim();
+  const technical = /(?:null is not an object|undefined is not|cannot (?:read|set)|typeerror|evaluating|stack|syntax|jose|sql|database|ECONN|ETIMEDOUT)/i.test(rawMessage);
+  return technical
+    ? 'Přihlášení proběhlo, ale prostředí se nepodařilo otevřít. Obnov stránku a zkus vstoupit znovu.'
+    : rawMessage || 'Přihlášení se nepodařilo. Zkus to prosím znovu.';
 }
 
 function openPasswordResetFromUrl() {
