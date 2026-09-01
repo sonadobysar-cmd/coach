@@ -30,7 +30,13 @@ export function createEliteaCloud(config) {
   });
 
   async function session({ forceFetch = false } = {}) {
-    const result = await client.auth.getSession(forceFetch ? { forceFetch: true } : undefined);
+    // Better Auth's vanilla adapter bypasses its session cache through the
+    // X-Force-Fetch request header. A top-level `forceFetch` property is only
+    // understood by the Supabase-compatible adapter and was silently ignored
+    // here, so a long coaching session could keep reusing an expired JWT.
+    const result = await client.auth.getSession(forceFetch
+      ? { fetchOptions: { headers: { 'X-Force-Fetch': 'true' } } }
+      : undefined);
     return result?.data?.session && result?.data?.user ? result.data : null;
   }
 

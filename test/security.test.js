@@ -36,7 +36,8 @@ test('chráněné požadavky obnoví Neon session a nikdy neukážou syrovou JWT
     readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8'),
     readFile(join(ROOT, 'src', 'browser-cloud.js'), 'utf8'),
   ]);
-  assert.match(cloud, /getSession\(forceFetch \? \{ forceFetch: true \} : undefined\)/);
+  assert.match(cloud, /getSession\(forceFetch[\s\S]*'X-Force-Fetch': 'true'/);
+  assert.doesNotMatch(cloud, /getSession\(forceFetch \? \{ forceFetch: true \} : undefined\)/);
   assert.match(cloud, /authorization: async \(\{ forceRefresh = true \} = \{\}\)/);
   assert.match(app, /state\.cloud\?\.authorization\(\{ forceRefresh: true \}\)/);
   assert.match(app, /if \(error\?\.status !== 401\) throw error/);

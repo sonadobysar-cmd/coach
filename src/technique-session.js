@@ -440,11 +440,17 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?psala|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsStepAttempt(value) {
-  return /\b(udelal|udelala|zkusil|zkusila|provedl|provedla|napsal|napsala|upravil|upravila|rekl|rekla|vyslovil|vyslovila|predstavil|predstavila|vybral|vybrala|zvolil|zvolila|hotovo|mam to|dokoncila|dokonceno)\b/iu.test(normalizeCzech(value));
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  const completedVerb = '(?:udelal|udelala|zkusil|zkusila|provedl|provedla|napsal|napsala|upravil|upravila|rekl|rekla|vyslovil|vyslovila|predstavil|predstavila|vybral|vybrala|zvolil|zvolila|dokoncila)';
+  // Samotné „napsala“ nebo „řekla“ může popisovat třetí osobu či citovat
+  // asistentku („to, co jsi teď napsala“). Za provedení počítáme jen jasnou
+  // první osobu nebo jednoznačné dokončení.
+  return new RegExp(`\\b(?:${completedVerb}\\s+(?:jsem|sem)|(?:ja\\s+)?(?:jsem|sem)\\s+${completedVerb}|hotovo|mam to|dokonceno)\\b`, 'iu')
+    .test(normalized);
 }
 
 function reportsWorse(value) {

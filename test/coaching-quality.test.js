@@ -204,6 +204,18 @@ test('brána odmítne automatické přitakání a předstíranou empatii', () =>
   assert.equal(assessment.shouldRepair, true);
 });
 
+test('brána odmítne tlak pokračovat kvůli lidem kterým by klientka mohla pomoct', () => {
+  const messages = [
+    { role: 'user', content: 'Po prvním workshopu nevím, jestli chci pokračovat.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Kdybys teď skončila, co by to znamenalo pro ženy, kterým by podobné cvičení mohlo pomoct?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'guilt_pressure'));
+  assert.equal(assessment.shouldRepair, true);
+});
+
 test('brána odmítne emoci a motiv, které klientka neuvedla', () => {
   const messages = [{ role: 'user', content: 'Můj partner je určitě narcis a já za nic nemůžu.' }];
   const assessment = assessCoachingResponse(

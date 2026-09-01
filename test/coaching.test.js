@@ -201,6 +201,97 @@ test('oprava významu workshopu obnoví zakázku místo zastavení techniky', ()
   assert.doesNotMatch(response, /účinku právě provedeného kroku/i);
 });
 
+test('R2 workshopová data dostanou věcný význam místo zdravotního screeningu', () => {
+  const opening = 'První workshop dopadl špatně. Asi na podnikání prostě nemám.';
+  const latestText = 'Přihlásily se tři ženy a jedna po půl hodině odešla.';
+  const messages = [
+    { role: 'user', content: opening },
+    { role: 'assistant', content: 'Co přesně znamená, že dopadl špatně?' },
+    { role: 'user', content: latestText },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /tři ženy a jedna odešla|účast byla tři ženy/i);
+  assert.match(response, /zbývající dvě/i);
+  assert.doesNotMatch(response, /spán|jídlo|běžn.*fungov|energ/i);
+});
+
+test('R2 pozitivní důkaz workshopu se vyzdvihne a nespustí falešné měření účinku', () => {
+  const latestText = 'Dvě zbývající ženy zůstaly do konce a jedna mi napsala, že jí pomohlo cvičení.';
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Co se stalo?' },
+    { role: 'user', content: 'Přišly tři ženy a jedna odešla.' },
+    { role: 'assistant', content: 'Co zbývající dvě?' },
+    { role: 'user', content: latestText },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /podstatný pozitivní výsledek/i);
+  assert.match(response, /jedna ze tří.*pomohlo/i);
+  assert.doesNotMatch(response, /účinku právě provedeného kroku|co se teď změnilo/i);
+});
+
+test('R2 otázka fakt versus domněnka dostane přímou odpověď a oprava ji zjednoduší', () => {
+  const question = 'Jak poznám rozdíl mezi tím, co se skutečně nepovedlo, a tím, co si jen domýšlím?';
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Co se stalo?' },
+    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedné pomohlo cvičení.' },
+    { role: 'user', content: question },
+  ];
+  const direct = fixedGroundingResponse({
+    messages,
+    latestText: question,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(direct, /fakt můžeš doložit/i);
+  assert.match(direct, /domněnka/i);
+
+  const repairMessages = [...messages, { role: 'assistant', content: direct }, { role: 'user', content: 'Nerozumím ti teď.' }];
+  const repair = fixedGroundingResponse({
+    messages: repairMessages,
+    latestText: repairMessages.at(-1).content,
+    routingText: buildRoutingText(repairMessages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(repairMessages, 'koucovaci_hodina'),
+  });
+  assert.match(repair, /Řekla jsem to složitě/i);
+  assert.match(repair, /Fakt je něco/i);
+  assert.doesNotMatch(repair, /co tě.*děsí|účinku právě provedeného kroku/i);
+});
+
+test('R2 stížnost na opakované měření dostane konkrétní opravu bez další otázky', () => {
+  const latestText = 'Nerozumím, řeším něco jiného. Proč se mě každou chvilku ptáš na to, co se změnilo?';
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Co se teď změnilo?' },
+    { role: 'user', content: latestText },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText,
+    routingText: buildRoutingText(messages),
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /chybně vyhodnotila/i);
+  assert.match(response, /už to nebudu opakovat/i);
+  assert.equal((response.match(/\?/g) || []).length, 0);
+});
+
 test('zahlcení volí nejmenší krok', () => {
   assert.equal(selectCoachingMethod(methods, 'Mám v tom chaos a vůbec nevím, kde začít.').id, 'smallest_step');
 });

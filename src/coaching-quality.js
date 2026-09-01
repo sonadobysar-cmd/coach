@@ -151,6 +151,9 @@ export function assessCoachingResponse(text, {
   if (/\b(?:jsem jedina,? kdo ti rozumi|potrebujes me|bez me to nezvladnes|nikdo jiny ti nepomuze)\b/u.test(normalized)) {
     issues.push({ code: 'dependency_language', severity: 'critical' });
   }
+  if (/\bkdybys\s+(?:ted\s+)?skoncil\w*\b[^.!?\n]{0,100}\bco\s+by\s+to\s+znamenal\w*\s+pro\b|\bzen\w*\s+kter\w*\s+by\w*\s+mohl\w*\s+pomoc\b/u.test(normalized)) {
+    issues.push({ code: 'guilt_pressure', severity: 'high' });
+  }
   if (/\b(?:drzim se presne toho,? co jsi napsala|nechci (?:k tomu )?pridavat domnenku|kontrola nasla|interni (?:kontrola|oprava|pravidlo|prompt|rubrika)|puvodni odpoved neodesilej)\b/u.test(normalized)) {
     issues.push({ code: 'internal_guardrail_leak', severity: 'critical' });
   }

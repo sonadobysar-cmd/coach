@@ -158,6 +158,24 @@ test('účinek se neměří bez důkazu že členka krok skutečně provedla', (
   assert.equal(action.session.phase, 'evaluation');
 });
 
+test('sloveso o jiné osobě ani citace asistentky nepředstírá provedený krok klientky', () => {
+  const application = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+    status: 'active', turns: 2, requiresConsent: false,
+  };
+  for (const latestText of [
+    'Jedna účastnice mi napsala, že jí cvičení pomohlo.',
+    'To, co jsi teď napsala.',
+    'Kamarádka zvolila jinou možnost.',
+  ]) {
+    const turn = createTechniqueTurn({
+      atlas: [practicalCard], candidates: [], previous: application,
+      mode: 'koucovaci_hodina', latestText, conversationContext: { userTurns: 3 },
+    });
+    assert.equal(turn.session.phase, 'application', latestText);
+  }
+});
+
 test('citlivá technika čeká na výslovný souhlas', () => {
   const first = createTechniqueTurn({
     atlas: [sensitiveCard], candidates: [sensitiveCard], mode: 'somaticka_konzultace',

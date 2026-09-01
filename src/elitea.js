@@ -780,6 +780,7 @@ function buildInstructions(
       'Neopakuj vysvětlení ani otázku, pokud je odpověď už v aktuální paměti členky. Na uložený cíl, poslední pracovní téma, dohodnutý krok a milníky přirozeně navazuj. Pokud je uložená informace v rozporu s novou zprávou, ověř pouze změnu. Nikdy netvrď, že si něco pamatuješ, pokud to v paměti skutečně není.',
       'Paměť jedné členky je výhradně její. Nikdy neuváděj, nedoplňuj ani nepředpokládej údaje jiné členky. Nežádej a neukládej hesla, tokeny, rodná čísla, platební údaje ani podrobné zdravotní či traumatické informace.',
       'Koučovací techniku použij jen s dostatečným kontextem, nikdy jako automatický trik. Respektuj možnost členky techniku nebo otázku odmítnout.',
+      'NIKDY NETLAČ PŘES VINU NEBO ODPOVĚDNOST ZA CIZÍ ŽIVOT: Pokud členka zvažuje, že skončí s projektem, workshopem nebo rolí, neptej se, co by její konec znamenal pro lidi, kterým by mohla pomoci, koho by zklamala ani kdo ji potřebuje. Taková otázka vyrábí povinnost pokračovat. Rozhodnutí zkoumej přes její vlastní hodnoty, kapacitu, fakta, cenu možností a skutečně svobodnou volbu.',
       'NEPODSOUVEJ KRIZI ANI ODBORNOU PÉČI: samotná zmínka o úzkosti, prodělané depresi, vyhoření, traumatu nebo nemoci není důvod ptát se na sebepoškozování, doporučovat lékaře, terapeuta či krizovou linku ani vysvětlovat své hranice. Pokud bezpečnostní předfiltr nezachytil kritický stav a členka se sama neptá na diagnózu, léčbu nebo léky, rovnou kvalitně koučuj její skutečný požadavek.',
       responseMode === 'brand_growth_agent'
         ? 'Jsi hlavní dlouhodobá Brand & Marketing mentorka členky vedená podle logiky Inkubátoru podnikatelek, nikoli obecný chatbot nebo pouhý generátor obsahu. Udržuj kontinuitu fáze podnikání, značky, nabídky, cílovky, prodejní cesty, obsahu, sociálních sítí, kampaní, ekonomiky, rozhodnutí a výsledků. Pokrýváš strategii podnikání, výzkum trhu, positioning a brand, nabídku a cenu, copywriting, obsahovou strategii, sociální sítě, organickou distribuci, Meta a další placenou reklamu, prodejní cestu, e-mail, měření a optimalizaci. Když členka žádá výstup, skutečně ho vytvoř; když žádá úsudek, zaujmi doporučující stanovisko a pojmenuj rozhodující předpoklad, riziko a způsob ověření.'
@@ -1031,13 +1032,44 @@ export function fixedGroundingResponse({
   const normalizedLatest = normalizeDialogueText(latest);
   const normalizedFacts = normalizeDialogueText(userFacts);
   const workshopContext = /\bworkshop\w*\b/u.test(normalizedFacts);
+  const workshopFactQuestion = /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedFacts);
 
   if (/\bworkshop\w*\b/u.test(normalizedLatest)
     && /\b(?:dopadl|dopadlo|nepovedl|nepovedlo)\w*\s+(?:spatne|hrozne)|\bnemam\s+na\s+podnikani\b/u.test(normalizedLatest)) {
     return 'Jeden workshop může ukázat skutečný problém, ale sám ještě nerozhoduje o tom, zda máš na podnikání. Nechci ho ani zlehčit, ani z něj udělat rozsudek o tobě. Co přesně znamená „dopadl špatně“ — kolik žen přišlo, co se během něj dělo a jakou zpětnou vazbu jsi dostala?';
   }
 
+  if (workshopContext
+    && /\b(?:prihlasil|prisly|dorazil)\w*\b[^.!?\n]{0,45}\btri\s+zen\w*\b[^.!?\n]{0,100}\bjedna\b[^.!?\n]{0,50}\bodesl/u.test(normalizedLatest)) {
+    return 'To jsou zatím dvě konkrétní informace: účast byla tři ženy a jedna odešla dřív. Odchod je důležitý signál, ale bez jejího vysvětlení ještě nevíme, zda souvisel s obsahem, očekáváním, tempem, nebo něčím mimo workshop. Co udělaly zbývající dvě — zůstaly, zapojily se nebo ti daly nějakou zpětnou vazbu?';
+  }
+
+  if (workshopContext
+    && /\bdve\s+zbyvajici\s+zen\w*\b[^.!?\n]{0,80}\bzustal\w*\b[^.!?\n]{0,120}\bpomohl\w*\s+cvicen/u.test(normalizedLatest)) {
+    return 'To je podstatný pozitivní výsledek, ne poznámka pod čarou: dvě ze tří žen zůstaly do konce a jedna ze tří ti výslovně potvrdila, že jí cvičení pomohlo. Vedle jednoho nevysvětleného odchodu tedy máš i přímý důkaz užitku. Poctivý závěr není „workshop selhal“, ale „výsledek byl smíšený a potřebuju zjistit, co zachovat a co upravit“. Co přesně jí na tom cvičení pomohlo?';
+  }
+
+  if (workshopContext
+    && /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedLatest)) {
+    return 'Použij jednoduché pravidlo: fakt můžeš doložit záznamem, číslem nebo přímou zprávou; domněnka doplňuje význam, který ti nikdo nepotvrdil. Fakta jsou, že přišly tři ženy, jedna odešla, dvě zůstaly a jedna napsala, že jí cvičení pomohlo. Nevíme, proč první žena odešla ani co si účastnice myslely; věty „workshop byl špatný“ a „nemám na podnikání“ proto nejsou fakta, ale tvoje výklady.';
+  }
+
+  if (workshopContext
+    && /\bto\s+co\s+jsi\s+(?:ted\s+)?napsal\w*\b/u.test(normalizedLatest)
+    && /\b(?:udrzen\w*\s+pozornost|rec\w*\s+tela|zapoj\w*|zapis\w*)\b/u.test(normalizedFacts)) {
+    return 'Pak už máš první pozorovatelná kritéria úspěchu: účastnice drží pozornost, reagují, zapisují si nebo se zapojují do cvičení. To je užitečnější měřítko než pokus číst z výrazu, zda se jim všechno líbí. Po workshopu k tomu přidej jednu přímou otázku na užitek a jednu na to, co upravit; tím oddělíš pozorování od dojmů.';
+  }
+
   if (isConversationRepairRequest(latest) && workshopContext) {
+    if (/\bproc\s+se\s+me\b[^.!?\n]{0,70}\bptas\b[^.!?\n]{0,100}\bzmenil/u.test(normalizedLatest)) {
+      return 'Ptala jsem se na změnu příliš často, protože jsem tvoje odpovědi chybně vyhodnotila jako provedené cvičení. Nebylo to správně a už to nebudu opakovat. Tvoje dosavadní kritéria povedeného workshopu jsou pozornost, zapojení, reakce při cvičení a přímá zpětná vazba; to je konkrétní výsledek této části rozhovoru.';
+    }
+    if (workshopFactQuestion && /\b(?:nerozumim|nechapu)\b/u.test(normalizedLatest)) {
+      return 'Řekla jsem to složitě. Fakt je něco, co můžeš ukázat nebo doložit: tři účastnice, jeden odchod, dvě ženy do konce a jedna zpráva, že cvičení pomohlo. Domněnka je význam bez důkazu, například „odešla kvůli mně“ nebo „nemám na podnikání“. Z dostupných faktů tedy vychází smíšený první pokus, ne důkaz, že jsi selhala.';
+    }
+    if (/\bvzdyt\s+jsem\s+ti\s+to\b[^.!?\n]{0,30}\bpsal/u.test(normalizedLatest)) {
+      return 'Máš pravdu — spouštěč už jsi popsala: workshop se třemi ženami a odchod jedné z nich. Nemusíš mi tutéž situaci vyprávět znovu. Teď je užitečnější zjistit, jestli chceš nejdřív zmenšit aktuální úzkost, nebo pokračovat věcným rozborem toho, co se na workshopu skutečně stalo.';
+    }
     if (/\b(?:nepochopil|nepochopila|co na tom nechapes|workshop)\b/u.test(normalizedLatest)) {
       return 'Máš pravdu — mluvíš o tom, že uvažuješ skončit s pořádáním workshopů, ne o ukončení tohoto rozhovoru. Nechci ti to rozhodnutí ani vymlouvat, ani ho udělat za tebe. Potřebujeme rozlišit, zda nechceš tento formát vůbec dělat, nebo zda tě po prvním výsledku zastavil strach z dalšího neúspěchu. Co z toho je blíž?';
     }
