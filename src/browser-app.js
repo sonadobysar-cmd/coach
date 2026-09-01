@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.36.2';
+const APP_VERSION = '0.36.3';
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -260,6 +260,9 @@ const elements = {
   consultationMode: document.querySelector('#consultation-mode'),
   sessionToolbar: document.querySelector('.session-toolbar'),
   sessionModeDescription: document.querySelector('#session-mode-description'),
+  newSession: document.querySelector('#new-session'),
+  newSessionDialog: document.querySelector('#new-session-dialog'),
+  newSessionContext: document.querySelector('#new-session-context'),
   endSession: document.querySelector('#end-session'),
   outcomeCard: document.querySelector('#outcome-card'),
   outcomeCardTitle: document.querySelector('#outcome-card-title'),
@@ -441,7 +444,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.36.2';
+  const cloudModuleUrl = '/cloud.js?v=0.36.3';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -597,27 +600,14 @@ function bindEvents() {
   });
   elements.outcomeExport?.addEventListener('click', downloadAnonymousOutcomes);
 
-  elements.newChat.addEventListener('click', () => {
-    if (state.pending) return;
-    if (isTrainingRole()) {
-      if (state.trainingSession?.activity === 'simulation') retryTrainingSimulation();
-      else restartStudySession();
-      return;
-    }
-    state.messages = [];
-    state.lastMethod = null;
-    delete state.lastMethods[state.consultationMode];
-    delete state.techniqueSessions[state.consultationMode];
-    delete state.specialistSessions[state.consultationMode];
-    persistMessages();
-    persistLastMethods();
-    persistTechniqueSessions();
-    persistSpecialistSessions();
-    sessionStorage.removeItem('elitea.lastMethod');
-    renderMessages();
-    renderMemory();
-    renderOutcomeCard();
-    elements.chatInput.focus();
+  elements.newChat?.addEventListener('click', requestNewSession);
+  elements.newSession?.addEventListener('click', requestNewSession);
+  document.querySelector('#close-new-session')?.addEventListener('click', closeNewSessionDialog);
+  document.querySelector('#cancel-new-session')?.addEventListener('click', closeNewSessionDialog);
+  document.querySelector('#confirm-new-session')?.addEventListener('click', startNewSession);
+  elements.newSessionDialog?.addEventListener('cancel', event => {
+    event.preventDefault();
+    closeNewSessionDialog();
   });
   elements.messages.addEventListener('click', handleMessageAction);
   elements.qualityReportForm?.addEventListener('submit', submitQualityReport);
@@ -3454,6 +3444,7 @@ function renderMessages(showTyping = false) {
   const hasMessages = state.messages.length > 0;
   elements.welcome.hidden = hasMessages;
   elements.endSession.hidden = state.assistantRole !== 'coach' || !hasMessages;
+  if (elements.newSession) elements.newSession.disabled = state.pending;
   elements.messages.innerHTML = state.messages.map(messageTemplate).join('');
   if (showTyping) {
     const identity = assistantMessageIdentity();
@@ -4102,6 +4093,57 @@ function startFreshModeSession() {
   elements.modeResumeDialog.close();
   activateConsultationMode(mode, []);
   persistMessages();
+}
+
+function requestNewSession() {
+  if (state.pending) return;
+  switchView('chat');
+  if (!state.messages.length) {
+    elements.chatInput.focus();
+    return;
+  }
+  if (elements.newSessionContext) {
+    elements.newSessionContext.textContent = isTrainingRole()
+      ? 'Aktuální studijní nebo simulační přepis se zavře a otevřená část začne znovu.'
+      : 'Aktuální přepis a rozehraná technika se zavřou. Tvůj profil, cíle a schválená dlouhodobá paměť zůstanou.';
+  }
+  elements.newSessionDialog?.showModal();
+}
+
+function closeNewSessionDialog() {
+  if (elements.newSessionDialog?.open) elements.newSessionDialog.close();
+}
+
+function startNewSession() {
+  if (state.pending) return;
+  closeNewSessionDialog();
+
+  if (isTrainingRole()) {
+    if (state.trainingSession?.activity === 'simulation') retryTrainingSimulation();
+    else restartStudySession();
+    return;
+  }
+
+  const mode = state.consultationMode;
+  state.messages = [];
+  state.lastMethod = null;
+  state.lastCoachTurnMeta = null;
+  state.pendingOutcomeClosure = false;
+  state.qualityReportTarget = null;
+  delete state.conversations[mode];
+  delete state.lastMethods[mode];
+  delete state.techniqueSessions[mode];
+  delete state.specialistSessions[mode];
+  persistMessages();
+  persistLastMethods();
+  persistTechniqueSessions();
+  persistSpecialistSessions();
+  sessionStorage.removeItem('elitea.lastMethod');
+  renderMessages();
+  renderMemory();
+  renderOutcomeCard();
+  elements.chatInput.value = '';
+  elements.chatInput.focus();
 }
 
 function closeModeResume() {

@@ -25,7 +25,7 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon-192.png" sizes="192x192">
-    <link rel="stylesheet" href="/styles.css?v=0.36.2">
+    <link rel="stylesheet" href="/styles.css?v=0.36.3">
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -601,6 +601,7 @@
               <button type="button" data-consultation-mode="auto">Ať zvolí Elitea</button>
             </div>
             <p class="visually-hidden" id="session-mode-description">Popiš, co řešíš, a Elitea zvolí vhodný způsob vedení.</p>
+            <button id="new-session" class="new-session-button" type="button">＋ Nové sezení</button>
             <button id="outcome-toolbar-button" class="outcome-toolbar-button" type="button">Měřit sezení</button>
             <button id="end-session" class="end-session-button" type="button" hidden>Uzavřít konzultaci</button>
           </div>
@@ -997,6 +998,28 @@
           <button class="primary-button" id="resume-mode-session" type="button">Navázat tam, kde jsme skončily <span>→</span></button>
         </div>
         <small>Jednotlivé oblasti mají oddělené přepisy. Společná zůstává jen pracovní paměť, kterou máš pod kontrolou.</small>
+      </section>
+    </dialog>
+
+    <dialog class="mode-resume-dialog" id="new-session-dialog">
+      <section class="mode-resume-card" aria-labelledby="new-session-title">
+        <header>
+          <div>
+            <p class="overline">NOVÉ SEZENÍ</p>
+            <h2 id="new-session-title">Chceš začít znovu?</h2>
+          </div>
+          <button class="icon-button" id="close-new-session" type="button" aria-label="Zavřít">×</button>
+        </header>
+        <div class="mode-resume-summary new-session-summary">
+          <span>ČISTÝ KONTEXT</span>
+          <h3>Elitea začne od první zprávy nového tématu.</h3>
+          <p id="new-session-context">Aktuální přepis a rozehraná technika se zavřou. Tvůj profil, cíle a schválená dlouhodobá paměť zůstanou.</p>
+        </div>
+        <div class="mode-resume-actions">
+          <button class="secondary-button" id="cancel-new-session" type="button">Ještě pokračovat</button>
+          <button class="primary-button" id="confirm-new-session" type="button">Ano, začít znovu <span>→</span></button>
+        </div>
+        <small>Nové sezení nemaže tvůj profil, pokrok v kurzech ani dlouhodobou paměť, kterou sis schválila.</small>
       </section>
     </dialog>
 
@@ -1444,6 +1467,6 @@
       <p class="account-privacy">Studijní postup je při přihlášení bezpečně uložený v tvém účtu. Syrové konverzace se do členského profilu neukládají.</p>
     </dialog>
 
-    <script type="module" src="/app.js?v=0.36.2"></script>
+    <script type="module" src="/app.js?v=0.36.3"></script>
   </body>
 </html>

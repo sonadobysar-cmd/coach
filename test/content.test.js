@@ -177,6 +177,17 @@ test('každý typ konzultace má oddělený přepis a vědomé navázání', () 
   assert.match(client, /sessionStorage\.setItem\('elitea\.conversations'/);
 });
 
+test('členka může bezpečně začít nové sezení bez smazání profilu a dlouhodobé paměti', () => {
+  assert.match(html, /id="new-session"/);
+  assert.match(html, /id="new-session-dialog"/);
+  assert.match(html, /Ano, začít znovu/);
+  assert.match(html, /Nové sezení nemaže tvůj profil/);
+  assert.match(client, /function startNewSession\(\)/);
+  assert.match(client, /delete state\.techniqueSessions\[mode\]/);
+  assert.match(client, /delete state\.specialistSessions\[mode\]/);
+  assert.doesNotMatch(client, /function startNewSession\(\)[\s\S]{0,1800}(?:state\.memory\s*=|localStorage\.clear\()/);
+});
+
 test('předání Nii vyžaduje samostatný souhlas a nikdy nesdílí celý chat', () => {
   assert.match(html, /Nia nevidí tvoje zprávy ani historii chatu/);
   assert.match(html, /Ano, připravit návrh podkladu/);
