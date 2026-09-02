@@ -435,7 +435,7 @@ app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_request, response) => {
   const dependencies = {
-    ai: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1'),
+    ai: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN),
     auth: Boolean(process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL),
     payments: paymentsConfigured(),
     booking: bookingConfigured(),
@@ -480,7 +480,7 @@ app.get('/api/status', (_request, response) => {
   response.set('Cache-Control', 'no-store').json({
     ready: true,
     providerConnected: Boolean(
-      process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1'
+      process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN
     ),
     model: resolveModelId(),
     internalSpecialists: SPECIALIST_REGISTRY.length,
@@ -1053,8 +1053,8 @@ app.post('/api/chat', async (request, response) => {
     }));
     const message = /GatewayRateLimitError|rate-limit|rate limit/i.test(error?.message || '')
       ? 'Kapacita AI modelu je teď dočasně vyčerpaná. Zkus odpověď znovu za chvíli.'
-      : error?.message?.includes('AI_GATEWAY')
-        ? 'AI provider není správně připojený.'
+      : /Unauthenticated|AI_GATEWAY_API_KEY|GatewayAuthenticationError/i.test(error?.message || '')
+        ? 'Připojení AI se nepodařilo ověřit. Odpověď zůstala uložená — zkus ji prosím znovu.'
         : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.';
     response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
       error: error?.statusCode ? error.message : message,

@@ -449,7 +449,7 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
       };
     }
 
-    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN && process.env.VERCEL !== '1') {
+    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
       return demoTrainingAnswer({ safeMessages, course, item, activity: safeActivity, phase: safePhase, scenario });
     }
 

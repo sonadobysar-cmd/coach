@@ -59,7 +59,7 @@ export function marketingOperatorPublicStatus(env = process.env) {
         connectionMode: 'oauth',
       },
       image_generation: {
-        configured: Boolean(env.AI_GATEWAY_API_KEY || env.VERCEL_OIDC_TOKEN || env.VERCEL === '1'),
+        configured: Boolean(env.AI_GATEWAY_API_KEY || env.VERCEL_OIDC_TOKEN),
         reviewRequired: true,
       },
     },

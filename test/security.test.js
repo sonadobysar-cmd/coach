@@ -131,6 +131,7 @@ test('health endpoint kontroluje všechny klíčové produkční závislosti bez
   assert.match(healthRoute, /runtimeSchema:/);
   assert.match(healthRoute, /certificateSigning:/);
   assert.match(healthRoute, /status\(ok \? 200 : 503\)/);
+  assert.doesNotMatch(healthRoute, /process\.env\.VERCEL\s*===\s*'1'/);
   assert.doesNotMatch(healthRoute, /API_KEY\s*:/);
 });
 

@@ -937,3 +937,70 @@ test('S002 R5 hypotetická kritika nevede k rozhodnutí za klientku', () => {
   assert.doesNotMatch(response, /dopad není|zatím jí nepišme/i);
   assert.equal((response.match(/\?/g) || []).length, 1);
 });
+
+test('S002 R6 po potvrzení sebeverdiktu porovná stejná data bez zdravotního odklonu', () => {
+  const messages = [
+    { role: 'user', content: 'Na workshop přišly tři ženy, dvě zůstaly a jedna díky cvičení získala klienta.' },
+    { role: 'assistant', content: 'Kdyby ti někdo skutečně řekl, že jsi nudná, co by to dokazovalo o tobě?' },
+    { role: 'user', content: 'Že je to pravda.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /názor jedné ženy dostal větší váhu/i);
+  assert.match(response, /jiná díky tvému cvičení získala klienta/i);
+  assert.doesNotMatch(response, /energ|fungov|spán|jíd/i);
+});
+
+test('S002 R6 metaforu pádu světa vyjasní jednou otázkou bez vícerozměrného screeningu', () => {
+  const messages = [
+    { role: 'user', content: 'Workshop byl pro mě důležitý.' },
+    { role: 'assistant', content: 'Co by kritika znamenala?' },
+    { role: 'user', content: 'Zhroutí se mi svět.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /vzdala svůj podnikatelský sen/i);
+  assert.match(response, /zvládat běžný den/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
+test('S002 R6 pád snu oddělí celý sen od jediného formátu', () => {
+  const messages = [
+    { role: 'user', content: 'Po workshopu mám strach.' },
+    { role: 'assistant', content: 'Myslíš konec podnikání, nebo běžného fungování?' },
+    { role: 'user', content: 'Prostě by mi spadl sen.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Jeden formát však není celý sen/i);
+  assert.match(response, /která část toho snu musí zůstat zachovaná/i);
+  assert.doesNotMatch(response, /psychick|energ|fungov|spán|jíd/i);
+});
+
+test('S002 R6 přetrvávající stažení míří přímo k obávanému sebeverdiktu', () => {
+  const messages = [
+    { role: 'user', content: 'Řešíme workshop a zpětnou vazbu.' },
+    { role: 'assistant', content: 'Bylo by snazší požádat účastnice o zpětnou vazbu?' },
+    { role: 'user', content: 'Stále bych se spíše stáhla.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Nechci ti proto hned radit, abys účastnicím psala/i);
+  assert.match(response, /jejich odpověď potvrdila o tobě/i);
+});

@@ -256,7 +256,7 @@ export function createElitea({
       specialistRoute,
     );
 
-    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN && process.env.VERCEL !== '1') {
+    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
       const demo = demoAnswer(
         latest.content,
         memory,
@@ -1071,6 +1071,33 @@ export function fixedGroundingResponse({
   if (workshopContext
     && /\b(?:ziskal|ziskala)\w*\s+prvniho\s+klient/u.test(normalizedLatest)) {
     return 'Takže workshop nepřinesl jen příjemný dojem: jedna žena podle tvého postupu získala prvního klienta. To je konkrétní důkaz, že tvoje vedení může vytvořit hodnotu; zároveň stále nevíme, proč jiná žena odešla. Jeden neznámý důvod proto nemůže poctivě přebít doložený výsledek. Když si přesto řekneš „jsem nudná“, čeho se podle té věty bojíš u dalšího workshopu?';
+  }
+
+  if (workshopContext
+    && /^(?:ze\s+)?(?:je\s+)?to\s+pravda[.!\s]*$/u.test(normalizedLatest)
+    && /\b(?:nudn|nemam\s+na\s+podnikani|co\s+by\s+to\s+dokazovalo)\b/u.test(normalizedPreviousAssistant)) {
+    return 'Pak by názor jedné ženy dostal větší váhu než všechna ostatní data — včetně toho, že jiná díky tvému cvičení získala klienta. To je důležité pravidlo, ne ověřený závěr. Kdyby stejné výsledky měla jiná lektorka, považovala bys ji za neschopnou a nudnou?';
+  }
+
+  if (workshopContext
+    && /\bzhrout\w*\b[^.!?\n]{0,35}\b(?:svet|vsechno)\b/u.test(normalizedLatest)) {
+    return 'To zní velmi silně a nechci si domýšlet, co tím myslíš. Znamená „zhroutil by se mi svět“, že bys vzdala svůj podnikatelský sen, nebo že bys přestala zvládat běžný den?';
+  }
+
+  if (workshopContext
+    && /\b(?:spadl|padl|skoncil|rozpadl)\w*\b[^.!?\n]{0,35}\bsen\b|\bsen\b[^.!?\n]{0,35}\b(?:spadl|padl|skoncil|rozpadl)\w*\b/u.test(normalizedLatest)) {
+    return 'Takže v ohrožení pro tebe není jen jeden workshop, ale sen, který sis s podnikáním spojila. Jeden formát však není celý sen. Kdyby workshopy nakonec nebyly správná cesta, která část toho snu musí zůstat zachovaná?';
+  }
+
+  if (workshopContext
+    && /\b(?:stale|porad)\b[^.!?\n]{0,35}\b(?:stah|schov|vyhn)\w*\b/u.test(normalizedLatest)) {
+    return 'Přesnější věta tedy trochu snížila tlak, ale chuť stáhnout se zůstala. Nechci ti proto hned radit, abys účastnicím psala. Čeho se bojíš, že by jejich odpověď potvrdila o tobě?';
+  }
+
+  if (workshopContext
+    && /\b(?:neschopn|nudn)\w*\b/u.test(normalizedLatest)
+    && /\b(?:odpoved|potvrd|zpetn|stahnout|ucastnic)\w*\b/u.test(normalizedPreviousAssistant)) {
+    return 'Tady je jádro: zpětná vazba k jednomu výkonu by se změnila v rozsudek o celé tobě. Otestujme to na stejných datech bez dvojího metru: kdyby jiná lektorka vedla workshop pro tři ženy, dvě zůstaly a jedna díky jejímu cvičení získala klienta, označila bys ji za neschopnou a nudnou?';
   }
 
   if (workshopContext
