@@ -296,7 +296,7 @@ export function createElitea({
       'rychle_reseni',
       'mentoringova_konzultace',
     ]);
-    const fixedResponse = fixedGroundingResponse({
+    const groundedResponse = fixedGroundingResponse({
       messages: safeMessages,
       memory,
       latestText: latest.content,
@@ -304,7 +304,8 @@ export function createElitea({
       responseMode,
       conversationContext,
       techniqueTurn,
-    }) || fixedTechniqueResponse(techniqueTurn);
+    });
+    const fixedResponse = groundedResponse || fixedTechniqueResponse(techniqueTurn);
     let result = fixedResponse
       ? { text: fixedResponse }
       : await generateText({
@@ -345,6 +346,7 @@ export function createElitea({
       const techniqueCheckedText = enforceTechniqueResponse(value, techniqueTurn, {
         latestText: latest.content,
         messages: safeMessages,
+        authoritativeGrounding: Boolean(groundedResponse),
       });
       return shapedModes.has(responseMode)
         ? shapeCoachingResponse(techniqueCheckedText, memory, {
@@ -1071,6 +1073,16 @@ export function fixedGroundingResponse({
   if (workshopContext
     && /^(?:je\s+to\s+)?unosn\w*[.!\s]*$/u.test(normalizedLatest)) {
     return 'Dobře, tím máme míru strachu zodpovězenou a nebudeme ji dál prověřovat. Teď pojďme k tomu, co strach skutečně živí: jeden odchod sis vyložila jako důkaz, že jsi nudná, přestože jiná žena díky tvému postupu získala klienta. Nakolik teď věříš větě „jsem nudná“ na škále od nuly do deseti?';
+  }
+
+  if (workshopContext
+    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)) {
+    return 'Nemusíš tu přesnější větu vymýšlet sama. Pracovní verze může znít: „Jedna účastnice odešla a nevím proč; dvě zůstaly, takže zatím nemám dost dat na rozsudek o sobě ani o podnikání.“ Co na té větě nesedí nebo v ní chybí?';
+  }
+
+  if (workshopContext
+    && /\b(?:resime|bavime\s+se\s+o|vrat\w*\s+se\s+k)\b[^.!?\n]{0,60}\bworkshop/u.test(normalizedLatest)) {
+    return 'Držím se workshopu. Zatím víme, že se přihlásily tři ženy, jedna odešla bez známého důvodu a dvě zůstaly; další závěr by byl předčasný. Co během workshopu dělaly nebo jak reagovaly ty dvě, které zůstaly?';
   }
 
   if (workshopContext

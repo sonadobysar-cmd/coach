@@ -145,6 +145,10 @@ export function assessCoachingResponse(text, {
     healthImpactPatterns.filter(pattern => pattern.test(text)).length >= 2
   ));
   const normalRiskCoaching = !isBusinessRole && (conversationContext.riskLevel || 'normal') === 'normal';
+  const latestIsNonAnswer = /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu (?:to )?rict|neumim (?:to )?rict)[.!\s]*$/u.test(normalizedLatestUserText);
+  const lastAssistantNormalized = normalize(String([...messages].reverse().find(message => message?.role === 'assistant')?.content || ''));
+  const declinedRequestedTechnique = /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
+    && /\bchces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit|udelat)\b/u.test(lastAssistantNormalized);
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
   if (!closingRequested && requireQuestion && questionCount !== 1) {
@@ -235,6 +239,14 @@ export function assessCoachingResponse(text, {
       issues.push({ code: 'repeated_health_screening', severity: 'high' });
     }
   }
+  if (latestIsNonAnswer
+    && /\b(?:mame|vytvorila jsi|nasla jsi|povedlo se)\b[^.!?\n]{0,80}\b(?:presnejsi vet\w*|odpoved\w*|reseni|krok)\b/u.test(normalized)) {
+    issues.push({ code: 'invented_step_completion', severity: 'high' });
+  }
+  if (declinedRequestedTechnique
+    && /\b(?:chces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit)|mame\b[^.!?\n]{0,60}\bpresnejsi vet\w*)\b/u.test(normalized)) {
+    issues.push({ code: 'ignored_technique_refusal', severity: 'high' });
+  }
   if (normalizedLastQuestion.length >= 12
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
@@ -289,6 +301,8 @@ export function assessCoachingResponse(text, {
     'generic_content_output',
     'unsolicited_health_screening',
     'repeated_health_screening',
+    'invented_step_completion',
+    'ignored_technique_refusal',
   ]);
   const shouldRepair = issues.some(issue => repairCodes.has(issue.code))
     || issues.filter(issue => issue.severity === 'high').length >= 2;
@@ -349,6 +363,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
     'Nemusíš čekat na úplné zmapování. Když to člence pomůže, dej hned konkrétní odborný úsudek, označenou pracovní hypotézu, krátké cvičení nebo proveditelný krok. Jasně odděl, co skutečně uvedla, co je tvoje hypotéza a co má další krok ověřit. Ptej se jen na údaj, který by doporučení opravdu změnil.',
     assessment?.issues?.some(issue => ['unsolicited_health_screening', 'repeated_health_screening'].includes(issue.code))
       ? 'Bezpečnostní úroveň je normální. Neodváděj téma ke spánku, jídlu, energii, tělu, zdraví ani běžnému fungování a neopakuj již zodpovězený screening. Vrať se k původní zakázce a pracuj s konkrétním obsahem obavy, její předpovědí, významem nebo vlivem na rozhodnutí; proveď jeden skutečný koučovací krok.'
+      : '',
+    assessment?.issues?.some(issue => ['invented_step_completion', 'ignored_technique_refusal'].includes(issue.code))
+      ? 'Nepředstírej, že členka vytvořila odpověď, větu nebo krok, když řekla „nevím“. Pokud odmítla nabízenou techniku, okamžitě ji ukonči, neopakuj souhlas a pokračuj jinou cestou v původním tématu.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');

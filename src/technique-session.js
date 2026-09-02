@@ -42,12 +42,28 @@ export function createTechniqueTurn({
   const explicitNoEffect = reportsNoEffect(latestText);
   const explicitRepair = isConversationRepairRequest(latestText);
   const explicitRestart = wantsAnotherTechnique(latestText);
+  const consentDeclined = safePrevious?.phase === 'consent' && declinesConsent(latestText);
   const noEffectFeedback = explicitNoEffect && safePrevious
     && ['application', 'evaluation'].includes(safePrevious.phase);
   // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
   // jako další krok techniky. Nejprve se musí obnovit společné porozumění.
   if (explicitRepair || ambiguousOrExternalStop) {
     return { card: null, session: null, steps: [] };
+  }
+
+  if (consentDeclined) {
+    const card = byId.get(safePrevious.techniqueId);
+    return {
+      card,
+      steps: deriveTechniqueSteps(card),
+      session: {
+        ...safePrevious,
+        phase: 'stopped',
+        status: 'stopped',
+        stopReason: 'consent_declined',
+        turns: safePrevious.turns + 1,
+      },
+    };
   }
 
   // Po zastavení už starý stav nesmí v dalším tahu znovu rozběhnout techniku.
@@ -226,6 +242,9 @@ export function formatTechniqueExecution(turn) {
 }
 
 export function enforceTechniqueResponse(text, turn, context = {}) {
+  if (context.authoritativeGrounding === true && String(text || '').trim()) {
+    return String(text).trim();
+  }
   if (!turn?.card || !turn?.session) return String(text || '').trim();
   const { card, session } = turn;
 
@@ -239,7 +258,14 @@ export function enforceTechniqueResponse(text, turn, context = {}) {
     return 'Než přidáme cokoli dalšího, potřebuji zůstat u účinku právě provedeného kroku. Co se teď změnilo — je to stejné, o trochu lepší, nebo horší?';
   }
   if (session.phase === 'stopped') {
-    return 'Zastavíme to. Nebudu tě do tohoto postupu tlačit ani nepohodu vykládat jako známku, že funguje. Chceš pokračovat jen rozhovorem, nebo dnešní téma uzavřít?';
+    const userContext = (Array.isArray(context.messages) ? context.messages : [])
+      .filter(message => message?.role === 'user')
+      .map(message => String(message.content || ''))
+      .join(' ');
+    if (/workshop/iu.test(userContext)) {
+      return 'Dobře, tenhle postup dělat nebudeme. Vrátím se k workshopu: zatím víme, že se přihlásily tři ženy a jedna odešla, ale nevíme proč. Co udělaly zbývající dvě — zůstaly, zapojily se nebo ti daly nějakou zpětnou vazbu?';
+    }
+    return 'Dobře, tenhle postup dělat nebudeme. Zůstaneme u tvého tématu a zvolíme jinou cestu. Potřebuješ teď spíš porozumět tomu, co se děje, nebo najít konkrétní další krok?';
   }
   if (session.phase === 'application' && card.id === 'customer_discovery' && session.stepIndex === 0) {
     return 'Teď nebudeme plánovat oslovení ani reklamu naslepo. Nejdřív ukotvíme, koho a jaký skutečný problém potřebujeme zkoumat. Kterou konkrétní skupinu žen má Elitea oslovit a v jaké situaci by jim měla pomáhat?';
@@ -337,7 +363,8 @@ function advanceSession(previous, card, latestText, conversationContext) {
     if (reportsWorse(latestText)) {
       next.phase = 'stopped';
       next.status = 'stopped';
-    } else if (stepAdvancesWithoutEvaluation(card, previous.stepIndex)) {
+    } else if (stepAdvancesWithoutEvaluation(card, previous.stepIndex)
+      && isSubstantiveTechniqueAnswer(latestText)) {
       advanceAfterEvaluation(next, steps, card);
     } else if (reportsEffect(latestText)) {
       advanceAfterEvaluation(next, steps, card);
@@ -418,6 +445,17 @@ function hasConsent(value) {
   return /\b(ano|souhlasim|muzeme|zkusme|pojdme|pojd|chci to zkusit|klidne)\b/iu.test(normalizeCzech(value));
 }
 
+function declinesConsent(value) {
+  const normalized = normalizeCzech(value).replace(/[.!?,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
+  return /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji|tohle nechci)$/u.test(normalized);
+}
+
+function isSubstantiveTechniqueAnswer(value) {
+  const normalized = normalizeCzech(value).replace(/[.!?,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
+  if (!normalized) return false;
+  return !/^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu (?:to )?rict|neumim (?:to )?rict|ano|jo|ok|dobre|ne)$/u.test(normalized);
+}
+
 export function classifyStopIntent(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
   if (/\b(stop|zastav(?:me|it)?|prestan|nechci tu techniku|je mi hur)\b/iu.test(normalized)) {
@@ -440,7 +478,7 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|resime\b[^.!?\n]{0,60}\bworkshop|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsStepAttempt(value) {

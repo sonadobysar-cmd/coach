@@ -667,3 +667,31 @@ test('brána dovolí navázat na zdravotní dopad, který členka sama uvedla', 
   );
   assert.ok(!assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'));
 });
+
+test('R4 brána odmítne tvrzení o dokončeném kroku po odpovědi nevím', () => {
+  const messages = [
+    { role: 'user', content: 'Workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Jak by zněla přesnější věta?' },
+    { role: 'user', content: 'To nevím.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Máme přesnější větu. Chceš tímto krokem pokračovat?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'invented_step_completion'));
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('R4 brána odmítne opakovat souhlas po výslovném ne', () => {
+  const messages = [
+    { role: 'user', content: 'Workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Chceš tímto krokem pokračovat?' },
+    { role: 'user', content: 'Ne.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Máme přesnější větu. Chceš tímto krokem pokračovat?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'ignored_technique_refusal'));
+  assert.equal(assessment.shouldRepair, true);
+});

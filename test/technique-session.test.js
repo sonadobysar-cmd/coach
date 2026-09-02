@@ -529,6 +529,79 @@ test('editace self-talku nechá členku vytvořit vlastní větu a souhlas váž
   assert.match(consent, /Chceš tímto krokem pokračovat\?/i);
 });
 
+test('R4 odpověď nevím není vydávána za vytvořenou přesnější větu', () => {
+  const card = {
+    ...practicalCard,
+    id: 'accurate_self_talk_edit',
+    family: 'cognitive_behavioral_coaching',
+    core_move: 'Vytvoř přesnější větu a potom ji propoj s vizualizací.',
+    steps: ['Zachyť větu.', 'Odděl fakt.', 'Vytvoř přesnější větu.', 'Propoj ji s vizualizací.'],
+    step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
+  };
+  const turn = createTechniqueTurn({
+    atlas: [card],
+    candidates: [card],
+    previous: {
+      techniqueId: card.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 2,
+      status: 'active', turns: 3, requiresConsent: true, consentGranted: false,
+    },
+    mode: 'koucovaci_hodina',
+    latestText: 'To nevím.',
+    conversationContext: { userTurns: 4 },
+  });
+  assert.equal(turn.session.phase, 'application');
+  assert.equal(turn.session.stepIndex, 2);
+  assert.doesNotMatch(fixedTechniqueResponse(turn) || '', /Máme přesnější větu/i);
+});
+
+test('R4 odmítnutí souhlasu zastaví techniku a neopakuje nabídku', () => {
+  const card = {
+    ...practicalCard,
+    id: 'accurate_self_talk_edit',
+    steps: ['Zachyť větu.', 'Odděl fakt.', 'Vytvoř přesnější větu.', 'Propoj ji s vizualizací.'],
+    step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
+  };
+  const turn = createTechniqueTurn({
+    atlas: [card],
+    candidates: [card],
+    previous: {
+      techniqueId: card.id, mode: 'koucovaci_hodina', phase: 'consent', stepIndex: 3,
+      status: 'active', turns: 4, requiresConsent: true, consentGranted: false,
+    },
+    mode: 'koucovaci_hodina',
+    latestText: 'Ne.',
+    conversationContext: { userTurns: 5 },
+  });
+  const response = enforceTechniqueResponse('', turn, {
+    latestText: 'Ne.',
+    messages: [{ role: 'user', content: 'Řešíme nepovedený workshop.' }],
+  });
+  assert.equal(turn.session.phase, 'stopped');
+  assert.match(response, /tenhle postup dělat nebudeme/i);
+  assert.match(response, /vrátím se k workshopu/i);
+  assert.doesNotMatch(response, /Chceš tímto krokem pokračovat/i);
+});
+
+test('R4 odborně ukotvená odpověď má přednost před pevnou fází techniky', () => {
+  const card = {
+    ...practicalCard,
+    id: 'accurate_self_talk_edit',
+    steps: ['Zachyť větu.', 'Odděl fakt.', 'Vytvoř přesnější větu.', 'Propoj ji s vizualizací.'],
+    step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
+  };
+  const grounded = 'Zatím víme, že přišly tři ženy a jedna odešla; důvod neznáme.';
+  const response = enforceTechniqueResponse(grounded, {
+    card,
+    steps: card.steps,
+    session: {
+      techniqueId: card.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 2,
+      status: 'active', turns: 3, requiresConsent: true, consentGranted: false,
+    },
+  }, { latestText: 'Přišly tři ženy.', authoritativeGrounding: true });
+  assert.equal(response, grounded);
+  assert.doesNotMatch(response, /přesnější větu/i);
+});
+
 test('provedení self-talku po souhlasu zůstane jediným krokem bez nabídky cizích odpovědí', () => {
   const card = {
     ...practicalCard,

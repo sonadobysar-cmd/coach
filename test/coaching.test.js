@@ -863,3 +863,39 @@ test('S002 R3 respektuje psala jsem že ne a zdravotní otázku už neopakuje', 
   assert.match(response, /skutečné zakázce/i);
   assert.doesNotMatch(response, /zhoršuje|bere ti|zasahuje/i);
 });
+
+test('S002 R4 po nevím nabídne pracovní větu a nepředstírá její dokončení', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
+    { role: 'assistant', content: 'Kolik žen přišlo?' },
+    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla.' },
+    { role: 'assistant', content: 'Jak by zněla přesnější věta?' },
+    { role: 'user', content: 'To nevím.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Nemusíš tu přesnější větu vymýšlet sama/i);
+  assert.match(response, /Jedna účastnice odešla a nevím proč/i);
+  assert.doesNotMatch(response, /Máme přesnější větu|Chceš tímto krokem pokračovat/i);
+});
+
+test('S002 R4 připomenutí workshopu dostane přímou návratovou odpověď', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'assistant', content: 'Popiš poslední situaci.' },
+    { role: 'user', content: 'Řešíme nepovedený workshop.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Držím se workshopu/i);
+  assert.match(response, /další závěr by byl předčasný/i);
+  assert.doesNotMatch(response, /Popiš mi poslední konkrétní situaci/i);
+});
