@@ -216,6 +216,19 @@ test('brána odmítne tlak pokračovat kvůli lidem kterým by klientka mohla po
   assert.equal(assessment.shouldRepair, true);
 });
 
+test('brána odmítne jemný tlak přes dojem nezájmu vůči účastnicím', () => {
+  const messages = [
+    { role: 'user', content: 'Dvě ženy zůstaly, ale nevím, jestli chci po workshopu pokračovat.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Ve vztahu ke dvěma ženám, které zůstaly, by úplné stažení mohlo působit spíš jako nezájem. Co jim dlužíš?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'guilt_pressure'));
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, context(messages, 'koucovaci_hodina')), /Nevytvářej tlak přes možný dojem/i);
+});
+
 test('brána odmítne emoci a motiv, které klientka neuvedla', () => {
   const messages = [{ role: 'user', content: 'Můj partner je určitě narcis a já za nic nemůžu.' }];
   const assessment = assessCoachingResponse(

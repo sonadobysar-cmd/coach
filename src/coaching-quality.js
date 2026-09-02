@@ -173,7 +173,7 @@ export function assessCoachingResponse(text, {
   if (/\b(?:jsem jedina,? kdo ti rozumi|potrebujes me|bez me to nezvladnes|nikdo jiny ti nepomuze)\b/u.test(normalized)) {
     issues.push({ code: 'dependency_language', severity: 'critical' });
   }
-  if (/\bkdybys\s+(?:ted\s+)?skoncil\w*\b[^.!?\n]{0,100}\bco\s+by\s+to\s+znamenal\w*\s+pro\b|\bzen\w*\s+kter\w*\s+by\w*\s+mohl\w*\s+pomoc\b/u.test(normalized)) {
+  if (/\bkdybys\s+(?:ted\s+)?skoncil\w*\b[^.!?\n]{0,100}\bco\s+by\s+to\s+znamenal\w*\s+pro\b|\bzen\w*\s+kter\w*\s+by\w*\s+mohl\w*\s+pomoc\b|\b(?:stazen|zmizen|ukoncen)\w*\b[^.!?\n]{0,80}\bmohl\w*\s+pusobit\b[^.!?\n]{0,40}\bjako\s+nezajem\b/u.test(normalized)) {
     issues.push({ code: 'guilt_pressure', severity: 'high' });
   }
   if (/\b(?:drzim se presne toho,? co jsi napsala|nechci (?:k tomu )?pridavat domnenku|kontrola nasla|interni (?:kontrola|oprava|pravidlo|prompt|rubrika)|puvodni odpoved neodesilej)\b/u.test(normalized)) {
@@ -383,6 +383,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'repeated_assistant_response')
       ? 'Stejnou odpověď jsi už v tomto sezení použila. Neotvírej znovu uzavřený krok; navazuj výhradně na poslední otázku a poslední odpověď členky.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'guilt_pressure')
+      ? 'Nevytvářej tlak přes možný dojem, zklamání ani prospěch druhých lidí. Vrať volbu klientce a pracuj s jejími vlastními hodnotami, cílem a hranicemi.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');
