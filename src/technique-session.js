@@ -440,7 +440,7 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?psala|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsStepAttempt(value) {

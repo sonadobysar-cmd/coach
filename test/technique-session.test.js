@@ -128,7 +128,14 @@ test('oprava klientky okamžitě uvolní techniku místo dalšího vynuceného k
     techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
     status: 'active', turns: 3, requiresConsent: false,
   };
-  for (const latestText of ['Nerozumím ti.', 'Meleš nesmysly.', 'Jak jsme se sem dostaly?', 'Zase se opakuješ.']) {
+  for (const latestText of [
+    'Nerozumím ti.',
+    'Meleš nesmysly.',
+    'Jak jsme se sem dostaly?',
+    'Zase se opakuješ.',
+    'Vždyť jsem ti to popsala — ten workshop!',
+    'Psala jsem ti už, že ne.',
+  ]) {
     assert.equal(isConversationRepairRequest(latestText), true);
     const turn = createTechniqueTurn({
       atlas: [practicalCard], candidates: [practicalCard], previous: evaluation,

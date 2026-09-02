@@ -128,6 +128,23 @@ export function assessCoachingResponse(text, {
     && /\b(?:nevedel|nevedela|nemel jsem|nemela jsem|domnenk|pripsat|omlouvam|moje chyba)\b/u.test(normalized);
   const professionalCase = conversationContext.professionalCase || {};
   const personalizedContentRequested = professionalCase.requestedDeliverable === 'personalized_content_output';
+  const healthImpactPatterns = [
+    /\b(?:spanek|spanku|spat|nespim|nespi)\b/u,
+    /\b(?:jidlo|jidla|jist|nejim|chut k jidlu)\b/u,
+    /\b(?:energie|vycerpan|unav)\w*\b/u,
+    /\b(?:fungovan|fungovat|nefungu)\w*\b/u,
+    /\b(?:zdravot|pretez|bezneho zivota|kazdodenniho zivota)\w*\b/u,
+  ];
+  const healthQuestionText = normalize((String(output).match(/[^?]+\?/gu) || []).join(' '));
+  const healthScreenDimensions = healthImpactPatterns.filter(pattern => pattern.test(healthQuestionText)).length;
+  const userRaisedHealthImpact = healthImpactPatterns.some(pattern => pattern.test(userEvidenceText));
+  const previousAssistantTexts = (Array.isArray(messages) ? messages : [])
+    .filter(message => message?.role === 'assistant')
+    .map(message => normalize(message.content || ''));
+  const previousHealthScreen = previousAssistantTexts.some(text => (
+    healthImpactPatterns.filter(pattern => pattern.test(text)).length >= 2
+  ));
+  const normalRiskCoaching = !isBusinessRole && (conversationContext.riskLevel || 'normal') === 'normal';
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
   if (!closingRequested && requireQuestion && questionCount !== 1) {
@@ -212,6 +229,12 @@ export function assessCoachingResponse(text, {
   if (/\b(?:tohle|tento problem|tenhle problem|tenhle vzorec|tento vzorec)\s+(?:uz\s+)?(?:mas\s+)?(?:vyresen[ey]|uzavren[ey]|zpracovan[ey])\b/u.test(assistantAssertions)) {
     issues.push({ code: 'unsupported_resolution', severity: 'critical' });
   }
+  if (normalRiskCoaching && healthScreenDimensions >= 2 && !userRaisedHealthImpact) {
+    issues.push({ code: 'unsolicited_health_screening', severity: 'high', detail: healthScreenDimensions });
+    if (previousHealthScreen) {
+      issues.push({ code: 'repeated_health_screening', severity: 'high' });
+    }
+  }
   if (normalizedLastQuestion.length >= 12
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
@@ -250,6 +273,7 @@ export function assessCoachingResponse(text, {
     'invented_emotion',
     'invented_relationship_role',
     'dependency_language',
+    'guilt_pressure',
     'internal_guardrail_leak',
     'mechanical_mentoring_tone',
     'echoed_client_message',
@@ -263,6 +287,8 @@ export function assessCoachingResponse(text, {
     'false_external_action_claim',
     'brand_role_drift',
     'generic_content_output',
+    'unsolicited_health_screening',
+    'repeated_health_screening',
   ]);
   const shouldRepair = issues.some(issue => repairCodes.has(issue.code))
     || issues.filter(issue => issue.severity === 'high').length >= 2;
@@ -321,6 +347,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
     'Napiš odpověď znovu jako přesný profesionální koučovací tah. Opři se o skutečnosti, které členka uvedla; vlastní interpretaci nebo možný blok můžeš přidat jako jasně označenou pracovní hypotézu, která se dá opravit či ověřit. Nevymýšlej její schopnosti, vztahy, publikum ani výsledek. Neurčité „ve vztahu“ automaticky nezaměňuj za partnera; dokud členka vztah neupřesní, řekni raději „druhý člověk“. Automaticky s ní nesouhlas a nevytvářej dojem, že tě potřebuje.',
     'Mluv běžnou současnou češtinou jako člověk v živém rozhovoru. Neopakuj celou zprávu členky ani ji necituj v uvozovkách. Pokud řekla, že ti nerozumí nebo chce normální řeč, krátce to přijmi a hned přeformuluj poslední věcný tah jednodušeji.',
     'Nemusíš čekat na úplné zmapování. Když to člence pomůže, dej hned konkrétní odborný úsudek, označenou pracovní hypotézu, krátké cvičení nebo proveditelný krok. Jasně odděl, co skutečně uvedla, co je tvoje hypotéza a co má další krok ověřit. Ptej se jen na údaj, který by doporučení opravdu změnil.',
+    assessment?.issues?.some(issue => ['unsolicited_health_screening', 'repeated_health_screening'].includes(issue.code))
+      ? 'Bezpečnostní úroveň je normální. Neodváděj téma ke spánku, jídlu, energii, tělu, zdraví ani běžnému fungování a neopakuj již zodpovězený screening. Vrať se k původní zakázce a pracuj s konkrétním obsahem obavy, její předpovědí, významem nebo vlivem na rozhodnutí; proveď jeden skutečný koučovací krok.'
+      : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');
 }

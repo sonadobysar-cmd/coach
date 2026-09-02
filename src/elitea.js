@@ -152,6 +152,7 @@ export function createElitea({
       activeRole,
       previousRole,
       roleTransition,
+      riskLevel: safety.level,
     };
     // The current request chooses the working method. Older context remains in
     // the prompt for continuity, but must not drag a newly mentoring turn back
@@ -782,6 +783,7 @@ function buildInstructions(
       'Koučovací techniku použij jen s dostatečným kontextem, nikdy jako automatický trik. Respektuj možnost členky techniku nebo otázku odmítnout.',
       'NIKDY NETLAČ PŘES VINU NEBO ODPOVĚDNOST ZA CIZÍ ŽIVOT: Pokud členka zvažuje, že skončí s projektem, workshopem nebo rolí, neptej se, co by její konec znamenal pro lidi, kterým by mohla pomoci, koho by zklamala ani kdo ji potřebuje. Taková otázka vyrábí povinnost pokračovat. Rozhodnutí zkoumej přes její vlastní hodnoty, kapacitu, fakta, cenu možností a skutečně svobodnou volbu.',
       'NEPODSOUVEJ KRIZI ANI ODBORNOU PÉČI: samotná zmínka o úzkosti, prodělané depresi, vyhoření, traumatu nebo nemoci není důvod ptát se na sebepoškozování, doporučovat lékaře, terapeuta či krizovou linku ani vysvětlovat své hranice. Pokud bezpečnostní předfiltr nezachytil kritický stav a členka se sama neptá na diagnózu, léčbu nebo léky, rovnou kvalitně koučuj její skutečný požadavek.',
+      'STRACH NENÍ AUTOMATICKY ZDRAVOTNÍ SCREENING: při normální bezpečnostní úrovni samotná slova „bojím se“, „mám strach“ nebo „mám úzkost“ nejsou důvodem odvádět zakázku ke spánku, jídlu, energii, tělu či běžnému fungování. Zjišťuj obsah obavy, její předpověď, spouštěč, význam a vliv na rozhodnutí; potom proveď vhodný koučovací krok. Dopad na zdraví či fungování ověř pouze tehdy, když ho členka sama uvede nebo z její zprávy plyne konkrétní zhoršení. Jednou zodpovězenou otázku už neopakuj.',
       responseMode === 'brand_growth_agent'
         ? 'Jsi hlavní dlouhodobá Brand & Marketing mentorka členky vedená podle logiky Inkubátoru podnikatelek, nikoli obecný chatbot nebo pouhý generátor obsahu. Udržuj kontinuitu fáze podnikání, značky, nabídky, cílovky, prodejní cesty, obsahu, sociálních sítí, kampaní, ekonomiky, rozhodnutí a výsledků. Pokrýváš strategii podnikání, výzkum trhu, positioning a brand, nabídku a cenu, copywriting, obsahovou strategii, sociální sítě, organickou distribuci, Meta a další placenou reklamu, prodejní cestu, e-mail, měření a optimalizaci. Když členka žádá výstup, skutečně ho vytvoř; když žádá úsudek, zaujmi doporučující stanovisko a pojmenuj rozhodující předpoklad, riziko a způsob ověření.'
         : 'Jsi hlavní dlouhodobá AI koučka a byznys mentorka členky, nikoli pouhý rozcestník. U běžných neklinických témat sama veď celý proces od pochopení přes vhodnou práci až k navazujícímu kroku a vyhodnocení. Nenabízej Niu ani jiného člověka místo vlastního přemýšlení jen proto, že je téma složité, emoční nebo vícekrokové. Lidskou konzultaci nabídni jako volitelnou nadstavbu, na výslovnou žádost, při skutečném nedostatku kompetence či dat, nebo podle bezpečnostních pravidel.',
@@ -1050,6 +1052,28 @@ export function fixedGroundingResponse({
   }
 
   if (workshopContext
+    && /\b(?:ziskal|ziskala)\w*\s+prvniho\s+klient/u.test(normalizedLatest)) {
+    return 'Takže workshop nepřinesl jen příjemný dojem: jedna žena podle tvého postupu získala prvního klienta. To je konkrétní důkaz, že tvoje vedení může vytvořit hodnotu; zároveň stále nevíme, proč jiná žena odešla. Jeden neznámý důvod proto nemůže poctivě přebít doložený výsledek. Když si přesto řekneš „jsem nudná“, čeho se podle té věty bojíš u dalšího workshopu?';
+  }
+
+  if (workshopContext
+    && /\b(?:nevim\s*,?\s*)?(?:mam\s+)?(?:proste\s+)?strach\b/u.test(normalizedLatest)
+    && !/\b(?:odstranit|zbavit|zmensit|zeslabit)\b/u.test(normalizedLatest)
+    && !/\b(?:spank|nesp|nejim|jid|energ|fung|zdrav|telo|ubliz|zivot)\w*\b/u.test(normalizedLatest)) {
+    return 'Ten strach se objevil navzdory tomu, že jedna žena podle tvého postupu získala klienta. Zatím tedy nevypadá jako vyhodnocení celého workshopu, ale jako předpověď spuštěná jedním nevysvětleným odchodem. Je ta předpověď spíš „znovu někdo odejde, protože jsem nudná“, nebo se bojíš ještě něčeho jiného?';
+  }
+
+  if (workshopContext
+    && /\b(?:da|lze|jde)\s+(?:se\s+)?(?:ten|to)?\s*strach\w*\s+(?:odstranit|zbavit|zmensit|zeslabit)\b/u.test(normalizedLatest)) {
+    return 'Úplné vynulování strachu ti poctivě slíbit nemůžu, ale můžeme výrazně oslabit jeho moc. Tady jsou dvě páky: opravit závěr „jedna odešla = jsem nudná“ podle skutečných dat a připravit další workshop tak, aby ti dal jasnější zpětnou vazbu. Začala bych první: kdybys směla použít jen to, co o tom workshopu opravdu víš, jak by zněla přesnější věta místo „jsem nudná“?';
+  }
+
+  if (workshopContext
+    && /^(?:je\s+to\s+)?unosn\w*[.!\s]*$/u.test(normalizedLatest)) {
+    return 'Dobře, tím máme míru strachu zodpovězenou a nebudeme ji dál prověřovat. Teď pojďme k tomu, co strach skutečně živí: jeden odchod sis vyložila jako důkaz, že jsi nudná, přestože jiná žena díky tvému postupu získala klienta. Nakolik teď věříš větě „jsem nudná“ na škále od nuly do deseti?';
+  }
+
+  if (workshopContext
     && /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedLatest)) {
     return 'Použij jednoduché pravidlo: fakt můžeš doložit záznamem, číslem nebo přímou zprávou; domněnka doplňuje význam, který ti nikdo nepotvrdil. Fakta jsou, že přišly tři ženy, jedna odešla, dvě zůstaly a jedna napsala, že jí cvičení pomohlo. Nevíme, proč první žena odešla ani co si účastnice myslely; věty „workshop byl špatný“ a „nemám na podnikání“ proto nejsou fakta, ale tvoje výklady.';
   }
@@ -1067,8 +1091,11 @@ export function fixedGroundingResponse({
     if (workshopFactQuestion && /\b(?:nerozumim|nechapu)\b/u.test(normalizedLatest)) {
       return 'Řekla jsem to složitě. Fakt je něco, co můžeš ukázat nebo doložit: tři účastnice, jeden odchod, dvě ženy do konce a jedna zpráva, že cvičení pomohlo. Domněnka je význam bez důkazu, například „odešla kvůli mně“ nebo „nemám na podnikání“. Z dostupných faktů tedy vychází smíšený první pokus, ne důkaz, že jsi selhala.';
     }
-    if (/\bvzdyt\s+jsem\s+ti\s+to\b[^.!?\n]{0,30}\bpsal/u.test(normalizedLatest)) {
-      return 'Máš pravdu — spouštěč už jsi popsala: workshop se třemi ženami a odchod jedné z nich. Nemusíš mi tutéž situaci vyprávět znovu. Teď je užitečnější zjistit, jestli chceš nejdřív zmenšit aktuální úzkost, nebo pokračovat věcným rozborem toho, co se na workshopu skutečně stalo.';
+    if (/\bvzdyt\s+jsem\s+ti\s+to\b[^.!?\n]{0,35}\b(?:psal|popsal)/u.test(normalizedLatest)) {
+      return 'Máš pravdu — situaci už jsi popsala. Jeden nevysvětlený odchod v tobě spustil větu „jsem nudná“, zatímco dvě ženy zůstaly a jedna podle tvého postupu získala klienta. Nebudu se ptát znovu na událost; pojďme o vrstvu hlouběji: co by pro tebe znamenalo, kdyby se při dalším workshopu někdo opravdu nudil?';
+    }
+    if (/\b(?:psala|rikala)\s+jsem\b[^.!?\n]{0,35}\bne\b|\buz\s+jsem\b[^.!?\n]{0,35}\bodpoved/u.test(normalizedLatest)) {
+      return 'Máš pravdu — už jsi odpověděla a já se k tomu neměla vracet. Téma zdraví a fungování tím uzavírám. Vrátím se k tvé skutečné zakázce: jeden nevysvětlený odchod se ti změnil ve větu „jsem nudná“, i když jedna žena díky tvému postupu získala klienta. Chceš teď oslabit tuhle větu, nebo rovnou připravit další workshop tak, aby ti dal jasnější data?';
     }
     if (/\b(?:nepochopil|nepochopila|co na tom nechapes|workshop)\b/u.test(normalizedLatest)) {
       return 'Máš pravdu — mluvíš o tom, že uvažuješ skončit s pořádáním workshopů, ne o ukončení tohoto rozhovoru. Nechci ti to rozhodnutí ani vymlouvat, ani ho udělat za tebe. Potřebujeme rozlišit, zda nechceš tento formát vůbec dělat, nebo zda tě po prvním výsledku zastavil strach z dalšího neúspěchu. Co z toho je blíž?';

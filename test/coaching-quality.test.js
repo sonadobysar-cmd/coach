@@ -618,3 +618,52 @@ test('ochranná odpověď Brand mentorky zůstane odborná a konkrétní podle t
   assert.match(execution, /Nic jsem bez skutečného potvrzení nástroje nezveřejnila/i);
   assert.match(execution, /připravit k tvému schválení/i);
 });
+
+test('brána odmítne zdravotní screening spuštěný pouze slovem strach', () => {
+  const messages = [
+    { role: 'user', content: 'Po workshopu mám prostě strach, že jsem nudná.' },
+  ];
+  const conversationContext = { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' };
+  const assessment = assessCoachingResponse(
+    'Jak se ten strach projevuje na tvém spánku, energii nebo běžném fungování?',
+    { messages, conversationContext, responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'));
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, conversationContext), /Neodváděj téma ke spánku/i);
+});
+
+test('brána zachytí opakovaný zdravotní screening v normálně bezpečném koučování', () => {
+  const messages = [
+    { role: 'user', content: 'Bojím se dalšího workshopu.' },
+    { role: 'assistant', content: 'Jak strach zasahuje do spánku, energie nebo běžného fungování?' },
+    { role: 'user', content: 'Je to únosné.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Zhoršuje ti další workshop spánek, energii nebo schopnost normálně fungovat?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  const codes = assessment.issues.map(issue => issue.code);
+  assert.ok(codes.includes('unsolicited_health_screening'));
+  assert.ok(codes.includes('repeated_health_screening'));
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('brána dovolí navázat na zdravotní dopad, který členka sama uvedla', () => {
+  const messages = [
+    { role: 'user', content: 'Kvůli strachu už tři noci nespím, nejím a přes den nefunguji.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Je dnes zasažený hlavně spánek a jídlo, nebo už nezvládáš ani běžné fungování?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  assert.ok(!assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'));
+});

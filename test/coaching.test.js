@@ -768,3 +768,98 @@ test('běžná zmínka úzkosti nebo prodělané deprese nespouští preventivn�
   assert.match(systemPrompt, /nejsou důvodem otevírat lékaře, terapeuta, krizovou linku/i);
   assert.match(systemPrompt, /začni rovnou kvalitně koučovat to, co členka skutečně řeší/i);
 });
+
+test('S002 R3 po slově strach pokračuje v případu workshopu místo zdravotního screeningu', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání prostě nemám.' },
+    { role: 'assistant', content: 'Co přesně znamená, že dopadl špatně?' },
+    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla. Řekla jsem si, že jsem nudná.' },
+    { role: 'assistant', content: 'Co udělaly zbývající dvě?' },
+    { role: 'user', content: 'Dvě zůstaly do konce a jedna napsala, že jí pomohlo cvičení.' },
+    { role: 'assistant', content: 'Co přesně jí pomohlo?' },
+    { role: 'user', content: 'Udělala moje kroky a získala prvního klienta.' },
+    { role: 'assistant', content: 'To je konkrétní důkaz hodnoty.' },
+    { role: 'user', content: 'Já nevím, mám prostě strach.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /jedna žena podle tvého postupu získala klienta/i);
+  assert.match(response, /znovu někdo odejde, protože jsem nudná/i);
+  assert.doesNotMatch(response, /spán|energ|fungov|poslední konkrétní situaci/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
+test('S002 R3 oprava popsala vrací rozhovor o vrstvu hlouběji bez opakování události', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
+    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedna díky mému postupu získala klienta.' },
+    { role: 'assistant', content: 'Popiš poslední konkrétní situaci, kdy se to stalo.' },
+    { role: 'user', content: 'Vždyť jsem ti to popsala... ten workshop!' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /situaci už jsi popsala/i);
+  assert.match(response, /co by pro tebe znamenalo/i);
+  assert.doesNotMatch(response, /spán|energ|fungov|popiš.*situaci/i);
+});
+
+test('S002 R3 odpověď únosné uzavře měření a začne skutečnou práci se strachem', () => {
+  const messages = [
+    { role: 'user', content: 'Po workshopu mám strach, že jsem nudná.' },
+    { role: 'assistant', content: 'Je strach únosný, nebo ti bere spánek a energii?' },
+    { role: 'user', content: 'Únosné.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /míru strachu zodpovězenou/i);
+  assert.match(response, /Nakolik teď věříš větě/i);
+  assert.doesNotMatch(response, /zhorš|spánek|energii|fungování/i);
+});
+
+test('S002 R3 na otázku o odstranění strachu začne intervenci místo dalšího screeningu', () => {
+  const messages = [
+    { role: 'user', content: 'Po workshopu, kde jedna žena odešla a jiná získala klienta, mám strach, že jsem nudná.' },
+    { role: 'user', content: 'Nevím, ale dá se ten strach odstranit?' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Úplné vynulování strachu/i);
+  assert.match(response, /jedna odešla = jsem nudná/i);
+  assert.match(response, /přesnější věta/i);
+  assert.doesNotMatch(response, /spán|energ|fungov|zdravot/i);
+});
+
+test('S002 R3 respektuje psala jsem že ne a zdravotní otázku už neopakuje', () => {
+  const messages = [
+    { role: 'user', content: 'Po workshopu mám strach, že jsem nudná, i když jedna žena získala klienta.' },
+    { role: 'assistant', content: 'Bere ti strach spánek, energii nebo běžné fungování?' },
+    { role: 'user', content: 'Ne.' },
+    { role: 'assistant', content: 'Zasahuje ti další workshop do spánku nebo fungování?' },
+    { role: 'user', content: 'Psala jsem, že ne.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /už jsi odpověděla/i);
+  assert.match(response, /skutečné zakázce/i);
+  assert.doesNotMatch(response, /zhoršuje|bere ti|zasahuje/i);
+});
