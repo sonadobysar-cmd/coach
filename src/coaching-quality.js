@@ -149,6 +149,7 @@ export function assessCoachingResponse(text, {
   const lastAssistantNormalized = normalize(String([...messages].reverse().find(message => message?.role === 'assistant')?.content || ''));
   const declinedRequestedTechnique = /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
     && /\bchces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit|udelat)\b/u.test(lastAssistantNormalized);
+  const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco tim myslis\b/u.test(normalizedLatestUserText);
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
   if (!closingRequested && requireQuestion && questionCount !== 1) {
@@ -247,6 +248,10 @@ export function assessCoachingResponse(text, {
     && /\b(?:chces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit)|mame\b[^.!?\n]{0,60}\bpresnejsi vet\w*)\b/u.test(normalized)) {
     issues.push({ code: 'ignored_technique_refusal', severity: 'high' });
   }
+  if (explicitlyAskedToRephraseQuestion
+    && /\bpopis mi posledni konkretni situaci\b|\bco bylo tesne predtim\b/u.test(normalized)) {
+    issues.push({ code: 'failed_question_rephrase', severity: 'high' });
+  }
   if (normalizedLastQuestion.length >= 12
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
@@ -303,6 +308,7 @@ export function assessCoachingResponse(text, {
     'repeated_health_screening',
     'invented_step_completion',
     'ignored_technique_refusal',
+    'failed_question_rephrase',
   ]);
   const shouldRepair = issues.some(issue => repairCodes.has(issue.code))
     || issues.filter(issue => issue.severity === 'high').length >= 2;
@@ -366,6 +372,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => ['invented_step_completion', 'ignored_technique_refusal'].includes(issue.code))
       ? 'Nepředstírej, že členka vytvořila odpověď, větu nebo krok, když řekla „nevím“. Pokud odmítla nabízenou techniku, okamžitě ji ukonči, neopakuj souhlas a pokračuj jinou cestou v původním tématu.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'failed_question_rephrase')
+      ? 'Členka výslovně požádala o jednodušší vysvětlení poslední otázky. Zachovej její význam i konkrétní téma, řekni ji jednou krátkou běžnou větou a nepokládej jinou otázku ani obecnou výzvu k popisu poslední situace.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');

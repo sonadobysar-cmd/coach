@@ -695,3 +695,18 @@ test('R4 brána odmítne opakovat souhlas po výslovném ne', () => {
   assert.ok(assessment.issues.some(issue => issue.code === 'ignored_technique_refusal'));
   assert.equal(assessment.shouldRepair, true);
 });
+
+test('R5 brána odmítne generický restart po žádosti o přeformulování otázky', () => {
+  const messages = [
+    { role: 'user', content: 'Workshopu se účastnily tři ženy.' },
+    { role: 'assistant', content: 'Kdybys nikdy nezjistila, proč odešla, chtěla bys skončit?' },
+    { role: 'user', content: 'Nerozumím té otázce, můžeš ji vysvětlit líp?' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jasně. Popiš mi poslední konkrétní situaci, kdy se to stalo — co bylo těsně předtím?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'failed_question_rephrase'));
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, context(messages, 'koucovaci_hodina')), /Zachovej její význam/i);
+});

@@ -483,6 +483,13 @@ function previousSubstantiveUserMessage(messages = [], latestText = '') {
       && String(message.content || '').replace(/\s+/g, ' ').trim() !== latest)?.content || '';
 }
 
+function previousAssistantMessage(messages = []) {
+  return [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find(message => message?.role === 'assistant'
+      && String(message.content || '').replace(/\s+/g, ' ').trim())?.content || '';
+}
+
 export function guardedQualityFallback(latestText, { requireQuestion = true, closingRequested = false, messages = [] } = {}) {
   const clean = String(latestText || '').replace(/\s+/g, ' ').trim().slice(0, 320);
   const normalized = normalizeDialogueText(clean);
@@ -1035,8 +1042,16 @@ export function fixedGroundingResponse({
     .join('\n');
   const normalizedLatest = normalizeDialogueText(latest);
   const normalizedFacts = normalizeDialogueText(userFacts);
+  const previousAssistantText = previousAssistantMessage(messages);
+  const normalizedPreviousAssistant = normalizeDialogueText(previousAssistantText);
   const workshopContext = /\bworkshop\w*\b/u.test(normalizedFacts);
   const workshopFactQuestion = /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedFacts);
+  const asksToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla\s+bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat|rikat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco\s+tim\s+myslis\b/u.test(normalizedLatest);
+
+  if (workshopContext && asksToRephraseQuestion
+    && /\b(?:kdybys\s+nikdy\s+nezjistila|proc\s+odesla|prokazatelne\s+stalo|chtela\s+bys\s+skoncit)\b/u.test(normalizedPreviousAssistant)) {
+    return 'Ptám se jednoduše: potřebuješ znát důvod odchodu jedné ženy, abys mohla pokračovat, nebo ti stačí, že dvě zůstaly a jedné workshop pomohl získat klienta?';
+  }
 
   if (/\bworkshop\w*\b/u.test(normalizedLatest)
     && /\b(?:dopadl|dopadlo|nepovedl|nepovedlo)\w*\s+(?:spatne|hrozne)|\bnemam\s+na\s+podnikani\b/u.test(normalizedLatest)) {
@@ -1056,6 +1071,18 @@ export function fixedGroundingResponse({
   if (workshopContext
     && /\b(?:ziskal|ziskala)\w*\s+prvniho\s+klient/u.test(normalizedLatest)) {
     return 'Takže workshop nepřinesl jen příjemný dojem: jedna žena podle tvého postupu získala prvního klienta. To je konkrétní důkaz, že tvoje vedení může vytvořit hodnotu; zároveň stále nevíme, proč jiná žena odešla. Jeden neznámý důvod proto nemůže poctivě přebít doložený výsledek. Když si přesto řekneš „jsem nudná“, čeho se podle té věty bojíš u dalšího workshopu?';
+  }
+
+  if (workshopContext
+    && /\bzhrout\w*\b/u.test(normalizedLatest)
+    && /\b(?:nechtel|nechtela|nechci)\w*\b[^.!?\n]{0,55}\b(?:delat|pokracovat|workshop)\w*\b/u.test(normalizedLatest)) {
+    return 'To je důležitá informace: její odpověď by pro tebe nebyla jen zpětná vazba k workshopu, ale mohla by rozhodnout, jestli budeš pokračovat. Nechci za tebe rozhodnout, zda jí máš napsat. Kdyby odpověděla „nebavilo mě to“, co by sis z toho automaticky vyvodila o sobě?';
+  }
+
+  if (workshopContext
+    && /\b(?:co\s+by\s+to\s+s\s+tebou\s+udelalo|kdyby\s+neodpovedela|workshop\s+nebavil)\b/u.test(normalizedPreviousAssistant)
+    && /\b(?:uz\s+bych|pak\s+bych|nechtel|nechtela)\w*\b[^.!?\n]{0,65}\b(?:pokracovat|delat|workshop)\w*\b/u.test(normalizedLatest)) {
+    return 'Rozumím: negativní odpověď by ti vzala chuť dělat další workshop. Zároveň už víš, že dvě ženy zůstaly a jedné cvičení pomohlo získat klienta. Kdybys důvod odchodu té třetí nikdy nezjistila, stačí ti tyto dva výsledky k tomu, abys zkusila ještě jeden workshop?';
   }
 
   if (workshopContext

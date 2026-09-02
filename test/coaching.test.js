@@ -899,3 +899,41 @@ test('S002 R4 připomenutí workshopu dostane přímou návratovou odpověď', (
   assert.match(response, /další závěr by byl předčasný/i);
   assert.doesNotMatch(response, /Popiš mi poslední konkrétní situaci/i);
 });
+
+test('S002 R5 žádost o vysvětlení zachová význam poslední otázky a workshop', () => {
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
+    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedna díky cvičení získala klienta.' },
+    { role: 'assistant', content: 'Kdybys nikdy nezjistila, proč odešla, chtěla bys skončit i podle toho, co se prokazatelně stalo?' },
+    { role: 'user', content: 'Nerozumím té otázce, můžeš to vysvětlit líp?' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Ptám se jednoduše/i);
+  assert.match(response, /potřebuješ znát důvod odchodu jedné ženy/i);
+  assert.match(response, /dvě zůstaly.*získat klienta/i);
+  assert.doesNotMatch(response, /poslední konkrétní situaci|co bylo těsně předtím/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
+
+test('S002 R5 hypotetická kritika nevede k rozhodnutí za klientku', () => {
+  const messages = [
+    { role: 'user', content: 'Workshopu se účastnily tři ženy. Jedna odešla, dvě zůstaly a jedna získala klienta.' },
+    { role: 'assistant', content: 'Co by to s tebou udělalo, kdyby neodpověděla nebo napsala, že ji workshop nebavil?' },
+    { role: 'user', content: 'No už bych s tím nechtěla pokračovat.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /negativní odpověď by ti vzala chuť/i);
+  assert.match(response, /důvod odchodu té třetí nikdy nezjistila/i);
+  assert.doesNotMatch(response, /dopad není|zatím jí nepišme/i);
+  assert.equal((response.match(/\?/g) || []).length, 1);
+});
