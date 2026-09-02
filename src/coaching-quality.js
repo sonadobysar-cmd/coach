@@ -256,6 +256,10 @@ export function assessCoachingResponse(text, {
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
   }
+  if (normalized.length >= 80
+    && previousAssistantTexts.some(previous => previous.replace(/\s+/g, ' ').trim() === normalized.replace(/\s+/g, ' ').trim())) {
+    issues.push({ code: 'repeated_assistant_response', severity: 'high' });
+  }
   if (!proceduralPhase
     && conversationContext.userTurns >= 1
     && evidence.latestSubstantiveUserText.length >= 12
@@ -301,6 +305,7 @@ export function assessCoachingResponse(text, {
     'invented_root_cause',
     'unsupported_resolution',
     'repeated_question',
+    'repeated_assistant_response',
     'false_external_action_claim',
     'brand_role_drift',
     'generic_content_output',
@@ -375,6 +380,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'failed_question_rephrase')
       ? 'Členka výslovně požádala o jednodušší vysvětlení poslední otázky. Zachovej její význam i konkrétní téma, řekni ji jednou krátkou běžnou větou a nepokládej jinou otázku ani obecnou výzvu k popisu poslední situace.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'repeated_assistant_response')
+      ? 'Stejnou odpověď jsi už v tomto sezení použila. Neotvírej znovu uzavřený krok; navazuj výhradně na poslední otázku a poslední odpověď členky.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');

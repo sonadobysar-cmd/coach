@@ -478,7 +478,7 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|resime\b[^.!?\n]{0,60}\bworkshop|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|resime\b[^.!?\n]{0,60}\bworkshop|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsStepAttempt(value) {

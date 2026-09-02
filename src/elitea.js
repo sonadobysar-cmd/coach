@@ -1130,8 +1130,20 @@ export function fixedGroundingResponse({
   }
 
   if (workshopContext
-    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)) {
+    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)
+    && /\b(?:jaky|jake|navrh|kontakt|zprav)\w*\b[^?\n]{0,120}\b(?:ucastnic|zen|poctiv|dalsi)\w*\b|\b(?:ucastnic|zen)\w*\b[^?\n]{0,120}\b(?:kontakt|zprav)\w*\b/u.test(normalizedPreviousAssistant)) {
+    return 'Můžu nabídnout pracovní verzi: „Děkuju, že jste na workshopu zůstaly. Chci, aby pro vás měl skutečný přínos — co vám pomohlo a co byste ode mě potřebovaly doplnit nebo vysvětlit?“ Je to poctivý kontakt bez obhajování a bez slibu, že musíš splnit každé přání. Co bys v té zprávě potřebovala změnit, aby byla opravdu tvoje?';
+  }
+
+  if (workshopContext
+    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)
+    && /\b(?:presnejsi\s+vet|jak\s+by\w*\s+(?:tu|ta|tahle)?\s*vet|jak\s+by\s+znela)\b/u.test(normalizedPreviousAssistant)) {
     return 'Nemusíš tu přesnější větu vymýšlet sama. Pracovní verze může znít: „Jedna účastnice odešla a nevím proč; dvě zůstaly, takže zatím nemám dost dat na rozsudek o sobě ani o podnikání.“ Co na té větě nesedí nebo v ní chybí?';
+  }
+
+  if (workshopContext
+    && /\bto\s+uz\s+jsme\s+si\s+(?:rikal|rekli|probiral)|\btohle\s+uz\s+mame\s+(?:uzavrene|hotove)\b/u.test(normalizedLatest)) {
+    return 'Máš pravdu, tenhle krok už máme a nebudu ho znovu otevírat. Teď řešíme další kontakt se dvěma ženami, které zůstaly. Můžu ti rovnou navrhnout krátkou zprávu, která zjistí jejich zkušenost, aniž by ses obhajovala nebo slibovala víc, než chceš?';
   }
 
   if (workshopContext

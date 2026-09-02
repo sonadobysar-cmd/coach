@@ -1004,3 +1004,37 @@ test('S002 R6 přetrvávající stažení míří přímo k obávanému sebeverd
   assert.match(response, /Nechci ti proto hned radit, abys účastnicím psala/i);
   assert.match(response, /jejich odpověď potvrdila o tobě/i);
 });
+
+test('S002 pokračování po nevím naváže návrhem kontaktu místo opakování uzavřené věty', () => {
+  const messages = [
+    { role: 'user', content: 'Na workshop přišly tři ženy, dvě zůstaly a jedna získala klienta.' },
+    { role: 'assistant', content: 'Jaký další kontakt by byl vůči účastnicím poctivý a nedělal z tebe někoho, kdo musí zachránit celý výsledek?' },
+    { role: 'user', content: 'Nevím.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /Můžu nabídnout pracovní verzi/i);
+  assert.match(response, /Děkuju, že jste na workshopu zůstaly/i);
+  assert.doesNotMatch(response, /Jedna účastnice odešla a nevím proč/i);
+});
+
+test('S002 oprava už jsme si říkali neotevře uzavřenou techniku', () => {
+  const messages = [
+    { role: 'user', content: 'Řešíme workshop a zprávu účastnicím.' },
+    { role: 'assistant', content: 'Jedna účastnice odešla a dvě zůstaly. Co na té větě nesedí?' },
+    { role: 'user', content: 'To už jsme si říkaly, že to zní dobře.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_hodina',
+    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  });
+  assert.match(response, /tenhle krok už máme/i);
+  assert.match(response, /další kontakt se dvěma ženami/i);
+  assert.doesNotMatch(response, /Co na té větě nesedí/i);
+});

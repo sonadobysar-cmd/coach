@@ -710,3 +710,18 @@ test('R5 brána odmítne generický restart po žádosti o přeformulování ot�
   assert.equal(assessment.shouldRepair, true);
   assert.match(buildQualityRepairInstruction(assessment, context(messages, 'koucovaci_hodina')), /Zachovej její význam/i);
 });
+
+test('brána odmítne doslovně zopakovat starší dlouhou odpověď', () => {
+  const repeated = 'Nemusíš tu přesnější větu vymýšlet sama. Pracovní verze může znít: jedna účastnice odešla a dvě zůstaly. Co na té větě nesedí?';
+  const messages = [
+    { role: 'user', content: 'Workshop dopadl smíšeně.' },
+    { role: 'assistant', content: repeated },
+    { role: 'user', content: 'Teď řešíme další kontakt a nevím jaký.' },
+  ];
+  const assessment = assessCoachingResponse(
+    repeated,
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'repeated_assistant_response'));
+  assert.equal(assessment.shouldRepair, true);
+});
