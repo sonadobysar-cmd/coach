@@ -205,6 +205,22 @@ test('citlivá technika čeká na výslovný souhlas', () => {
   assert.equal(granted.session.phase, 'application');
 });
 
+test('souhlas s již popsaným krokem nepřidá druhou žádost o stejný souhlas', () => {
+  const first = createTechniqueTurn({
+    atlas: [sensitiveCard], candidates: [sensitiveCard], mode: 'koucovaci_podpora',
+    latestText: 'Při srovnávání se zaseknu.', conversationContext: { userTurns: 1 },
+  });
+  const accepted = createTechniqueTurn({
+    atlas: [sensitiveCard], candidates: [], previous: first.session, mode: 'koucovaci_podpora',
+    latestText: 'Ano',
+    previousAssistantText: 'Chceš si teď krátce představit jednu konkrétní scénu, ve které místo otevření jejího profilu tvoříš?',
+    conversationContext: { userTurns: 2 },
+  });
+  assert.equal(accepted.session.phase, 'application');
+  assert.equal(accepted.session.consentGranted, true);
+  assert.doesNotMatch(fixedTechniqueResponse(accepted) || '', /Chceš ho teď vyzkoušet/i);
+});
+
 test('po provedení musí následovat kontrola účinku a zhoršení techniku zastaví', () => {
   const application = {
     techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,

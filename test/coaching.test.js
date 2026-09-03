@@ -1038,3 +1038,66 @@ test('S002 oprava už jsme si říkali neotevře uzavřenou techniku', () => {
   assert.match(response, /další kontakt se dvěma ženami/i);
   assert.doesNotMatch(response, /Co na té větě nesedí/i);
 });
+
+test('S003 zachová přesnou větu klientky a neptá se znovu na známý spouštěč', () => {
+  const messages = [
+    { role: 'user', content: 'Když vidím jednu konkurentku, připadám si vedle ní úplně bezvýznamná.' },
+    { role: 'assistant', content: 'Co přesně vedle ní porovnáváš?' },
+    { role: 'user', content: 'Ona má osmdesát tisíc sledujících a prodeje, já 430 a zatím nic.' },
+    { role: 'assistant', content: 'Jak přesně zní věta, kterou si o sobě řekneš?' },
+    { role: 'user', content: 'Jsem k ničemu.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_podpora',
+    conversationContext: buildConversationContext(messages, 'koucovaci_podpora'),
+  });
+  assert.match(response, /Věta „Jsem k ničemu“/);
+  assert.doesNotMatch(response, /Věta „jsem neschopná“/i);
+  assert.match(response, /Konkrétní spouštěč už známe/i);
+  assert.match(response, /Co uděláš bezprostředně potom/i);
+});
+
+test('S003 automatický router drží koučku u srovnávání, dokud klientka nežádá odborný výstup', () => {
+  const conversationText = [
+    'Když vidím konkurentku, připadám si bezvýznamná.',
+    'Její profil kontroluju několikrát denně.',
+  ].join('\n');
+  assert.equal(
+    resolveConversationMode(
+      'Nevím, asi čekám, že konečně udělá nějaký neúspěch.',
+      'auto',
+      null,
+      { previousMode: 'koucovaci_podpora', conversationText },
+    ),
+    'koucovaci_podpora',
+  );
+  assert.equal(
+    resolveConversationMode(
+      'Napiš mi konkrétní scénář videa pro Instagram.',
+      'auto',
+      null,
+      { previousMode: 'koucovaci_podpora', conversationText },
+    ),
+    'mentoring',
+  );
+});
+
+test('S003 nejistota o Beauty vrátí sezení k porovnávacímu cyklu a proveditelnému experimentu', () => {
+  const messages = [
+    { role: 'user', content: 'Konkurentku kontroluju několikrát denně a čekám na její neúspěch.' },
+    { role: 'assistant', content: 'Máš reálný přístup k eventům, beauty značkám nebo produktům?' },
+    { role: 'user', content: 'Nemám bohužel. A pořád si nejsem jistá, zda je Beauty můj směr.' },
+  ];
+  const response = fixedGroundingResponse({
+    messages,
+    latestText: messages.at(-1).content,
+    responseMode: 'koucovaci_podpora',
+    conversationContext: buildConversationContext(messages, 'koucovaci_podpora'),
+  });
+  assert.match(response, /Beauty není rozhodnutý směr/i);
+  assert.match(response, /původnímu problému/i);
+  assert.match(response, /jedno plánované desetiminutové okno/i);
+  assert.doesNotMatch(response, /Natoč si dnes krátké video/i);
+});

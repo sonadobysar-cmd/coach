@@ -738,3 +738,31 @@ test('brána odmítne doslovně zopakovat starší dlouhou odpověď', () => {
   assert.ok(assessment.issues.some(issue => issue.code === 'repeated_assistant_response'));
   assert.equal(assessment.shouldRepair, true);
 });
+
+test('S003 brána odmítne změnit jsem k ničemu na jsem neschopná', () => {
+  const messages = [
+    { role: 'user', content: 'Jsem k ničemu.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Věta „jsem neschopná“ z jedné situace dělá rozsudek o celé tobě. Co se stalo?',
+    { messages, conversationContext: context(messages, 'koucovaci_podpora'), responseMode: 'koucovaci_podpora' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'altered_client_self_judgment'));
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, context(messages)), /Neměň přesná slova/i);
+});
+
+test('S003 brána odmítne znovu žádat souhlas, který klientka právě dala', () => {
+  const messages = [
+    { role: 'user', content: 'Její profil mě vždycky rozhodí.' },
+    { role: 'assistant', content: 'Chceš si krátce představit, že místo jejího profilu otevřeš vlastní poznámky?' },
+    { role: 'user', content: 'Ano.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Vyber malý obraz: držíš telefon a otevíráš poznámky. Chceš si tu scénu krátce představit se mnou?',
+    { messages, conversationContext: context(messages, 'koucovaci_podpora'), responseMode: 'koucovaci_podpora' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'redundant_consent_request'));
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, context(messages)), /už souhlasila/i);
+});

@@ -33,6 +33,7 @@ export function createTechniqueTurn({
   mode = 'diagnostika',
   latestText = '',
   conversationContext = {},
+  previousAssistantText = '',
 } = {}) {
   const byId = new Map(atlas.map(card => [card.id, card]));
   const safePrevious = sanitizeTechniqueSession(previous, byId);
@@ -83,7 +84,7 @@ export function createTechniqueTurn({
   if (safePrevious && ACTIVE_PHASES.has(safePrevious.phase)
     && !explicitStop && !noEffectFeedback && !explicitRestart) {
     const card = byId.get(safePrevious.techniqueId);
-    const session = advanceSession(safePrevious, card, latestText, conversationContext);
+    const session = advanceSession(safePrevious, card, latestText, conversationContext, previousAssistantText);
     return { card, session, steps: deriveTechniqueSteps(card) };
   }
 
@@ -342,11 +343,18 @@ export function sanitizeTechniqueSession(input, atlasOrMap = []) {
   };
 }
 
-function advanceSession(previous, card, latestText, conversationContext) {
+function advanceSession(previous, card, latestText, conversationContext, previousAssistantText = '') {
   const steps = deriveTechniqueSteps(card);
   const next = { ...previous, transitionReason: null, turns: previous.turns + 1, status: 'active' };
 
   if (previous.phase === 'assessment') {
+    const priorAlreadyAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/iu
+      .test(normalizeCzech(previousAssistantText));
+    if (priorAlreadyAskedConsent && hasConsent(latestText)) {
+      next.phase = 'application';
+      next.consentGranted = true;
+      return next;
+    }
     next.phase = needsConsentForStep(next, card) ? 'consent' : 'application';
     return next;
   }

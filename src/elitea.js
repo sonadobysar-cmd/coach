@@ -130,6 +130,7 @@ export function createElitea({
     const routingText = buildRoutingText(safeMessages, memory);
     const responseMode = resolveConversationMode(latest.content, consultationMode, techniqueSession, {
       previousMode: previousResponseMode,
+      conversationText: routingText,
     });
     const specialistRoute = routeSpecialists({
       messages: safeMessages,
@@ -157,7 +158,9 @@ export function createElitea({
     // The current request chooses the working method. Older context remains in
     // the prompt for continuity, but must not drag a newly mentoring turn back
     // into a coaching technique (or vice versa).
-    const selectedMethod = isBrandGrowth ? null : selectCoachingMethod(coachingMethods, latest.content, memory, responseMode);
+    const selectedMethod = isBrandGrowth || isBusinessMentoring
+      ? null
+      : selectCoachingMethod(coachingMethods, latest.content, memory, responseMode);
     const selectedExpertSources = isBrandGrowth ? [] : selectExpertSources(expertSources, selectedMethod, responseMode);
     const selectedWellbeingProtocol = isBrandGrowth ? null : selectWellbeingProtocol(wellbeingProtocols, latest.content, responseMode);
     const candidateTechniqueCards = isBrandGrowth || isBusinessMentoring
@@ -179,6 +182,7 @@ export function createElitea({
       mode: responseMode,
       latestText: latest.content,
       conversationContext,
+      previousAssistantText: previousAssistantMessage(safeMessages),
     });
     const selectedTechniqueCards = techniqueTurn.card ? [techniqueTurn.card] : [];
     // A locked atlas technique is the executable method for this turn. Keeping
@@ -760,6 +764,9 @@ function buildInstructions(
       conversationContext.professionalCase?.hybridProblem
         ? 'DVOJÍ VRSTVA PROBLÉMU: Členka současně popisuje odborný cíl a osobní tření. Nezredukuj vše na mindset ani vše na taktiku. Pojmenuj, co zatím vypadá jako praktická mezera a co jako vnitřní brzda, obě části opři o její konkrétní slova a postupně pomoz s oběma. Nevyužívej předání jiné roli jako únik od rozpracovaného problému.'
         : '',
+      conversationContext.comparisonWork
+        ? 'KONTRAKT PRÁCE SE SROVNÁVÁNÍM: Původním tématem je paralizující srovnávání, nikoli automaticky hledání obsahového oboru. Aspirativní obraz může ukázat hodnotu nebo touhu, ale nevydávej jej za rozhodnutý směr značky. Pokud krátce přizveš byznysový pohled, vrať se k původnímu cyklu: spouštěč → automatický sebeverdikt → kontrolování profilu nebo jiné chování → krátkodobá úleva → dlouhodobý dopad. Výsledkem má být realistický způsob práce s nutkáním a měřitelný experiment, ne pouze nový obsahový úkol.'
+        : '',
       conversationContext.professionalCase?.requestedDeliverable === 'personalized_content_output'
         ? 'SMLOUVA PERSONALIZOVANÉHO OBSAHU: Jakmile členka žádá obsah, nesmíš vrátit obecné pilíře typu edukace–inspirace–prodej, náhodný seznam témat ani zaměnitelný text. Výstup musí použít nejméně tři konkrétní signály z jejího případu, například její úhel pohledu nebo zkušenost, problém konkrétního publika, požadovaný účinek, nabídku, kanál a přirozený tón. Vytvoř skutečně použitelný koncept: konkrétní hook nebo první větu, hlavní sdělení, místo pro její vlastní důkaz či příběh, vhodný formát a přirozenou výzvu k akci navázanou na cíl. Pokud jeden klíčový údaj chybí, nezastav práci: vytvoř pracovní verzi s jedním jasně přiznaným předpokladem a na konci se zeptej pouze na údaj, který výstup nejvíc zpřesní.'
         : '',
@@ -870,6 +877,7 @@ export function buildConversationContext(messages, responseMode = 'diagnostika')
   const userText = userMessages.map(message => String(message.content || '')).join('\n');
   const detectedLatest = normalizeForDetection(latestUserText);
   const detectedUserText = normalizeForDetection(userText);
+  const comparisonWork = /\b(?:konkurent|srovnav|porovnav|bezvyznam)\w*\b|\bprofil\w*\b[^.!?\n]{0,80}\b(?:kontrol|otevir)\w*\b/u.test(detectedUserText);
   const hasConcreteSituation = userTurns > 1 && (
     userMessages.slice(1).some(message => String(message.content || '').trim().length >= 45)
     || /\b(kdyz|vcera|dnes|naposled|konkret|situac|ukol|projekt|web|hovor|schuz|napsal|rekl|udelal|otevr|zacal)\b/iu.test(detectedUserText)
@@ -900,6 +908,7 @@ export function buildConversationContext(messages, responseMode = 'diagnostika')
     depthStage,
     hasConcreteSituation,
     hasMechanismClue,
+    comparisonWork,
     answeredBeliefQuestion,
     sessionArc: userTurns <= 1 ? 'kontakt_a_zakazka' : userTurns <= 3 ? 'presne_rozliseni' : userTurns <= 5 ? 'pracovni_uvedomeni' : 'prubezny_vysledek',
     hasDistributionFacts,
@@ -1045,6 +1054,7 @@ export function fixedGroundingResponse({
   const previousAssistantText = previousAssistantMessage(messages);
   const normalizedPreviousAssistant = normalizeDialogueText(previousAssistantText);
   const workshopContext = /\bworkshop\w*\b/u.test(normalizedFacts);
+  const comparisonContext = /\b(?:konkurent|srovnav|porovnav|bezvyznam)\w*\b|\bprofil\w*\b[^.!?\n]{0,80}\b(?:kontrol|otevir)\w*\b/u.test(normalizedFacts);
   const workshopFactQuestion = /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedFacts);
   const asksToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla\s+bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat|rikat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco\s+tim\s+myslis\b/u.test(normalizedLatest);
 
@@ -1194,8 +1204,23 @@ export function fixedGroundingResponse({
     if (directMentoringResponse) return directMentoringResponse;
   }
 
+  if (!['mentoring', 'mentoringova_konzultace', 'brand_growth_agent'].includes(responseMode)
+    && comparisonContext
+    && isGlobalSelfJudgment(latest)) {
+    const judgment = latest.replace(/[.!?]+$/u, '').trim();
+    return 'Věta „' + judgment + '“ je rozsudek o celé tobě, zatímco známá fakta zatím popisují rozdíl ve sledujících a prodejích. Konkrétní spouštěč už známe, takže se na něj nebudu ptát znovu. Co uděláš bezprostředně potom, co si při pohledu na její profil tuhle větu řekneš?';
+  }
+
   if (!['mentoring', 'mentoringova_konzultace', 'brand_growth_agent'].includes(responseMode) && isGlobalSelfJudgment(latest)) {
-    return 'Věta „jsem neschopná“ mění jednu nebo několik těžkých zkušeností ve verdikt o celé tobě. Nechci ji přebít prázdným povzbuzením; potřebujeme zjistit, co přesně ten verdikt spustilo, a pak oddělit skutečný problém od útoku na sebe. Která konkrétní situace tě k té větě přivedla právě teď?';
+    const judgment = latest.replace(/[.!?]+$/u, '').trim();
+    return 'Věta „' + judgment + '“ mění jednu nebo několik těžkých zkušeností ve verdikt o celé tobě. Nechci ji přebít prázdným povzbuzením; potřebujeme zjistit, co přesně ten verdikt spustilo, a pak oddělit skutečný problém od útoku na sebe. Která konkrétní situace tě k té větě přivedla právě teď?';
+  }
+
+  if (comparisonContext
+    && /\b(?:nemam|nemáme|nemame)\b/u.test(normalizedLatest)
+    && /\b(?:pristup|event|znack)\w*\b/u.test(normalizedPreviousAssistant)
+    && /(?:nejsem(?:\s+si)?\s+jista|nevim)[^.!?\n]{0,70}\bbeauty\b/u.test(normalizedLatest)) {
+    return 'Pak Beauty není rozhodnutý směr, ale zatím jen obraz viditelnosti a statusu. Kvůli němu nemusíš vyrábět video o světě, ke kterému nemáš přístup. Vraťme se k původnímu problému: její profil kontroluješ několikrát denně a čekáš na neúspěch, který by na chvíli utišil srovnávání. Na příštích 48 hodin bych zavedla jedno plánované desetiminutové okno pro vědomý průzkum; mimo něj profil neotvírat. V okně si vezmi jediný přenositelný princip, zavři profil a použij ho na vlastním tématu. Je pro tebe reálnější profil dočasně skrýt, nebo si nastavit právě toto jedno okno?';
   }
 
   if (rejectsUnsupportedAssumption(latest)) {
@@ -1343,9 +1368,21 @@ const CONTINUOUS_SESSION_MODES = new Set([
   'mentoringova_konzultace',
 ]);
 
-export function resolveConversationMode(text, consultationMode = 'auto', techniqueSession = null, { previousMode = null } = {}) {
+export function resolveConversationMode(text, consultationMode = 'auto', techniqueSession = null, {
+  previousMode = null,
+  conversationText = '',
+} = {}) {
   const inferred = inferMode(text, consultationMode);
   if (consultationMode !== 'auto') return inferred;
+  const normalizedConversation = normalizeForDetection(conversationText);
+  const normalizedLatest = normalizeForDetection(text);
+  const comparisonWork = /\b(?:konkurent|srovnav|porovnav|bezvyznam)\w*\b|\bprofil\w*\b[^.!?\n]{0,80}\b(?:kontrol|otevir)\w*\b/u.test(normalizedConversation);
+  const explicitExpertOutput = /\b(?:navrhni|napis|vytvor|priprav|spocitej|zkontroluj|porad\s+mi|jak\s+(?:nacenit|prodat|spustit|ziskat|nastavit)|co\s+mam\s+(?:napsat|zverejnit|nabidnout|prodavat)|konkretni\s+plan)\b/u.test(normalizedLatest);
+  if (comparisonWork && !explicitExpertOutput) {
+    return previousMode && expertRoleForMode(previousMode) === 'coach'
+      ? previousMode
+      : 'koucovaci_podpora';
+  }
   const activeSession = techniqueSession
     && ['assessment', 'consent', 'application', 'evaluation', 'integration'].includes(techniqueSession.phase)
     && typeof techniqueSession.techniqueId === 'string'

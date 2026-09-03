@@ -150,6 +150,8 @@ export function assessCoachingResponse(text, {
   const declinedRequestedTechnique = /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
     && /\bchces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit|udelat)\b/u.test(lastAssistantNormalized);
   const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco tim myslis\b/u.test(normalizedLatestUserText);
+  const latestGrantedConsent = /^(?:ano|jo|souhlasim|muzeme|zkusme|pojďme|pojdme)[.!\s]*$/u.test(normalizedLatestUserText);
+  const previousAssistantAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/u.test(lastAssistantNormalized);
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
   if (!closingRequested && requireQuestion && questionCount !== 1) {
@@ -256,6 +258,15 @@ export function assessCoachingResponse(text, {
     && normalizedCurrentQuestion === normalizedLastQuestion) {
     issues.push({ code: 'repeated_question', severity: 'high' });
   }
+  if ((/\bjsem\s+k\s+nicemu\b/u.test(normalizedLatestUserText) && /\bveta\s+[„"']?jsem\s+neschopna\b/u.test(normalized))
+    || (/\bjsem\s+neschopna\b/u.test(normalizedLatestUserText) && /\bveta\s+[„"']?jsem\s+k\s+nicemu\b/u.test(normalized))) {
+    issues.push({ code: 'altered_client_self_judgment', severity: 'high' });
+  }
+  if (latestGrantedConsent
+    && previousAssistantAskedConsent
+    && /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b/u.test(normalized)) {
+    issues.push({ code: 'redundant_consent_request', severity: 'high' });
+  }
   if (normalized.length >= 80
     && previousAssistantTexts.some(previous => previous.replace(/\s+/g, ' ').trim() === normalized.replace(/\s+/g, ' ').trim())) {
     issues.push({ code: 'repeated_assistant_response', severity: 'high' });
@@ -306,6 +317,8 @@ export function assessCoachingResponse(text, {
     'unsupported_resolution',
     'repeated_question',
     'repeated_assistant_response',
+    'altered_client_self_judgment',
+    'redundant_consent_request',
     'false_external_action_claim',
     'brand_role_drift',
     'generic_content_output',
@@ -386,6 +399,12 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'guilt_pressure')
       ? 'Nevytvářej tlak přes možný dojem, zklamání ani prospěch druhých lidí. Vrať volbu klientce a pracuj s jejími vlastními hodnotami, cílem a hranicemi.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'altered_client_self_judgment')
+      ? 'Neměň přesná slova, kterými členka popsala svůj sebeverdikt. Pracuj s její doslovnou formulací a nepřepisuj ji na jinou nálepku.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'redundant_consent_request')
+      ? 'Členka už souhlasila s konkrétně popsaným krokem. Nežádej stejný souhlas znovu; rovnou proveď první malou část dohodnutého postupu.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');
