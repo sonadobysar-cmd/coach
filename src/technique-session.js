@@ -811,10 +811,24 @@ export function formatTechniqueExecution(turn) {
 }
 
 export function enforceTechniqueResponse(text, turn, context = {}) {
-  const output = String(text || '').trim();
+  let output = String(text || '').trim();
   const blockedModalities = sanitizeStringArray(turn?.session?.blockedModalities, TECHNIQUE_MODALITIES, 12);
   if (blockedModalities.length && proposesBlockedModality(output, blockedModalities)) {
-    return blockedTechniqueFallback(context.latestText, blockedModalities);
+    output = blockedTechniqueFallback(context.latestText, blockedModalities);
+  }
+  // Do not leave alliance repair to model wording alone. If the member has
+  // just said that an approach did nothing, the visible answer must first
+  // acknowledge that result before pivoting. Likewise, a broad regulation
+  // boundary is reflected explicitly even when the state machine immediately
+  // releases the old technique into the requested concrete topic.
+  if (turn?.suspended && turn?.suspensionReason === 'no_effect' && !acknowledgesNoEffect(output)) {
+    output = `${prefersSlovak(context.latestText) ? 'Beriem. Ani tento spôsob nepomohol, takže ho nebudeme opakovať.' : 'Beru. Ani tento způsob nepomohl, takže ho nebudeme opakovat.'} ${output}`.trim();
+  }
+  const latestBoundary = detectRejectedTechniqueBoundary(context.latestText);
+  if (latestBoundary.explicitBoundary
+    && latestBoundary.blockedModalities.includes('somatic_regulation')
+    && !acknowledgesRegulationBoundary(output)) {
+    output = `${prefersSlovak(context.latestText) ? 'Regulačné cvičenia necháme bokom.' : 'Regulační cvičení necháme stranou.'} ${output}`.trim();
   }
   if (turn?.suspended || !turn?.card || !turn?.session) return output;
   const { card, session } = turn;
@@ -1299,8 +1313,7 @@ function proposesBlockedModality(value, blockedModalities = []) {
 
 function blockedTechniqueFallback(latestText, blockedModalities = []) {
   const normalized = normalizeCzech(latestText);
-  const slovak = /\b(?:som|nie|nechcem|potrebujem|pozriet|konkretny|ziadne|dalsie|cvice(?:nie|nia)|chcem)\b/iu.test(normalized)
-    && !/\b(?:jsem|neni|nechci|potrebuji|podivat|konkretni)\b/iu.test(normalized);
+  const slovak = prefersSlovak(latestText);
   const concreteCall = /\b(?:konkretni|konkretny)\w*\s+(?:hovor|rozhovor|telefonat|situac)\w*|\b(?:hovor|rozhovor|telefonat)\w*\b/iu.test(normalized);
   if (slovak && concreteCall) {
     return 'Regulačné cvičenia necháme bokom. Poďme priamo ku konkrétnemu hovoru: čo sa v ňom konkrétne stalo?';
@@ -1312,6 +1325,20 @@ function blockedTechniqueFallback(latestText, blockedModalities = []) {
     return 'Tento spôsob nebudeme opakovať ani premenovávať. Vráťme sa priamo k situácii, ktorú potrebuješ vyriešiť: čo sa v nej konkrétne deje?';
   }
   return 'Tento způsob nebudeme opakovat ani přejmenovávat. Vraťme se přímo k situaci, kterou potřebuješ vyřešit: co se v ní konkrétně děje?';
+}
+
+function prefersSlovak(value) {
+  const normalized = normalizeCzech(value);
+  return /\b(?:som|nie|nechcem|potrebujem|pozriet|konkretny|ziadne|dalsie|cvice(?:nie|nia)|chcem)\b/iu.test(normalized)
+    && !/\b(?:jsem|neni|nechci|potrebuji|podivat|konkretni)\b/iu.test(normalized);
+}
+
+function acknowledgesNoEffect(value) {
+  return /\b(?:nepomoh\w*|nezabral\w*|nic\s+(?:(?:se|sa)\s+)?nezmen\w*|bez\s+(?:zmeny|efektu)|neprinies\w*\s+zmen\w*|neprines\w*\s+zmen\w*)\b|\b(?:nebudeme|nebudu|nebudem|neopakuj\w*|nechame|nechajme).{0,55}(?:zpusob|sposob|dech|dych|pojmen|pomen)/iu.test(normalizeCzech(value));
+}
+
+function acknowledgesRegulationBoundary(value) {
+  return /\b(?:regulac|cvicen|somatick|telesn)\w*.{0,45}\b(?:stranou|bokom|nebudeme|vynech)|\b(?:bez|zadne|ziadne)\w*.{0,30}\b(?:regulac|cvicen|somatick|telesn)/iu.test(normalizeCzech(value));
 }
 
 function sanitizeStringArray(value, allowList = null, maximum = 12) {

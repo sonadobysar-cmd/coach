@@ -570,6 +570,51 @@ test('SK no-effect a hranica regulačných cvičení zostávajú sticky rovnako 
   assert.doesNotMatch(guarded, /prirodzený dych|vyskúšať/i);
 });
 
+test('viditelná odpověď vždy lidsky uzná nulový účinek a CZ/SK hranici i při modelové zkratce', () => {
+  const paused = {
+    card: sensitiveCard,
+    steps: [],
+    suspended: true,
+    suspensionReason: 'no_effect',
+    session: {
+      techniqueId: sensitiveCard.id,
+      phase: 'awaiting_recontract',
+      blockedModalities: ['breath', 'emotion_labeling'],
+    },
+  };
+  const cs = enforceTechniqueResponse(
+    'Podíváme se teď přímo na konkrétní hovor.',
+    paused,
+    { latestText: 'Ani pojmenování pocitu nic nezměnilo. Nechci to zkoušet dokola.' },
+  );
+  const sk = enforceTechniqueResponse(
+    'Pozrime sa teraz priamo na konkrétny hovor.',
+    paused,
+    { latestText: 'Ani pomenovanie pocitu nič nezmenilo. Nechcem to skúšať dookola.' },
+  );
+  assert.match(cs, /ani tento způsob nepomohl/i);
+  assert.match(cs, /konkrétní hovor/i);
+  assert.match(sk, /ani tento spôsob nepomohol/i);
+  assert.match(sk, /konkrétny hovor/i);
+
+  const released = {
+    card: null,
+    steps: [],
+    recontracted: true,
+    session: {
+      techniqueId: sensitiveCard.id,
+      phase: 'released',
+      blockedModalities: ['somatic_regulation', 'breath'],
+    },
+  };
+  const boundary = enforceTechniqueResponse(
+    'Čo sa v tom hovore konkrétne stalo?',
+    released,
+    { latestText: 'Prosím žiadne ďalšie regulačné cvičenie. Potrebujem sa pozrieť na konkrétny hovor.' },
+  );
+  assert.match(boundary, /^Regulačné cvičenia necháme bokom\./u);
+});
+
 test('zhoršení techniku zastaví, ale blokace nepříznivé modality přežije další tah', () => {
   const bodyCard = {
     ...sensitiveCard,
