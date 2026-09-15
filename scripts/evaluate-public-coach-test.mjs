@@ -136,13 +136,20 @@ export function isNearDuplicate(first, second) {
   const right = normalizedText(second);
   if (!left || !right) return false;
   if (left === right) return true;
-  if (Math.min(left.length, right.length) < 60) return false;
+  if (Math.min(left.length, right.length) < 12) return false;
   const leftTrigrams = trigrams(left);
   const rightTrigrams = trigrams(right);
   let shared = 0;
   for (const value of leftTrigrams) if (rightTrigrams.has(value)) shared += 1;
   const dice = (2 * shared) / (leftTrigrams.size + rightTrigrams.size);
-  return dice >= 0.9;
+  if (dice >= 0.84) return true;
+
+  const leftMeaning = meaningTokens(left);
+  const rightMeaning = meaningTokens(right);
+  if (leftMeaning.size < 2 || rightMeaning.size < 2) return false;
+  const meaningShared = [...leftMeaning].filter(token => rightMeaning.has(token)).length;
+  const overlap = meaningShared / Math.min(leftMeaning.size, rightMeaning.size);
+  return overlap >= 0.72;
 }
 
 export function evaluateAnswer({ scenario, turnIndex, answer, payload, previousAnswers = [] }) {
@@ -207,7 +214,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.37.2',
+      'user-agent': 'Elitea-Production-QA/0.38.0',
     },
     body: JSON.stringify(body),
   });
@@ -220,6 +227,17 @@ function trigrams(value) {
   const result = new Set();
   for (let index = 0; index < value.length - 2; index += 1) result.add(value.slice(index, index + 3));
   return result;
+}
+
+function meaningTokens(value) {
+  const stop = new Set(['jsem', 'jsi', 'jsme', 'jste', 'pro', 'tebe', 'tvoje', 'co', 'jak', 'kdy', 'kde', 'který', 'ktera', 'které', 'to', 'ten', 'tento', 'je', 'se', 'si', 'na', 'do', 'od', 'u', 'v', 've', 'a', 'ale', 'nebo']);
+  return new Set(normalizedText(value)
+    .split(' ')
+    .filter(token => token.length >= 4 && !stop.has(token))
+    .map(token => token
+      .replace(/(?:ami|emi|ove|ova|ovy|eni|ani|ace|aci|ost|ech|ich|ych|ou|em|om|im|am|at|it|et|la|li|ly|lo|uje|uji|oval|ovat|y|a|u|i|e|o)$/u, '')
+      .slice(0, 9))
+    .filter(token => token.length >= 3));
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

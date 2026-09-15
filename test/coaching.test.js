@@ -129,7 +129,7 @@ test('jasné ukončení externí činnosti nevyvolá znovu otázku co chce klien
   assert.equal(context.explicitConversationContinuation, true);
   assert.equal(context.externalStopScope, 's konzultacemi');
   assert.match(fallback, /nechceš pokračovat s konzultacemi/i);
-  assert.match(fallback, /V našem rozhovoru pokračujeme/i);
+  assert.match(fallback, /Co chceš řešit místo toho\?/i);
   assert.doesNotMatch(fallback, /co chceš zastavit/i);
   assert.doesNotMatch(fallback, /workshop|účastnic|klient|odešla/i);
 });
@@ -156,9 +156,8 @@ test('nepochopený rozsah ukončení opraví pojmenovanou činností a jednou na
   const repaired = enforceConversationRepairResponse('Dobře, dnešek uzavřeme.', context);
 
   assert.match(repaired, /nechceš pokračovat v téhle nabídce/i);
-  assert.match(repaired, /v našem rozhovoru pokračujeme/i);
   assert.equal((repaired.match(/\?/g) || []).length, 1);
-  assert.match(repaired, /co chceš řešit jako další krok místo toho\?/i);
+  assert.match(repaired, /co chceš řešit místo toho\?/i);
 });
 
 test('nejasné nechci pokračovat zachová pouze doslovná data klientky', () => {
@@ -774,7 +773,7 @@ test('přirozené formulace konce externí činnosti zachovají pokračování r
 
     assert.equal(repair.kind, 'external_stop', latest);
     assert.equal(repair.explicitConversationContinuation, true, latest);
-    assert.match(result, /v našem rozhovoru pokračujeme/i, latest);
+    assert.match(result, /co chceš řešit místo toho\?/i, latest);
     assert.doesNotMatch(result, /dnešní rozhovor uzavřeme/i, latest);
   }
 });
@@ -790,6 +789,27 @@ test('předmět před slovesem je stále jasný konec externí činnosti', () =>
     assert.equal(repair.kind, 'external_stop', latest);
     assert.match(repair.externalStopScope, /workshopy|konzultace/i, latest);
     assert.doesNotMatch(guardedConversationRepairFallback(repair), /co chceš zastavit/i, latest);
+  }
+});
+
+test('slovenské ukončení vnější činnosti nezamění konec workshopů za konec rozhovoru', () => {
+  for (const latest of [
+    'Nechcem pokračovať s workshopmi, ale tu sa chcem rozprávať ďalej.',
+    'S workshopmi končím, nie s naším rozhovorom.',
+    'Workshopy už ďalej robiť nechcem.',
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Výsledok workshopu ma sklamal.' },
+      { role: 'assistant', content: 'Chceš skončiť?' },
+      { role: 'user', content: latest },
+    ];
+    const repair = buildConversationRepairContext(messages, latest);
+    const result = guardedConversationRepairFallback(repair);
+
+    assert.equal(repair.kind, 'external_stop', latest);
+    assert.match(repair.externalStopScope, /workshop/i, latest);
+    assert.doesNotMatch(result, /ukončíme (?:tento )?rozhovor|dnešnú tému uzavrieme/i, latest);
+    assert.doesNotMatch(result, /co chceš zastavit|čo chceš zastaviť/i, latest);
   }
 });
 

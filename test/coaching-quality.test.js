@@ -1036,6 +1036,18 @@ test('zdvořilé přímé žádosti aktivují jednu krátkou otázku, ale tvorba
   );
 });
 
+test('slovenská žádost o jednu otázku a rekapitulaci faktů se rozpozná bez přepnutí jazyka', () => {
+  for (const request of [
+    'Prosím, polož mi iba jednu krátku otázku.',
+    'Môžeš sa ma opýtať jednu krátku otázku?',
+    'Iba jednu krátku otázku, prosím.',
+  ]) {
+    assert.equal(requestsOneShortQuestion(request), true, request);
+  }
+  assert.equal(requestsFactsOnly('Zhrň iba fakty bez domýšľania.'), true);
+  assert.equal(requestsFactsOnly('Čo teda vieme z faktov bez domýšľania?'), true);
+});
+
 test('požadavek vytvořit pravdivý obsah bez domýšlení není žádost o rekapitulaci sezení', () => {
   assert.equal(
     requestsFactsOnly('Napiš mi reklamní text jen z ověřených faktů, bez domýšlení.'),
@@ -1305,4 +1317,111 @@ test('facts-only brána odmítne nový kauzální či hodnotící závěr i při
     assert.ok(assessment.issues.some(issue => issue.code === 'fact_only_unsupported_claim'), output);
     assert.equal(assessment.pass, false, output);
   }
+});
+
+test('CZ/SK brána odmítne přitakání, předstíranou empatii a smíšený jazyk', () => {
+  const skMessages = [{ role: 'user', content: 'Môj partner je určite narcista a ja za nič nemôžem.' }];
+  const agreement = assessCoachingResponse(
+    'Veď áno, máš samozrejme úplnú pravdu. Presne viem, ako sa cítiš. Čo urobil?',
+    {
+      messages: skMessages,
+      conversationContext: { ...context(skMessages), responseLanguage: 'sk' },
+      requireQuestion: false,
+    },
+  );
+  const codes = agreement.issues.map(issue => issue.code);
+  assert.ok(codes.includes('sycophantic_agreement'));
+  assert.ok(codes.includes('fabricated_empathy'));
+  assert.equal(agreement.pass, false);
+
+  const mixed = assessCoachingResponse('Beru — nechceš pokračovat. Čo chceš riešiť dál?', {
+    messages: [{ role: 'user', content: 'Nechcem pokračovať s workshopom.' }],
+    conversationContext: { responseLanguage: 'sk', riskLevel: 'normal', userTurns: 1 },
+    requireQuestion: false,
+  });
+  assert.ok(mixed.issues.some(issue => issue.code === 'response_language_mismatch'));
+  assert.equal(mixed.pass, false);
+});
+
+test('brána odmítne zdravotní odklon v otázce i příkazu', () => {
+  const messages = [{ role: 'user', content: 'Po prezentácii sa bojím, že som pôsobila nudne.' }];
+  for (const output of [
+    'Ako prezentácia ovplyvnila tvoj spánok a jedlo?',
+    'Najprv si skontroluj spánok a jedlo, až potom rieš prezentáciu.',
+  ]) {
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: { ...context(messages), responseLanguage: 'sk', riskLevel: 'normal' },
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'), output);
+    assert.equal(assessment.pass, false, output);
+  }
+});
+
+test('zranitelný tah potřebuje vztahový most i uprostřed sezení', () => {
+  const messages = [
+    { role: 'user', content: 'Prodávám individuální konzultace.' },
+    { role: 'assistant', content: 'Co se při prodeji děje?' },
+    { role: 'user', content: 'Stydím se říct cenu a připadám si neschopná.' },
+  ];
+  for (const output of ['Uveď svou současnou cenu.', 'Kdy se při prodeji stydíš?']) {
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: context(messages),
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'cold_first_turn'), output);
+    assert.equal(assessment.pass, false, output);
+  }
+  const warm = assessCoachingResponse(
+    'Stud se objevuje přesně ve chvíli, kdy máš říct cenu, takže problém zatím není celý prodej. Co si v té chvíli o sobě nebo klientce řekneš?',
+    { messages, conversationContext: context(messages), requireQuestion: false },
+  );
+  assert.equal(warm.issues.some(issue => issue.code === 'cold_first_turn'), false);
+  assert.equal(warm.pass, true, JSON.stringify(warm.issues));
+});
+
+test('odpověď asi nevím nesmí být vydávána za hotový krok ani ve slovenštině', () => {
+  for (const [latest, output, language] of [
+    ['Asi nevím.', 'Máme přesnější větu. Chceš pokračovat?', 'cs'],
+    ['Asi neviem.', 'Máme presnejšiu vetu. Chceš pokračovať?', 'sk'],
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Připadám si neschopná.' },
+      { role: 'assistant', content: 'Jak by zněla přesnější věta?' },
+      { role: 'user', content: latest },
+    ];
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: { ...context(messages), responseLanguage: language },
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'invented_step_completion'), `${latest}: ${JSON.stringify(assessment.issues)}`);
+    assert.equal(assessment.pass, false);
+  }
+});
+
+test('sémanticky stejná otázka a krátká opakovaná odpověď se nepropustí', () => {
+  const messages = [
+    { role: 'user', content: 'Pořád se bojím dalšího workshopu.' },
+    { role: 'assistant', content: 'Co je pro tebe na dalším workshopu nejtěžší?' },
+    { role: 'user', content: 'Že zase někdo odejde.' },
+  ];
+  const repeatedQuestion = assessCoachingResponse(
+    'Co ti na dalším workshopu připadá nejtěžší?',
+    { messages, conversationContext: context(messages), requireQuestion: false },
+  );
+  assert.ok(repeatedQuestion.issues.some(issue => issue.code === 'repeated_question'));
+
+  const repeatedResponse = assessCoachingResponse('Tohle zatím nevíme jistě.', {
+    messages: [
+      { role: 'user', content: 'Nevím, proč odešla.' },
+      { role: 'assistant', content: 'Tohle zatím nevíme jistě.' },
+      { role: 'user', content: 'Ano.' },
+    ],
+    conversationContext: { userTurns: 2, riskLevel: 'normal' },
+    requireQuestion: false,
+  });
+  assert.ok(repeatedResponse.issues.some(issue => issue.code === 'repeated_assistant_response'));
 });

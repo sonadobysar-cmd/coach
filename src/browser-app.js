@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.37.2';
+const APP_VERSION = '0.38.0';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
@@ -582,7 +582,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.37.2';
+  const cloudModuleUrl = '/cloud.js?v=0.38.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -2237,13 +2237,18 @@ function renderMasteryExam(mastery) {
   const exam = mastery.finalExam;
   const attempts = state.trainingPortfolio.filter(entry => entry.courseId === state.activeCourse.id && entry.scenarioId === exam.scenarioId).length;
   const status = state.certificateStatuses[state.activeCourse.id];
+  const passport = status?.coachPassport;
+  const passportProgress = passport?.progress;
+  const passportBody = passportProgress
+    ? `<article class="mastery-passport-card"><header><div><span>PROFESNÍ KOMPETENČNÍ PAS</span><h3>${passport.eligible ? 'Praxe je doložená napříč celým řemeslem' : 'Profesionalita vzniká opakováním, ne jedním povedeným finále'}</h3><p>Elitea započítá pouze serverově vyhodnocené nácviky s konkrétním důkazem. Stejný přepis se nezapočítá dvakrát a kritickou chybu je nutné později napravit.</p></div><strong>${passport.eligible ? 'SPLNĚNO' : `${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}`}</strong></header><div class="mastery-passport-grid"><section><span>ODLIŠNÉ SITUACE</span><b>${passportProgress.practiceScenarios} / ${passportProgress.requiredPracticeScenarios}</b><small>kvalitně vyhodnocených nácviků</small></section><section><span>KOMPETENCE 2×</span><b>${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}</b><small>doloženo v různých situacích</small></section><section><span>NÁROČNÁ ÚROVEŇ</span><b>${passportProgress.advancedCompetencies} / ${passportProgress.requiredAdvancedCompetencies}</b><small>advanced nebo expert</small></section><section><span>KRITICKÉ CHYBY</span><b>${passportProgress.unresolvedCriticalFailures}</b><small>${passportProgress.unresolvedCriticalFailures ? 'čeká na doloženou nápravu' : 'bez neopraveného pochybení'}</small></section><section><span>FINÁLNÍ ZKOUŠKA</span><b>${passportProgress.finalExamPassed ? 'ANO' : 'ČEKÁ'}</b><small>integrovaný případ</small></section></div></article>`
+    : '';
   const certificate = status?.certificate;
   const certificateBody = status?.issued
     ? `<div><span>VYDÁNO</span><h3>Tvůj certifikát je připravený</h3><p>${escapeHtml(certificate.memberName)} · ${escapeHtml(new Date(certificate.completedAt).toLocaleDateString('cs-CZ'))}</p></div><button type="button" data-certificate-download>Stáhnout PDF</button>`
     : status?.eligible
       ? `<div><span>SPLNĚNO</span><h3>Tvůj certifikát je připravený</h3><p>Doplň jméno. Elitea vytvoří PDF s názvem programu a skutečným datem absolvování.</p><label><span>Jméno na certifikátu</span><input id="certificate-member-name" maxlength="120" autocomplete="name" value="${escapeHtml(state.cloudSession?.user?.name || '')}" placeholder="Jméno a příjmení"></label></div><button type="button" data-certificate-issue>Vystavit a stáhnout PDF</button>`
       : `<div><span>CERTIFIKÁT</span><h3>${status ? 'Ještě zbývá několik kroků' : 'Zkontrolovat dokončení programu'}</h3>${status ? `<ul>${status.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : '<p>Elitea zkontroluje dokončené části, portfolio a výsledek závěrečné zkoušky.</p>'}</div><button type="button" data-certificate-refresh>${status ? 'Zkontrolovat znovu' : 'Zkontrolovat dokončení'}</button>`;
-  return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article><article class="mastery-certificate-card">${certificateBody}</article>`;
+  return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article>${passportBody}<article class="mastery-certificate-card">${certificateBody}</article>`;
 }
 
 function toggleMasteryDay(dayId) {

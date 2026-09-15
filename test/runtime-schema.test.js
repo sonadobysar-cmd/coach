@@ -10,6 +10,8 @@ test('produkční schéma vytváří limity, monitoring a lifecycle idempotentn�
   assert.match(statements, /CREATE TABLE IF NOT EXISTS public_coach_test_feedback/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_course_evidence/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_exam_attempts/);
+  assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_coach_debrief_attempts/);
+  assert.match(statements, /UNIQUE \(user_id, course_id, transcript_hash\)/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_certificates/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS stripe_webhook_events/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS membership_checkout_intents/);

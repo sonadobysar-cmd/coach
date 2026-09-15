@@ -333,6 +333,16 @@ test('každý kurz zpřístupňuje Mastery Lab s celou praktickou cestou', () =>
   assert.match(css, /\.mastery-exam/);
 });
 
+test('profesionální koučovací kurz ukazuje serverově ověřený kompetenční pas', () => {
+  assert.match(client, /PROFESNÍ KOMPETENČNÍ PAS/);
+  assert.match(client, /ODLIŠNÉ SITUACE/);
+  assert.match(client, /KOMPETENCE 2×/);
+  assert.match(client, /KRITICKÉ CHYBY/);
+  assert.match(client, /status\?\.coachPassport/);
+  assert.match(css, /\.mastery-passport-card/);
+  assert.match(css, /\.mastery-passport-grid/);
+});
+
 test('Academy ukazuje členkám transparentní rozpad deklarovaných hodin', () => {
   assert.match(html, /id="course-study-load"/);
   assert.match(html, /Každá deklarovaná hodina má konkrétní práci/);

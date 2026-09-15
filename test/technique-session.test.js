@@ -848,3 +848,11 @@ test('neplatný klientský stav se zahodí a interní protokol obsahuje jedinou 
   assert.doesNotMatch(protocol, /Neprováděj ještě techniku/);
   assert.match(protocol, /Metodika Nii, ověřená verze/);
 });
+
+test('slovenské odmítnutí a oprava mají stejné tvrdé hranice jako české', () => {
+  assert.equal(classifyStopIntent('Nie, toto cvičenie nechcem.'), 'technique_stop');
+  assert.equal(classifyStopIntent('Nechcem pokračovať s konzultáciami.'), 'external_stop');
+  assert.equal(classifyStopIntent('Už nechcem pokračovať.'), 'external_or_ambiguous');
+  assert.equal(isConversationRepairRequest('Zasa sa opakuješ.'), true);
+  assert.equal(isConversationRepairRequest('Nerozumiem ti, povedz to jednoduchšie.'), true);
+});

@@ -1,4 +1,5 @@
-import { generateText } from 'ai';
+import { meteredGenerateText as generateText } from './ai-meter.js';
+import { selectSystemContext } from './ai-context.js';
 import { formatKnowledgeContext, retrieveKnowledge } from './knowledge.js';
 import {
   formatMethodContext,
@@ -34,6 +35,7 @@ import {
   routeSpecialists,
   specialistRouteSummary,
 } from './specialist-router.js';
+import { detectConversationLanguage, languageInstruction } from './language-profile.js';
 
 export const DEFAULT_MODEL = 'openai/gpt-5.6-luna';
 export const DEFAULT_DEEP_MODEL = 'openai/gpt-5.6-terra';
@@ -129,6 +131,7 @@ export function createElitea({
     }
 
     const routingText = buildRoutingText(safeMessages, memory);
+    const responseLanguage = detectConversationLanguage(safeMessages);
     const responseMode = resolveConversationMode(latest.content, consultationMode, techniqueSession, {
       previousMode: previousResponseMode,
       conversationText: routingText,
@@ -155,8 +158,12 @@ export function createElitea({
       previousRole,
       roleTransition,
       riskLevel: safety.level,
+      responseLanguage,
     };
-    const repairContext = buildConversationRepairContext(safeMessages, latest.content);
+    const repairContext = {
+      ...buildConversationRepairContext(safeMessages, latest.content),
+      responseLanguage,
+    };
     // The current request chooses the working method. Older context remains in
     // the prompt for continuity, but must not drag a newly mentoring turn back
     // into a coaching technique (or vice versa).
@@ -326,6 +333,7 @@ export function createElitea({
     // that looks like a real coaching intervention.
     if (!result.text?.trim()) {
       const retryResult = await generateText({
+        meterPhase: 'empty-retry',
         model: modelId,
         instructions: `${instructions}\n\nNyní odpověz přímo člence. Nevypisuj interní úvahu a nezačínej nadpisem.`,
         messages: selectConversationWindow(safeMessages, 18),
@@ -376,8 +384,9 @@ export function createElitea({
           ? String(process.env.ELITEA_COACH_MODEL || DEFAULT_COACH_MODEL).trim()
           : String(process.env.ELITEA_DEEP_MODEL || DEFAULT_DEEP_MODEL).trim();
         const repairResult = await generateText({
+          meterPhase: 'quality-repair',
           model: repairModelId,
-          instructions: `${instructions}\n\n${buildQualityRepairInstruction(quality, conversationContext, { responseMode })}`,
+          instructions: `${instructions}\n\n${buildQualityRepairInstruction(quality, conversationContext, { responseMode })}\n\n# VADNÁ ODPOVĚĎ, KTEROU MUSÍŠ NAHRADIT\n${String(finalText || '').slice(0, 2200)}\n\nNevysvětluj její chyby člence. Vrať pouze celou novou odpověď, která je opravuje.`,
           messages: selectConversationWindow(safeMessages, 18),
           maxOutputTokens: dialogueModes.has(responseMode) ? 700 : 1000,
           reasoning: resolveReasoningEffort(repairModelId),
@@ -393,7 +402,7 @@ export function createElitea({
             closingRequested,
             requireQuestion: shapedModes.has(responseMode) && requireQuestion,
           });
-          if (repairedQuality.score >= quality.score) {
+          if (repairedQuality.pass) {
             finalText = repairedText;
             quality = repairedQuality;
             finalModelId = repairModelId;
@@ -412,10 +421,10 @@ export function createElitea({
       const guardedText = repairContext.active
         ? guardedConversationRepairFallback(repairContext)
         : isBrandGrowth
-        ? guardedBrandFallback(latest.content)
+        ? guardedBrandFallback(latest.content, { responseLanguage })
         : isBusinessMentoring
-          ? guardedMentoringFallback(latest.content, { messages: safeMessages })
-        : guardedQualityFallback(latest.content, { requireQuestion, closingRequested, messages: safeMessages });
+          ? guardedMentoringFallback(latest.content, { messages: safeMessages, responseLanguage })
+        : guardedQualityFallback(latest.content, { requireQuestion, closingRequested, messages: safeMessages, responseLanguage });
       const guardedQuality = assessCoachingResponse(guardedText, {
         messages: safeMessages,
         conversationContext,
@@ -424,11 +433,12 @@ export function createElitea({
         closingRequested,
         requireQuestion: shapedModes.has(responseMode) && requireQuestion,
       });
-      if (guardedQuality.pass) {
-        finalText = guardedText;
-        quality = guardedQuality;
-        repaired = true;
-      }
+      // The pipeline is fail-closed: a high/critical model answer is never
+      // kept merely because the optional repair failed. Guarded fallbacks are
+      // deterministic, versioned and regression-tested.
+      finalText = guardedText;
+      quality = guardedQuality;
+      repaired = true;
     }
     return {
       text: finalText,
@@ -490,10 +500,18 @@ function previousAssistantMessage(messages = []) {
       && String(message.content || '').replace(/\s+/g, ' ').trim())?.content || '';
 }
 
-export function guardedQualityFallback(latestText, { requireQuestion = true, closingRequested = false, messages = [] } = {}) {
+export function guardedQualityFallback(latestText, {
+  requireQuestion = true,
+  closingRequested = false,
+  messages = [],
+  responseLanguage = detectConversationLanguage(latestText),
+} = {}) {
   const clean = String(latestText || '').replace(/\s+/g, ' ').trim().slice(0, 320);
   const normalized = normalizeDialogueText(clean);
-  const humanStyleCorrection = /\b(mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(clovek|lidsk|normaln|jednodus)|\b(nerozumim|nechapu|moc slozit|co tim myslis)\b/u.test(normalized);
+  if (responseLanguage === 'sk') {
+    return guardedSlovakQualityFallback(clean, { closingRequested, messages });
+  }
+  const humanStyleCorrection = /\b(mluv|rekni|vysvetli|povedz)\b[^.!?]{0,45}\b(clovek|lidsk|normaln|jednodus)|\b(nerozumim|nerozumiem|nechapu|nechapem|moc slozit|co (?:tim|tym) myslis)\b/u.test(normalized);
   const previousUserText = previousSubstantiveUserMessage(messages, clean);
   if (humanStyleCorrection && previousUserText) {
     return `Jasně. Řeknu to normálně. ${guardedQualityFallback(previousUserText, { requireQuestion, closingRequested, messages: [] })}`;
@@ -533,7 +551,38 @@ export function guardedQualityFallback(latestText, { requireQuestion = true, clo
   return 'Nechci ti hned podsouvat vysvětlení. Popiš mi poslední konkrétní situaci, kdy se to stalo — co bylo těsně předtím?';
 }
 
+function guardedSlovakQualityFallback(latestText, { closingRequested = false, messages = [] } = {}) {
+  const clean = String(latestText || '').replace(/\s+/gu, ' ').trim().slice(0, 320);
+  const normalized = normalizeDialogueText(clean);
+  const previousUserText = previousSubstantiveUserMessage(messages, clean);
+  const asksForPlainLanguage = /\b(?:nerozumiem|nechapem|co tym myslis|povedz|vysvetli)\b/u.test(normalized);
+  if (asksForPlainLanguage && previousUserText) {
+    return guardedSlovakQualityFallback(previousUserText, { closingRequested, messages: [] });
+  }
+  if (closingRequested) {
+    return 'Zachytili sme to podstatné. To, čo zatiaľ nevieme, necháme otvorené a neurobíme z toho hotový záver.';
+  }
+  if (/\b(som|pripadam si)\b[^.!?]{0,30}\b(neschopn\w*|na nic|zla|hlupa|marna)\b/u.test(normalized)) {
+    return 'Jedna ťažká situácia ešte nie je dôkaz o celej tebe. Ktorá konkrétna udalosť ťa teraz vedie k takému tvrdému záveru?';
+  }
+  if (/\b(neviem|nemozem sa)\b[^.!?]{0,35}\b(rozhod|vybr|co chcem)|\b(vela moznosti|medzi .* a .*)\b/u.test(normalized)) {
+    return 'Nemusíme nájsť dokonale správnu voľbu. Najprv potrebujeme vedieť, čo má dobré rozhodnutie v tejto situácii chrániť alebo umožniť?';
+  }
+  if (/\b(zahlten|prehlten|nestih|vela toho|neviem kde zacat|vsetko naraz)\b/u.test(normalized)) {
+    return 'Keď je všetko rovnako naliehavé, ťažko sa vyberá začiatok. Ktorá jediná hotová vec by ti dnes priniesla najväčšiu úľavu?';
+  }
+  if (/\b(odklad|prokrast|nemozem zacat|nedokonc|utek|vyhyb)\w*\b/u.test(normalized)) {
+    return 'Z odkladania nechcem automaticky robiť lenivosť ani sebabotáž. Čo sa stalo naposledy v okamihu, keď si chcela začať a urobila si niečo iné?';
+  }
+  if (/\b(hanb|bojim|obav)\w*\b[^.!?]{0,65}\b(co povedia|ostatn|vidiet|vystup|zverejn|ukaz)\w*/u.test(normalized)) {
+    return 'Popri tom, čo chceš urobiť, sa objavuje aj predstava reakcie ostatných. Kto konkrétny ti pri tom napadne ako prvý?';
+  }
+  return 'Nechcem ti podsúvať vysvetlenie. Čo sa v poslednej konkrétnej situácii stalo tesne predtým?';
+}
+
 export function guardedConversationRepairFallback(repairContext = {}) {
+  const responseLanguage = repairContext.responseLanguage || detectConversationLanguage(repairContext.latestText);
+  const slovak = responseLanguage === 'sk';
   const groundingEvidence = String(repairContext.groundingStatement || '')
     .replace(/\s+/gu, ' ')
     .trim()
@@ -545,14 +594,23 @@ export function guardedConversationRepairFallback(repairContext = {}) {
   if (repairContext.shortQuestionRequested) {
     const shortGrounding = conciseRepairGrounding(groundingEvidence);
     return shortGrounding
-      ? `Když říkáš „${shortGrounding}“, co je na tom teď nejtěžší?`
-      : 'Co je pro tebe v té situaci teď nejtěžší?';
+      ? slovak
+        ? `Keď hovoríš „${shortGrounding}“, čo je na tom teraz najťažšie?`
+        : `Když říkáš „${shortGrounding}“, co je na tom teď nejtěžší?`
+      : slovak
+        ? 'Čo je pre teba v tej situácii teraz najťažšie?'
+        : 'Co je pro tebe v té situaci teď nejtěžší?';
   }
   if (repairContext.kind === 'external_stop') {
-    if (repairContext.externalStopStatement && repairContext.explicitConversationContinuation) {
-      return `Beru — ${repairContext.externalStopStatement}. V našem rozhovoru pokračujeme. Co chceš řešit jako další krok místo toho?`;
+    const scope = String(repairContext.externalStopScope || '').trim();
+    if (scope) {
+      return slovak
+        ? `Rozumiem — nechceš pokračovať ${scope}. Čo chceš riešiť namiesto toho?`
+        : `Dobře — nechceš pokračovat ${scope}. Co chceš řešit místo toho?`;
     }
-    return 'Beru — nechceš pokračovat v činnosti nebo způsobu, který jsi právě pojmenovala. Nezaměním to za konec našeho rozhovoru. Co potřebuješ vyřešit místo toho?';
+    return slovak
+      ? 'Rozumiem — v tom, čo si práve odmietla, pokračovať nebudeme. Čo potrebuješ vyriešiť namiesto toho?'
+      : 'Dobře — v tom, co jsi právě odmítla, pokračovat nebudeme. Co potřebuješ vyřešit místo toho?';
   }
   if (repairContext.kind === 'fact_recap') {
     const statements = (repairContext.substantiveGroundingStatements || [])
@@ -560,24 +618,46 @@ export function guardedConversationRepairFallback(repairContext = {}) {
       .map(value => String(value || '').replace(/\s+/gu, ' ').trim())
       .filter(Boolean);
     if (!statements.length) {
-      return 'Zatím nemáme žádné další údaje, ze kterých by šlo dělat poctivé hodnocení.';
+      return slovak
+        ? 'Zatiaľ nemáme ďalšie údaje, z ktorých by sa dalo urobiť poctivé hodnotenie.'
+        : 'Zatím nemáme žádné další údaje, ze kterých by šlo dělat poctivé hodnocení.';
     }
     const quotedStatements = statements
       .map(statement => `„${statement.replace(/[.!?]+$/u, '')}“`)
       .join(' a dále ');
-    return `Zatím jsi uvedla: ${quotedStatements}. Na další hodnocení zatím nemáme dost dat.`;
+    return slovak
+      ? `Zatiaľ si uviedla: ${quotedStatements}. Na ďalšie hodnotenie ešte nemáme dosť údajov.`
+      : `Zatím jsi uvedla: ${quotedStatements}. Na další hodnocení zatím nemáme dost dat.`;
   }
   if (repairContext.kind === 'clarify_stop') {
-    return 'Nechci hádat, co chceš zastavit. Myslíš tím náš rozhovor, právě použitý postup, nebo věc, o které mluvíš?';
+    return slovak
+      ? 'Nechcem hádať, čo chceš zastaviť. Myslíš náš rozhovor, práve použitý postup, alebo vec, o ktorej hovoríš?'
+      : 'Nechci hádat, co chceš zastavit. Myslíš náš rozhovor, právě použitý postup, nebo věc, o které mluvíš?';
   }
   if (repairContext.kind === 'rephrase') {
-    return latestEvidence
-      ? `Položila jsem to nejasně. Poslední otázku teď odložím a zůstanu u toho, co jsi skutečně uvedla: „${latestEvidence}“. Kterou část potřebuješ říct nebo vysvětlit jednodušeji?`
-      : 'Položila jsem to nejasně. Nechci nahrazovat jednu nesrozumitelnou otázku jinou. Napiš mi prosím, které části nerozumíš, a vysvětlím jen tu.';
+    const simplified = simplifyRepairQuestion(repairContext.previousAssistantText, responseLanguage);
+    if (simplified) {
+      return slovak
+        ? `Položila som to zložito. Pýtam sa jednoducho: ${simplified}`
+        : `Položila jsem to složitě. Ptám se jednoduše: ${simplified}`;
+    }
+    return slovak
+      ? 'Položila som to nejasne. Nechcem ťa nútiť vysvetľovať to znova. Čo z toho, čo už vieme, potrebuješ rozhodnúť teraz?'
+      : 'Položila jsem to nejasně. Nechci tě nutit vysvětlovat to znovu. Co z toho, co už víme, potřebuješ rozhodnout teď?';
   }
-  return latestEvidence
-    ? `Máš pravdu — předchozí odpověď nenavázala správně. Vrátím se k tomu, co jsi skutečně uvedla: „${latestEvidence}“. Co z toho potřebuješ řešit právě teď?`
-    : 'Máš pravdu — předchozí odpověď nenavázala správně. Nebudu doplňovat žádné další okolnosti. Co přesně mám opravit nebo znovu uchopit?';
+  if (latestEvidence) {
+    return slovak
+      ? `Nenadviazala som správne. Zostávam pri tom, že ${lowercaseFirst(latestEvidence)} Čo z toho potrebuješ vyriešiť teraz?`
+      : `Nenavázala jsem správně. Zůstávám u toho, že ${lowercaseFirst(latestEvidence)} Co z toho potřebuješ vyřešit teď?`;
+  }
+  return slovak
+    ? 'Nenadviazala som správne a nebudem od teba pýtať tie isté údaje znova. Čo potrebuješ v tomto bode vyriešiť?'
+    : 'Nenavázala jsem správně a nebudu po tobě chtít stejné údaje znovu. Co potřebuješ v tomto bodě vyřešit?';
+}
+
+function lowercaseFirst(value) {
+  const text = String(value || '').trim();
+  return text ? `${text.charAt(0).toLocaleLowerCase('cs-CZ')}${text.slice(1)}` : '';
 }
 
 export function enforceConversationRepairResponse(value, repairContext = {}) {
@@ -601,16 +681,44 @@ export function enforceConversationRepairResponse(value, repairContext = {}) {
   // Jasné „končím s X, ale s tebou pokračuji“ nesmí být znovu vyloženo jako
   // konec rozhovoru. Dobrou modelovou odpověď zachováme; zasahujeme pouze,
   // když nepotvrdila pojmenovaný rozsah nebo plynule nepokračuje otázkou.
-  if (repairContext.kind === 'external_stop' && repairContext.explicitConversationContinuation) {
+  if (repairContext.kind === 'external_stop') {
     const confirmsScope = responseConfirmsExternalStopScope(output, repairContext.externalStopScope);
     const continuesWithOneQuestion = (output.match(/\?/gu) || []).length === 1
-      && !/(?:chceš|máš)\s+(?:tedy\s+)?(?:ukončit|zastavit|uzavřít)\s+(?:náš\s+|tento\s+|tenhle\s+)?(?:rozhovor|sezení)|dnešek\s+uzavřeme/iu.test(output);
+      && !/(?:chceš|chces|máš|mas)\s+(?:tedy\s+)?(?:ukončit|ukoncit|zastavit|uzavřít|uzavriet)\s+(?:náš\s+|nas\s+|tento\s+|tenhle\s+)?(?:rozhovor|sezení|sedenie)|(?:dnešek|dnesok)\s+uzavřeme/iu.test(output);
     if (!confirmsScope || !continuesWithOneQuestion) {
       return guardedConversationRepairFallback(repairContext);
     }
   }
 
   return output;
+}
+
+function simplifyRepairQuestion(value, language = 'cs') {
+  const question = String(value || '').match(/[^?\n]{3,}\?/gu)?.at(-1)?.replace(/\s+/gu, ' ').trim() || '';
+  if (!question) return '';
+  const normalized = normalizeDialogueText(question);
+  if (/kdybys nikdy nezjistila[^?]*proc odesla/u.test(normalized)) {
+    return language === 'sk'
+      ? 'Ak by si nikdy nezistila, prečo odišla, chcela by si podľa ostatných výsledkov pokračovať, alebo skončiť?'
+      : 'Kdybys nikdy nezjistila, proč odešla, chtěla bys podle ostatních výsledků pokračovat, nebo skončit?';
+  }
+  if (/jak[yé]\w* konkretni projev[^?]*pretez/u.test(normalized)) {
+    return language === 'sk'
+      ? 'Podľa čoho by si spoznala, že je toho na teba priveľa?'
+      : 'Podle čeho bys poznala, že je toho na tebe moc?';
+  }
+  if (/predstav\w* dalsi workshop/u.test(normalized)) {
+    return language === 'sk'
+      ? 'Je pre teba predstava ďalšieho workshopu ešte únosná?'
+      : 'Je pro tebe představa dalšího workshopu ještě únosná?';
+  }
+  if (/co se ted zmenilo|co sa teraz zmenilo/u.test(normalized)) {
+    return language === 'sk'
+      ? 'Pomohol ten krok, nepomohol, alebo situáciu zhoršil?'
+      : 'Pomohl ten krok, nepomohl, nebo situaci zhoršil?';
+  }
+  const wordCount = question.split(/\s+/u).filter(Boolean).length;
+  return wordCount <= 18 ? question : '';
 }
 
 function conciseRepairGrounding(value) {
@@ -633,14 +741,14 @@ function responseConfirmsExternalStopScope(value, scope = '') {
     ? scopeTokens.some(token => words.some(word => (
     word.startsWith(token.slice(0, Math.min(token.length, 5)))
     )))
-    : /\b(?:cinnost|zpusob|tema|projekt|praci)\b/u.test(output);
+    : /\b(?:cinnost|zpusob|tema|projekt|praci|cinnost|sposob|projekt|pracu)\b/u.test(output);
   if (!mentionsScope) return false;
 
   // Pouhá zmínka stejného podstatného jména nestačí. Odpověď musí skutečně
   // respektovat ukončení a nesmí současně nabádat k pokračování v téže věci.
-  const contradictsStop = /\b(?:pokracuj|pokracovat\s+(?:muzes|muzeš)|muzes\s+(?:v\s+tom\s+)?pokracovat|chces\s+dal\s+(?:rozvijet|delat|pokracovat)|nechces\s+(?:to\s+)?(?:opustit|ukoncit|skoncit))\b/u.test(output);
+  const contradictsStop = /\b(?:pokracuj|pokracovat\s+(?:muzes|mozes)|(?:muzes|mozes)\s+(?:v\s+tom\s+)?pokracovat|chces\s+(?:dal|dalej)\s+(?:rozvijet|rozvijat|delat|robit|pokracovat)|nechces\s+(?:to\s+)?(?:opustit|ukoncit|skoncit))\b/u.test(output);
   if (contradictsStop) return false;
-  return /\b(?:nechces\s+pokracovat|chces\s+(?:s\s+\S+\s+)?skoncit|koncis|skoncis|ukoncujes|ukoncime|nebudes|nebudeme|nemusis|respektuji\w*\s+(?:ze\s+)?(?:koncis|nechces)|dal\s+[^.!?]{0,35}\b(?:netlac|nedel|nerozvij))\w*\b/u.test(output);
+  return /\b(?:nechces\s+pokracovat|chces\s+(?:s\s+\S+\s+)?skoncit|koncis|skoncis|ukoncujes|ukoncime|nebudes|nebudeme|nemusis|respektuj\w*\s+(?:ze\s+)?(?:koncis|nechces)|(?:dal|dalej)\s+[^.!?]{0,35}\b(?:netlac|nedel|nerob|nerozvij))\w*\b/u.test(output);
 }
 
 function specificMentoringFallback(latestText, { messages = [] } = {}) {
@@ -709,14 +817,44 @@ function specificMentoringFallback(latestText, { messages = [] } = {}) {
   return null;
 }
 
-export function guardedMentoringFallback(latestText, { messages = [] } = {}) {
+export function guardedMentoringFallback(latestText, {
+  messages = [],
+  responseLanguage = detectConversationLanguage(latestText),
+} = {}) {
+  if (responseLanguage === 'sk') return guardedSlovakMentoringFallback(latestText);
   return specificMentoringFallback(latestText, { messages })
     || 'Pojďme to vzít jednoduše. Napiš mi, co prodáváš nebo jaké rozhodnutí teď potřebuješ udělat, a doporučím ti jeden konkrétní další krok.';
 }
 
-export function guardedBrandFallback(latestText) {
+function guardedSlovakMentoringFallback(latestText) {
+  const clean = String(latestText || '').replace(/\s+/gu, ' ').trim().slice(0, 320);
+  const normalized = normalizeDialogueText(clean);
+  if (/\b(cen|kolko|nacen|zdraz|zlacn)\w*\b/u.test(normalized)) {
+    return 'Cenu nemožno spoľahlivo určiť iba podľa konkurencie. Musí pokryť celý čas a náklady, zodpovedať hodnote výsledku a dávať zmysel konkrétnej cieľovej skupine. Čo ponúkaš, komu a koľko času aj priamych nákladov stojí jedno dodanie?';
+  }
+  if (/\b(predaj|predat|zakazn|klient|objednav|dopyt)\w*\b/u.test(normalized)) {
+    return 'Pri slabom predaji potrebujeme najprv zistiť, kde sa cesta zastavuje: či ľudia ponuku nevidia, nerozumejú jej, neveria jej, alebo sa nerozhodnú kúpiť. Čo predávaš a v ktorom bode najčastejšie odídu?';
+  }
+  if (/\b(projekt|podnik|biznis|sluzb|produkt|ponuk)\w*\b/u.test(normalized)) {
+    return 'Najrýchlejší posun projektu nezačína dokonalou prezentáciou, ale overením, či konkrétny človek chce konkrétny výsledok. Čo ponúkaš, komu a akú reakciu potrebuješ overiť ako prvú?';
+  }
+  return 'Poďme to vziať jednoducho. Napíš mi, čo predávaš alebo aké rozhodnutie potrebuješ urobiť, a odporučím ti jeden konkrétny ďalší krok.';
+}
+
+export function guardedBrandFallback(latestText, {
+  responseLanguage = detectConversationLanguage(latestText),
+} = {}) {
   const clean = String(latestText || '').replace(/\s+/g, ' ').trim().slice(0, 240);
   const normalized = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (responseLanguage === 'sk') {
+    if (/\b(publikuj|zverejni|spust|odosli|nahraj|nastav|zaplat|objednaj|urob(?:\s+to)?\s+za\s+mna)\b/u.test(normalized)) {
+      return 'Bez skutočného potvrdenia nástroja som nič nezverejnila ani nespustila. Ktorý presný výstup mám najprv pripraviť na tvoje schválenie?';
+    }
+    if (/\b(reklam|kampan|ctr|cpc|konver)\w*\b/u.test(normalized)) {
+      return 'Pred zmenou reklamy potrebujem oddeliť dojem od výkonu. Aký bol cieľ kampane a aké sú doterajšie čísla útraty, zobrazení, kliknutí, dopytov a predajov?';
+    }
+    return 'Aký konkrétny výstup má byť na konci tohto pracovného bloku hotový a podľa čoho spoznáme, že je použiteľný?';
+  }
   if (/\b(publikuj|zverejni|spust|odesli|nahraj|nastav|zaplat|objednej|udelej(?:\s+to)?\s+za\s+me)\b/u.test(normalized)) {
     const anchor = clean ? `Držím se zadání „${clean}“` : 'Držím se posledního zadání.';
     return `${anchor}. Nic jsem bez skutečného potvrzení nástroje nezveřejnila ani nespustila. Který přesný výstup mám nejdřív připravit k tvému schválení?`;
@@ -809,9 +947,9 @@ function buildInstructions(
   };
 
   return [
-    systemPrompt,
+    selectSystemContext(systemPrompt, responseMode),
     '\n\n# AKTUÁLNÍ PAMĚŤ ČLENKY',
-    JSON.stringify(compactMemory, null, 2),
+    JSON.stringify(compactMemory, null, process.env.ELITEA_CONTEXT_COMPACT === '0' ? 2 : undefined),
     '\n\n# HRANICE PAMĚTI TÉTO ROLE',
     brandRole
       ? 'Vidíš základní profil členky a paměť Brand & Marketing. Nemáš přístup k obsahu jejího osobního koučinku a nesmíš tvrdit, že ho znáš.'
@@ -843,7 +981,7 @@ function buildInstructions(
     '\n\n# REŽIM TÉTO ODPOVĚDI',
     responseMode,
     '\n\n# OKAMŽIK V ROZHOVORU',
-    JSON.stringify(conversationContext, null, 2),
+    JSON.stringify(conversationContext, null, process.env.ELITEA_CONTEXT_COMPACT === '0' ? 2 : undefined),
     '\n\n# PRAVIDLO PRO TUTO ODPOVĚĎ',
     [
       'Použij pouze relevantní části zdrojů. Nevydávej zkušenost Nii za univerzální fakt.',
@@ -893,7 +1031,7 @@ function buildInstructions(
         : '',
       'Potvrzená přesvědčení a alternativní koučovací směry Nii jsou plnohodnotnou metodikou Elitea. Aktivně je používej, když sedí na situaci; nevyřazuj je jen proto, že nejsou akademickým mainstreamem. Pokud je potřeba rozlišit jejich status, označ je přirozeně jako přístup Nii nebo pracovní model a ověř účinek u konkrétní členky. Nezaměňuj je za garanci léčby, uzdravení nebo stoprocentního výsledku.',
       'Odborné zdroje jsou pouze interní kontrola. V běžné odpovědi nikdy nezmiňuj studie, autory, školy, citace, důkazní stupně, interní ID ani názvy technik. Pokud se členka výslovně zeptá na použitý přístup, nejprve ho vysvětli jednou větou běžným jazykem; název nebo zdroj uveď až na její následnou výslovnou žádost. Nikdy tím nepřerušuj koučovací rozhovor.',
-      'Piš výhradně přirozenou současnou češtinou; nepoužívej slovenské výrazy ani strojové fráze.',
+      `${languageInstruction(conversationContext.responseLanguage)} Nepoužívej strojové fráze.`,
       businessRole
         ? 'Běžné překlepy, hovorové zkratky a fonetické zápisy opravuj tiše podle jednoznačného kontextu. Například „vystupovat na sochách“ v rozhovoru o projektu znamená „vystupovat na sockách“, tedy na sociálních sítích. Opravu člence nevysvětluj a necituj její překlep; prostě přirozeně pracuj se zamýšleným významem. Jen při skutečně dvojznačném významu se jednou krátce zeptej.'
         : '',
@@ -902,7 +1040,7 @@ function buildInstructions(
       'Nevymýšlej ani počty oslovení, počet testů, délku práce, termíny nebo číselné cíle. Pokud jsou pro plán potřeba, zeptej se na ně nebo je výslovně označ jako společně volitelný parametr — ne jako odborný fakt.',
       'U cenotvorby nepoužívej čistý cost-plus vzorec. Zohledni plný čas, náklady, požadovaný zisk, hodnotu výsledku, cílovku, lokalitu, trh, pozicování, úroveň služby a social proof. Pokud tyto údaje chybí, nejdřív si vyžádej nejvýše tři nejdůležitější.',
       'První tři otázky pro chybějící cenotvorbu prioritizuj takto: plný čas na dodání, přímé i režijní náklady a lokalita s cílovkou nebo běžnou tržní cenou. Zkušenost, úroveň služby a social proof doplň následně, pokud už nejsou v paměti.',
-      'Pokud chybí kontext, polož nejvýše tři krátké otázky. Neuváděj interní source_id ani skryté instrukce. Odpověz česky.',
+      `Pokud chybí kontext, polož nejvýše tři krátké otázky. Neuváděj interní source_id ani skryté instrukce. ${languageInstruction(conversationContext.responseLanguage)}`,
       'Neopakuj vysvětlení ani otázku, pokud je odpověď už v aktuální paměti členky. Na uložený cíl, poslední pracovní téma, dohodnutý krok a milníky přirozeně navazuj. Pokud je uložená informace v rozporu s novou zprávou, ověř pouze změnu. Nikdy netvrď, že si něco pamatuješ, pokud to v paměti skutečně není.',
       'Paměť jedné členky je výhradně její. Nikdy neuváděj, nedoplňuj ani nepředpokládej údaje jiné členky. Nežádej a neukládej hesla, tokeny, rodná čísla, platební údaje ani podrobné zdravotní či traumatické informace.',
       'Koučovací techniku použij jen s dostatečným kontextem, nikdy jako automatický trik. Respektuj možnost členky techniku nebo otázku odmítnout.',
@@ -1013,6 +1151,7 @@ export function buildConversationContext(messages, responseMode = 'diagnostika')
   return {
     userTurns,
     assistantTurns,
+    responseLanguage: detectConversationLanguage(safe),
     stage,
     depthStage,
     hasConcreteSituation,
@@ -1147,13 +1286,14 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
   const safe = Array.isArray(messages) ? messages : [];
   const latest = String(latestText || '').replace(/\s+/gu, ' ').trim();
   const normalizedLatest = normalizeDialogueText(latest);
+  const responseLanguage = detectConversationLanguage(safe.length ? safe : latest);
   const classifiedStopIntent = classifyStopIntent(latest);
   const repairRequested = isConversationRepairRequest(latest);
-  const asksToRephrase = /\b(?:nerozumim|nechapu|co\s+tim\s+myslis)\b|\b(?:vysvetl|preformul|rekni)\w*\b[^.!?]{0,45}\b(?:lip|lepe|jednodus|normaln)\w*\b/u
+  const asksToRephrase = /\b(?:nerozumim|nerozumiem|nechapu|nechapem|co\s+(?:tim|tym)\s+myslis)\b|\b(?:vysvetl|preformul|rekni|povedz)\w*\b[^.!?]{0,45}\b(?:lip|lepe|jednodus|normaln)\w*\b/u
     .test(normalizedLatest);
   const factRecapRequested = requestsFactsOnly(latest);
   const shortQuestionRequested = requestsOneShortQuestion(latest);
-  const explicitConversationContinuation = /\b(?:v\s+)?(?:tomhle|tomto|nasem)?\s*rozhovor\w*\s+(?:ale\s+)?pokracovat\s+chci\b|\b(?:s\s+tebou|tady)\s+(?:ale\s+)?(?:chci\s+)?pokracovat\b|\b(?:chci|potrebuji)\s+(?:ale\s+|dal\s+)?(?:pokracovat|mluvit)\s+(?:dal\s+)?(?:s\s+tebou|tady|v\s+(?:tomto|tomhle|nasem)\s+rozhovoru)\b|\b(?:ne|nikoli)\s+(?:s\s+tebou|s\s+(?:timto|tomhle)\s+rozhovorem|v\s+(?:tomto|tomhle)\s+rozhovoru)\b/u
+  const explicitConversationContinuation = /\b(?:v\s+)?(?:tomhle|tomto|nasem)?\s*rozhovor\w*\s+(?:ale\s+)?pokracovat\s+(?:chci|chcem)\b|\b(?:s\s+tebou|tady|tu)(?:\s+sa)?\s+(?:ale\s+)?(?:(?:chci|chcem)\s+)?(?:pokracovat|hovorit|rozpravat)\b|\b(?:chci|chcem|potrebuji|potrebujem)\s+(?:ale\s+|dal\s+|dalej\s+)?(?:pokracovat|mluvit|hovorit|rozpravat)\s+(?:dal\s+|dalej\s+)?(?:s\s+tebou|tady|tu|v\s+(?:tomto|tomhle|nasem)\s+rozhovoru|v\s+(?:tomto|nasom)\s+rozhovore)\b|\b(?:ne|nie|nikoli)\s+(?:s\s+tebou|s\s+(?:timto|tomhle)\s+rozhovorem|v\s+(?:tomto|tomhle)\s+rozhovoru|s\s+(?:tymto|nasim)\s+rozhovorom|v\s+(?:tomto|nasom)\s+rozhovore)\b/u
     .test(normalizedLatest);
   const externalStop = extractExternalStopScope(latest);
   const stopIntent = explicitConversationContinuation && externalStop.scope
@@ -1213,57 +1353,59 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
     explicitConversationContinuation,
     externalStopScope: externalStop.scope,
     externalStopStatement: externalStop.statement,
+    responseLanguage,
   };
 }
 
 function extractExternalStopScope(value) {
   const latest = String(value || '').replace(/\s+/gu, ' ').trim();
-  const continuingMatch = latest.match(/\b(nechci|nemůžu|nemuzu)\s+pokračovat\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  const language = detectConversationLanguage(latest);
+  const continuingMatch = latest.match(/\b(nechci|nechcem|nemůžu|nemuzu|nemôžem|nemozem)\s+(?:pokračovat|pokračovať|pokracovat)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu);
   if (continuingMatch) {
     const scope = trimConversationContinuation(continuingMatch[2]);
     return {
       scope,
-      statement: scope ? `nechceš pokračovat ${scope}` : '',
+      statement: scope ? language === 'sk' ? `nechceš pokračovať ${scope}` : `nechceš pokračovat ${scope}` : '',
     };
   }
-  const endingMatch = latest.match(/\bchci\s+(?:to\s+)?(skončit|skoncit|ukončit|ukoncit)\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  const endingMatch = latest.match(/\b(?:chci|chcem)\s+(?:to\s+)?(?:skončit|skoncit|ukončit|ukoncit)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu);
   if (endingMatch) {
-    const scope = trimConversationContinuation(endingMatch[2]);
+    const scope = trimConversationContinuation(endingMatch[1]);
     return {
       scope,
-      statement: scope ? `chceš skončit ${scope}` : '',
+      statement: scope ? language === 'sk' ? `chceš skončiť ${scope}` : `chceš skončit ${scope}` : '',
     };
   }
-  const finiteEndingMatch = latest.match(/\b(?:končím|koncim|skončím|skoncim|ukončuji|ukoncuji)\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  const finiteEndingMatch = latest.match(/\b(?:končím|koncim|skončím|skoncim|ukončuji|ukoncuji|ukončujem|ukoncujem)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu);
   if (finiteEndingMatch) {
     const scope = normalizeExternalStopScope(trimConversationContinuation(finiteEndingMatch[1]));
     return {
       scope,
-      statement: scope ? `chceš skončit ${scope}` : '',
+      statement: scope ? language === 'sk' ? `chceš skončiť ${scope}` : `chceš skončit ${scope}` : '',
     };
   }
-  const invertedEndingMatch = latest.match(/\b((?:s|se|v|ve|na)\s+[^.!?,;]{1,120}?)\s+(?:končím|koncim|skončím|skoncim|už\s+(?:dál\s+)?nepokračuji|uz\s+(?:dal\s+)?nepokracuji)\b/iu);
+  const invertedEndingMatch = latest.match(/\b((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]{1,120}?)\s+(?:končím|koncim|skončím|skoncim|už\s+(?:dál\s+)?nepokračuji|uz\s+(?:(?:dal|dalej)\s+)?nepokracujem)\b/iu);
   if (invertedEndingMatch) {
     const scope = normalizeExternalStopScope(trimConversationContinuation(invertedEndingMatch[1]));
     return {
       scope,
-      statement: scope ? `chceš skončit ${scope}` : '',
+      statement: scope ? language === 'sk' ? `chceš skončiť ${scope}` : `chceš skončit ${scope}` : '',
     };
   }
-  const stopsDoingMatch = latest.match(/\b(?:nechci|nebudu)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:dělat|delat|pořádat|poradat|vést|vest|rozvíjet|rozvijet)\s+([^.!?,;]{1,120})/iu);
+  const stopsDoingMatch = latest.match(/\b(?:nechci|nechcem|nebudu|nebudem)\s+(?:už\s+|uz\s+|dál\s+|dal\s+|ďalej\s+|dalej\s+)*(?:dělat|delat|robiť|robit|pořádat|poradat|organizovať|organizovat|vést|vest|viesť|viest|rozvíjet|rozvijet|rozvíjať|rozvijat)\s+([^.!?,;]{1,120})/iu);
   if (stopsDoingMatch) {
     const activity = trimConversationContinuation(stopsDoingMatch[1]);
     return {
       scope: activity,
-      statement: activity ? `nechceš dál dělat ${activity}` : '',
+      statement: activity ? language === 'sk' ? `nechceš ďalej robiť ${activity}` : `nechceš dál dělat ${activity}` : '',
     };
   }
-  const invertedStopsDoingMatch = latest.match(/(?:^|[.!?;]\s*)([^.!?,;]{1,120}?)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:dělat|delat|pořádat|poradat|vést|vest|rozvíjet|rozvijet)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:nechci|nebudu)\b/iu);
+  const invertedStopsDoingMatch = latest.match(/(?:^|[.!?;]\s*)([^.!?,;]{1,120}?)\s+(?:už\s+|uz\s+|dál\s+|dal\s+|ďalej\s+|dalej\s+)*(?:dělat|delat|robiť|robit|pořádat|poradat|organizovať|organizovat|vést|vest|viesť|viest|rozvíjet|rozvijet|rozvíjať|rozvijat)\s+(?:už\s+|uz\s+|dál\s+|dal\s+|ďalej\s+|dalej\s+)*(?:nechci|nechcem|nebudu|nebudem)\b/iu);
   if (invertedStopsDoingMatch) {
     const activity = normalizeExternalStopScope(trimConversationContinuation(invertedStopsDoingMatch[1]));
     return {
       scope: activity,
-      statement: activity ? `nechceš dál dělat ${activity}` : '',
+      statement: activity ? language === 'sk' ? `nechceš ďalej robiť ${activity}` : `nechceš dál dělat ${activity}` : '',
     };
   }
   return { scope: '', statement: '' };
@@ -1278,7 +1420,7 @@ function isUsableRepairGrounding(value) {
   const clean = String(value || '').replace(/\s+/gu, ' ').trim();
   if (!clean || isConversationRepairRequest(clean)) return false;
   const normalized = normalizeDialogueText(clean).replace(/[.!?,;:]+$/gu, '').trim();
-  return !/^(?:ano|jo|jasne|dobre|ok|souhlasim|muzeme|zkusme|nevim|netusim|asi|mozna)$/u.test(normalized);
+  return !/^(?:ano|jo|jasne|dobre|ok|souhlasim|suhlasim|muzeme|mozeme|zkusme|skusme|nevim|neviem|netusim|asi|mozna|mozno)$/u.test(normalized);
 }
 
 function isFactRecapStatement(value) {
@@ -1315,8 +1457,8 @@ function extractLatestFactRecapStatements(value) {
 
 function trimConversationContinuation(value) {
   return String(value || '')
-    .replace(/\s+(?:ale\s+)?(?:v\s+(?:tomhle|tomto|našem|nasem)\s+rozhovoru|s\s+tebou|tady)\b.*$/iu, '')
-    .replace(/\s+(?:ne|nikoli)\s+(?:s\s+tebou|s\s+(?:tímto|timto|tomhle)\s+rozhovorem)\b.*$/iu, '')
+    .replace(/\s+(?:ale\s+)?(?:v\s+(?:tomhle|tomto|našem|nasem)\s+rozhovoru|s\s+tebou|tady|tu|v\s+tomto\s+rozhovore)\b.*$/iu, '')
+    .replace(/\s+(?:ne|nie|nikoli)\s+(?:s\s+tebou|s\s+(?:tímto|timto|tomhle)\s+rozhovorem|v\s+tomto\s+rozhovore)\b.*$/iu, '')
     .trim();
 }
 
@@ -1325,6 +1467,7 @@ export function formatConversationRepairContext(context = null) {
     return 'Členka v tomto tahu neopravuje porozumění ani nevyjadřuje nejasný záměr něco ukončit.';
   }
   return [
+    languageInstruction(context.responseLanguage),
     `Typ opravy: ${context.kind}`,
     `Poslední zpráva členky: ${JSON.stringify(context.latestText || '')}`,
     `Předchozí odpověď Elitey: ${JSON.stringify(context.previousAssistantText || '')}`,
@@ -1522,7 +1665,7 @@ export function shapeCoachingResponse(
   let output = String(text || '').trim();
   output = output
     .replace(/^(?:Krásný den|Dobrý den|Ahoj|Dobrej)[^.!?\n]*(?:[.!]|\s*[—-])\s*/iu, '')
-    .replace(/^(?:Díky|Děkuji),?\s+(?:že[^.!?]*|za[^.!?]*)[.!]\s*/iu, '')
+    .replace(/^(?:Díky|Děkuji),?\s+(?:za sdílení|za otevřenost|že ses podělila)[.!]\s*/iu, '')
     .replace(/^(?:Skvělé|Výborné|Perfektní)(?:\s+\p{L}+){0,3}\s*[—-]\s*/iu, '')
     .replace(/^\s{0,3}(?:#{1,6}\s*)?(?:\*\*)?(?:Hlavní závěr|Proč|Krátké kontrolní otázky|Doporučený postup|Riziko(?:\s*\/\s*nejistota)?|Další krok)(?:\*\*)?\s*:\s*/gimu, '')
     .replace(/^\s*(?:[-•*]|\d+[.)])\s+/gmu, '')

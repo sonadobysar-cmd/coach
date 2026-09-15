@@ -526,31 +526,31 @@ function requiresExplicitConsent(card) {
 }
 
 function hasConsent(value) {
-  return /\b(ano|souhlasim|muzeme|zkusme|pojdme|pojd|chci to zkusit|klidne)\b/iu.test(normalizeCzech(value));
+  return /\b(ano|souhlasim|suhlasim|muzeme|mozeme|zkusme|skusme|pojdme|podme|pojd|chci to zkusit|chcem to skusit|klidne)\b/iu.test(normalizeCzech(value));
 }
 
 function declinesConsent(value) {
   const normalized = normalizeCzech(value).replace(/[.!?,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
-  if (/^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji|tohle nechci)$/u.test(normalized)) return true;
-  return /^(?:ne\s+)?(?:tohle|toto|timhle|tudy|tento krok|tenhle krok)?\s*(?:nechci|odmitam|vynechme|nedelme|nebudu)\b/u.test(normalized)
-    || /^(?:radsi|radeji)\s+(?:to\s+)?(?:vynechme|ne|jinak)\b/u.test(normalized)
-    || /\b(?:pokracovat|zkouset|udelat|delat)\s+nechci\b/u.test(normalized);
+  if (/^(?:ne|nie|nechci|nechcem|radsi ne|radsej nie|ted ne|teraz nie|ne diky|ne dekuji|tohle nechci|toto nechcem)$/u.test(normalized)) return true;
+  return /^(?:(?:ne|nie)\s+)?(?:tohle|toto|timhle|tudy|tento krok|tenhle krok)?\s*(?:nechci|nechcem|odmitam|odmietam|vynechme|vynechajme|nedelme|nerobme|nebudu)\b/u.test(normalized)
+    || /^(?:radsi|radeji|radsej)\s+(?:to\s+)?(?:vynechme|vynechajme|ne|nie|jinak|inak)\b/u.test(normalized)
+    || /\b(?:pokracovat|zkouset|skusat|udelat|urobit|delat|robit)\s+(?:nechci|nechcem)\b/u.test(normalized);
 }
 
 function isSubstantiveTechniqueAnswer(value) {
   const normalized = normalizeCzech(value).replace(/[.!?,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
   if (!normalized) return false;
-  return !/^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu (?:to )?rict|neumim (?:to )?rict|ano|jo|ok|dobre|ne)$/u.test(normalized);
+  return !/^(?:(?:to|ja)\s+)?(?:nevim|neviem|netusim|nedokazu (?:to )?rict|nedokazem (?:to )?povedat|neumim (?:to )?rict|ano|jo|ok|dobre|ne|nie)$/u.test(normalized);
 }
 
 export function classifyStopIntent(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  if (/\b(?:nechci|odmitam)\s+(?:tuhle|tuto|tu|dalsi)?\s*technik\w*\b|\b(?:zastav|ukonci|vynechme)\s+(?:tuhle|tuto|tu)?\s*technik\w*\b|\bnechci\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*technik\w*\b/iu.test(normalized)) {
+  if (/\b(?:nechci|nechcem|odmitam|odmietam)\s+(?:tuhle|tohle|toto|tuto|tu|dalsi|dalsiu)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:tuhle|tohle|toto|tuto|tu)\s+(?:technik|cvicen|postup|krok)\w*\s+(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:zastav|ukonci|vynechme|vynechajme)\s+(?:tuhle|tuto|tu|toto)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:nechci|nechcem)\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*(?:technik|cvicen|postup)\w*\b/iu.test(normalized)) {
     return 'technique_stop';
   }
-  const explicitlyKeepsConversation = /\b(?:ne|nikoli)\s+(?:s\s+tebou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|techniku)\b|\b(?:s\s+tebou|tady)\s+(?:ale\s+)?(?:chci\s+)?pokracovat\b|\bpokracovat\s+chci\s+(?:s\s+tebou|tady)\b/iu.test(normalized);
-  const invertedExternalTarget = /(?:^|[.!?;]\s*)(?!to\b|toto\b|tohle\b|takhle\b)[^.!?,;]{3,120}?\s+(?:uz\s+|dal\s+)*(?:delat|poradat|vest|rozvijet)\s+(?:uz\s+|dal\s+)*(?:nechci|nebudu)\b/iu.test(normalized);
-  const namesExternalTarget = /\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)
+  const explicitlyKeepsConversation = /\b(?:ne|nie|nikoli)\s+(?:s\s+tebou|so\s+mnou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|sedenie|techniku)\b|\b(?:s\s+tebou|tady|tu)\s+(?:ale\s+)?(?:(?:chci|chcem)\s+)?pokracovat\b|\bpokracovat\s+(?:chci|chcem)\s+(?:s\s+tebou|tady|tu)\b/iu.test(normalized);
+  const invertedExternalTarget = /(?:^|[.!?;]\s*)(?!to\b|toto\b|tohle\b|takhle\b)[^.!?,;]{3,120}?\s+(?:uz\s+|dal\s+)*(?:delat|robit|poradat|organizovat|vest|viest|rozvijet)\s+(?:uz\s+|dal\s+)*(?:nechci|nechcem|nebudu)\b/iu.test(normalized);
+  const namesExternalTarget = /\b(?:nechci|nechcem|nemuzu|nemozem)\s+pokracovat\s+(?:s|v|na)\s+\S+|\b(?:chci|chcem)\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)
     || invertedExternalTarget;
   if (explicitlyKeepsConversation && namesExternalTarget) {
     return 'external_stop';
@@ -569,11 +569,11 @@ export function classifyStopIntent(value) {
     if (/\bprestan\s+mi\s+\w+/iu.test(normalized)) return 'external_stop';
     return 'external_or_ambiguous';
   }
-  if (/\b(?:nechci|nemuzu)\s+pokracovat\b|\bchci\s+(?:to\s+)?ukoncit\b|\bchci\s+skoncit\b/iu.test(normalized)) {
-    if (/\b(?:sezen\w*|rozhovor\w*|technik\w*|tady|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)) {
+  if (/\b(?:nechci|nechcem|nemuzu|nemozem)\s+pokracovat\b|\b(?:chci|chcem)\s+(?:to\s+)?ukoncit\b|\b(?:chci|chcem)\s+skoncit\b/iu.test(normalized)) {
+    if (/\b(?:sezen\w*|seden\w*|rozhovor\w*|technik\w*|tady|tu|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)) {
       return 'conversation_stop';
     }
-    if (/\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)) {
+    if (/\b(?:nechci|nechcem|nemuzu|nemozem)\s+pokracovat\s+(?:s|v|na)\s+\S+|\b(?:chci|chcem)\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)) {
       return 'external_stop';
     }
     return 'external_or_ambiguous';
@@ -586,12 +586,12 @@ function wantsAnotherTechnique(value) {
 }
 
 function reportsNoEffect(value) {
-  return /\b((?:zatim )?nic (?:mi )?(?:to )?(?:nedela|neudelalo|neudelava|nezmenilo)|nic se nezmenilo|zadna zmena|bez zmeny|necitim zadnou zmenu|nefunguje|nepomohlo|nepomaha|nezabralo)\b/iu.test(normalizeCzech(value));
+  return /\b((?:zatim )?nic (?:mi )?(?:to )?(?:nedela|nerobi|neudelalo|neudelava|nezmenilo)|nic (?:se|sa) nezmenilo|zadna zmena|ziadna zmena|bez zmeny|necitim (?:zadnou|ziadnu) zmenu|nefunguje|nepomohlo|nepomaha|nezabralo)\b/iu.test(normalizeCzech(value));
 }
 
 export function isConversationRepairRequest(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  const ordinaryRepair = /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|to jsem (?:vubec )?nerekla|nevymyslej si|to neni pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b|^(?:resime|bavime se o|mluvim o|tema je|vrat se k)\b/iu.test(normalized);
+  const ordinaryRepair = /\b(halo|slysis me|pocujes ma|ctes me|citas ma|zase se opakujes|zasa sa opakujes|opakujes (?:jednu|to|sa)|neopakuj (?:se|sa)|odpovez mi|odpovedz mi|nerozumim|nerozumiem|nechapu|nechapem|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|ved som ti to (?:uz )?(?:pisala|opisala)|psala jsem\b[^.!?\n]{0,30}\bne|pisala som\b[^.!?\n]{0,30}\bnie|uz jsem (?:ti )?odpovedela|uz som (?:ti )?odpovedala|to uz jsme si (?:rikali|rekli|probirali)|to sme si uz (?:hovorili|povedali)|tohle uz mame (?:uzavrene|hotove)|toto uz mame (?:uzavrete|hotove)|to jsem (?:vubec )?nerekla|to som (?:vobec )?nepovedala|nevymyslej si|nevymyslaj si|to neni pravda|to nie je pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|preco sa ma (?:zasa|stale)?\s*pytas|meles nesmysly|trepes nezmysly|r[ei]kas nesmysly|hovoris nezmysly|jak jsme se (?:sem )?dostal\w*|ako sme sa sem dostal\w*|ztratila jsi tema|stratila si temu|vrat se k tematu|vrat sa k teme|seres me)\b|^(?:resime|riesime|bavime se o|hovorime o|mluvim o|hovorim o|tema je|vrat se k|vrat sa k)\b/iu.test(normalized);
   const shortQuestionRepair = requestsOneShortQuestion(normalized);
   return ordinaryRepair || shortQuestionRepair;
 }
@@ -607,11 +607,11 @@ function reportsStepAttempt(value) {
 }
 
 function reportsWorse(value) {
-  return /\b(horsi|hur|zhors|neprijemnejsi|vic napeti|panika)\b/iu.test(normalizeCzech(value));
+  return /\b(horsi|horsie|hur|zhors|neprijemnejsi|neprijemnejsie|vic napeti|viac napatia|panika)\b/iu.test(normalizeCzech(value));
 }
 
 function reportsEffect(value) {
-  return /\b(stejne|lepsi|lehci|lehceji|horsi|hur|tezsi|mensi|vetsi|polevil|polevilo|zesilil|zesililo|zmenil|zmenilo|vsimla|citila|citim|napeti|tlak|teplo|chlad|klid|uleva|ulevil|ulevilo|uvolnilo|uvolneneji)\b/iu.test(normalizeCzech(value));
+  return /\b(stejne|rovnako|lepsi|lepsie|lehci|lahsie|lehceji|horsi|horsie|hur|tezsi|tazsie|mensi|vetsi|polevil|polevilo|zoslablo|zesilil|zesililo|zmenil|zmenilo|vsimla|citila|citim|napeti|napatie|tlak|teplo|chlad|klid|pokoj|uleva|ulava|ulevil|ulevilo|uvolnilo|uvolneneji)\b/iu.test(normalizeCzech(value));
 }
 
 function normalizeCzech(value) {

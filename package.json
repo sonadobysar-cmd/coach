@@ -1,6 +1,6 @@
 {
   "name": "elitea",
-  "version": "0.37.2",
+  "version": "0.38.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "eval:roles": "node scripts/evaluate-ai-roles.mjs",
     "eval:academy-trainers": "node scripts/evaluate-academy-trainers.mjs",
     "eval:public-coach": "node scripts/evaluate-public-coach-test.mjs",
+    "eval:czsk-live": "node scripts/evaluate-czsk-coaching-live.mjs",
     "qa:academy-production": "node scripts/qa-production-academy-e2e.mjs",
     "qa:certificate-production": "node scripts/qa-issue-production-certificate.mjs",
     "audit:courses": "node scripts/audit-course-depth.mjs",

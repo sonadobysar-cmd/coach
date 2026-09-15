@@ -1,3 +1,5 @@
+import { aiMeterContext } from './ai-meter.js';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -78,6 +80,7 @@ import {
   recordCertificateExamAttempt,
   syncCertificateEvidence,
 } from './certificate-service.js';
+import { recordCoachDebriefAttempt } from './coach-competency-passport.js';
 import { certificateSigningConfigured } from './certificate-authenticity.js';
 import { authorizeCertificateQaRequest, runCertificateProductionQa } from './certificate-production-qa.js';
 import {
@@ -380,6 +383,7 @@ const answer = createElitea({
 const answerTraining = createCourseTrainer({ knowledgeRecords: courseKnowledgeRecords });
 const worksheets = buildWorksheetLibrary(techniqueAtlas);
 const app = express();
+app.use((_req, _res, next) => aiMeterContext.run({ requestId: randomUUID() }, next));
 const publicTestRateBuckets = new Map();
 
 const browserConnectSources = ["'self'", ...new Set([
@@ -472,11 +476,12 @@ app.get('/api/status', (_request, response) => {
     automatedCases: 1004,
     academyTrainerCases: Number(academyTrainerRelease.caseCount || 0),
     academyTrainerPassRate: Number(academyTrainerRelease.passRate || 0) / 100,
-    humanReviewedSessions: Number(process.env.ELITEA_HUMAN_REVIEWED_SESSIONS || 0),
-    criticalFailures: Number(process.env.ELITEA_CRITICAL_FAILURES || 0),
-    groundedPassRate: Number(process.env.ELITEA_GROUNDED_PASS_RATE || 0),
-    roleIntegrityRate: Number(process.env.ELITEA_ROLE_INTEGRITY_RATE || 0),
-    debriefIntegrityRate: Number(process.env.ELITEA_DEBRIEF_INTEGRITY_RATE || 0),
+    humanReviewedSessions: optionalEnvironmentNumber('ELITEA_HUMAN_REVIEWED_SESSIONS'),
+    criticalFailures: optionalEnvironmentNumber('ELITEA_CRITICAL_FAILURES'),
+    groundedPassRate: optionalEnvironmentNumber('ELITEA_GROUNDED_PASS_RATE'),
+    roleIntegrityRate: optionalEnvironmentNumber('ELITEA_ROLE_INTEGRITY_RATE'),
+    debriefIntegrityRate: optionalEnvironmentNumber('ELITEA_DEBRIEF_INTEGRITY_RATE'),
+    localeQuality: parseLocaleQualityEvidence(process.env.ELITEA_CZSK_QUALITY_EVIDENCE),
   });
   response.set('Cache-Control', 'no-store').json({
     ready: true,
@@ -534,6 +539,8 @@ app.get('/api/status', (_request, response) => {
     commercialLaunchReady: launchReadiness.ready,
     launchStage: launchReadiness.stage,
     launchChecks: launchReadiness.checks,
+    launchLocaleChecks: launchReadiness.localeChecks,
+    launchEvidence: launchReadiness.evidence,
     qualityPolicy: launchReadiness.policy,
   });
 });
@@ -1026,6 +1033,7 @@ app.post('/api/chat', async (request, response) => {
     const memory = sanitizeMemory(request.body?.memory);
     const consultationMode = sanitizeConsultationMode(request.body?.consultationMode);
     const brandWorkMode = sanitizeBrandWorkMode(request.body?.brandWorkMode);
+    if (typeof member !== 'undefined' && member?.id && aiMeterContext.getStore()) aiMeterContext.getStore().userId = member.id;
     const result = await answer({
       messages: request.body?.messages,
       memory,
@@ -1111,6 +1119,7 @@ app.post('/api/public-coach-test/chat', async (request, response) => {
   const startedAt = Date.now();
   try {
     const session = advancePublicCoachTestSession(request.body?.sessionToken, request.body?.messages);
+    if (typeof member !== 'undefined' && member?.id && aiMeterContext.getStore()) aiMeterContext.getStore().userId = member.id;
     const result = await answer({
       messages: session.transcript,
       memory: publicTestMemory(session.payload.mode),
@@ -1212,6 +1221,7 @@ app.post('/api/training', async (request, response) => {
       usageReservation = reservedUsage.reservation;
       usageReserved = Boolean(usageReservation);
     }
+    if (member?.id && aiMeterContext.getStore()) aiMeterContext.getStore().userId = member.id;
     const result = await answerTraining({
       messages: request.body?.messages,
       memory: sanitizeMemory(request.body?.memory),
@@ -1241,6 +1251,25 @@ app.post('/api/training', async (request, response) => {
         result,
       }).catch(async error => {
         await reportOperationalError({ area: 'academy_certificate', code: error?.code || 'EXAM_RECORD_FAILED', path: request.path, summary: error });
+      });
+    }
+    if (member && activity === 'simulation' && phase === 'debrief' && context.course.id === 'profesionalni-life-coach') {
+      await recordCoachDebriefAttempt({
+        member,
+        course: context.course,
+        item: context.item,
+        scenarioId: request.body?.scenarioId,
+        difficulty,
+        finalExam,
+        messages: request.body?.messages,
+        result,
+      }).catch(async error => {
+        await reportOperationalError({
+          area: 'academy_coach_passport',
+          code: error?.code || 'COACH_DEBRIEF_RECORD_FAILED',
+          path: request.path,
+          summary: error,
+        });
       });
     }
     if (member && billableResult) {
@@ -1284,6 +1313,23 @@ app.post('/api/training', async (request, response) => {
     });
   }
 });
+
+function parseLocaleQualityEvidence(value) {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function optionalEnvironmentNumber(name) {
+  const value = process.env[name];
+  if (value === undefined || value === '') return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
 
 function sanitizeConsultationMode(value) {
   const allowed = new Set([
@@ -1405,3 +1451,6 @@ if (process.env.VERCEL !== '1') {
 }
 
 export default app;
+
+// Internal module exports for bounded synthetic cost benchmarks; not HTTP endpoints.
+export { answer as auditAnswer, answerTraining as auditTraining, courses as auditCourses };

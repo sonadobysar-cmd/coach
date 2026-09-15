@@ -93,4 +93,8 @@ test('detektor podobnosti toleruje normální navázání a zachytí kosmeticky 
   const continuation = 'Rozumím, že nechceš pokračovat s workshopy, ale v rozhovoru ano. Podíváme se tedy, co by mohlo být místo nich.';
   assert.equal(isNearDuplicate(first, repeated), true);
   assert.equal(isNearDuplicate(first, continuation), false);
+  assert.equal(
+    isNearDuplicate('Co je pro tebe na dalším workshopu nejtěžší?', 'Co ti na dalším workshopu připadá nejtěžší?'),
+    true,
+  );
 });

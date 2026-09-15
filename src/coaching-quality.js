@@ -6,10 +6,15 @@ import {
   requestsFactsOnly,
   requestsOneShortQuestion,
 } from './conversation-repair-intent.js';
+import {
+  detectConversationLanguage,
+  languageInstruction,
+  responseLanguageMismatch,
+} from './language-profile.js';
 
 export { requestsFactsOnly, requestsOneShortQuestion };
 
-const ACKNOWLEDGEMENT = /^(?:ano|jo|jasně|jasne|dobře|dobre|ok|souhlasím|souhlasim|můžeme|muzeme|zkusme|nevím|nevim)[.!\s]*$/iu;
+const ACKNOWLEDGEMENT = /^(?:(?:asi\s+)?(?:ano|áno|jo|jasně|jasne|dobře|dobre|ok|souhlasím|souhlasim|súhlasím|suhlasim|můžeme|muzeme|môžeme|mozeme|zkusme|skúsme|skusme|nevím|nevim|neviem))[.!\s]*$/iu;
 const STOPWORDS = new Set([
   'aby', 'ale', 'ani', 'ano', 'asi', 'bez', 'bude', 'byla', 'bylo', 'bych', 'bys', 'co', 'coz',
   'dalsi', 'dnes', 'do', 'ho', 'jak', 'jako', 'jsem', 'jsi', 'jsme', 'kdy', 'kdyz', 'ktera',
@@ -18,6 +23,9 @@ const STOPWORDS = new Set([
   'pokud', 'potom', 'pro', 'proc', 'proto', 'protoze', 'pred', 'pri', 'se', 'si', 'tak', 'tam',
   'te', 'ted', 'ten', 'tento', 'to', 'tohle', 'tom', 'tvoje', 'tvuj', 'ty', 'uz', 've', 'vse',
   'zase', 'ze', 'zde', 'zpet', 'mela', 'mel', 'chci', 'potrebuji', 'prosim', 'treba',
+  'som', 'sme', 'ste', 'co', 'ako', 'ked', 'preco', 'teraz', 'dalej', 'toto', 'tamto',
+  'moja', 'moje', 'moj', 'tvoja', 'tvoje', 'tvoj', 'svoja', 'svoje', 'svoj', 'chcem',
+  'potrebujem', 'prosim', 'bolo', 'bola', 'budem', 'mozem', 'mozes', 'viem',
 ]);
 
 function normalize(value) {
@@ -30,10 +38,10 @@ function normalize(value) {
 function stem(token) {
   const normalized = normalize(token).replace(/[^a-z0-9]/g, '');
   if (normalized.length <= 3) return normalized;
-  const withoutNegation = normalized.length >= 7 && normalized.startsWith('ne')
-    ? normalized.slice(2)
-    : normalized;
-  return withoutNegation
+  // Negation changes the meaning of the whole coaching turn. In particular,
+  // "chci pokračovat" and "nechci pokračovat" must never collapse to the
+  // same semantic fingerprint when we detect loops or ignored boundaries.
+  return normalized
     .replace(/(?:ami|emi|ove|ova|ovy|eni|ani|ace|aci|ost|ech|ich|ych|ou|em|om|im|am|is|as|es|at|it|et|la|li|ly|lo|na|ni|ny|no|uje|uji|oval|ovat|eni|y|a|u|i|e|o)$/u, '')
     .slice(0, 8);
 }
@@ -234,6 +242,17 @@ function groundingCount(text, evidence) {
   return evidence.anchorStems.filter(anchor => responseStems.has(anchor)).length;
 }
 
+function stemSimilarity(left, right) {
+  const leftStems = contentStems(left);
+  const rightStems = contentStems(right);
+  if (leftStems.size < 2 || rightStems.size < 2) return 0;
+  const intersection = [...leftStems].filter(value => rightStems.has(value)).length;
+  const union = new Set([...leftStems, ...rightStems]).size;
+  const jaccard = union ? intersection / union : 0;
+  const overlap = intersection / Math.min(leftStems.size, rightStems.size);
+  return Math.max(jaccard, overlap);
+}
+
 export function assessCoachingResponse(text, {
   messages = [],
   conversationContext = {},
@@ -254,9 +273,10 @@ export function assessCoachingResponse(text, {
   const normalizedLatestUserText = normalize(latestUserText).replace(/\s+/g, ' ').trim();
   const firstUserTurn = Number(conversationContext.userTurns || 0) <= 1;
   const outputWordCount = output.split(/\s+/u).filter(Boolean).length;
+  const responseLanguage = conversationContext.responseLanguage || detectConversationLanguage(messages);
   const explicitlyRequestsFactsOnly = requestsFactsOnly(latestUserText);
   const explicitlyRequestsOneShortQuestion = requestsOneShortQuestion(latestUserText);
-  const asksForHumanLanguage = /\b(?:mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(?:clovek|lidsk|normaln|jednodus)|\b(?:nerozumim|nechapu|moc slozit|co tim myslis|nepochopil|nepochopila|meles nesmysly|jak jsme se (?:sem )?dostal\w*|opakujes)\b/u.test(normalizedLatestUserText);
+  const asksForHumanLanguage = /\b(?:mluv|rekni|povedz|vysvetli)\b[^.!?]{0,45}\b(?:clovek|lidsk|normaln|jednodus)|\b(?:nerozumim|nerozumiem|nechapu|nechapem|moc slozit|co tim myslis|co tym myslis|nepochopil|nepochopila|meles nesmysly|trepes nezmysly|jak jsme se (?:sem )?dostal\w*|opakujes)\b/u.test(normalizedLatestUserText);
   const assistantAssertions = normalized.replace(/[„“"][^„“"]+[„“"]/gu, ' ');
   const userEvidenceText = normalize((evidence.recentUserEvidence || []).join(' '));
   const emotionFamilies = [
@@ -301,15 +321,16 @@ export function assessCoachingResponse(text, {
   const professionalCase = conversationContext.professionalCase || {};
   const personalizedContentRequested = professionalCase.requestedDeliverable === 'personalized_content_output';
   const healthImpactPatterns = [
-    /\b(?:spanek|spanku|spat|nespim|nespi)\b/u,
-    /\b(?:jidlo|jidla|jist|nejim|chut k jidlu)\b/u,
-    /\b(?:energie|vycerpan|unav)\w*\b/u,
-    /\b(?:fungovan|fungovat|nefungu)\w*\b/u,
+    /\b(?:spanek|spanok|spanku|spat|nespim|nespi)\b/u,
+    /\b(?:jidlo|jedlo|jidla|jedla|jist|jest|nejim|chut k jidlu|chut do jedla)\b/u,
+    /\b(?:energie|energia|vycerpan|unav)\w*\b/u,
+    /\b(?:fungovan|fungovanie|fungovat|fungovat|nefungu)\w*\b/u,
     /\b(?:zdravot|pretez|bezneho zivota|kazdodenniho zivota)\w*\b/u,
   ];
   const healthQuestionText = normalize((String(output).match(/[^?]+\?/gu) || []).join(' '));
   const healthScreenDimensions = healthImpactPatterns.filter(pattern => pattern.test(healthQuestionText)).length;
-  const explicitHealthQuestion = /\b(?:spanek|spanku|spat|nespim|nespi|jidlo|jidla|jist|nejim|chut k jidlu)\b|\b(?:zdravot|pretez|vycerpan)\w*\b|\bunav(?:a|en\w*)\b/u.test(healthQuestionText);
+  const healthOutputDimensions = healthImpactPatterns.filter(pattern => pattern.test(normalized)).length;
+  const explicitHealthQuestion = /\b(?:spanek|spanok|spanku|spat|nespim|nespi|jidlo|jedlo|jidla|jedla|jist|jest|nejim|chut k jidlu|chut do jedla)\b|\b(?:zdravot|pretez|vycerpan)\w*\b|\bunav(?:a|en\w*)\b/u.test(healthQuestionText);
   const personalEnergyOrFunctioning = /\b(?:tv\w*|vas\w*|moj\w*)\b[^?\n]{0,24}\b(?:energ|fungovan|fungovat|nefungu)\w*\b/u.test(healthQuestionText)
     || /\b(?:energ|fungovan|fungovat|nefungu)\w*\b[^?\n]{0,24}\b(?:tobe|tebe|vas|mne|me)\b/u.test(healthQuestionText);
   const framedAsHealthImpact = personalEnergyOrFunctioning
@@ -317,7 +338,9 @@ export function assessCoachingResponse(text, {
       || /\b(?:energ|fungovan|fungovat|nefungu)\w*\b[^?\n]{0,90}\b(?:ovlivn|promit|projev|zasah|naru\w*|zhors|dopad)\w*\b/u.test(healthQuestionText))
     || /\b(?:bezne|kazdodenni)\w*\b[^?\n]{0,30}\bfungovan\w*\b/u.test(healthQuestionText)
     || /\bschopnost\w*\b[^?\n]{0,30}\b(?:normalne\s+)?fungovat\w*\b/u.test(healthQuestionText);
-  const unsolicitedHealthScreen = healthScreenDimensions >= 2 || explicitHealthQuestion || framedAsHealthImpact;
+  const directsHealthCheck = /\b(?:zkontroluj|skontroluj|sleduj|odmer|zmer|hlidej|strav|zapis)\w*\b[^.!?\n]{0,100}\b(?:span|jid|jedl|energ|fungovan|zdravot|vycerpan|unav)\w*\b/u.test(normalized)
+    || /\b(?:span|jid|jedl|energ|fungovan|zdravot|vycerpan|unav)\w*\b[^.!?\n]{0,100}\b(?:zkontroluj|skontroluj|sleduj|odmer|zmer|hlidej|strav|zapis)\w*\b/u.test(normalized);
+  const unsolicitedHealthScreen = healthScreenDimensions >= 2 || explicitHealthQuestion || framedAsHealthImpact || (directsHealthCheck && healthOutputDimensions >= 1);
   const userRaisedHealthImpact = healthImpactPatterns.some(pattern => pattern.test(userEvidenceText));
   const previousAssistantTexts = (Array.isArray(messages) ? messages : [])
     .filter(message => message?.role === 'assistant')
@@ -326,11 +349,11 @@ export function assessCoachingResponse(text, {
     healthImpactPatterns.filter(pattern => pattern.test(text)).length >= 2
   ));
   const normalRiskCoaching = !isBusinessRole && (conversationContext.riskLevel || 'normal') === 'normal';
-  const latestIsNonAnswer = /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu (?:to )?rict|neumim (?:to )?rict)[.!\s]*$/u.test(normalizedLatestUserText);
+  const latestIsNonAnswer = /^(?:(?:to|ja)\s+)?(?:(?:asi|fakt|proste|nejako|naozaj)\s+)*(?:nevim|neviem|netusim|nedokazu(?:\s+to)?(?:\s+(?:rict|povedat))?|nedokazem(?:\s+to)?(?:\s+(?:rict|povedat))?|neumim(?:\s+to)?(?:\s+(?:rict|povedat))?)(?:\s+(?:proste|nejako))?[.!\s]*$/u.test(normalizedLatestUserText);
   const lastAssistantNormalized = normalize(String([...messages].reverse().find(message => message?.role === 'assistant')?.content || ''));
-  const declinedRequestedTechnique = /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
+  const declinedRequestedTechnique = /^(?:ne|nie|nechci|nechcem|radsi ne|radsej nie|ted ne|teraz nie|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
     && /\bchces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit|udelat)\b/u.test(lastAssistantNormalized);
-  const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco tim myslis\b/u.test(normalizedLatestUserText);
+  const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nerozumiem|nechapu|nechapem)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|povedz|formul)|\b(?:muzes|mohla bys|mozes)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco (?:tim|tym) myslis\b/u.test(normalizedLatestUserText);
   const latestGrantedConsent = /^(?:ano|jo|souhlasim|muzeme|zkusme|pojďme|pojdme)[.!\s]*$/u.test(normalizedLatestUserText);
   const previousAssistantAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/u.test(lastAssistantNormalized);
   const unexplainedThirdPartyDeparture = reportsUnexplainedThirdPartyDeparture(
@@ -344,6 +367,9 @@ export function assessCoachingResponse(text, {
     : null;
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
+  if (responseLanguageMismatch(output, responseLanguage)) {
+    issues.push({ code: 'response_language_mismatch', severity: 'high', detail: responseLanguage });
+  }
   if (techniquePhase === 'evaluation'
     && (!isTechniqueEffectCheck(output) || startsTechniqueIntervention(output))) {
     issues.push({ code: 'technique_evaluation_skipped', severity: 'high' });
@@ -379,10 +405,10 @@ export function assessCoachingResponse(text, {
   if (/^(?:rozumim|to dava smysl|dekuji za sdileni|pojdme se na to podivat|skvele|vyborne)\b/u.test(normalized)) {
     issues.push({ code: 'chatbot_opening', severity: 'medium' });
   }
-  if (/^(?:mas (?:uplnou|naprostou) pravdu|presne tak|naprosto souhlasim|souhlasim s tebou)\b/u.test(normalized)) {
+  if (/\b(?:mas (?:uplnou|uplnu|naprostou) pravdu|samozrejme (?:mas )?(?:uplnou|uplnu|naprostou )?pravdu|presne tak|naprosto souhlasim|uplne suhlasim|suhlasim s tebou|souhlasim s tebou|ved ano)\b/u.test(normalized)) {
     issues.push({ code: 'sycophantic_agreement', severity: 'high' });
   }
-  if (/\b(?:vim presne,? jak se citis|presne citim,? co prozivas|citím tvou bolest|citim tvou bolest)\b/u.test(normalized)) {
+  if (/\b(?:vim presne,? jak se citis|presne viem,? ako sa citis|presne citim,? co prozivas|presne citim,? co prezivas|citim tvou bolest|citim tvoju bolest)\b/u.test(normalized)) {
     issues.push({ code: 'fabricated_empathy', severity: 'high' });
   }
   if (inventedEmotion) {
@@ -417,6 +443,17 @@ export function assessCoachingResponse(text, {
     && /^(?:abych ti (?:mohla )?pomohla,? potrebuji|nejdrive mi rekni|potrebuji vic informaci|muzes to upresnit)\b/u.test(normalized)
     && !/\b(?:doporucuji|udelala bych|zkus|zacni|nejdriv bych|smysl|znamena|nemusi|pomuze|oddeli|vyber)\b/u.test(normalized)) {
     issues.push({ code: 'question_without_value', severity: 'high' });
+  }
+  const vulnerableTurn = /\b(?:neschopn|k nicemu|zlyhal|selhal|bojim|bojim sa|strach|styd|hanbim|zahlcen|prehlcen|smut|zklaman|sklaman|nezvlad|nezvladam|nemam na to)\w*\b/u.test(normalizedLatestUserText);
+  const onlyQuestion = questionCount === 1 && !String(output).split('?')[0].replace(/[„“"'():;,.!—-]/gu, '').trim();
+  const beforeQuestion = String(output).split('?')[0] || '';
+  const bridgeWordCount = beforeQuestion.split(/\s+/u).filter(Boolean).length;
+  const hasRelationalBridge = bridgeWordCount >= 6
+    && (groundingCount(beforeQuestion, evidence) >= 1
+      || /\b(?:neni|nie je)\b[^.!?]{0,40}\b(?:dukaz|rozsudok|rozsudek)\b|\b(?:tohle|toto|tenhle|tento)\b[^.!?]{0,45}\b(?:zasah|boli|tezke|tazke|podstatn|dulezit)\w*\b/u.test(normalize(beforeQuestion)));
+  const coldDirective = /^\s*(?:uved|popis|rekni|povedz|vyber|napis|povedz mi|kdy|kedy|co|čo|jak|ako)\b/u.test(normalized);
+  if (!isBrandGrowth && vulnerableTurn && (onlyQuestion || coldDirective || outputWordCount <= 12) && !hasRelationalBridge) {
+    issues.push({ code: 'cold_first_turn', severity: 'high' });
   }
   if (isBusinessMentoring && asksForHumanLanguage
     && (/\b(?:nejblizsi byznysove|rozhodujici predpoklad|mechanismus|distribucni realit|pracovni zadani)\b/u.test(normalized)
@@ -462,7 +499,7 @@ export function assessCoachingResponse(text, {
     }
   }
   if (latestIsNonAnswer
-    && /\b(?:mame|vytvorila jsi|nasla jsi|povedlo se)\b[^.!?\n]{0,80}\b(?:presnejsi vet\w*|odpoved\w*|reseni|krok)\b/u.test(normalized)) {
+    && /\b(?:mame|vytvorila jsi|nasla jsi|povedlo se)\b[^.!?\n]{0,80}\b(?:presnejs\w* vet\w*|odpoved\w*|reseni|krok)\b/u.test(normalized)) {
     issues.push({ code: 'invented_step_completion', severity: 'high' });
   }
   if (declinedRequestedTechnique
@@ -474,7 +511,8 @@ export function assessCoachingResponse(text, {
     issues.push({ code: 'failed_question_rephrase', severity: 'high' });
   }
   if (normalizedLastQuestion.length >= 12
-    && normalizedCurrentQuestion === normalizedLastQuestion) {
+    && (normalizedCurrentQuestion === normalizedLastQuestion
+      || stemSimilarity(normalizedCurrentQuestion, normalizedLastQuestion) >= 0.72)) {
     issues.push({ code: 'repeated_question', severity: 'high' });
   }
   if ((/\bjsem\s+k\s+nicemu\b/u.test(normalizedLatestUserText) && /\bveta\s+[„"']?jsem\s+neschopna\b/u.test(normalized))
@@ -486,8 +524,12 @@ export function assessCoachingResponse(text, {
     && /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b/u.test(normalized)) {
     issues.push({ code: 'redundant_consent_request', severity: 'high' });
   }
-  if (normalized.length >= 80
-    && previousAssistantTexts.some(previous => previous.replace(/\s+/g, ' ').trim() === normalized.replace(/\s+/g, ' ').trim())) {
+  if (normalized.length >= 20
+    && previousAssistantTexts.some(previous => {
+      const prior = previous.replace(/\s+/g, ' ').trim();
+      const current = normalized.replace(/\s+/g, ' ').trim();
+      return prior === current || stemSimilarity(prior, current) >= 0.82;
+    })) {
     issues.push({ code: 'repeated_assistant_response', severity: 'high' });
   }
   if (!proceduralPhase
@@ -552,6 +594,8 @@ export function assessCoachingResponse(text, {
     'departure_uncertainty_missing',
     'fact_only_unsupported_claim',
     'unsupported_performance_verdict',
+    'response_language_mismatch',
+    'cold_first_turn',
   ]);
   const shouldRepair = issues.some(issue => repairCodes.has(issue.code))
     || issues.filter(issue => issue.severity === 'high').length >= 2;
@@ -575,7 +619,7 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       `Původní zakázka: ${conversationContext.openingFocus || 'nezjištěna'}`,
       `Poslední věcná zpráva členky: ${evidence.latestSubstantiveUserText || 'nezjištěna'}`,
       'Napiš odpověď znovu jako seniorní byznys mentorka, ne jako terapeutka ani pasivní koučka. Na jasný byznysový problém dej hned nejlepší konkrétní doporučení z dostupných informací, vysvětli jeho důvod a na konci polož nanejvýš jednu rozhodující otázku.',
-      'Mluv běžnou současnou češtinou, jako zkušená člověčí mentorka v normálním rozhovoru. Neopakuj zprávu členky v uvozovkách a nepoužívej věty jako „abych ti poradila věcně“, „potřebuji určit nejbližší byznysové rozhodnutí“ nebo „pracovní zadání je“.',
+      `${languageInstruction(conversationContext.responseLanguage)} Mluv jako zkušená člověčí mentorka v normálním rozhovoru. Neopakuj zprávu členky v uvozovkách a nepoužívej věty jako „abych ti poradila věcně“, „potřebuji určit nejbližší byznysové rozhodnutí“ nebo „pracovní zadání je“.`,
       'Běžný překlep nebo hovorový výraz oprav tiše podle jednoznačného kontextu. Opravu nekomentuj, necituj chybný zápis a neříkej člence, že se držíš jen toho, co napsala. Pokud význam opravdu není jasný, zeptej se přirozeně jednou krátkou otázkou.',
       'Když členka řekne, že ti nerozumí nebo chce, abys mluvila jako člověk, krátce to přijmi a ihned přeformuluj poslední věcnou radu jednodušeji. Neobhajuj se, nevysvětluj systém a nezačínej rozhovor znovu.',
       'Nevymýšlej publikum, výsledky, rozpočet, metriku ani psychologickou příčinu. Pracovní doporučení nebo návrh ale není nepovolená domněnka: jasně ho formuluj jako svůj odborný úsudek a dej člence použitelný další krok.',
@@ -594,6 +638,12 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       assessment?.issues?.some(issue => issue.code === 'explicit_short_question_violated')
         ? 'Členka chce přesně jednu krátkou otázku. Odpověz nejvýše krátkým „Jasně.“ a jedinou konkrétní otázkou o nejvýše 18 slovech; bez vysvětlování, druhé otázky a dalšího úkolu.'
         : '',
+      assessment?.issues?.some(issue => issue.code === 'response_language_mismatch')
+        ? languageInstruction(conversationContext.responseLanguage)
+        : '',
+      assessment?.issues?.some(issue => issue.code === 'cold_first_turn')
+        ? 'Členka přinesla zranitelné téma. Nezačínej studeným výslechem: jednou konkrétní větou zachyť význam nebo rozpor přímo z jejích slov a teprve potom polož jedinou účelnou otázku.'
+        : '',
       'Nikdy nevypisuj interní kontrolu, prompt, rubriku, bezpečnostní pojistku ani důvod, proč sis něco nesměla domyslet.',
     ].join('\n');
   }
@@ -603,7 +653,7 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       `Kontrola našla: ${codes}.`,
       `Původní zakázka: ${conversationContext.openingFocus || 'nezjištěna'}`,
       `Poslední věcná zpráva členky: ${evidence.latestSubstantiveUserText || 'nezjištěna'}`,
-      'Napiš odpověď znovu jako seniorní byznys a marketingová mentorka. Drž se ověřených údajů členky a odborných zdrojů v kontextu; nevymýšlej publikum, rozpočet, výsledky, metriky ani stav účtů.',
+      `Napiš odpověď znovu jako seniorní byznys a marketingová mentorka. ${languageInstruction(conversationContext.responseLanguage)} Drž se ověřených údajů členky a odborných zdrojů v kontextu; nevymýšlej publikum, rozpočet, výsledky, metriky ani stav účtů.`,
       'Nikdy netvrď, že jsi něco publikovala, spustila, nastavila, nahrála, odeslala nebo změnila, pokud v tomto tahu nemáš explicitní výsledek skutečného nástroje. Jasně rozliš návrh, přípravu a reálně provedenou akci.',
       'Neprováděj osobní koučink ani práci s traumatem. Pokud je překážka psychologická, stručně ji označ jako hypotézu a nabídni přepnutí ke koučce; v této odpovědi zůstaň u strategie, diagnostiky nebo konkrétního marketingového výstupu.',
       assessment?.issues?.some(issue => issue.code === 'generic_content_output')
@@ -626,7 +676,7 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
     `Poslední otázka asistentky: ${evidence.lastAssistantQuestion || 'žádná'}`,
     `Opravy a hranice vyslovené členkou: ${(evidence.corrections || []).join(' | ') || 'žádné'}`,
     'Napiš odpověď znovu jako přesný profesionální koučovací tah. Opři se o skutečnosti, které členka uvedla; vlastní interpretaci nebo možný blok můžeš přidat jako jasně označenou pracovní hypotézu, která se dá opravit či ověřit. Nevymýšlej její schopnosti, vztahy, publikum ani výsledek. Neurčité „ve vztahu“ automaticky nezaměňuj za partnera; dokud členka vztah neupřesní, řekni raději „druhý člověk“. Automaticky s ní nesouhlas a nevytvářej dojem, že tě potřebuje.',
-    'Mluv běžnou současnou češtinou jako člověk v živém rozhovoru. Neopakuj celou zprávu členky ani ji necituj v uvozovkách. Pokud řekla, že ti nerozumí nebo chce normální řeč, krátce to přijmi a hned přeformuluj poslední věcný tah jednodušeji.',
+    `${languageInstruction(conversationContext.responseLanguage)} Mluv jako člověk v živém rozhovoru. Neopakuj celou zprávu členky ani ji necituj v uvozovkách. Pokud řekla, že ti nerozumí nebo chce normální řeč, krátce to přijmi a hned přeformuluj poslední věcný tah jednodušeji.`,
     'Nemusíš čekat na úplné zmapování. Když to člence pomůže, dej hned konkrétní odborný úsudek, označenou pracovní hypotézu, krátké cvičení nebo proveditelný krok. Jasně odděl, co skutečně uvedla, co je tvoje hypotéza a co má další krok ověřit. Ptej se jen na údaj, který by doporučení opravdu změnil.',
     assessment?.issues?.some(issue => ['unsolicited_health_screening', 'repeated_health_screening'].includes(issue.code))
       ? 'Bezpečnostní úroveň je normální. Neodváděj téma ke spánku, jídlu, energii, tělu, zdraví ani běžnému fungování a neopakuj již zodpovězený screening. Vrať se k původní zakázce a pracuj s konkrétním obsahem obavy, její předpovědí, významem nebo vlivem na rozhodnutí; proveď jeden skutečný koučovací krok.'
@@ -666,6 +716,12 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'explicit_short_question_violated')
       ? 'Členka výslovně chce jedinou krátkou otázku. Odpověz maximálně krátkým přijetím a jednou konkrétní otázkou o nejvýše 18 slovech; bez vysvětlování a bez druhé otázky.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'response_language_mismatch')
+      ? languageInstruction(conversationContext.responseLanguage)
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'cold_first_turn')
+      ? 'Členka otevřela zranitelné téma. Dej nejprve jednu krátkou, konkrétní a nepatronizující vztahovou větu ukotvenou v jejích slovech; teprve potom polož jednu otázku, která práci skutečně posune.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');

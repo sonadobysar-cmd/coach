@@ -6,6 +6,12 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   `ALTER TABLE memberships ADD COLUMN IF NOT EXISTS provider_event_created_at bigint`,
   `UPDATE memberships SET trial_consumed_at=COALESCE(updated_at, now())
     WHERE trial_consumed_at IS NULL AND provider_subscription_id IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS ai_call_events (
+    id uuid PRIMARY KEY, request_id text NOT NULL, user_id uuid,
+    event jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS ai_call_events_user_time_idx ON ai_call_events (user_id, created_at)`,
+  `ALTER TABLE ai_call_events ENABLE ROW LEVEL SECURITY`,
   `CREATE TABLE IF NOT EXISTS stripe_webhook_events (
     event_id text PRIMARY KEY,
     event_type text NOT NULL,
@@ -156,6 +162,25 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS academy_exam_attempts_lookup_idx
     ON academy_exam_attempts (user_id, course_id, completed_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS academy_coach_debrief_attempts (
+    id uuid PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    course_id text NOT NULL,
+    course_slug text NOT NULL,
+    item_id text NOT NULL,
+    scenario_id text NOT NULL,
+    difficulty text NOT NULL CHECK (difficulty IN ('guided', 'standard', 'advanced', 'expert')),
+    final_exam boolean NOT NULL DEFAULT false,
+    provider text NOT NULL,
+    quality_passed boolean NOT NULL DEFAULT false,
+    achievement jsonb NOT NULL DEFAULT '{}'::jsonb,
+    critical_failures jsonb NOT NULL DEFAULT '[]'::jsonb,
+    transcript_hash text NOT NULL CHECK (transcript_hash ~ '^[0-9a-f]{64}$'),
+    completed_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, course_id, transcript_hash)
+  )`,
+  `CREATE INDEX IF NOT EXISTS academy_coach_debrief_attempts_lookup_idx
+    ON academy_coach_debrief_attempts (user_id, course_id, completed_at ASC)`,
   `CREATE TABLE IF NOT EXISTS academy_quiz_attempts (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
@@ -191,6 +216,7 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     ON academy_certificates (user_id, issued_at DESC)`,
   `ALTER TABLE academy_course_evidence ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE academy_exam_attempts ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE academy_coach_debrief_attempts ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE academy_quiz_attempts ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE academy_certificates ENABLE ROW LEVEL SECURITY`,
 ];

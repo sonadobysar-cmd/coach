@@ -14,6 +14,8 @@ import {
   signedRecordMatchesDatabase,
   verifyCertificateVerificationToken,
 } from './certificate-authenticity.js';
+import { isProfessionalLifeCoachCourse } from './coach-competencies.js';
+import { buildCoachCompetencyPassport } from './coach-competency-passport.js';
 
 export async function syncCertificateEvidence(member, course, input, env = process.env, dependencies = {}) {
   assertStorage(member, env);
@@ -63,7 +65,7 @@ export async function recordCertificateExamAttempt({ member, course, item, scena
 export async function certificateStatus(member, course, env = process.env, dependencies = {}) {
   assertStorage(member, env);
   const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
-  const [evidenceRows, examRows, certificateRows] = await Promise.all([
+  const [evidenceRows, examRows, certificateRows, coachDebriefRows] = await Promise.all([
     sql`SELECT completed_item_ids, portfolio_summary, evidence_hash, updated_at
       FROM academy_course_evidence WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
     sql`SELECT all_proven, quality_passed, provider, completed_at
@@ -75,9 +77,19 @@ export async function certificateStatus(member, course, env = process.env, depen
         completed_at DESC LIMIT 1`,
     sql`SELECT member_name, course_title, completed_at, issued_at, template_variant, revoked_at
       FROM academy_certificates WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
+    isProfessionalLifeCoachCourse(course?.id)
+      ? sql`SELECT id, item_id, scenario_id, difficulty, final_exam, provider, quality_passed,
+          achievement, critical_failures, transcript_hash, completed_at
+        FROM academy_coach_debrief_attempts
+        WHERE user_id=${member.id}::uuid AND course_id=${course.id}
+        ORDER BY completed_at ASC`
+      : Promise.resolve([]),
   ]);
   const status = buildCertificateStatus(course, {
-    evidence: evidenceRows[0], examAttempt: examRows[0], certificate: certificateRows[0],
+    evidence: evidenceRows[0],
+    examAttempt: examRows[0],
+    certificate: certificateRows[0],
+    coachDebriefAttempts: coachDebriefRows,
   });
   return {
     ...status,
@@ -87,7 +99,13 @@ export async function certificateStatus(member, course, env = process.env, depen
   };
 }
 
-export function buildCertificateStatus(course, { evidence, examAttempt, certificate } = {}) {
+export function buildCertificateStatus(course, {
+  evidence,
+  examAttempt,
+  certificate,
+  coachDebriefAttempts = [],
+  coachPassport,
+} = {}) {
   const portfolioSummary = evidence?.portfolio_summary || evidence?.portfolioSummary || {};
   const completedItemIds = evidence?.completed_item_ids || evidence?.completedItemIds || [];
   const finalExamAchievement = {
@@ -101,11 +119,20 @@ export function buildCertificateStatus(course, { evidence, examAttempt, certific
   const trustedExam = finalExamAchievement.allProven
     && (examAttempt?.quality_passed === true || examAttempt?.qualityPassed === true)
     && isTrustedCertificateProvider(examAttempt?.provider);
-  const eligible = eligibility.eligible && trustedExam;
+  const professionalCoachCourse = isProfessionalLifeCoachCourse(course?.id);
+  const professionalPassport = professionalCoachCourse
+    ? (coachPassport || buildCoachCompetencyPassport(coachDebriefAttempts))
+    : null;
+  const eligible = eligibility.eligible && trustedExam && (!professionalCoachCourse || professionalPassport.eligible);
   const reasons = [];
   if (eligibility.missingItemIds.length) reasons.push(`Dokonči ještě ${eligibility.missingItemIds.length} částí kurzu.`);
   if (!portfolioSummary.portfolioComplete) reasons.push('Doplň profesní balíček, cestu a závěrečné sebehodnocení.');
   if (!trustedExam) reasons.push('Absolvuj závěrečnou AI zkoušku a prokaž všechna kritéria.');
+  if (professionalPassport && !professionalPassport.eligible) {
+    reasons.push(...professionalPassport.reasons.filter(reason => (
+      trustedExam || !/závěrečnou koučovací zkoušku/iu.test(reason)
+    )));
+  }
   const activeCertificate = certificate && !certificate.revoked_at && !certificate.revokedAt ? certificate : null;
   return {
     eligible,
@@ -116,7 +143,9 @@ export function buildCertificateStatus(course, { evidence, examAttempt, certific
       requiredItems: (course?.modules || []).flatMap(module => module.items || []).length,
       ...portfolioSummary,
       examPassed: trustedExam,
+      ...(professionalPassport ? { coachPassport: professionalPassport.progress } : {}),
     },
+    ...(professionalPassport ? { coachPassport: professionalPassport } : {}),
     certificate: activeCertificate ? {
       memberName: activeCertificate.member_name || activeCertificate.memberName,
       courseTitle: activeCertificate.course_title || activeCertificate.courseTitle,
