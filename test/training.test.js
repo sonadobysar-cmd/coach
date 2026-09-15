@@ -428,6 +428,89 @@ test('server zamkne mastery scénář na jeho skutečnou lekci a kanonickou obt�
   );
 });
 
+test('lekce bez vlastního mastery scénáře si nikdy nepůjčí situaci sousední části modulu', () => {
+  const firstItem = {
+    id: 'm0-first',
+    title: 'Vyjasnění účelu rozhovoru',
+    markdown: 'Studentka se učí vyjasnit účel rozhovoru před volbou dalšího postupu.',
+  };
+  const neighboringItem = {
+    id: 'm0-neighbor',
+    title: 'Uzavření a následná zpráva',
+    markdown: 'Studentka se učí uzavřít rozhovor a připravit následnou zprávu.',
+  };
+  const neighboringScenario = {
+    id: 'synthetic-course:neighboring-mastery-case',
+    moduleId: 'm0',
+    moduleIndex: 0,
+    itemId: neighboringItem.id,
+    itemTitle: neighboringItem.title,
+    difficulty: 'advanced',
+    title: 'Sousední situace k následné zprávě',
+    role: 'modelová partnerka',
+    assignment: 'Uzavři rozhovor a pošli následnou zprávu.',
+    openingLine: 'Rozhovor už skončil a čekám na tvoji následnou zprávu.',
+    evidenceTarget: 'odeslaná následná zpráva',
+    rubric: ['Uzavření rozhovoru'],
+  };
+  const syntheticCourse = {
+    id: 'synthetic-course',
+    slug: 'synthetic-course',
+    title: 'Syntetický kurz',
+    modules: [{
+      id: 'm0',
+      title: 'Rozhovor',
+      items: [firstItem, neighboringItem],
+    }],
+    mastery: { scenarios: [neighboringScenario] },
+  };
+  Object.defineProperty(syntheticCourse, '_masteryPrivate', {
+    value: {
+      [neighboringScenario.id]: {
+        facts: 'Sousední fakta pouze k následné zprávě.',
+        hiddenNeed: 'Bezpečně uzavřít rozhovor.',
+        behavior: 'Čekej na konkrétní následnou zprávu.',
+      },
+    },
+    enumerable: false,
+  });
+
+  const firstScenario = createTrainingScenario(syntheticCourse, firstItem, 'advanced');
+  assert.equal(firstScenario.id, 'synthetic-course:m0-first:advanced');
+  assert.equal(firstScenario.itemId, firstItem.id);
+  assert.equal(firstScenario.difficulty, 'advanced');
+  assert.match(`${firstScenario.title} ${firstScenario.assignment} ${firstScenario.private.facts}`, /Vyjasnění účelu rozhovoru/u);
+  assert.doesNotMatch(
+    `${firstScenario.title} ${firstScenario.openingLine} ${firstScenario.private.facts}`,
+    /Sousední situace|následné zprávě/u,
+  );
+  assert.ok(firstScenario.rubric.length >= 7);
+
+  const roundTrip = createTrainingScenario(
+    syntheticCourse,
+    firstItem,
+    firstScenario.difficulty,
+    firstScenario.id,
+  );
+  assert.equal(roundTrip.id, firstScenario.id);
+  assert.equal(roundTrip.itemId, firstItem.id);
+  assert.equal(roundTrip.openingLine, firstScenario.openingLine);
+
+  const canonicalNeighbor = createTrainingScenario(
+    syntheticCourse,
+    neighboringItem,
+    'guided',
+    neighboringScenario.id,
+  );
+  assert.equal(canonicalNeighbor.id, neighboringScenario.id);
+  assert.equal(canonicalNeighbor.itemId, neighboringItem.id);
+  assert.equal(canonicalNeighbor.difficulty, 'advanced');
+  assert.throws(
+    () => createTrainingScenario(syntheticCourse, firstItem, 'advanced', neighboringScenario.id),
+    error => error.code === 'TRAINING_SCENARIO_ITEM_MISMATCH',
+  );
+});
+
 test('brána simulace odmítne vystoupení z role a trenérskou radu', () => {
   const roleBreak = assessRoleplayResponse('Jako AI trenérka ti doporučuji tři kroky:\n- nejdřív se zeptej na cíl');
   assert.equal(roleBreak.pass, false);

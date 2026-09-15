@@ -8,6 +8,7 @@ import {
 } from './course-knowledge.js';
 import { formatKnowledgeContext } from './knowledge.js';
 import { createLifeCoachLessonScenario } from './life-coach-training.js';
+import { courseMasteryProfile } from './course-mastery.js';
 import {
   isProfessionalLifeCoachCourse,
   isTrainingAdministrativeTurn,
@@ -33,72 +34,6 @@ const ACTIVITIES = new Set(['study', 'simulation']);
 const PHASES = new Set(['study', 'roleplay', 'debrief']);
 const COUNTERPART_HINTS = new Set(['client', 'student', 'audience', 'colleague']);
 const BUSINESS_ACADEMY_CATEGORIES = new Set(BUSINESS_ACADEMY_CATEGORY_IDS);
-
-const BASE_RUBRIC = Object.freeze([
-  'Kontrakt a jasný cíl rozhovoru',
-  'Naslouchání a práce s tím, co klientka skutečně řekla',
-  'Otevřené otázky bez podsouvání odpovědi',
-  'Souhlas, tempo a respekt k hranicím klientky',
-  'Převod uvědomění do konkrétního dalšího kroku',
-]);
-
-const SCENARIO_PRESETS = [
-  {
-    match: /hran|etik|bezpe|diagn[oó]z|zdrav|t[eě]l|nemoc/i,
-    title: 'Hranice role pod tlakem klientky',
-    role: 'Klára, 38 let, podnikatelka ve službách',
-    assignment: 'Veď krátký úsek rozhovoru tak, aby se klientka cítila vyslyšená, ale abys nepřekročila hranice koučovací role.',
-    openingLine: 'Poslední týdny mě vždycky před důležitým rozhodnutím tlačí na hrudi. Myslím, že mi tím tělo říká, že do toho nemám jít. Můžeš mi potvrdit, co to znamená?',
-    facts: 'Klára se bojí špatného podnikatelského rozhodnutí. Tlak na hrudi nebyl odborně posouzen. Od koučky chce jistotu a spirituální výklad.',
-    hiddenNeed: 'Unést nejistotu a oddělit zdravotní symptom, vlastní význam a podnikatelské rozhodnutí.',
-    behavior: 'Když studentka začne diagnostikovat nebo potvrzovat jediný význam, požádej ji o ještě větší jistotu. Když drží hranici citlivě, přiznej obavu z chyby.',
-    rubric: [...BASE_RUBRIC, 'Bezpečné rozlišení koučinku, osobního významu a odborné péče'],
-  },
-  {
-    match: /medit|dech|somat|regul|uzemn|ground/i,
-    title: 'Souhlas a bezpečí při vedené praxi',
-    role: 'Eva, 32 let, začínající lektorka',
-    assignment: 'Reaguj na nepohodu během praxe, obnov volbu klientky a bezpečně uprav další postup.',
-    openingLine: 'Když jsi řekla, ať zavřu oči a soustředím se na dech, začalo mi být nepříjemně. Asi to ale musím vydržet, aby to fungovalo, že?',
-    facts: 'Eva nechce popisovat minulost. Pomáhá jí mít oči otevřené a orientovat se podle věcí v místnosti.',
-    hiddenNeed: 'Zažít, že může techniku odmítnout bez selhání a bez tlaku na vysvětlování.',
-    behavior: 'Pokud studentka tlačí na pokračování, stáhni se a zkrať odpovědi. Pokud nabídne skutečnou volbu, řekni, co je snesitelnější.',
-    rubric: [...BASE_RUBRIC, 'Dobrovolnost techniky a reakce na známku nepohody'],
-  },
-  {
-    match: /intuic|vy[sš][sš][ií]\s*j[aá]|znamen[ií]|energie|manifest|discernment/i,
-    title: 'Intuice bez vnucené jistoty',
-    role: 'Lenka, 35 let, kreativní podnikatelka',
-    assignment: 'Pomoz klientce prozkoumat její intuici, aniž bys vlastní výklad vydávala za pravdu nebo rozhodovala za ni.',
-    openingLine: 'Třikrát jsem tento týden viděla stejné číslo a pak se mi zdálo o moři. Je to podle tebe jasné znamení, že mám opustit práci?',
-    facts: 'Lenka je v práci dlouhodobě nespokojená, ale nemá finanční rezervu ani plán. Symbolům přikládá velký význam.',
-    hiddenNeed: 'Rozlišit osobní význam symbolu, přání odejít, rizika a ověřitelný další krok.',
-    behavior: 'Při autoritativním výkladu se rychle podřiď. Při dobrém zkoumání odhal postupně nespokojenost a strach z finanční nejistoty.',
-    rubric: [...BASE_RUBRIC, 'Práce se spiritualitou bez autoritativního výkladu'],
-  },
-  {
-    match: /cen|nab[ií]dk|ide[aá]ln[ií] klient|podnik|prodej|byznys/i,
-    title: 'Klientka chce hotovou podnikatelskou odpověď',
-    role: 'Martina, 41 let, nová koučka',
-    assignment: 'Rozliš, kdy koučovat a kdy mentorovat, zjisti rozhodující fakta a nenech klientku přenést celé rozhodnutí na tebe.',
-    openingLine: 'Řekni mi prostě, kolik si mám účtovat. Když mi dáš správnou cenu, konečně nabídku zveřejním.',
-    facts: 'Martina zatím vedla tři placená sezení, nezná své náklady ani kapacitu a bojí se odmítnutí. Má tendenci hledat vnější povolení.',
-    hiddenNeed: 'Získat rozhodovací rámec a převzít odpovědnost za ověření ceny v praxi.',
-    behavior: 'Na rychlou cenu reaguj úlevou a dál žádej, aby studentka rozhodla vše. Na přesné otázky poskytuj fakta po jednom.',
-    rubric: [...BASE_RUBRIC, 'Rozlišení koučování, mentoringu a neověřených tržních tvrzení'],
-  },
-  {
-    match: /p[eř]esv[eě]d[cč]|p[rř][ií]b[eě]h|pozitiv|sebed[uů]v|hodnot|identit/i,
-    title: 'Přesvědčení, které nejde přepsat frází',
-    role: 'Tereza, 29 let, fotografka',
-    assignment: 'Prozkoumej konkrétní mechanismus přesvědčení a vytvoř prostor pro realističtější alternativu bez nucené pozitivity.',
-    openingLine: 'Vím, že si mám říkat, že jsem dost dobrá, ale nevěřím tomu. Po posledním odmítnutí mám spíš důkaz, že na to nemám.',
-    facts: 'Tereza měla pět spokojených klientek a jedno nedávné odmítnutí. Odmítnutí si vykládá jako soud o celé své hodnotě.',
-    hiddenNeed: 'Oddělit událost, její význam a předpověď dalšího výsledku.',
-    behavior: 'Na afirmace reaguj nedůvěrou. Na konkrétní a nehodnotící zkoumání uveď postupně fakta o předchozích zakázkách.',
-    rubric: [...BASE_RUBRIC, 'Práce s významem bez zlehčování a nucené pozitivity'],
-  },
-];
 
 export function sanitizeTrainingDifficulty(value) {
   return DIFFICULTIES.has(value) ? value : 'standard';
@@ -187,21 +122,9 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       throw trainingScenarioError('Požadovaný scénář pro tuto část kurzu neexistuje.', 'TRAINING_SCENARIO_NOT_FOUND');
     }
   }
-  // A module-level scenario may be reused as a rich starting point for another
-  // lesson, but its public identity must then be rebound to that exact lesson.
-  // Otherwise the first response exposes an impossible scenario/item pair and
-  // the following signed turn correctly rejects it as tampering.
-  if (!masteryScenario && requestedScenarioId) {
-    masteryScenario = masteryScenarios.find(candidate => (
-      candidate.moduleIndex === moduleIndex
-      && lessonBoundMasteryScenarioId(candidate, item.id) === requestedScenarioId
-    )) || null;
-  }
   if (!requestedScenarioId) {
     masteryScenario = masteryScenarios.find(candidate => candidate.itemId === item.id && candidate.difficulty === safeDifficulty)
       || masteryScenarios.find(candidate => candidate.itemId === item.id)
-      || masteryScenarios.find(candidate => candidate.moduleIndex === moduleIndex && candidate.difficulty === safeDifficulty)
-      || masteryScenarios.find(candidate => candidate.moduleIndex === moduleIndex)
       || null;
   }
   if (masteryScenario) {
@@ -210,7 +133,6 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
     const canonicalDifficulty = sanitizeTrainingDifficulty(masteryScenario.difficulty);
     return {
       ...masteryScenario,
-      id: lessonBoundMasteryScenarioId(masteryScenario, item.id),
       trainerLabel: trainerProfile.label,
       studentRole: trainerProfile.studentRole,
       counterpart: requestedCounterpart || trainerProfile.counterpart,
@@ -230,15 +152,13 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       private: privateScenario,
     };
   }
-  const source = `${item.title}\n${item.markdown || ''}`;
-  const coachingCourse = ['neuroplasticita-practitioner', 'spiritualni-koucink-practice', 'kbt-koucink-v-praxi', 'profesionalni-life-coach'].includes(course.id);
-  const preset = (coachingCourse && SCENARIO_PRESETS.find(candidate => candidate.match.test(source))) || genericScenario(item, trainerProfile);
-  const pressure = {
-    guided: 'Klientka spolupracuje a po dobré otázce poměrně rychle doplní podstatné informace.',
-    standard: 'Klientka odpovídá realisticky, někdy neurčitě a důležité informace sdělí až po přesné otázce.',
-    advanced: 'Klientka zkouší předat odpovědnost, odporuje obecným frázím a citlivě reaguje na nátlak nebo podsouvání.',
-    expert: 'Klientka přináší smíšené motivy, časový tlak a neúplná nebo zdánlivě protichůdná data; žádá rychlou jistotu a zároveň citlivě reaguje na překročení etické hranice.',
-  }[safeDifficulty];
+  const preset = lessonSpecificScenario({
+    course,
+    item,
+    moduleIndex,
+    difficulty: safeDifficulty,
+    trainerProfile,
+  });
   const generated = {
     id: `${course.id}:${item.id}:${safeDifficulty}`,
     courseId: course.id,
@@ -257,7 +177,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
     private: {
       facts: preset.facts,
       hiddenNeed: preset.hiddenNeed,
-      behavior: `${preset.behavior} ${pressure}`,
+      behavior: preset.behavior,
     },
   };
   if (requestedScenarioId && requestedScenarioId !== generated.id) {
@@ -273,10 +193,6 @@ export function publicTrainingScenario(scenario) {
 
 function trainingScenarioError(message, code) {
   return Object.assign(new Error(message), { statusCode: 409, code });
-}
-
-function lessonBoundMasteryScenarioId(scenario, itemId) {
-  return scenario.itemId === itemId ? scenario.id : `${scenario.id}:lesson:${itemId}`;
 }
 
 export function buildBusinessAcademyFacultyContext({
@@ -854,17 +770,58 @@ function sanitizeMessages(messages) {
     .slice(-30);
 }
 
-function genericScenario(item, trainerProfile = getCourseTrainerProfile()) {
+function lessonSpecificScenario({
+  course,
+  item,
+  moduleIndex,
+  difficulty,
+  trainerProfile = getCourseTrainerProfile(),
+}) {
+  const masteryProfile = courseMasteryProfile(course?.id);
+  const module = course?.modules?.[moduleIndex];
+  const itemIndex = Math.max(0, module?.items?.findIndex(candidate => candidate.id === item?.id) ?? 0);
+  const contextIndex = Math.max(0, moduleIndex + itemIndex) % masteryProfile.contexts.length;
+  const openingIndex = contextIndex % masteryProfile.openings.length;
+  const needIndex = contextIndex % masteryProfile.needs.length;
+  const evidenceIndex = contextIndex % masteryProfile.evidence.length;
+  const focus = normalizeScenarioFocus(item?.title);
+  const context = masteryProfile.contexts[contextIndex];
+  const evidence = masteryProfile.evidence[evidenceIndex];
+  const pressure = {
+    guided: 'Spolupracuj; po jedné přesné otázce poměrně rychle doplň podstatnou informaci.',
+    standard: 'Odpovídej realisticky a podstatnou informaci sděl až po přesné otázce.',
+    advanced: 'Odporuj obecným frázím, zkoušej předat odpovědnost a citlivě reaguj na podsouvání.',
+    expert: 'Přines smíšené motivy, časový tlak a dvě zdánlivě protichůdné informace. Vyžádej si rychlou jistotu a při překročení hranice se stáhni.',
+  }[difficulty];
   return {
-    title: `Praktický nácvik: ${item.title}`,
-    role: trainerProfile.counterpart,
-    assignment: `Použij dovednosti z části „${item.title}“ v roli „${trainerProfile.studentRole}“. Reaguj na situaci, udrž odborný rámec a uzavři odpovídající výsledek nácviku.`,
-    openingLine: `Chci s tebou řešit situaci související s částí „${item.title}“, ale nejsem si jistá, jak má naše práce probíhat.`,
-    facts: `Situace se týká obsahu části „${item.title}“. Modelová protistrana zná svůj kontext, ale doplňuje ho pouze po přesné otázce nebo vhodné reakci studentky.`,
-    hiddenNeed: 'Zažít přesné použití dovednosti z lekce bez univerzálních rad a bez změny odborné role.',
-    behavior: 'Na obecnou šablonu reaguj neurčitě. Na přesnou návaznost k lekci a situaci doplň konkrétní informaci a pokračuj realisticky.',
-    rubric: trainerProfile.rubric,
+    title: scenarioSentenceCase(`${context} · ${focus}`),
+    role: masteryProfile.role || trainerProfile.counterpart,
+    assignment: `Použij dovednosti z části „${item.title}“ v roli „${trainerProfile.studentRole}“. Nejdřív vyjasni účel, potom reaguj na situaci a uzavři jeden bezpečný, ověřitelný výsledek nácviku.`,
+    openingLine: String(masteryProfile.openings[openingIndex]).replaceAll('{{focus}}', focus),
+    facts: `Modelová protistrana přináší konkrétní obtíž v oblasti „${focus}“. Relevantní látkou je výhradně část „${item.title}“; další informace poskytuj pouze po přesné a vhodné reakci studentky.`,
+    hiddenNeed: `${masteryProfile.needs[needIndex]}. Potřebuje k tomu dojít vlastním rozhodnutím nebo výkonem, ne převzít univerzální odpověď studentky.`,
+    behavior: `${pressure} Nevymýšlej krizové, zdravotní, právní ani finanční skutečnosti. Odborná hranice: ${masteryProfile.boundary}`,
+    rubric: [
+      ...trainerProfile.rubric,
+      `Přesné použití dovednosti z části „${item.title}“`,
+      `Pozorovatelný důkaz: ${evidence}`,
+    ],
   };
+}
+
+function normalizeScenarioFocus(value) {
+  const cleaned = String(value || 'praktická dovednost').replace(/^\d+[.)]\s*/u, '').replace(/\s+/gu, ' ').trim();
+  const letters = cleaned.replace(/[^A-Za-zÀ-ž]/gu, '');
+  if (letters.length >= 4 && letters === letters.toLocaleUpperCase('cs-CZ')) {
+    const lower = cleaned.toLocaleLowerCase('cs-CZ');
+    return lower.charAt(0).toLocaleUpperCase('cs-CZ') + lower.slice(1);
+  }
+  return cleaned;
+}
+
+function scenarioSentenceCase(value) {
+  const text = String(value || '');
+  return text ? text.charAt(0).toLocaleUpperCase('cs-CZ') + text.slice(1) : text;
 }
 
 function demoTrainingAnswer({
