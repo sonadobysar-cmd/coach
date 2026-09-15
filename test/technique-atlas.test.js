@@ -37,6 +37,27 @@ test('slovenský popis vybere stejnou dechovou modalitu jako český', () => {
   assert.ok(selected.some(card => card.id === 'gentle_breath_choice'));
 });
 
+test('router nezamění dopadl za dopad ani první workshop za první krok', () => {
+  for (const input of [
+    'První workshop dopadl špatně. Asi na podnikání nemám.',
+    'Môj prvý workshop dopadol zle. Asi nemám na podnikanie.',
+  ]) {
+    const selected = selectTechniqueCards(atlas, input, 'koucovaci_hodina', 'normal');
+    assert.ok(!selected.some(card => card.id === 'nlp_ecology_check'), input);
+    assert.ok(!selected.some(card => card.id === 'nlp_well_formed_outcome'), input);
+  }
+});
+
+test('víceslovné klíčové slovo vyžaduje celou frázi nebo dvě obsahová slova', () => {
+  const cards = [
+    { ...atlas[0], id: 'impact', name: 'Impact', keywords: ['dopad'] },
+    { ...atlas[0], id: 'first-step', name: 'First step', keywords: ['první krok'] },
+  ];
+  assert.deepEqual(selectTechniqueCards(cards, 'Workshop dopadl špatně.', 'koucovaci_hodina', 'normal'), []);
+  assert.deepEqual(selectTechniqueCards(cards, 'Byl to můj první workshop.', 'koucovaci_hodina', 'normal'), []);
+  assert.equal(selectTechniqueCards(cards, 'Jaký bude první konkrétní krok?', 'koucovaci_hodina', 'normal')[0]?.id, 'first-step');
+});
+
 test('validace produktu volí zákaznický výzkum místo obecné motivační techniky', () => {
   const selected = selectTechniqueCards(
     atlas,

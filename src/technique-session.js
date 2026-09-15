@@ -331,7 +331,46 @@ export function createTechniqueTurn({
         session: stopTechniqueSession(safePrevious, 'technique_stop'),
       };
     }
-    if (explicitlyResumesTechnique(latestText, card)) {
+    if (safePrevious.techniqueId === BOUNDARY_ONLY_TECHNIQUE_ID) {
+      const resumedModalities = explicitlyResumedBlockedModalities(latestText, inheritedBlocks);
+      if (resumedModalities.length) {
+        const resumed = new Set(resumedModalities);
+        const resumedBlocks = {
+          ...inheritedBlocks,
+          blockedModalities: inheritedBlocks.blockedModalities.filter(modality => !resumed.has(modality)),
+        };
+        const allowedCandidates = filterBlockedTechniqueCandidates(candidates, resumedBlocks);
+        if (allowedCandidates.length) {
+          return startCandidateTechnique({
+            candidates: allowedCandidates,
+            mode,
+            latestText,
+            recontracted: true,
+            blocks: resumedBlocks,
+          });
+        }
+        const blocksRemain = resumedBlocks.blockedTechniqueIds.length
+          || resumedBlocks.blockedTechniqueFamilies.length
+          || resumedBlocks.blockedModalities.length;
+        return {
+          card: null,
+          steps: [],
+          recontracted: true,
+          session: blocksRemain
+            ? {
+                ...safePrevious,
+                phase: 'released',
+                status: 'released',
+                turns: safePrevious.turns + 1,
+                transitionReason: 'recontracted',
+                ...serializeTechniqueBlocks(resumedBlocks),
+              }
+            : null,
+        };
+      }
+    }
+    if (safePrevious.techniqueId !== BOUNDARY_ONLY_TECHNIQUE_ID
+      && explicitlyResumesTechnique(latestText, card)) {
       const { resumePhase, refusedScope, suspensionReason, ...rest } = safePrevious;
       const resumedBlocks = unblockTechniqueForExplicitResume(inheritedBlocks, card);
       return {
@@ -552,6 +591,20 @@ function explicitlyResumesTechnique(value, card = null) {
   const explicitRetry = /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,80}\b(?:znovu|znova|opet|opat|vratit|pokracovat|pokračovat)\b[^.!?\n]{0,80}\b(?:zkusit|skusit|vyzkouset|vyskusat|pouzit|pouzit|udelat|urobit)?\b/iu.test(normalized)
     || /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,80}\b(?:zkusit|skusit|vyzkouset|vyskusat|pouzit|udelat|urobit)\b[^.!?\n]{0,45}\b(?:znovu|znova|opet|opat)\b/iu.test(normalized);
   return explicitRetry && mentionsTechniqueModality(normalized, card);
+}
+
+function explicitlyResumedBlockedModalities(value, blocks = {}) {
+  const normalized = normalizeCzech(value).replace(/[^a-z0-9\s]/gu, ' ').replace(/\s+/gu, ' ').trim();
+  const explicitRetry = /\b(?:chci|chcem|muzeme|mozeme|pojdme|vratme)\b[^.!?\n]{0,90}\b(?:znovu|znova|opet|opat|vratit|vratit sa|vratit se|zkusit|skusit|vyzkouset|vyskusat|pokracovat)\b|\b(?:znovu|znova|opet|opat)\b[^.!?\n]{0,80}\b(?:zkusit|skusit|pouzit|udelat|urobit|dech|dych|cviceni|cvicenie)\b/u.test(normalized);
+  if (!explicitRetry) return [];
+  const mentioned = new Set();
+  if (/\b(?:dech|dych|dychani|dychanie|nadech|nadych|vydech)\w*\b/u.test(normalized)) mentioned.add('breath');
+  if (/\b(?:pojmen|pomen)\w*.{0,25}\b(?:pocit|emoc)\w*/u.test(normalized)) mentioned.add('emotion_labeling');
+  if (/\b(?:somatick|telesn|telo|regulac)\w*\b/u.test(normalized)) mentioned.add('somatic_regulation');
+  if (/\b(?:grounding|uzemnen|orientac)\w*\b/u.test(normalized)) mentioned.add('grounding');
+  if (/\b(?:vizualiz|imagin|predstav)\w*\b/u.test(normalized)) mentioned.add('visualization');
+  if (/\b(?:mindful|vsimav|meditac)\w*\b/u.test(normalized)) mentioned.add('mindfulness');
+  return (blocks.blockedModalities || []).filter(modality => mentioned.has(modality));
 }
 
 function mentionsTechniqueModality(value, card) {

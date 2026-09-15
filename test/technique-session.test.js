@@ -845,6 +845,42 @@ test('hranice modality přežije i bez vybraného atlasového kandidáta', () =>
   assert.equal(second.session.phase, 'awaiting_recontract');
 });
 
+test('boundary-only stav se nikdy neaktivuje jako skutečná technika', () => {
+  const boundary = createTechniqueTurn({
+    atlas: [practicalCard],
+    candidates: [],
+    mode: 'koucovaci_hodina',
+    latestText: 'Skúsila som dych a nepomohol.',
+  });
+  const roundTrip = sanitizeTechniqueSession(boundary.session, [practicalCard]);
+  const genericReturn = createTechniqueTurn({
+    atlas: [practicalCard],
+    candidates: [],
+    previous: roundTrip,
+    mode: 'koucovaci_hodina',
+    latestText: 'Chcem sa vrátiť k tej technike.',
+  });
+  assert.equal(genericReturn.session.phase, 'awaiting_recontract');
+  assert.deepEqual(genericReturn.session.blockedModalities, ['breath']);
+
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'breath-card',
+    name: 'Jemná práce s dechem',
+    core_move: 'Nabídni dobrovolný přirozený dech a ověř účinek.',
+  };
+  const explicitReturn = createTechniqueTurn({
+    atlas: [practicalCard, breathCard],
+    candidates: [breathCard],
+    previous: boundary.session,
+    mode: 'koucovaci_hodina',
+    latestText: 'Rozmyslela som si to, chcem znovu skúsiť dych.',
+  });
+  assert.equal(explicitReturn.session.techniqueId, breathCard.id);
+  assert.notEqual(explicitReturn.session.phase, 'awaiting_recontract');
+  assert.ok(!explicitReturn.session.blockedModalities.includes('breath'));
+});
+
 test('byznys mentoring nepřepisuje konkrétní doporučení obecným koučovacím dotazem', () => {
   const mentoringTurn = {
     card: { ...practicalCard, family: 'business_offer' },

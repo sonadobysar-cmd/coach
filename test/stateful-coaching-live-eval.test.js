@@ -158,6 +158,29 @@ test('CZ/SK evaluator uzná přirozený pivot, ale dál odmítne synonymní dech
   }
 });
 
+test('stavový evaluator nepropustí pouhé uznání bez nové užitečné cesty', () => {
+  const workshop = STATEFUL_COACHING_SCENARIOS.find(item => item.id === 'cs-workshop-intent-repair');
+  const uncertainty = workshop.turns.find(item => item.id === 'uncertain-direction');
+  const emptySupport = evaluateStatefulTurn({
+    scenario: workshop,
+    turn: uncertainty,
+    payload: payload('Rozumím, že zatím nevíš. Jsem tu s tebou.'),
+  });
+  assert.equal(emptySupport.pass, false);
+
+  const noEffect = STATEFUL_COACHING_SCENARIOS.find(item => item.id === 'cs-no-effect-pivot');
+  const firstNoEffect = noEffect.turns.find(item => item.id === 'first-no-effect');
+  const acknowledgementOnly = evaluateStatefulTurn({
+    scenario: noEffect,
+    turn: firstNoEffect,
+    payload: {
+      ...payload('Rozumím, pomalý dech ti nepomohl.'),
+      techniqueSession: { blockedModalities: ['breath'] },
+    },
+  });
+  assert.equal(acknowledgementOnly.pass, false);
+});
+
 test('report neukládá konverzaci, session payload ani JWT a zůstává syntetickým důkazem', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'elitea-stateful-eval-'));
   const reportPath = join(directory, 'report.json');

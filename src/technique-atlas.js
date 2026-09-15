@@ -56,12 +56,13 @@ export function selectTechniqueCards(cards, text = '', mode = 'diagnostika', saf
   if (safetyLevel === 'critical') return [];
   const query = expandSlovakRoutingAliases(normalize(text));
   if (!query) return [];
-  const queryTokens = new Set(query.split(/\s+/).filter(token => token.length >= 3));
+  const queryWords = query.split(/[^a-z0-9]+/u).filter(Boolean);
+  const queryTokens = new Set(queryWords.filter(token => token.length >= 3));
 
   return cards
     .filter(card => card.access_level !== 'human_only')
     .filter(card => isAllowedForMode(card, mode))
-    .map(card => ({ card, score: scoreCard(card, query, queryTokens, mode, safetyLevel) }))
+    .map(card => ({ card, score: scoreCard(card, query, queryWords, queryTokens, mode, safetyLevel) }))
     .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name, 'cs'))
     .slice(0, 2)
@@ -149,17 +150,22 @@ function hasSupportContext(card) {
   return ['emotion_skills', 'communication', 'mindfulness', 'trauma_informed_support'].includes(card.family);
 }
 
-function scoreCard(card, query, queryTokens, mode, safetyLevel) {
+function scoreCard(card, query, queryWords, queryTokens, mode, safetyLevel) {
   let score = 0;
   for (const keyword of card.keywords) {
     const normalizedKeyword = normalize(keyword);
-    if (query.includes(normalizedKeyword) && !ROUTING_STOP_WORDS.has(normalizedKeyword)) {
-      score += normalizedKeyword.includes(' ') ? 9 : 5;
-    }
-    const keywordTokens = normalizedKeyword
-      .split(/\s+/)
+    const phraseTokens = normalizedKeyword.split(/[^a-z0-9]+/u).filter(Boolean);
+    const keywordTokens = phraseTokens
       .filter(token => token.length >= 3 && !ROUTING_STOP_WORDS.has(token));
-    score += keywordTokens.filter(token => queryTokens.has(token)).length * 2;
+    if (!keywordTokens.length) continue;
+    const exactPhrase = containsTokenSequence(queryWords, phraseTokens);
+    if (exactPhrase) score += phraseTokens.length > 1 ? 9 : 5;
+    const overlap = keywordTokens.filter(token => queryTokens.has(token)).length;
+    // A lone shared word from a multi-word keyword ("první workshop" versus
+    // "první krok") is not evidence for the method. Two content words or the
+    // complete phrase are required. Single-word keywords still match only an
+    // exact token, never a substring such as dopad -> dopadl.
+    if (keywordTokens.length === 1 || exactPhrase || overlap >= 2) score += overlap * 2;
   }
 
   if (/cen|marz|zisk|naklad|cashflow|prijm|vydaj/.test(query)) {
@@ -258,4 +264,15 @@ function scoreCard(card, query, queryTokens, mode, safetyLevel) {
   if (mode === 'koucovaci_podpora' && ['business_finance', 'business_strategy'].includes(card.family)) score -= 6;
   if (safetyLevel === 'heightened' && card.access_level === 'ai_coaching') score -= 4;
   return score;
+}
+
+function containsTokenSequence(haystack, needle) {
+  if (!needle.length || needle.length > haystack.length) return false;
+  outer: for (let index = 0; index <= haystack.length - needle.length; index += 1) {
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      if (haystack[index + offset] !== needle[offset]) continue outer;
+    }
+    return true;
+  }
+  return false;
 }
