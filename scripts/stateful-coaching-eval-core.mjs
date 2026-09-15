@@ -23,7 +23,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       }),
       turn('uncertain-direction', 'Nevím, proto tu jsem.', {
         requires: [
-          requirement('helpful-direction-after-uncertainty', /(?:možnost|varianta|místo|další|první|můžeme|pojďme|nabízí se)/iu),
+          requirement('helpful-direction-after-uncertainty', /(?:možnost|varianta|místo|další|první|můžeme|pojďme|nabízí se|form[auy]|osobně|jedné ženě|živ[éý].{0,20}vedení|typ.{0,20}podnikání)/iu),
         ],
         forbids: [
           prohibition('does-not-reask-past-trigger', /co (?:bylo|se stalo) těsně předtím|poslední konkrétní situaci/iu),
@@ -53,7 +53,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       }),
       turn('uncertain-direction', 'Neviem, preto som tu.', {
         requires: [
-          requirement('helpful-direction-after-uncertainty', /(?:možnosť|varianta|namiesto|ďalší|prvý|môžeme|poďme|ponúka sa)/iu),
+          requirement('helpful-direction-after-uncertainty', /(?:možnosť|varianta|namiesto|ďalší|prvý|môžeme|poďme|ponúka sa|form[auy]|osobne|jednej žene|živ[éý].{0,20}vedenie|typ.{0,20}podnikania)/iu),
         ],
         forbids: [
           prohibition('does-not-reask-past-trigger', /čo (?:bolo|sa stalo) tesne predtým|posledn[úý] konkrétnu situáciu/iu),
@@ -72,7 +72,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       turn('first-no-effect', 'Před prodejním hovorem se mi stáhne hrudník. Zkusila jsem pomalý dech a vůbec mi nepomohl.', {
         requires: [
           requirement('no-effect-recognized', /(?:nepomoh|nezabral|beze změny|dech.{0,35}(?:nebudeme|neopak|necháme|stranou))/iu),
-          requirement('approach-changes', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}(?:opak|vracet)|necháme.{0,30}stranou|přejd|pojďme.{0,35}(?:k|na)|zaměř)/iu),
+          requirement('approach-changes', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}(?:opak|vracet)|necháme.{0,30}stranou|odložíme|přejd|pojďme.{0,35}(?:k|na)|zaměř|spouštěč|myšlenk|představ|průběh|samotn[éý].{0,20}(?:dění|hovor)|konkrétní.{0,25}(?:věta|moment|hovor))/iu),
         ],
         expectedBlockedModalities: ['breath'],
       }),
@@ -107,7 +107,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       turn('first-no-effect', 'Pred predajným hovorom sa mi stiahne hruď. Skúsila som pomalý dych a vôbec mi nepomohol.', {
         requires: [
           requirement('no-effect-recognized', /(?:nepomoh|nezabral|bez zmeny|dych.{0,35}(?:nebudeme|neopak|necháme|bokom))/iu),
-          requirement('approach-changes', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}(?:opak|vracať)|necháme.{0,30}bokom|prejd|poďme.{0,35}(?:k|na)|zamer)/iu),
+          requirement('approach-changes', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}(?:opak|vracať)|necháme.{0,30}bokom|odložíme|prejd|poďme.{0,35}(?:k|na)|zamer|spúšťač|myšlienk|predstav|priebeh|samotn[éý].{0,20}(?:dianie|hovor)|konkrétn[ay].{0,25}(?:veta|moment|hovor))/iu),
         ],
         expectedBlockedModalities: ['breath'],
       }),

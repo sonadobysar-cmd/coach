@@ -27,6 +27,16 @@ test('běžné slovo „jsem“ samo nevybere nesouvisející produktivní techn
   assert.ok(!selected.some(card => card.id === 'ten_minute_momentum_check'));
 });
 
+test('slovenský popis vybere stejnou dechovou modalitu jako český', () => {
+  const selected = selectTechniqueCards(
+    atlas,
+    'Pred predajným hovorom sa mi stiahne hruď. Skúsila som pomalý dych a vôbec mi nepomohol.',
+    'koucovaci_hodina',
+    'normal',
+  );
+  assert.ok(selected.some(card => card.id === 'gentle_breath_choice'));
+});
+
 test('validace produktu volí zákaznický výzkum místo obecné motivační techniky', () => {
   const selected = selectTechniqueCards(
     atlas,

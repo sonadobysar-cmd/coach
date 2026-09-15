@@ -16,6 +16,30 @@ const ROUTING_STOP_WORDS = new Set([
   'tohle', 'tomu', 'tvoje', 'tvou', 'vsechno', 'zase', 'ze',
 ]);
 
+// The atlas itself is authored in Czech, while Elitea serves both Czech and
+// Slovak members. Keep the source cards canonical and add only routing aliases
+// here so a Slovak description selects the same expert method as its Czech
+// equivalent. These aliases affect retrieval only; they are never shown to the
+// member or inserted as invented facts.
+const SLOVAK_ROUTING_ALIASES = Object.freeze([
+  [/^nadych/u, 'nadech'],
+  [/^vydych/u, 'vydech'],
+  [/^dych/u, 'dech dychani'],
+  [/^napat/u, 'napeti'],
+  [/^upokoj/u, 'zklidnit'],
+  [/^predaj/u, 'prodej'],
+  [/^rozhodnut/u, 'rozhodnuti'],
+  [/^sebavedom/u, 'sebevedomi'],
+  [/^sebadover/u, 'sebevedomi'],
+  [/^odklad/u, 'prokrastinace'],
+  [/^uloh/u, 'ukol'],
+  [/^ciel/u, 'cil'],
+  [/^prehlten/u, 'zahlceni'],
+  [/^sustreden/u, 'soustredeni'],
+  [/^hranica/u, 'hranice'],
+  [/^ries/u, 'resit'],
+]);
+
 export async function loadTechniqueAtlas(path) {
   const parsed = JSON.parse(await readFile(path, 'utf8'));
   if (!Array.isArray(parsed) || parsed.length === 0) {
@@ -30,7 +54,7 @@ export async function loadTechniqueAtlas(path) {
 
 export function selectTechniqueCards(cards, text = '', mode = 'diagnostika', safetyLevel = 'normal') {
   if (safetyLevel === 'critical') return [];
-  const query = normalize(text);
+  const query = expandSlovakRoutingAliases(normalize(text));
   if (!query) return [];
   const queryTokens = new Set(query.split(/\s+/).filter(token => token.length >= 3));
 
@@ -42,6 +66,18 @@ export function selectTechniqueCards(cards, text = '', mode = 'diagnostika', saf
     .sort((a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name, 'cs'))
     .slice(0, 2)
     .map(item => item.card);
+}
+
+function expandSlovakRoutingAliases(value) {
+  const original = String(value || '').trim();
+  if (!original) return '';
+  const aliases = [];
+  for (const token of original.split(/\s+/u)) {
+    for (const [pattern, replacement] of SLOVAK_ROUTING_ALIASES) {
+      if (pattern.test(token)) aliases.push(replacement);
+    }
+  }
+  return aliases.length ? `${original} ${aliases.join(' ')}` : original;
 }
 
 export function formatTechniqueCards(cards) {

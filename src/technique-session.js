@@ -21,6 +21,7 @@ const TECHNIQUE_MODALITIES = new Set([
   'visualization',
   'mindfulness',
 ]);
+const BOUNDARY_ONLY_TECHNIQUE_ID = '__boundary_only__';
 
 const BUILTIN_TECHNIQUE_STEPS = Object.freeze({
   t_grow: ['Vymez téma a žádoucí výsledek rozhovoru.', 'Ujasni konkrétní cíl.', 'Prozkoumej současnou realitu.', 'Vytvoř možnosti.', 'Nech členku dobrovolně zvolit další krok.'],
@@ -185,6 +186,45 @@ export function createTechniqueTurn({
         suspensionReason: session.suspensionReason,
       };
     }
+    // A boundary must survive even when the retrieval router selected no
+    // matching atlas card (for example an uncommon Slovak synonym). Otherwise
+    // a later turn could silently offer the refused modality again. This
+    // sentinel carries only signed block state; it never represents or runs a
+    // technique.
+    const suspensionReason = methodBoundary.explicitBoundary ? 'method_boundary' : 'no_effect';
+    const hasPersistentBlocks = inheritedBlocks.blockedTechniqueIds.length
+      || inheritedBlocks.blockedTechniqueFamilies.length
+      || inheritedBlocks.blockedModalities.length;
+    if (!hasPersistentBlocks) {
+      return {
+        card: null,
+        session: null,
+        steps: [],
+        suspended: true,
+        suspensionReason: explicitTechniqueStop ? 'technique_stop' : suspensionReason,
+      };
+    }
+    return {
+      card: null,
+      steps: [],
+      suspended: true,
+      suspensionReason,
+      session: {
+        techniqueId: BOUNDARY_ONLY_TECHNIQUE_ID,
+        mode,
+        phase: 'awaiting_recontract',
+        stepIndex: 0,
+        status: 'paused',
+        turns: 1,
+        requiresConsent: false,
+        consentGranted: false,
+        resumePhase: 'application',
+        refusedScope: extractMethodRefusedScope(latestText) || null,
+        suspensionReason,
+        transitionReason: null,
+        ...serializeTechniqueBlocks(inheritedBlocks),
+      },
+    };
   }
   // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
   // jako další krok techniky. Stav ale nezahazujeme: je pouze pozastavený,
@@ -309,13 +349,29 @@ export function createTechniqueTurn({
       };
     }
     if (explicitNewDirection) {
-      return startCandidateTechnique({
-        candidates: filterBlockedTechniqueCandidates(candidates, inheritedBlocks),
-        mode,
-        latestText,
+      const allowedCandidates = filterBlockedTechniqueCandidates(candidates, inheritedBlocks);
+      if (allowedCandidates.length) {
+        return startCandidateTechnique({
+          candidates: allowedCandidates,
+          mode,
+          latestText,
+          recontracted: true,
+          blocks: inheritedBlocks,
+        });
+      }
+      return {
+        card: null,
+        steps: [],
         recontracted: true,
-        blocks: inheritedBlocks,
-      });
+        session: {
+          ...safePrevious,
+          phase: 'released',
+          status: 'released',
+          turns: safePrevious.turns + 1,
+          transitionReason: 'recontracted',
+          ...serializeTechniqueBlocks(inheritedBlocks),
+        },
+      };
     }
     return {
       card,
@@ -784,7 +840,39 @@ export function sanitizeTechniqueSession(input, atlasOrMap = []) {
   );
   const techniqueId = cleanText(input.techniqueId, 120);
   const phase = PHASES.has(input.phase) ? input.phase : null;
-  if (!techniqueId || !phase || !byId.has(techniqueId)) return null;
+  const boundaryOnly = techniqueId === BOUNDARY_ONLY_TECHNIQUE_ID;
+  if (!techniqueId || !phase || (!boundaryOnly && !byId.has(techniqueId))) return null;
+  if (boundaryOnly) {
+    const blockedTechniqueIds = sanitizeStringArray(input.blockedTechniqueIds, new Set(byId.keys()), 16);
+    const blockedTechniqueFamilies = sanitizeStringArray(input.blockedTechniqueFamilies, atlasFamilies, 12);
+    const blockedModalities = sanitizeStringArray(input.blockedModalities, TECHNIQUE_MODALITIES, 12);
+    if (!blockedTechniqueIds.length && !blockedTechniqueFamilies.length && !blockedModalities.length) return null;
+    if (!['awaiting_recontract', 'released', 'stopped'].includes(phase)) return null;
+    const session = {
+      techniqueId,
+      mode: cleanText(input.mode, 80),
+      phase,
+      stepIndex: 0,
+      status: phase === 'awaiting_recontract' ? 'paused' : phase,
+      turns: Number.isInteger(input.turns) ? Math.max(0, Math.min(input.turns, 100)) : 0,
+      requiresConsent: false,
+      consentGranted: false,
+      transitionReason: ['no_effect', 'stuck_repair', 'recontracted'].includes(input.transitionReason)
+        ? input.transitionReason
+        : null,
+      blockedTechniqueIds,
+      blockedTechniqueFamilies,
+      blockedModalities,
+    };
+    if (phase === 'awaiting_recontract') {
+      session.resumePhase = 'application';
+      session.refusedScope = cleanText(input.refusedScope, 240) || null;
+      session.suspensionReason = ['no_effect', 'adverse_effect', 'method_boundary'].includes(input.suspensionReason)
+        ? input.suspensionReason
+        : 'method_boundary';
+    }
+    return session;
+  }
   const card = byId.get(techniqueId);
   const steps = deriveTechniqueSteps(card);
   const stepIndex = Number.isInteger(input.stepIndex)

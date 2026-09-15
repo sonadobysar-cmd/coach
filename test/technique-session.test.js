@@ -823,6 +823,28 @@ test('fallback volí SK jen podle jednoznačně slovenských slov a nic nedoplň
   assert.doesNotMatch(slovak, /zasekl|predajn/i);
 });
 
+test('hranice modality přežije i bez vybraného atlasového kandidáta', () => {
+  const first = createTechniqueTurn({
+    atlas: [practicalCard],
+    candidates: [],
+    mode: 'koucovaci_hodina',
+    latestText: 'Skúsila som pomalý dych a vôbec mi nepomohol.',
+  });
+  assert.equal(first.suspended, true);
+  assert.equal(first.session.phase, 'awaiting_recontract');
+  assert.deepEqual(first.session.blockedModalities, ['breath']);
+
+  const second = createTechniqueTurn({
+    atlas: [practicalCard],
+    candidates: [],
+    previous: first.session,
+    mode: 'koucovaci_hodina',
+    latestText: 'Neviem, čo teda skúsiť inak.',
+  });
+  assert.deepEqual(second.session.blockedModalities, ['breath']);
+  assert.equal(second.session.phase, 'awaiting_recontract');
+});
+
 test('byznys mentoring nepřepisuje konkrétní doporučení obecným koučovacím dotazem', () => {
   const mentoringTurn = {
     card: { ...practicalCard, family: 'business_offer' },
