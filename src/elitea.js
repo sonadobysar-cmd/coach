@@ -560,9 +560,15 @@ function failClosedEvidenceSnippet(value, maxWords = 22) {
 }
 
 function failClosedFirstTurnAnchor(value) {
-  const words = failClosedEvidenceSnippet(value, 12).split(/\s+/u).filter(Boolean);
+  const safeContract = failClosedContractSnippet(value);
+  const words = safeContract.split(/\s+/u).filter(Boolean);
+  if (words.length === 1 && /^workshop\w*$/iu.test(words[0])) return words[0];
   if (words.length < 2) return '';
-  return words.slice(0, Math.min(words.length - 1, 10)).join(' ');
+  const normalized = normalizeDialogueText(safeContract);
+  const shortFirstPersonState = words.length <= 3
+    && /^(?:jsem|som|mam|bojim se|obavam se|citím se|citim sa)\b/u.test(normalized);
+  if (shortFirstPersonState) return '';
+  return words.slice(0, 10).join(' ');
 }
 
 function failClosedContractSnippet(value) {
@@ -573,7 +579,7 @@ function failClosedContractSnippet(value) {
     .split(/[.!?;]+/u)
     .map(clause => clause.trim())
     .find(clause => clause
-      && !/\b(?:jsem|som)\b[^.!?]{0,35}\b(?:neschopn|k nicemu|na nic|marn|hloup|nemam na|nemám na)\w*|\b(?:dopadl|dopadla|skoncil|skoncila)\w*\b[^.!?]{0,30}\b(?:spatn|slab|hrozne|zle|neuspes)\w*/iu.test(normalizeDialogueText(clause)));
+      && !/\b(?:jsem|som|pripadam si|citim se|citim sa)\b[^.!?]{0,40}\b(?:neschopn|k nicemu|na nic|marn|hloup|nemam na)\w*|\bna\b[^.!?]{0,40}\bnemam\b|\b(?:dopadl|dopadla|skoncil|skoncila)\w*\b[^.!?]{0,30}\b(?:spatn|slab|hrozne|zle|neuspes)\w*/u.test(normalizeDialogueText(clause)));
   return failClosedEvidenceSnippet(safeClause || '', 18);
 }
 

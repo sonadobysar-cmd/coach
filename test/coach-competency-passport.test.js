@@ -162,6 +162,42 @@ test('stejný scénář, fallback a neúspěšná kontrola neuměle nenavyšují
   assert.equal(isTrustedCoachAssessmentProvider('openai/local-fallback'), false);
 });
 
+test('pozdější úspěšný retry se stane důkazem scénáře, ale nepředstírá nový scénář ani mastery gain', () => {
+  const failed = attempt({
+    index: 43,
+    scenarioId: 'retry-contract-scenario',
+    competencyStatuses: { contract: 'not_proven' },
+    difficulty: 'standard',
+  });
+  const passedStandard = attempt({
+    index: 44,
+    scenarioId: 'retry-contract-scenario',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'standard',
+  });
+  const passedAdvanced = attempt({
+    index: 46,
+    scenarioId: 'retry-contract-scenario',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'advanced',
+  });
+  const status = buildCoachCompetencyPassport([failed, passedStandard, passedAdvanced], {
+    minimumPracticeScenarios: 1,
+    minimumProofsPerCompetency: 1,
+    minimumPassingFinalExams: 1,
+    advancedDifficulties: ['advanced', 'expert'],
+  });
+
+  assert.equal(status.progress.practiceScenarios, 1);
+  assert.equal(status.competencies.contract.proofs, 1);
+  assert.equal(status.competencies.contract.advancedProofs, 1);
+  assert.deepEqual(status.competencies.contract.scenarioIds, ['retry-contract-scenario']);
+  assert.equal(status.masteryGain.acceptedPracticeAttempts, 1);
+  assert.equal(status.masteryGain.duplicateReasons.repeatedScenario, 2);
+  assert.equal(status.masteryGain.competencies.contract.measured, false);
+  assert.equal(status.masteryGain.competencies.contract.improved, false);
+});
+
 test('samotná standardní obtížnost nestačí bez náročného důkazu každé kompetence', () => {
   const attempts = completeAttempts().map(entry => (
     entry.finalExam ? entry : { ...entry, difficulty: 'standard' }
@@ -290,6 +326,30 @@ test('jediný povedený řádek neschová slabší část stejné kompetence', (
   assert.equal(gain.competencies.questions.baseline.status, 'not_proven');
   assert.equal(gain.competencies.questions.bestFollowUp.status, 'proven');
   assert.equal(gain.competencies.questions.gainPercent, 66.7);
+});
+
+test('slabší řádek stejné kompetence zablokuje i passportový důkaz a nápravu', () => {
+  const first = attempt({ index: 127, scenarioId: 'mixed-contract-one', competencyIds: [] });
+  first.achievement.rows = [
+    { label: LABELS.contract, status: 'proven' },
+    { label: LABELS.contract, status: 'not_proven' },
+  ];
+  const second = attempt({ index: 128, scenarioId: 'mixed-contract-two', competencyIds: [], difficulty: 'expert' });
+  second.achievement.rows = [
+    { label: LABELS.contract, status: 'proven' },
+    { label: LABELS.contract, status: 'partial' },
+  ];
+
+  const status = buildCoachCompetencyPassport([first, second], {
+    minimumPracticeScenarios: 1,
+    minimumProofsPerCompetency: 1,
+    minimumPassingFinalExams: 1,
+    advancedDifficulties: ['advanced', 'expert'],
+  });
+  assert.equal(status.progress.practiceScenarios, 0);
+  assert.equal(status.competencies.contract.proofs, 0);
+  assert.equal(status.competencies.contract.proven, false);
+  assert.equal(status.competencies.contract.advancedProven, false);
 });
 
 test('mastery gain je deterministický i při shodném času a libovolném pořadí vstupu', () => {
@@ -435,6 +495,29 @@ test('server finále neoznačí allProven bez důkazu všech devíti koučovací
       },
     },
   });
+  assert.equal(record.achievement.allProven, false);
+});
+
+test('server nepočítá kompetenci jako prokázanou, pokud její slabší kritérium neprošlo', () => {
+  const record = buildCoachDebriefRecord({
+    course: COURSE,
+    item: { id: 'm0-1' },
+    scenarioId: 'mixed-contract-server-record',
+    difficulty: 'advanced',
+    messages: [{ role: 'user', content: 'Co by dnes bylo užitečné?' }],
+    result: {
+      provider: 'openai/gpt-5.6',
+      qualityGate: { pass: true },
+      achievement: {
+        rows: [
+          { label: LABELS.contract, status: 'proven' },
+          { label: LABELS.contract, status: 'not_proven' },
+        ],
+      },
+    },
+  });
+
+  assert.equal(record.achievement.proven, 0);
   assert.equal(record.achievement.allProven, false);
 });
 

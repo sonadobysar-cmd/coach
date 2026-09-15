@@ -23,6 +23,7 @@ const DEBRIEF_SECTIONS = Object.freeze([
 ]);
 
 const DEBRIEF_STATUS_SOURCE = '(?:ZATÍM NEPROKÁZÁNO|ZATIAĽ NEPREUKÁZANÉ|ČÁSTEČNĚ|ČIASTOČNE|PROKÁZÁNO|PREUKÁZANÉ)';
+const STUDY_INTERNAL_INSTRUCTION_PATTERN = /\b(?:interni prompt|systemove instrukce|kontrola kvality|skryta instrukce)\b/u;
 
 function clean(value) {
   return String(value || '').replace(/\s+/gu, ' ').trim();
@@ -384,6 +385,46 @@ export function buildTrainingRepairInstruction({
   ].join('\n\n');
 }
 
+export function buildFinalTrainingRepairInstruction({
+  phase,
+  assessment,
+  messages = [],
+  rubric = [],
+  courseId = '',
+  responseLanguage = null,
+}) {
+  const trainingLanguage = resolveConversationLanguage(messages, responseLanguage);
+  const visibleOutputRule = trainingLanguage === 'sk'
+    ? 'Vráť iba hotovú odpoveď pre študentku v slovenčine. Neopisuj opravu, pravidlá, kontrolu ani svoje uvažovanie.'
+    : 'Vrať pouze hotovou odpověď pro studentku v češtině. Nepopisuj opravu, pravidla, kontrolu ani své uvažování.';
+  const phaseRule = phase === 'study'
+    ? (trainingLanguage === 'sk'
+      ? 'Zachovaj odborný výklad ukotvený v otvorenej lekcii, jeden konkrétny príklad a iba počet otázok, ktorý žiada študentka.'
+      : 'Zachovej odborný výklad ukotvený v otevřené lekci, jeden konkrétní příklad a pouze počet otázek, který žádá studentka.')
+    : phase === 'roleplay'
+      ? (trainingLanguage === 'sk'
+        ? 'Zostaň výhradne modelovou protistranou; žiadne hodnotenie, rada ani komentár k simulácii.'
+        : 'Zůstaň výhradně modelovou protistranou; žádné hodnocení, rada ani komentář k simulaci.')
+      : (trainingLanguage === 'sk'
+        ? 'Pri pochybnosti o dôkaze označ kritérium ako ZATIAĽ NEPREUKÁZANÉ; nikdy nevytvor citáciu ani výrok študentky.'
+        : 'Při pochybnosti o důkazu označ kritérium jako ZATÍM NEPROKÁZÁNO; nikdy nevytvoř citaci ani výrok studentky.');
+
+  return [
+    buildTrainingRepairInstruction({
+      phase,
+      assessment,
+      messages,
+      rubric,
+      courseId,
+      responseLanguage: trainingLanguage,
+    }),
+    '# KONEČNÝ VÝSTUPNÍ KONTRAKT',
+    visibleOutputRule,
+    phaseRule,
+    'Předchozí vadný text neopakuj ani neobhajuj. Pokud některý požadavek nemůžeš splnit, nic nedoplňuj domněnkou.',
+  ].join('\n\n');
+}
+
 export function assessStudyResponse(text, {
   messages = [],
   course = {},
@@ -395,6 +436,7 @@ export function assessStudyResponse(text, {
   const trainingLanguage = resolveConversationLanguage(messages, responseLanguage);
   const normalized = normalizeStudyText(output);
   if (!output) issues.push('empty');
+  if (studyWordCount(output) < 45) issues.push('study_too_short');
   if (output.length > 9000) issues.push('study_too_long');
   if (/\b(?:jako tvoje koucka|jako tvuj kouc|ted te budu koucovat|pojdme zpracovat tve trauma|pojdme lecit tve trauma|uzdravit tve vnitrni dite)\b/u.test(normalized)) {
     issues.push('study_role_drift');
@@ -402,7 +444,7 @@ export function assessStudyResponse(text, {
   if (/\b(?:jako modelova klientka|zustanu v roli klientky|vyhodnoceni tveho vykonu|rubrika simulace)\b/u.test(normalized)) {
     issues.push('study_simulation_leak');
   }
-  if (/\b(?:interni prompt|systemove instrukce|kontrola kvality|skryta instrukce)\b/u.test(normalized)) {
+  if (STUDY_INTERNAL_INSTRUCTION_PATTERN.test(normalized)) {
     issues.push('internal_instruction_leak');
   }
 
@@ -473,6 +515,33 @@ export function sanitizeStudyQuestionCount(text, { messages = [], responseLangua
     }),
     changed: true,
   };
+}
+
+export function sanitizeStudyInternalInstructionLeak(text) {
+  const output = String(text || '').trim();
+  if (!STUDY_INTERNAL_INSTRUCTION_PATTERN.test(normalizeStudyText(output))) {
+    return { text: output, changed: false };
+  }
+
+  let changed = false;
+  const sanitizedLines = output.split('\n').flatMap(line => {
+    if (!STUDY_INTERNAL_INSTRUCTION_PATTERN.test(normalizeStudyText(line))) return [line];
+
+    const fragments = line
+      .split(/(?<=[.!?])\s+/u)
+      .filter(fragment => {
+        const leaked = STUDY_INTERNAL_INSTRUCTION_PATTERN.test(normalizeStudyText(fragment));
+        if (leaked) changed = true;
+        return !leaked;
+      });
+    if (!fragments.length) return [];
+    return [fragments.join(' ').trim()];
+  });
+  const textWithoutLeak = sanitizedLines
+    .join('\n')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+  return { text: textWithoutLeak, changed };
 }
 
 export function trainingStudentTurns(messages = []) {
@@ -632,4 +701,8 @@ function studyStems(value) {
     .filter(token => token.length >= 5 && !STUDY_STOPWORDS.has(token))
     .map(token => token.replace(/(?:ami|emi|ove|ova|ovy|eni|ani|ace|aci|ost|ech|ich|ych|ou|em|im|at|it|et|y|a|u|i|e|o)$/u, '').slice(0, 9))
     .filter(token => token.length >= 4));
+}
+
+function studyWordCount(value) {
+  return (String(value || '').match(/[\p{L}\p{N}]+/gu) || []).length;
 }

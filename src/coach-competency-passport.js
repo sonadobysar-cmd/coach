@@ -87,9 +87,8 @@ export function buildCoachDebriefRecord({
     || `${course.id}:${safeItemId}:${safeDifficulty}`;
   const criticalFailures = sanitizeCriticalFailures(detectCoachCriticalFailures(messages));
   const rows = sanitizeAchievementRows(result?.achievement?.rows);
-  const provenCompetencyIds = new Set(
-    rows.filter(row => row.status === 'proven').map(row => row.competencyId).filter(Boolean),
-  );
+  const competencyStatuses = achievementStatusesByCompetency(rows);
+  const provenCompetencyIds = provenCompetencyIdsFromStatuses(competencyStatuses);
   const finalCompetenciesComplete = finalExam !== true
     || COACH_COMPETENCIES.every(competency => provenCompetencyIds.has(competency.id));
   const allProven = criticalFailures.length === 0
@@ -115,7 +114,7 @@ export function buildCoachDebriefRecord({
     achievement: {
       rows,
       allProven,
-      proven: rows.filter(row => row.status === 'proven').length,
+      proven: provenCompetencyIds.size,
     },
     criticalFailures,
     transcriptHash,
@@ -135,11 +134,15 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   const trustedProviderAttempts = normalized.filter(attempt => attempt.trustedProvider);
   const trustedReviewed = normalized.filter(attempt => attempt.qualityPassed && attempt.trustedProvider);
   const practiceMeasurement = preparePracticeMeasurement(trustedReviewed);
-  const qualifyingPractice = practiceMeasurement.attempts.filter(attempt => (
+  // Passport evidence and longitudinal growth have different retry semantics.
+  // A later, genuinely successful retry of the same scenario may become that
+  // scenario's proof in the passport, but it must not masquerade as a distinct
+  // scenario or as mastery growth. Duplicate IDs/transcripts are still ignored.
+  const qualifyingPractice = distinctPracticeAttempts(trustedReviewed.filter(attempt => (
     !attempt.finalExam
     && attempt.criticalFailures.length === 0
     && attempt.provenCompetencyIds.size > 0
-  ));
+  )), { dedupeScenario: false }).attempts;
   const practiceScenarioKeys = new Set(qualifyingPractice.map(attempt => attempt.scenarioKey));
   const passingFinalExamAttempts = distinctFinalExamAttempts(trustedReviewed.filter(attempt => (
     attempt.finalExam
@@ -159,7 +162,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   const competencies = Object.fromEntries(COACH_COMPETENCIES.map(competencyDefinition => {
     const competencyId = competencyDefinition.id;
     const proofAttempts = qualifyingPractice.filter(attempt => attempt.provenCompetencyIds.has(competencyId));
-    const scenarioProofs = uniqueBy(proofAttempts, attempt => attempt.scenarioKey);
+    const scenarioProofs = bestProofAttemptsByScenario(proofAttempts);
     const advancedProofs = scenarioProofs.filter(attempt => standard.advancedDifficulties.includes(attempt.difficulty));
     return [competencyId, {
       label: competencyDefinition.label,
@@ -455,7 +458,7 @@ function normalizeAttempt(raw) {
       allProven: achievement.allProven === true || achievement.all_proven === true,
     },
     competencyStatuses,
-    provenCompetencyIds: new Set(rows.filter(row => row.status === 'proven').map(row => row.competencyId).filter(Boolean)),
+    provenCompetencyIds: provenCompetencyIdsFromStatuses(competencyStatuses),
     criticalFailures,
     completedAt,
   };
@@ -484,7 +487,15 @@ function achievementStatusesByCompetency(rows) {
   return result;
 }
 
-function distinctPracticeAttempts(attempts) {
+function provenCompetencyIdsFromStatuses(statuses) {
+  return new Set(
+    [...(statuses instanceof Map ? statuses.entries() : [])]
+      .filter(([, status]) => status === 'proven')
+      .map(([competencyId]) => competencyId),
+  );
+}
+
+function distinctPracticeAttempts(attempts, { dedupeScenario = true } = {}) {
   const seen = {
     ids: new Set(),
     trainingAttemptIds: new Set(),
@@ -500,7 +511,7 @@ function distinctPracticeAttempts(attempts) {
   };
   const accepted = [];
   for (const attempt of [...attempts].sort(compareAttempts)) {
-    const repeatedReason = duplicatePracticeReason(attempt, seen);
+    const repeatedReason = duplicatePracticeReason(attempt, seen, { dedupeScenario });
     if (repeatedReason) {
       duplicates.total += 1;
       duplicates[repeatedReason] += 1;
@@ -515,14 +526,33 @@ function distinctPracticeAttempts(attempts) {
   return { attempts: accepted, duplicates };
 }
 
-function duplicatePracticeReason(attempt, seen) {
+function duplicatePracticeReason(attempt, seen, { dedupeScenario = true } = {}) {
   if (attempt.id && seen.ids.has(attempt.id)) return 'repeatedId';
   if (attempt.trainingAttemptId && seen.trainingAttemptIds.has(attempt.trainingAttemptId)) {
     return 'repeatedTrainingAttempt';
   }
-  if (attempt.scenarioId && seen.scenarioIds.has(attempt.scenarioId)) return 'repeatedScenario';
+  if (dedupeScenario && attempt.scenarioId && seen.scenarioIds.has(attempt.scenarioId)) return 'repeatedScenario';
   if (attempt.transcriptHash && seen.transcriptHashes.has(attempt.transcriptHash)) return 'repeatedTranscript';
   return null;
+}
+
+function bestProofAttemptsByScenario(attempts) {
+  const bestByScenario = new Map();
+  for (const attempt of attempts) {
+    const previous = bestByScenario.get(attempt.scenarioKey);
+    if (!previous || isBetterProofAttempt(attempt, previous)) {
+      bestByScenario.set(attempt.scenarioKey, attempt);
+    }
+  }
+  return [...bestByScenario.values()].sort(compareAttempts);
+}
+
+function isBetterProofAttempt(candidate, previous) {
+  const difficultyDifference = DIFFICULTY_RANK[candidate.difficulty] - DIFFICULTY_RANK[previous.difficulty];
+  if (difficultyDifference) return difficultyDifference > 0;
+  const timeDifference = candidate.completedAt.getTime() - previous.completedAt.getTime();
+  if (timeDifference) return timeDifference > 0;
+  return compareAttempts(candidate, previous) > 0;
 }
 
 function coachPerformanceSnapshot(attempt, competencyId) {
@@ -629,10 +659,6 @@ function sanitizeCriticalFailures(failures) {
 function normalizeDifficulty(value) {
   const difficulty = String(value || '').toLowerCase();
   return ['guided', 'standard', 'advanced', 'expert'].includes(difficulty) ? difficulty : 'standard';
-}
-
-function uniqueBy(values, key) {
-  return [...new Map(values.map(value => [key(value), value])).values()];
 }
 
 function competencyLabels(ids) {

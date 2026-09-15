@@ -11,6 +11,7 @@
     "eval:academy-trainers": "node scripts/evaluate-academy-trainers.mjs",
     "eval:public-coach": "node scripts/evaluate-public-coach-test.mjs",
     "eval:czsk-live": "node scripts/evaluate-czsk-coaching-live.mjs",
+    "eval:stateful-coach": "node scripts/evaluate-stateful-coaching-live.mjs",
     "qa:academy-production": "node scripts/qa-production-academy-e2e.mjs",
     "qa:certificate-production": "node scripts/qa-issue-production-certificate.mjs",
     "audit:courses": "node scripts/audit-course-depth.mjs",

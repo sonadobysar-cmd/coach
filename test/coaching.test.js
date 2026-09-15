@@ -19,6 +19,7 @@ import {
   buildRoutingText,
   expertRoleForMode,
   enforceConversationRepairResponse,
+  failClosedContractFallback,
   formatConversationRepairContext,
   guardedConversationRepairFallback,
   inferMode,
@@ -523,6 +524,36 @@ test('po selhání modelu i opravy se neodešle opakující fallback a odpověď
     if (previousKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previousKey;
   }
+});
+
+test('fail-closed první tah necituje useknutý nebo sebehodnotící fragment jako téma', () => {
+  const cases = [
+    ['Jsem úplně neschopná.', /U tématu „Jsem úplně“/u],
+    ['Mám strach.', /U tématu „Mám“/u],
+    ['Asi na podnikání nemám.', /U tématu „Asi na podnikání“/u],
+  ];
+
+  for (const [openingFocus, forbidden] of cases) {
+    const response = failClosedContractFallback({
+      messages: [{ role: 'user', content: openingFocus }],
+      conversationContext: { userTurns: 1, openingFocus, responseLanguage: 'cs' },
+      responseMode: 'koucovaci_hodina',
+    });
+    assert.doesNotMatch(response, forbidden);
+    assert.match(response, /Nejdřív oddělíme konkrétní událost a hodnocení/u);
+  }
+
+  const concreteTopic = failClosedContractFallback({
+    messages: [{ role: 'user', content: 'Potřebuji připravit nabídku pro malý workshop.' }],
+    conversationContext: {
+      userTurns: 1,
+      openingFocus: 'Potřebuji připravit nabídku pro malý workshop.',
+      responseLanguage: 'cs',
+    },
+    responseMode: 'mentoringova_konzultace',
+  });
+  assert.match(concreteTopic, /„workshop“/u);
+  assert.doesNotMatch(concreteTopic, /„Potřebuji připravit nabídku pro malý“/u);
 });
 
 test('generický repair funguje i pro neznámý scénář bez tématické šablony', () => {

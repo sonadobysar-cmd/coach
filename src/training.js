@@ -21,10 +21,12 @@ import {
   assessDebriefResponse,
   assessRoleplayResponse,
   assessStudyResponse,
+  buildFinalTrainingRepairInstruction,
   buildTrainingRepairInstruction,
   completeDebriefRubric,
   debriefAchievementSummary,
   sanitizeDebriefEvidence,
+  sanitizeStudyInternalInstructionLeak,
   sanitizeStudyQuestionCount,
 } from './training-quality.js';
 import { isFinalExamScenario } from './final-exam.js';
@@ -530,18 +532,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       return { ...fallback, provider: 'local-training-fallback' };
     }
 
-    let finalText = result.text.trim();
-    let finalModelId = modelId;
-    let repaired = false;
-    if (safePhase === 'debrief') {
-      const completedRubric = completeDebriefRubric(finalText, scenario.rubric, {
-        messages: safeMessages,
-        responseLanguage,
-      });
-      finalText = completedRubric.text;
-      repaired = completedRubric.changed;
-    }
-    let quality = assessTrainingOutput(finalText, {
+    const candidateContext = {
       activity: safeActivity,
       phase: safePhase,
       messages: safeMessages,
@@ -549,9 +540,18 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       course,
       item,
       responseLanguage,
-    });
-    const initialIssueCodes = [...(quality.issues || [])];
+    };
+    const initialCandidate = prepareTrainingCandidate(result.text, candidateContext, { sanitize: false });
+    let finalText = initialCandidate.text;
+    let finalModelId = modelId;
+    let repaired = initialCandidate.changed;
+    let quality = initialCandidate.quality;
+    const initialIssueCodes = [...initialCandidate.rawIssueCodes];
     let repairIssueCodes = [];
+    let repairAttemptIssueCodes = [];
+    let finalRepairIssueCodes = [];
+    let finalRepairAttemptIssueCodes = [];
+    let latestFailedQuality = quality;
     if (quality.shouldRepair) {
       try {
         const repairModelId = modelId;
@@ -572,73 +572,63 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         });
         totalUsage = mergeUsage(totalUsage, repairResult.usage);
         if (repairResult.text?.trim()) {
-          const completedRepair = safePhase === 'debrief'
-            ? completeDebriefRubric(repairResult.text, scenario.rubric, {
-              messages: safeMessages,
-              responseLanguage,
-            })
-            : { text: repairResult.text.trim(), changed: false };
-          const repairedQuality = assessTrainingOutput(completedRepair.text, {
-            activity: safeActivity,
-            phase: safePhase,
-            messages: safeMessages,
-            scenario,
-            course,
-            item,
-            responseLanguage,
-          });
-          repairIssueCodes = [...(repairedQuality.issues || [])];
-          if (repairedQuality.pass) {
-            finalText = completedRepair.text;
+          const repairCandidate = prepareTrainingCandidate(repairResult.text, candidateContext);
+          repairAttemptIssueCodes = [...repairCandidate.rawIssueCodes];
+          repairIssueCodes = [...(repairCandidate.quality.issues || [])];
+          latestFailedQuality = repairCandidate.quality;
+          if (repairCandidate.quality.pass) {
+            finalText = repairCandidate.text;
             finalModelId = repairModelId;
-            quality = repairedQuality;
+            quality = repairCandidate.quality;
             repaired = true;
           }
+        } else {
+          repairAttemptIssueCodes = ['empty'];
+          repairIssueCodes = ['empty'];
+          latestFailedQuality = { pass: false, issues: ['empty'], shouldRepair: true };
         }
       } catch {
-        // Níže zůstává deterministická bezpečná záloha; vadný výstup se nepropustí jen kvůli chybě opravného volání.
+        repairAttemptIssueCodes = ['provider_repair_error'];
+        repairIssueCodes = ['provider_repair_error'];
       }
     }
 
-    if (!quality.pass && safePhase === 'debrief') {
-      const evidenceSanitized = sanitizeDebriefEvidence(finalText, {
-        messages: safeMessages,
-        rubric: scenario.rubric,
-        courseId: course?.id,
-        responseLanguage,
-      });
-      if (evidenceSanitized.changed) {
-        const sanitizedQuality = assessDebriefResponse(evidenceSanitized.text, {
-          messages: safeMessages,
-          rubric: scenario.rubric,
-          courseId: course?.id,
-          responseLanguage,
+    if (!quality.pass) {
+      try {
+        const finalRepairModelId = modelId;
+        const finalRepairResult = await generate({
+          meterPhase: `training-${safePhase}-final-repair`,
+          model: finalRepairModelId,
+          instructions: `${instructions}\n\n${buildFinalTrainingRepairInstruction({
+            phase: safePhase,
+            assessment: latestFailedQuality,
+            messages: safeMessages,
+            rubric: scenario.rubric,
+            courseId: course?.id,
+            responseLanguage,
+          })}`,
+          messages: modelMessages,
+          maxOutputTokens: safePhase === 'debrief' ? 3000 : safeActivity === 'study' ? 1200 : 450,
+          reasoning: normalizeReasoningEffort(finalRepairModelId, safePhase === 'debrief' ? 'medium' : 'low'),
         });
-        if (sanitizedQuality.pass) {
-          finalText = evidenceSanitized.text;
-          quality = sanitizedQuality;
-          repaired = true;
+        totalUsage = mergeUsage(totalUsage, finalRepairResult.usage);
+        if (finalRepairResult.text?.trim()) {
+          const finalRepairCandidate = prepareTrainingCandidate(finalRepairResult.text, candidateContext);
+          finalRepairAttemptIssueCodes = [...finalRepairCandidate.rawIssueCodes];
+          finalRepairIssueCodes = [...(finalRepairCandidate.quality.issues || [])];
+          if (finalRepairCandidate.quality.pass) {
+            finalText = finalRepairCandidate.text;
+            finalModelId = finalRepairModelId;
+            quality = finalRepairCandidate.quality;
+            repaired = true;
+          }
+        } else {
+          finalRepairAttemptIssueCodes = ['empty'];
+          finalRepairIssueCodes = ['empty'];
         }
-      }
-    }
-
-    if (!quality.pass && safeActivity === 'study' && safePhase === 'study') {
-      const questionSanitized = sanitizeStudyQuestionCount(finalText, {
-        messages: safeMessages,
-        responseLanguage,
-      });
-      if (questionSanitized.changed) {
-        const sanitizedQuality = assessStudyResponse(questionSanitized.text, {
-          messages: safeMessages,
-          course,
-          item,
-          responseLanguage,
-        });
-        if (sanitizedQuality.pass) {
-          finalText = questionSanitized.text;
-          quality = sanitizedQuality;
-          repaired = true;
-        }
+      } catch {
+        finalRepairAttemptIssueCodes = ['provider_final_repair_error'];
+        finalRepairIssueCodes = ['provider_final_repair_error'];
       }
     }
 
@@ -691,7 +681,10 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         pass: quality.pass,
         issueCodes: quality.issues || [],
         attemptIssueCodes: initialIssueCodes,
+        repairAttemptIssueCodes,
         repairIssueCodes,
+        finalRepairAttemptIssueCodes,
+        finalRepairIssueCodes,
         repaired,
       },
       achievement: safePhase === 'debrief'
@@ -735,6 +728,61 @@ function assessTrainingOutput(text, {
     });
   }
   return { pass: true, issues: [], shouldRepair: false };
+}
+
+function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
+  let preparedText = String(text || '').trim();
+  let changed = false;
+  if (context.phase === 'debrief') {
+    const completedRubric = completeDebriefRubric(preparedText, context.scenario.rubric, {
+      messages: context.messages,
+      responseLanguage: context.responseLanguage,
+    });
+    preparedText = completedRubric.text;
+    changed = completedRubric.changed;
+  }
+
+  const rawQuality = assessTrainingOutput(preparedText, context);
+  let quality = rawQuality;
+  if (sanitize && !quality.pass && context.phase === 'debrief') {
+    const evidenceSanitized = sanitizeDebriefEvidence(preparedText, {
+      messages: context.messages,
+      rubric: context.scenario.rubric,
+      courseId: context.course?.id,
+      responseLanguage: context.responseLanguage,
+    });
+    if (evidenceSanitized.changed) {
+      preparedText = evidenceSanitized.text;
+      changed = true;
+      quality = assessTrainingOutput(preparedText, context);
+    }
+  }
+
+  if (sanitize && !quality.pass && context.activity === 'study' && context.phase === 'study') {
+    const instructionSanitized = sanitizeStudyInternalInstructionLeak(preparedText);
+    if (instructionSanitized.changed) {
+      preparedText = instructionSanitized.text;
+      changed = true;
+    }
+    const questionSanitized = sanitizeStudyQuestionCount(preparedText, {
+      messages: context.messages,
+      responseLanguage: context.responseLanguage,
+    });
+    if (questionSanitized.changed) {
+      preparedText = questionSanitized.text;
+      changed = true;
+    }
+    if (instructionSanitized.changed || questionSanitized.changed) {
+      quality = assessTrainingOutput(preparedText, context);
+    }
+  }
+
+  return {
+    text: preparedText,
+    quality,
+    rawIssueCodes: [...(rawQuality.issues || [])],
+    changed,
+  };
 }
 
 function normalizeIntentText(value) {

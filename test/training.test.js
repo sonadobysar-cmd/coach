@@ -11,9 +11,11 @@ import {
   assessDebriefResponse,
   assessRoleplayResponse,
   assessStudyResponse,
+  buildFinalTrainingRepairInstruction,
   buildTrainingRepairInstruction,
   completeDebriefRubric,
   sanitizeDebriefEvidence,
+  sanitizeStudyInternalInstructionLeak,
   sanitizeStudyQuestionCount,
 } from '../src/training-quality.js';
 import {
@@ -48,6 +50,35 @@ attachCourseMastery(neuroplasticityCourse);
 attachCourseMastery(communicationCourse);
 attachCourseMastery(lifeCoachCourse);
 const allItems = spiritualCourse.modules.flatMap(module => module.items);
+
+function groundedCommunicationStudyText(prefix = '') {
+  return [
+    prefix,
+    'Komunikace je v této lekci popsaná jako soubor pozorovatelných chování, nikoli jako vrozená vlastnost nebo obecný dojem z člověka.',
+    'Nejdřív si proto určíš výsledek, který má posluchačka po sdělení vědět, cítit, rozhodnout nebo udělat.',
+    'Potom vytvoříš záznam, označíš jednu konkrétní překážku, upravíš pouze ji a porovnáš novou verzi s původní.',
+    'Příklad: místo rozsudku „jsem špatná řečnice“ zachytíš, že hlavní sdělení zaznělo až po dvou minutách a posluchačka si ho nevybavila.',
+    'Takový důkaz vytváří přesný tréninkový úkol a odděluje sebekritiku od zlepšování.',
+    'Jaký jeden pozorovatelný výsledek si stanovíš pro příští krátké sdělení?',
+  ].filter(Boolean).join(' ');
+}
+
+function evidenceSafeDebrief(rubric, { resultPrefix = '', strengths = 'Přepis zatím nabízí základ pro další přesný pokus.' } = {}) {
+  return [
+    '## Výsledek nácviku',
+    `${resultPrefix}Nácvik lze vyhodnotit jen podle skutečných vstupů studentky.`,
+    '## Co fungovalo',
+    strengths,
+    '## Rozbor kompetencí',
+    ...rubric.map(label => `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`),
+    '## Co zlepšit',
+    'V dalším pokusu je vhodné přidat jeden pozorovatelný odborný krok.',
+    '## Lepší formulace',
+    'Další formulaci zvol podle konkrétní reakce protistrany.',
+    '## Další pokus',
+    'Zopakuj krátkou situaci a uzavři ji ověřitelným výsledkem.',
+  ].join('\n\n');
+}
 
 test('každý kurz má vlastní odborný profil trenérky', () => {
   const courseIds = [
@@ -586,6 +617,22 @@ test('poslední pojistka studijního výkladu zachová AI obsah a ponechá práv
   assert.match(sanitized.text, /nejdřív určím příjemce/u);
 });
 
+test('odstranění interní poznámky nikdy nepromění prázdný nebo krátký text v platný výklad', () => {
+  const item = communicationCourse.modules[0].items[0];
+  const sanitized = sanitizeStudyInternalInstructionLeak('Kontrola kvality proběhla.');
+  assert.equal(sanitized.changed, true);
+  assert.equal(sanitized.text, '');
+  const assessed = assessStudyResponse(sanitized.text, {
+    messages: [{ role: 'user', content: 'Vysvětli mi tuto lekci.' }],
+    course: communicationCourse,
+    item,
+    responseLanguage: 'cs',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('empty'));
+  assert.ok(assessed.issues.includes('study_too_short'));
+});
+
 test('stav ČÁSTEČNĚ se v českém debriefu počítá jako platné vyhodnocení kritéria', () => {
   const quote = 'Co by pro tebe dnes bylo užitečným výsledkem?';
   const response = [
@@ -682,7 +729,7 @@ test('studijní trenérka zůstává u učiva a brána odmítá osobní koučink
   const item = { title: 'Aktivní naslouchání', markdown: 'Aktivní naslouchání používá parafrázi a ověření porozumění.' };
   const messages = [{ role: 'user', content: 'Jak mám použít parafrázi?' }];
   const valid = assessStudyResponse(
-    'V části Aktivní naslouchání použiješ parafrázi tak, že vlastními slovy zachytíš význam a potom ověříš porozumění. Příklad: „Rozumím tomu tak, že termín je pro tebe zásadní — sedí to?“ Zkus nyní parafrázovat jednu větu klientky.',
+    'V části Aktivní naslouchání použiješ parafrázi tak, že vlastními slovy zachytíš význam a potom ověříš porozumění. Nehodnotíš člověka ani mu hned nedáváš radu; nejdřív ukážeš, co jsi z jeho sdělení zachytila. Příklad: „Rozumím tomu tak, že termín je pro tebe zásadní — sedí to?“ Potom pozoruj, zda klientka význam potvrdí, opraví nebo doplní. Zkus nyní parafrázovat jednu větu klientky.',
     { messages, course, item },
   );
   assert.equal(valid.pass, true);
@@ -708,6 +755,139 @@ test('opravný pokyn pro studium vrací trenérku k lekci, ne do koučinku', () 
   });
   assert.match(instruction, /odborná lektorka právě otevřeného kurzu/i);
   assert.match(instruction, /Nepřepínej do osobního koučinku/i);
+});
+
+test('konečný opravný pokyn vyžaduje jen ověřitelný členský výstup', () => {
+  const instruction = buildFinalTrainingRepairInstruction({
+    phase: 'debrief',
+    assessment: { issues: ['unsupported_student_quote'] },
+    messages: [{ role: 'user', content: 'Co je teď podstatné?' }],
+    rubric: ['Reflexe'],
+    responseLanguage: 'cs',
+  });
+  assert.match(instruction, /pouze hotovou odpověď pro studentku/i);
+  assert.match(instruction, /nikdy nevytvoř citaci ani výrok studentky/i);
+});
+
+test('debrief po jazykové chybě zachrání kvalitní opravu s vymyšlenou citací bezpečnou sanitizací', async () => {
+  const item = spiritualCourse.modules[0].items[0];
+  const scenario = createTrainingScenario(spiritualCourse, item, 'standard');
+  const responses = [
+    evidenceSafeDebrief(scenario.rubric, { resultPrefix: 'Čo se podařilo: ' }),
+    evidenceSafeDebrief(scenario.rubric, {
+      strengths: 'Dobře navázala větou „Zítra pošlu klientce hotovou nabídku“, která ale v přepisu nezazněla.',
+    }),
+  ];
+  let callCount = 0;
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async () => ({ text: responses[callCount++], usage: null }),
+    });
+    const result = await answerTraining({
+      course: spiritualCourse,
+      item,
+      activity: 'simulation',
+      phase: 'debrief',
+      difficulty: 'standard',
+      messages: [
+        { role: 'assistant', content: 'Nevím, kterou možnost vybrat.' },
+        { role: 'user', content: 'Co je pro tebe při tomto rozhodnutí nejdůležitější?' },
+        { role: 'assistant', content: 'Potřebuji znát dopad na svůj čas.' },
+        { role: 'user', content: 'Ukončuji simulaci. Vyhodnoť celý nácvik.' },
+      ],
+    });
+
+    assert.equal(callCount, 2);
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('response_language_mismatch'));
+    assert.ok(result.qualityGate.repairAttemptIssueCodes.includes('unsupported_student_quote'));
+    assert.deepEqual(result.qualityGate.repairIssueCodes, []);
+    assert.doesNotMatch(result.text, /Zítra pošlu klientce hotovou nabídku/u);
+    assert.match(result.text, /Z přepisu lze bezpečně ocenit/u);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('studijní oprava po jazykové chybě odstraní interní poznámku a zachová odborný výklad', async () => {
+  const item = communicationCourse.modules[0].items[0];
+  const responses = [
+    groundedCommunicationStudyText('Čo je podstatné: '),
+    `Kontrola kvality proběhla. ${groundedCommunicationStudyText()}`,
+  ];
+  let callCount = 0;
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async () => ({ text: responses[callCount++], usage: null }),
+    });
+    const result = await answerTraining({
+      course: communicationCourse,
+      item,
+      activity: 'study',
+      phase: 'study',
+      messages: [{ role: 'user', content: 'Vysvětli mi tuto lekci a nakonec polož jednu otázku.' }],
+    });
+
+    assert.equal(callCount, 2);
+    assert.equal(result.qualityGate.pass, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('response_language_mismatch'));
+    assert.ok(result.qualityGate.repairAttemptIssueCodes.includes('internal_instruction_leak'));
+    assert.deepEqual(result.qualityGate.repairIssueCodes, []);
+    assert.doesNotMatch(result.text, /kontrola kvality|interní prompt|systemové instrukce/iu);
+    assert.match(result.text, /soubor pozorovatelných chování/u);
+    assert.equal((result.text.match(/\?/gu) || []).length, 1);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('nejvýše třetí cílené volání zachrání výklad, když první oprava po sanitizaci není substantivní', async () => {
+  const item = communicationCourse.modules[0].items[0];
+  const responses = [
+    groundedCommunicationStudyText('Čo je podstatné: '),
+    'Kontrola kvality proběhla.',
+    groundedCommunicationStudyText(),
+  ];
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: responses[calls.length - 1], usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: communicationCourse,
+      item,
+      activity: 'study',
+      phase: 'study',
+      messages: [{ role: 'user', content: 'Vysvětli mi tuto lekci a nakonec polož jednu otázku.' }],
+    });
+
+    assert.equal(calls.length, 3);
+    assert.equal(calls[2].meterPhase, 'training-study-final-repair');
+    assert.match(calls[2].instructions, /KONEČNÝ VÝSTUPNÍ KONTRAKT/u);
+    assert.equal(result.qualityGate.pass, true);
+    assert.ok(result.qualityGate.repairIssueCodes.includes('study_too_short'));
+    assert.deepEqual(result.qualityGate.finalRepairIssueCodes, []);
+    assert.match(result.text, /soubor pozorovatelných chování/u);
+    assert.doesNotMatch(result.text, /kontrola kvality/iu);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
 });
 
 test('studium a debrief používají hlubší model, živá roleplay zůstává rychlá', () => {
