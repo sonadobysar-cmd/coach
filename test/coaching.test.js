@@ -455,6 +455,76 @@ test('celý chatový tok při opravě zachová skrytý stav techniky a nepoužij
   assert.doesNotMatch(result.text, /tři ženy|jedna odešla|dvě zůstaly|získala klienta/i);
 });
 
+test('po selhání modelu i opravy se neodešle opakující fallback a odpověď zůstane u známých faktů workshopu', async () => {
+  const previousKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only';
+  const calls = [];
+  const invalidAnswer = 'To je typický perfekcionismus. Co se stalo?';
+  const messages = [
+    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání prostě nemám.' },
+    { role: 'assistant', content: 'Jeden workshop ještě nerozhoduje o celé tvé schopnosti podnikat. Co přesně se během něj stalo?' },
+    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla.' },
+    { role: 'assistant', content: 'Důvod jejího odchodu zatím neznáme. Jak reagovaly zbývající ženy?' },
+    { role: 'user', content: 'Dvě zbývající ženy zůstaly do konce a jedna mi napsala, že jí pomohlo cvičení.' },
+    {
+      role: 'assistant',
+      content: 'Nechci ti hned podsouvat vysvětlení. Popiš mi poslední konkrétní situaci, kdy se to stalo — co bylo těsně předtím?',
+    },
+    { role: 'user', content: 'Nevím.' },
+  ];
+
+  try {
+    const answer = createElitea({
+      systemPrompt,
+      knowledgeRecords: [],
+      coachingMethods: methods,
+      expertSources: sources,
+      generate: async options => {
+        calls.push(options);
+        return {
+          text: invalidAnswer,
+          usage: { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+        };
+      },
+    });
+    const result = await answer({
+      messages,
+      memory: {},
+      consultationMode: 'coaching_session',
+    });
+
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].meterPhase, undefined);
+    assert.equal(calls[1].meterPhase, 'quality-repair');
+    assert.equal(result.activeRole, 'coach');
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.deepEqual(result.qualityGate.issueCodes, []);
+    assert.match(result.text, /přihlásily se tři ženy/i);
+    assert.match(result.text, /jedna[^.„“]{0,35}odešla/i);
+    assert.match(result.text, /dvě[^.„“]{0,35}zůstaly/i);
+    assert.match(result.text, /důvod odchodu zatím neznáme/i);
+    assert.match(result.text, /první workshop/i);
+    assert.doesNotMatch(result.text, /Nechci ti hned podsouvat vysvětlení|co bylo těsně předtím/i);
+    assert.equal((result.text.match(/\?/gu) || []).length, 0);
+
+    const independentQuality = assessCoachingResponse(result.text, {
+      messages,
+      conversationContext: {
+        ...buildConversationContext(messages, result.mode),
+        activeRole: result.activeRole,
+        riskLevel: 'normal',
+      },
+      responseMode: result.mode,
+      requireQuestion: false,
+    });
+    assert.equal(independentQuality.pass, true, independentQuality.issues.map(issue => issue.code).join(', '));
+  } finally {
+    if (previousKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousKey;
+  }
+});
+
 test('generický repair funguje i pro neznámý scénář bez tématické šablony', () => {
   const messages = [
     { role: 'user', content: 'Po aktualizaci se můj keramický rezervační formulář přestal odesílat.' },
@@ -546,6 +616,41 @@ test('automatický režim během aktivní techniky nemění uprostřed sezení r
   assert.equal(resolveConversationMode('Připrav mi konkrétní nabídku a cenu.', 'auto', activeSession), 'mentoring');
   assert.equal(resolveConversationMode('Ano, chci.', 'coaching_session', activeSession), 'koucovaci_hodina');
   assert.equal(resolveConversationMode('Ano, chci.', 'auto', { ...activeSession, phase: 'completed' }), 'diagnostika');
+});
+
+test('automatický router během čekání na novou zakázku neobnoví starou techniku z vágní odpovědi', () => {
+  const awaitingRecontract = {
+    techniqueId: 'accurate_self_talk_edit',
+    mode: 'koucovaci_hodina',
+    phase: 'awaiting_recontract',
+    status: 'paused',
+    refusedScope: 's workshopy',
+  };
+
+  assert.equal(
+    resolveConversationMode(
+      'No to já nevím, proto tu jsem.',
+      'auto',
+      awaitingRecontract,
+      {
+        previousMode: 'koucovaci_hodina',
+        conversationText: 'Končím s workshopy, ne s tebou. No to já nevím, proto tu jsem.',
+      },
+    ),
+    'koucovaci_hodina',
+  );
+  assert.equal(
+    resolveConversationMode(
+      'No ja neviem, preto som tu.',
+      'auto',
+      { ...awaitingRecontract, refusedScope: 's workshopmi' },
+      {
+        previousMode: 'koucovaci_hodina',
+        conversationText: 'Končím s workshopmi, nie s tebou. No ja neviem, preto som tu.',
+      },
+    ),
+    'koucovaci_hodina',
+  );
 });
 
 test('specializované režimy mají bezpečný výchozí postup i bez klíčového slova', () => {

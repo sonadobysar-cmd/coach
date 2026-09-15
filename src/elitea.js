@@ -36,6 +36,11 @@ import {
   specialistRouteSummary,
 } from './specialist-router.js';
 import { detectConversationLanguage, languageInstruction } from './language-profile.js';
+import {
+  buildSessionWorkingLedger,
+  formatSessionWorkingLedger,
+  selectEvidenceAwareConversationWindow,
+} from './session-working-ledger.js';
 
 export const DEFAULT_MODEL = 'openai/gpt-5.6-luna';
 export const DEFAULT_DEEP_MODEL = 'openai/gpt-5.6-terra';
@@ -81,7 +86,7 @@ export function resolveTurnModel({
     'somaticka_konzultace',
   ]).has(responseMode);
   const deepTechniquePhase = techniqueTurn?.card
-    && ['consent', 'application', 'evaluation', 'integration'].includes(techniqueTurn?.session?.phase);
+    && ['consent', 'application', 'evaluation', 'integration', 'awaiting_recontract'].includes(techniqueTurn?.session?.phase);
   const developedAutoSession = Number(conversationContext.userTurns || 0) >= 3
     && techniqueTurn?.card
     && responseMode !== 'brand_growth_agent';
@@ -102,6 +107,7 @@ export function createElitea({
   expertSources = [],
   wellbeingProtocols = [],
   techniqueAtlas = [],
+  generate = generateText,
 }) {
   return async function answer({
     messages,
@@ -193,7 +199,14 @@ export function createElitea({
       conversationContext,
       previousAssistantText: previousAssistantMessage(safeMessages),
     });
-    const selectedTechniqueCards = techniqueTurn.card ? [techniqueTurn.card] : [];
+    // This evidence ledger is reconstructed for every request from the current
+    // conversation. It is never written to long-term memory: its purpose is to
+    // keep facts, answered questions, corrections and refusals visible even
+    // when the raw dialogue is longer than the model window.
+    conversationContext.sessionWorkingLedger = buildSessionWorkingLedger(safeMessages, {
+      techniqueSession: techniqueTurn.session || techniqueSession,
+    });
+    const selectedTechniqueCards = techniqueTurn.card && !techniqueTurn.suspended ? [techniqueTurn.card] : [];
     // A locked atlas technique is the executable method for this turn. Keeping
     // a separately selected legacy method in the prompt produced mixed
     // instructions (for example self-talk editing plus an unrelated timebox).
@@ -229,7 +242,7 @@ export function createElitea({
         6,
       )
       : retrieveKnowledge(courseKnowledgeRecords, routingText, 2);
-    const techniqueQuery = techniqueTurn.card
+    const techniqueQuery = techniqueTurn.card && !techniqueTurn.suspended
       ? [
         techniqueTurn.card.name,
         techniqueTurn.card.family,
@@ -244,7 +257,7 @@ export function createElitea({
       memoryQuery,
       3,
     );
-    const orderedMatches = techniqueTurn.card
+    const orderedMatches = techniqueTurn.card && !techniqueTurn.suspended
       ? [...techniqueMatches, ...courseMatches, ...primaryMatches, ...contextualMatches]
       : [...primaryMatches, ...courseMatches, ...contextualMatches];
     const matches = orderedMatches
@@ -313,7 +326,7 @@ export function createElitea({
       'rychle_reseni',
       'mentoringova_konzultace',
     ]);
-    let result = await generateText({
+    let result = await generate({
       model: modelId,
       instructions,
       messages: selectConversationWindow(safeMessages, 18),
@@ -332,7 +345,7 @@ export function createElitea({
     // visible text. One bounded retry is safer than showing a generic fallback
     // that looks like a real coaching intervention.
     if (!result.text?.trim()) {
-      const retryResult = await generateText({
+      const retryResult = await generate({
         meterPhase: 'empty-retry',
         model: modelId,
         instructions: `${instructions}\n\nNyní odpověz přímo člence. Nevypisuj interní úvahu a nezačínej nadpisem.`,
@@ -383,7 +396,7 @@ export function createElitea({
         const repairModelId = responseMode === 'koucovaci_hodina'
           ? String(process.env.ELITEA_COACH_MODEL || DEFAULT_COACH_MODEL).trim()
           : String(process.env.ELITEA_DEEP_MODEL || DEFAULT_DEEP_MODEL).trim();
-        const repairResult = await generateText({
+        const repairResult = await generate({
           meterPhase: 'quality-repair',
           model: repairModelId,
           instructions: `${instructions}\n\n${buildQualityRepairInstruction(quality, conversationContext, { responseMode })}\n\n# VADNÁ ODPOVĚĎ, KTEROU MUSÍŠ NAHRADIT\n${String(finalText || '').slice(0, 2200)}\n\nNevysvětluj její chyby člence. Vrať pouze celou novou odpověď, která je opravuje.`,
@@ -418,14 +431,14 @@ export function createElitea({
     // alianční chybu, pošleme raději stručný tah ukotvený doslova ve zprávě
     // členky. Tím se nepropíše vadná domněnka jen proto, že měla hezký styl.
     if (!quality.pass && quality.issues.some(issue => ['critical', 'high'].includes(issue.severity))) {
-      const guardedText = repairContext.active
+      let guardedText = repairContext.active
         ? guardedConversationRepairFallback(repairContext)
         : isBrandGrowth
         ? guardedBrandFallback(latest.content, { responseLanguage })
         : isBusinessMentoring
           ? guardedMentoringFallback(latest.content, { messages: safeMessages, responseLanguage })
         : guardedQualityFallback(latest.content, { requireQuestion, closingRequested, messages: safeMessages, responseLanguage });
-      const guardedQuality = assessCoachingResponse(guardedText, {
+      let guardedQuality = assessCoachingResponse(guardedText, {
         messages: safeMessages,
         conversationContext,
         responseMode,
@@ -433,9 +446,43 @@ export function createElitea({
         closingRequested,
         requireQuestion: shapedModes.has(responseMode) && requireQuestion,
       });
-      // The pipeline is fail-closed: a high/critical model answer is never
-      // kept merely because the optional repair failed. Guarded fallbacks are
-      // deterministic, versioned and regression-tested.
+
+      // A guarded template is still an assistant response and therefore has
+      // to pass the same contract as the model. In particular, a generic
+      // template must never repeat the preceding question after both model
+      // passes failed. The second fallback uses only the active contract and
+      // facts stated by the member; if even that cannot pass, fail closed and
+      // let the client retry instead of sending a known-bad coaching turn.
+      if (!guardedQuality.pass) {
+        guardedText = finalizeText(failClosedContractFallback({
+          messages: safeMessages,
+          conversationContext,
+          responseMode,
+          techniqueTurn,
+          closingRequested,
+          responseLanguage,
+        }));
+        guardedQuality = assessCoachingResponse(guardedText, {
+          messages: safeMessages,
+          conversationContext,
+          responseMode,
+          techniqueTurn,
+          closingRequested,
+          requireQuestion: shapedModes.has(responseMode) && requireQuestion,
+        });
+      }
+
+      if (!guardedQuality.pass) {
+        throw Object.assign(
+          new Error('Bezpečnou odpověď se teď nepodařilo připravit. Zkus to prosím znovu.'),
+          {
+            statusCode: 503,
+            code: 'COACHING_QUALITY_FAIL_CLOSED',
+            qualityIssueCodes: guardedQuality.issues.map(issue => issue.code),
+          },
+        );
+      }
+
       finalText = guardedText;
       quality = guardedQuality;
       repaired = true;
@@ -498,6 +545,157 @@ function previousAssistantMessage(messages = []) {
     .reverse()
     .find(message => message?.role === 'assistant'
       && String(message.content || '').replace(/\s+/g, ' ').trim())?.content || '';
+}
+
+function failClosedEvidenceSnippet(value, maxWords = 22) {
+  const words = String(value || '')
+    .replace(/[„“"]/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .split(/\s+/u)
+    .filter(Boolean);
+  if (!words.length) return '';
+  const shortened = words.slice(0, maxWords).join(' ').replace(/[,:;.!?]+$/u, '');
+  return words.length > maxWords ? `${shortened}…` : shortened;
+}
+
+function failClosedFirstTurnAnchor(value) {
+  const words = failClosedEvidenceSnippet(value, 12).split(/\s+/u).filter(Boolean);
+  if (words.length < 2) return '';
+  return words.slice(0, Math.min(words.length - 1, 10)).join(' ');
+}
+
+function failClosedContractSnippet(value) {
+  const clean = String(value || '').replace(/[„“"]/gu, '').replace(/\s+/gu, ' ').trim();
+  const workshop = clean.match(/\b(?:(?:prvn[iíý]|druh[ýá]|dal[šs][ií])\s+)?workshop\w*/iu)?.[0];
+  if (workshop) return workshop.replace(/[,:;.!?]+$/u, '');
+  const safeClause = clean
+    .split(/[.!?;]+/u)
+    .map(clause => clause.trim())
+    .find(clause => clause
+      && !/\b(?:jsem|som)\b[^.!?]{0,35}\b(?:neschopn|k nicemu|na nic|marn|hloup|nemam na|nemám na)\w*|\b(?:dopadl|dopadla|skoncil|skoncila)\w*\b[^.!?]{0,30}\b(?:spatn|slab|hrozne|zle|neuspes)\w*/iu.test(normalizeDialogueText(clause)));
+  return failClosedEvidenceSnippet(safeClause || '', 18);
+}
+
+function failClosedEvidenceState(messages, conversationContext = {}) {
+  const evidence = extractSessionEvidence(messages);
+  const ledger = conversationContext.sessionWorkingLedger
+    || conversationContext.workingLedger
+    || conversationContext.sessionLedger
+    || {};
+  const rawContract = conversationContext.activeContract
+    || ledger.contract
+    || conversationContext.openingFocus
+    || evidence.recentUserEvidence?.[0]
+    || '';
+  const contract = failClosedContractSnippet(rawContract);
+  const normalizedContract = normalizeDialogueText(rawContract);
+  const candidates = [
+    ...(Array.isArray(ledger.knownFacts) ? ledger.knownFacts : []),
+    ...(Array.isArray(ledger.performedStepsAndEffects) ? ledger.performedStepsAndEffects : []),
+    ...(evidence.recentUserEvidence || []),
+  ]
+    .map(value => failClosedEvidenceSnippet(value, 22))
+    .filter(value => value && !/^(?:ano|jo|ok(?:ej)?|dobře|dobre|nevím|neviem)$/iu.test(value))
+    .filter(value => normalizeDialogueText(value) !== normalizedContract);
+  const facts = [...new Map(candidates.map(value => [normalizeDialogueText(value), value])).values()].slice(-2);
+  const source = [rawContract, ...candidates].join(' ');
+  const normalizedSource = normalizeDialogueText(source);
+  const reportsDeparture = /\b(?:odes|odis|odchod|opust)\w*\b/u.test(normalizedSource);
+  const statesDepartureReason = /\b(?:odes|odis|opust)\w*\b[^.!?]{0,100}\b(?:protoze|jelikoz|kvuli|z duvodu|pretoze|kedze|lebo|kvoli|z dovodu)\b|\b(?:protoze|jelikoz|kvuli|z duvodu|pretoze|kedze|lebo|kvoli|z dovodu)\b[^.!?]{0,100}\b(?:odes|odis|opust)\w*/u.test(normalizedSource);
+  return { contract, facts, unexplainedDeparture: reportsDeparture && !statesDepartureReason };
+}
+
+export function failClosedContractFallback({
+  messages = [],
+  conversationContext = {},
+  responseMode = 'diagnostika',
+  techniqueTurn = null,
+  closingRequested = false,
+  responseLanguage = conversationContext.responseLanguage || detectConversationLanguage(messages),
+} = {}) {
+  const slovak = responseLanguage === 'sk';
+  const { contract, facts, unexplainedDeparture } = failClosedEvidenceState(messages, conversationContext);
+  const latestKnown = facts.at(-1) || contract;
+
+  if (techniqueTurn?.session?.phase === 'evaluation') {
+    const anchor = latestKnown || contract;
+    if (slovak) {
+      return anchor
+        ? `Pri bode „${anchor}“ teraz iba overíme účinok predošlého kroku: vnímaš oproti začiatku nejakú zmenu, alebo žiadnu?`
+        : 'Teraz iba overíme účinok predošlého kroku: vnímaš oproti začiatku nejakú zmenu, alebo žiadnu?';
+    }
+    return anchor
+      ? `U bodu „${anchor}“ teď pouze ověříme účinek předchozího kroku: vnímáš oproti začátku nějakou změnu, nebo žádnou?`
+      : 'Teď pouze ověříme účinek předchozího kroku: vnímáš oproti začátku nějakou změnu, nebo žádnou?';
+  }
+
+  if (closingRequested || techniqueTurn?.session?.phase === 'stopped') {
+    if (slovak) {
+      return contract
+        ? `Dnešnú prácu pri téme „${contract}“ tu uzavrieme. Nebudem pridávať ďalší krok.`
+        : 'Dnešnú prácu tu uzavrieme. Nebudem pridávať ďalší krok.';
+    }
+    return contract
+      ? `Dnešní práci u tématu „${contract}“ tady uzavřeme. Nebudu přidávat další krok.`
+      : 'Dnešní práci tady uzavřeme. Nebudu přidávat další krok.';
+  }
+
+  // On the first turn, repeating the full client message is itself a quality
+  // failure. This neutral role-specific bridge is intentionally long enough
+  // not to become a cold command, while the next turn can ground more deeply.
+  if (Number(conversationContext.userTurns || 0) <= 1) {
+    const firstTurnAnchor = failClosedFirstTurnAnchor(conversationContext.activeContract || conversationContext.openingFocus || '');
+    if (slovak) {
+      if (responseMode === 'brand_growth_agent') return firstTurnAnchor
+        ? `Pri zadaní „${firstTurnAnchor}“ neurobím hotový záver o značke. Najprv oddelíme konkrétny cieľ, dostupný podklad a výstup, ktorý má na konci skutočne vzniknúť.`
+        : 'Z jedného zadania neurobím hotový záver o značke. Najprv oddelíme konkrétny cieľ, dostupný podklad a výstup, ktorý má na konci skutočne vzniknúť.';
+      if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)) return firstTurnAnchor
+        ? `Pri téme „${firstTurnAnchor}“ neurobím verdikt o celom projekte. Najprv oddelíme známy výsledok, chýbajúci údaj a rozhodnutie, ktoré z nich skutočne vyplýva.`
+        : 'Z jednej informácie neurobím verdikt o celom projekte. Najprv oddelíme známy výsledok, chýbajúci údaj a rozhodnutie, ktoré z nich skutočne vyplýva.';
+      return firstTurnAnchor
+        ? `Pri téme „${firstTurnAnchor}“ neurobím záver o celej tebe. Najprv oddelíme konkrétnu udalosť a hodnotenie, ktoré sa k nej pridalo.`
+        : 'Z jednej ťažkej chvíle neurobím záver o celej tebe. Najprv oddelíme konkrétnu udalosť a hodnotenie, ktoré sa k nej pridalo.';
+    }
+    if (responseMode === 'brand_growth_agent') return firstTurnAnchor
+      ? `U zadání „${firstTurnAnchor}“ neudělám hotový závěr o značce. Nejdřív oddělíme konkrétní cíl, dostupný podklad a výstup, který má na konci skutečně vzniknout.`
+      : 'Z jednoho zadání neudělám hotový závěr o značce. Nejdřív oddělíme konkrétní cíl, dostupný podklad a výstup, který má na konci skutečně vzniknout.';
+    if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)) return firstTurnAnchor
+      ? `U tématu „${firstTurnAnchor}“ neudělám verdikt o celém projektu. Nejdřív oddělíme známý výsledek, chybějící údaj a rozhodnutí, které z nich skutečně plyne.`
+      : 'Z jedné informace neudělám verdikt o celém projektu. Nejdřív oddělíme známý výsledek, chybějící údaj a rozhodnutí, které z nich skutečně plyne.';
+    return firstTurnAnchor
+      ? `U tématu „${firstTurnAnchor}“ neudělám závěr o celé tobě. Nejdřív oddělíme konkrétní událost a hodnocení, které se k ní přidalo.`
+      : 'Z jedné těžké chvíle neudělám závěr o celé tobě. Nejdřív oddělíme konkrétní událost a hodnocení, které se k ní přidalo.';
+  }
+
+  const factSummary = facts.length
+    ? slovak
+      ? `Ako pevné body si uviedla ${facts.map(value => `„${value}“`).join(' a ')}.`
+      : `Jako pevné body jsi uvedla ${facts.map(value => `„${value}“`).join(' a ')}.`
+    : '';
+  const uncertainty = unexplainedDeparture
+    ? slovak
+      ? 'Dôvod odchodu zatiaľ nepoznáme.'
+      : 'Důvod odchodu zatím neznáme.'
+    : '';
+
+  if (slovak) {
+    if (responseMode === 'brand_growth_agent') {
+      return [`Pracujeme na zadaní „${contract}“.`, factSummary, uncertainty, 'Nasledujúci výstup postavíme na týchto konkrétnych údajoch.'].filter(Boolean).join(' ');
+    }
+    if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)) {
+      return [`Riešime „${contract}“.`, factSummary, uncertainty, 'Pre ďalšie rozhodnutie necháme tieto údaje oddelené.'].filter(Boolean).join(' ');
+    }
+    return [`Zostávame pri téme „${contract}“.`, factSummary, uncertainty, 'Teraz od seba oddelíme, čo sa stalo, a čo z toho zatiaľ vyvodzuješ.'].filter(Boolean).join(' ');
+  }
+
+  if (responseMode === 'brand_growth_agent') {
+    return [`Pracujeme na zadání „${contract}“.`, factSummary, uncertainty, 'Následující výstup postavíme na těchto konkrétních údajích.'].filter(Boolean).join(' ');
+  }
+  if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)) {
+    return [`Řešíme „${contract}“.`, factSummary, uncertainty, 'Pro další rozhodnutí necháme tyto údaje oddělené.'].filter(Boolean).join(' ');
+  }
+  return [`Zůstáváme u tématu „${contract}“.`, factSummary, uncertainty, 'Teď od sebe oddělíme, co se stalo, a co z toho zatím vyvozuješ.'].filter(Boolean).join(' ');
 }
 
 export function guardedQualityFallback(latestText, {
@@ -1018,6 +1216,7 @@ function buildInstructions(
     recent_focuses: activeContinuity?.recent_focuses?.slice(-5) || [],
     last_mode: activeContinuity?.last_mode || null,
   };
+  const { sessionWorkingLedger, ...conversationMoment } = conversationContext;
 
   return [
     selectSystemContext(systemPrompt, responseMode),
@@ -1027,6 +1226,8 @@ function buildInstructions(
     brandRole
       ? 'Vidíš základní profil členky a paměť Brand & Marketing. Nemáš přístup k obsahu jejího osobního koučinku a nesmíš tvrdit, že ho znáš.'
       : 'Vidíš základní profil členky a paměť Coach & Mentor. Nemáš přístup k obsahu Brand & Marketing konverzací a nesmíš tvrdit, že ho znáš.',
+    '\n\n',
+    formatSessionWorkingLedger(sessionWorkingLedger),
     '\n\n# INTERNÍ KOORDINACE ODBORNOSTÍ',
     formatSpecialistContext(specialistRoute),
     '\n\n# RELEVANTNÍ METODIKA ELITEY — NIA, KURZY A KRITICKY ZPRACOVANÉ KNIHY',
@@ -1054,7 +1255,7 @@ function buildInstructions(
     '\n\n# REŽIM TÉTO ODPOVĚDI',
     responseMode,
     '\n\n# OKAMŽIK V ROZHOVORU',
-    JSON.stringify(conversationContext, null, process.env.ELITEA_CONTEXT_COMPACT === '0' ? 2 : undefined),
+    JSON.stringify(conversationMoment, null, process.env.ELITEA_CONTEXT_COMPACT === '0' ? 2 : undefined),
     '\n\n# PRAVIDLO PRO TUTO ODPOVĚĎ',
     [
       'Použij pouze relevantní části zdrojů. Nevydávej zkušenost Nii za univerzální fakt.',
@@ -1169,10 +1370,7 @@ function depthStageInstruction(stage) {
 }
 
 export function selectConversationWindow(messages, maxMessages = 18) {
-  const safe = Array.isArray(messages) ? messages : [];
-  if (safe.length <= maxMessages) return safe;
-  const openingCount = Math.min(4, Math.max(2, Math.floor(maxMessages / 4)));
-  return [...safe.slice(0, openingCount), ...safe.slice(-(maxMessages - openingCount))];
+  return selectEvidenceAwareConversationWindow(messages, maxMessages);
 }
 
 function sanitizeMessages(messages) {
@@ -1691,7 +1889,7 @@ export function resolveConversationMode(text, consultationMode = 'auto', techniq
       : 'koucovaci_podpora';
   }
   const activeSession = techniqueSession
-    && ['assessment', 'consent', 'application', 'evaluation', 'integration'].includes(techniqueSession.phase)
+    && ['assessment', 'consent', 'application', 'evaluation', 'integration', 'awaiting_recontract'].includes(techniqueSession.phase)
     && typeof techniqueSession.techniqueId === 'string'
     && techniqueSession.techniqueId.trim();
   if (activeSession && CONTINUOUS_SESSION_MODES.has(techniqueSession.mode)) {

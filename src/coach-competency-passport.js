@@ -17,6 +17,9 @@ export const COACH_PASSPORT_STANDARD = Object.freeze({
 const TRUSTED_PROVIDER = /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i;
 const UNTRUSTED_PROVIDER = /(fallback|demo|local|deterministic)/i;
 const ACHIEVEMENT_STATUSES = new Set(['proven', 'partial', 'not_proven', 'missing']);
+const ACHIEVEMENT_STATUS_RANK = Object.freeze({ missing: 0, not_proven: 1, partial: 2, proven: 3 });
+const DIFFICULTY_RANK = Object.freeze({ guided: 0, standard: 1, advanced: 2, expert: 3 });
+const COACH_MASTERY_MAX_POINTS = 3;
 
 /**
  * Persistuje jen ověřitelné hodnocení a hash přepisu, nikoli citlivý obsah
@@ -127,11 +130,12 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   const normalized = (Array.isArray(attempts) ? attempts : [])
     .map(normalizeAttempt)
     .filter(Boolean)
-    .sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime());
+    .sort(compareAttempts);
   const competencyIds = COACH_COMPETENCIES.map(competency => competency.id);
   const trustedProviderAttempts = normalized.filter(attempt => attempt.trustedProvider);
   const trustedReviewed = normalized.filter(attempt => attempt.qualityPassed && attempt.trustedProvider);
-  const qualifyingPractice = trustedReviewed.filter(attempt => (
+  const practiceMeasurement = preparePracticeMeasurement(trustedReviewed);
+  const qualifyingPractice = practiceMeasurement.attempts.filter(attempt => (
     !attempt.finalExam
     && attempt.criticalFailures.length === 0
     && attempt.provenCompetencyIds.size > 0
@@ -150,6 +154,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     COACH_PASSPORT_STANDARD.minimumPassingFinalExams,
   );
   const finalExamPassed = finalExamsPassed >= requiredFinalExams;
+  const masteryGain = buildCoachMasteryGainFromMeasurement(practiceMeasurement);
 
   const competencies = Object.fromEntries(COACH_COMPETENCIES.map(competencyDefinition => {
     const competencyId = competencyDefinition.id;
@@ -165,6 +170,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       proven: scenarioProofs.length >= standard.minimumProofsPerCompetency,
       advancedProven: advancedProofs.length >= 1,
       scenarioIds: scenarioProofs.map(attempt => attempt.scenarioId),
+      development: masteryGain.competencies[competencyId],
     }];
   }));
 
@@ -216,7 +222,12 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       finalExamsPassed,
       requiredFinalExams,
       finalExamPassed,
+      masteryGainPercent: masteryGain.normalizedGainPercent,
+      measuredCompetencies: masteryGain.measuredCompetencies,
+      improvedCompetencies: masteryGain.improvedCompetencies,
+      advancedGains: masteryGain.advancedGains,
     },
+    masteryGain,
     competencies,
     missingCompetencyIds,
     missingAdvancedCompetencyIds,
@@ -233,6 +244,131 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       finalExamPassed,
       trustedProviderAttempts: trustedProviderAttempts.length,
     }),
+  };
+}
+
+/**
+ * Měří změnu dovednosti, ne aktivitu. Výchozím bodem je první důvěryhodný,
+ * quality-passed nácvik, v němž byla daná kompetence skutečně hodnocena.
+ * Pozdější důkaz musí pocházet z jiného scénáře i jiného přepisu. Pokusy se
+ * záložním modelem, neúspěšným quality gate nebo kritickou profesní chybou se
+ * do růstu nezapočítají. Skála má 0 = baseline/not proven, 1 = developing,
+ * 2 = proven a 3 = advanced; souhrnné procento dělí získané body pouze reálně
+ * dostupným posunem u kompetencí, které už mají baseline i pozdější pokus.
+ */
+export function buildCoachMasteryGain(attempts = []) {
+  const normalized = (Array.isArray(attempts) ? attempts : [])
+    .map(normalizeAttempt)
+    .filter(Boolean)
+    .sort(compareAttempts);
+  return buildCoachMasteryGainFromMeasurement(preparePracticeMeasurement(normalized));
+}
+
+function preparePracticeMeasurement(attempts) {
+  const eligible = (Array.isArray(attempts) ? attempts : []).filter(attempt => (
+    attempt.trustedProvider
+    && attempt.qualityPassed
+    && !attempt.finalExam
+    && attempt.criticalFailures.length === 0
+    && attempt.competencyStatuses.size > 0
+  ));
+  return distinctPracticeAttempts(eligible);
+}
+
+function buildCoachMasteryGainFromMeasurement(measurement) {
+  const byCompetency = Object.fromEntries(COACH_COMPETENCIES.map(definition => {
+    const assessed = measurement.attempts.filter(attempt => attempt.competencyStatuses.has(definition.id));
+    const baselineAttempt = assessed[0] || null;
+    const baseline = baselineAttempt
+      ? coachPerformanceSnapshot(baselineAttempt, definition.id)
+      : null;
+    const followUps = baselineAttempt
+      ? assessed.filter(attempt => attempt.completedAt.getTime() > baselineAttempt.completedAt.getTime())
+      : [];
+    const followUpSnapshots = followUps.map(attempt => coachPerformanceSnapshot(attempt, definition.id));
+    const bestFollowUp = bestPerformance(followUpSnapshots);
+    const latestFollowUp = followUpSnapshots.at(-1) || null;
+    const baselinePoints = baseline?.points ?? 0;
+    const bestPoints = bestFollowUp?.points ?? baselinePoints;
+    const availableGainPoints = baseline && followUps.length
+      ? Math.max(0, COACH_MASTERY_MAX_POINTS - baselinePoints)
+      : 0;
+    const gainedPoints = baseline && followUps.length
+      ? Math.max(0, bestPoints - baselinePoints)
+      : 0;
+    const improved = gainedPoints > 0;
+    const provenGain = improved && bestPoints === 2;
+    const advancedGain = improved && bestPoints >= COACH_MASTERY_MAX_POINTS;
+    const stage = advancedGain
+      ? 'advanced'
+      : provenGain
+        ? 'proven'
+        : improved
+          ? 'developing'
+          : 'baseline';
+    const achievedFollowUpLevel = bestFollowUp?.level || baseline?.level || 'unmeasured';
+    const sustainedEvidence = improved
+      ? followUpSnapshots.filter(snapshot => snapshot.points >= bestPoints).length
+      : 0;
+    return [definition.id, {
+      label: definition.label,
+      stage,
+      transition: baseline ? `${baseline.level}→${achievedFollowUpLevel}` : 'unmeasured',
+      measured: Boolean(baseline && followUps.length),
+      improved,
+      provenGain,
+      advancedGain,
+      sustained: improved && sustainedEvidence >= 2,
+      distinctFollowUps: followUps.length,
+      baseline,
+      bestFollowUp,
+      latestFollowUp,
+      availableGainPoints,
+      gainedPoints,
+      gainPercent: availableGainPoints > 0
+        ? roundPercent(gainedPoints, availableGainPoints)
+        : null,
+      maintainedAdvanced: Boolean(
+        baseline?.points === COACH_MASTERY_MAX_POINTS
+        && followUpSnapshots.some(snapshot => snapshot.points === COACH_MASTERY_MAX_POINTS),
+      ),
+      regressedAtLatest: Boolean(
+        latestFollowUp
+        && latestFollowUp.points < Math.max(baselinePoints, bestPoints),
+      ),
+    }];
+  }));
+
+  const rows = Object.values(byCompetency);
+  const measuredRows = rows.filter(row => row.measured);
+  const gainEligibleRows = measuredRows.filter(row => row.availableGainPoints > 0);
+  const improvedRows = gainEligibleRows.filter(row => row.improved);
+  const gainedPoints = gainEligibleRows.reduce((sum, row) => sum + row.gainedPoints, 0);
+  const availableGainPoints = gainEligibleRows.reduce((sum, row) => sum + row.availableGainPoints, 0);
+  return {
+    metric: 'verified_competency_mastery_gain',
+    normalizedGainPercent: availableGainPoints > 0
+      ? roundPercent(gainedPoints, availableGainPoints)
+      : null,
+    measurementCoveragePercent: roundPercent(measuredRows.length, COACH_COMPETENCIES.length),
+    verifiedGainRatePercent: gainEligibleRows.length
+      ? roundPercent(improvedRows.length, gainEligibleRows.length)
+      : null,
+    baselineCompetencies: rows.filter(row => row.baseline).length,
+    measuredCompetencies: measuredRows.length,
+    gainEligibleCompetencies: gainEligibleRows.length,
+    improvedCompetencies: improvedRows.length,
+    provenGains: improvedRows.filter(row => row.provenGain).length,
+    advancedGains: improvedRows.filter(row => row.advancedGain).length,
+    sustainedGains: improvedRows.filter(row => row.sustained).length,
+    maintainedAdvancedCompetencies: measuredRows.filter(row => row.maintainedAdvanced).length,
+    regressedAtLatestCompetencies: measuredRows.filter(row => row.regressedAtLatest).length,
+    gainedPoints,
+    availableGainPoints,
+    acceptedPracticeAttempts: measurement.attempts.length,
+    ignoredDuplicateAttempts: measurement.duplicates.total,
+    duplicateReasons: { ...measurement.duplicates },
+    competencies: byCompetency,
   };
 }
 
@@ -280,7 +416,7 @@ export function isTrustedCoachAssessmentProvider(value) {
   return TRUSTED_PROVIDER.test(provider) && !UNTRUSTED_PROVIDER.test(provider);
 }
 
-function normalizeAttempt(raw, index) {
+function normalizeAttempt(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const completedAt = new Date(raw.completed_at || raw.completedAt || 0);
   if (!Number.isFinite(completedAt.getTime())) return null;
@@ -292,8 +428,18 @@ function normalizeAttempt(raw, index) {
   const scenarioId = clean(raw.scenario_id || raw.scenarioId, 200) || `${itemId}:${difficulty}`;
   const transcriptHash = clean(raw.transcript_hash || raw.transcriptHash, 128);
   const trainingAttemptId = clean(raw.training_attempt_id || raw.trainingAttemptId, 80);
+  const competencyStatuses = achievementStatusesByCompetency(rows);
+  const stableFallbackId = `attempt-${createHash('sha256').update(JSON.stringify({
+    completedAt: completedAt.toISOString(),
+    itemId,
+    scenarioId,
+    transcriptHash,
+    trainingAttemptId,
+    difficulty,
+    finalExam: raw.final_exam === true || raw.finalExam === true,
+  })).digest('hex').slice(0, 24)}`;
   return {
-    id: clean(raw.id, 80) || `attempt-${index}`,
+    id: clean(raw.id, 80) || stableFallbackId,
     itemId,
     scenarioId,
     scenarioKey: scenarioId,
@@ -308,10 +454,116 @@ function normalizeAttempt(raw, index) {
       rows,
       allProven: achievement.allProven === true || achievement.all_proven === true,
     },
+    competencyStatuses,
     provenCompetencyIds: new Set(rows.filter(row => row.status === 'proven').map(row => row.competencyId).filter(Boolean)),
     criticalFailures,
     completedAt,
   };
+}
+
+function compareAttempts(left, right) {
+  const timeDifference = left.completedAt.getTime() - right.completedAt.getTime();
+  if (timeDifference) return timeDifference;
+  return [left.id, left.trainingAttemptId, left.scenarioId, left.transcriptHash]
+    .join('\u0000')
+    .localeCompare([right.id, right.trainingAttemptId, right.scenarioId, right.transcriptHash].join('\u0000'), 'en');
+}
+
+function achievementStatusesByCompetency(rows) {
+  const result = new Map();
+  for (const row of rows) {
+    if (!row.competencyId) continue;
+    const previous = result.get(row.competencyId);
+    // A competency is only as strong as its weakest assessed criterion in the
+    // same debrief. Taking the best row would let one excellent intervention
+    // hide a missing or not-proven part of the same professional skill.
+    if (!previous || ACHIEVEMENT_STATUS_RANK[row.status] < ACHIEVEMENT_STATUS_RANK[previous]) {
+      result.set(row.competencyId, row.status);
+    }
+  }
+  return result;
+}
+
+function distinctPracticeAttempts(attempts) {
+  const seen = {
+    ids: new Set(),
+    trainingAttemptIds: new Set(),
+    scenarioIds: new Set(),
+    transcriptHashes: new Set(),
+  };
+  const duplicates = {
+    total: 0,
+    repeatedId: 0,
+    repeatedTrainingAttempt: 0,
+    repeatedScenario: 0,
+    repeatedTranscript: 0,
+  };
+  const accepted = [];
+  for (const attempt of [...attempts].sort(compareAttempts)) {
+    const repeatedReason = duplicatePracticeReason(attempt, seen);
+    if (repeatedReason) {
+      duplicates.total += 1;
+      duplicates[repeatedReason] += 1;
+      continue;
+    }
+    accepted.push(attempt);
+    if (attempt.id) seen.ids.add(attempt.id);
+    if (attempt.trainingAttemptId) seen.trainingAttemptIds.add(attempt.trainingAttemptId);
+    if (attempt.scenarioId) seen.scenarioIds.add(attempt.scenarioId);
+    if (attempt.transcriptHash) seen.transcriptHashes.add(attempt.transcriptHash);
+  }
+  return { attempts: accepted, duplicates };
+}
+
+function duplicatePracticeReason(attempt, seen) {
+  if (attempt.id && seen.ids.has(attempt.id)) return 'repeatedId';
+  if (attempt.trainingAttemptId && seen.trainingAttemptIds.has(attempt.trainingAttemptId)) {
+    return 'repeatedTrainingAttempt';
+  }
+  if (attempt.scenarioId && seen.scenarioIds.has(attempt.scenarioId)) return 'repeatedScenario';
+  if (attempt.transcriptHash && seen.transcriptHashes.has(attempt.transcriptHash)) return 'repeatedTranscript';
+  return null;
+}
+
+function coachPerformanceSnapshot(attempt, competencyId) {
+  const status = attempt.competencyStatuses.get(competencyId) || 'missing';
+  const advanced = status === 'proven' && DIFFICULTY_RANK[attempt.difficulty] >= DIFFICULTY_RANK.advanced;
+  const points = advanced
+    ? COACH_MASTERY_MAX_POINTS
+    : status === 'proven'
+      ? 2
+      : status === 'partial'
+        ? 1
+        : 0;
+  return {
+    attemptId: attempt.id,
+    scenarioId: attempt.scenarioId,
+    completedAt: attempt.completedAt.toISOString(),
+    difficulty: attempt.difficulty,
+    status,
+    level: advanced ? 'advanced' : status === 'proven' ? 'proven' : status === 'partial' ? 'developing' : 'baseline',
+    points,
+  };
+}
+
+function bestPerformance(snapshots) {
+  let best = null;
+  for (const snapshot of snapshots) {
+    if (!best
+      || snapshot.points > best.points
+      || (snapshot.points === best.points && DIFFICULTY_RANK[snapshot.difficulty] > DIFFICULTY_RANK[best.difficulty])
+      || (snapshot.points === best.points
+        && DIFFICULTY_RANK[snapshot.difficulty] === DIFFICULTY_RANK[best.difficulty]
+        && snapshot.completedAt > best.completedAt)) {
+      best = snapshot;
+    }
+  }
+  return best;
+}
+
+function roundPercent(numerator, denominator) {
+  if (!denominator) return 0;
+  return Math.round((Number(numerator) / Number(denominator)) * 1000) / 10;
 }
 
 function distinctFinalExamAttempts(attempts) {

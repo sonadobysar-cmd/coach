@@ -1,6 +1,6 @@
 import { requestsOneShortQuestion } from './conversation-repair-intent.js';
 
-const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'completed', 'stopped']);
+const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'awaiting_recontract', 'completed', 'stopped']);
 const ACTIVE_PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration']);
 const CONSENT_FAMILIES = new Set([
   'trauma_informed_support',
@@ -54,13 +54,20 @@ export function createTechniqueTurn({
   // aby oprava porozumění nemohla techniku skrytě posunout ani restartovat.
   if (explicitRepair || (ambiguousOrExternalStop && !consentDeclined)) {
     const card = safePrevious ? byId.get(safePrevious.techniqueId) : null;
+    const persistentRecontract = Boolean(safePrevious)
+      && (ambiguousOrExternalStop || safePrevious.phase === 'awaiting_recontract');
+    const session = persistentRecontract
+      ? suspendTechniqueForRecontract(safePrevious, latestText, stopIntent)
+      : safePrevious;
     return {
       card,
-      session: safePrevious,
+      session,
       steps: deriveTechniqueSteps(card),
       suspended: true,
       suspensionReason: stopIntent === 'external_stop'
         ? 'external_stop'
+        : safePrevious?.phase === 'awaiting_recontract'
+          ? 'awaiting_recontract'
         : explicitRepair
           ? 'conversation_repair'
           : 'ambiguous_stop',
@@ -105,6 +112,57 @@ export function createTechniqueTurn({
   // Po zastavení už starý stav nesmí v dalším tahu znovu rozběhnout techniku.
   if (safePrevious?.phase === 'stopped' && !explicitStop) {
     return { card: null, session: null, steps: [] };
+  }
+
+  // Oprava rozsahu nebo odmítnutí vnější činnosti je trvalá hranice, ne
+  // jednorázová instrukce pro model. Vágne „nevím, proto tu jsem“ proto nesmí
+  // v dalším tahu znovu aktivovat starý postup ani vybrat jinou techniku.
+  if (safePrevious?.phase === 'awaiting_recontract') {
+    const card = byId.get(safePrevious.techniqueId);
+    if (explicitStop) {
+      return {
+        card,
+        steps: deriveTechniqueSteps(card),
+        session: stopTechniqueSession(safePrevious, 'user_stop'),
+      };
+    }
+    if (explicitTechniqueStop) {
+      return {
+        card,
+        steps: deriveTechniqueSteps(card),
+        session: stopTechniqueSession(safePrevious, 'technique_stop'),
+      };
+    }
+    if (explicitlyResumesTechnique(latestText)) {
+      const { resumePhase, refusedScope, suspensionReason, ...rest } = safePrevious;
+      return {
+        card,
+        steps: deriveTechniqueSteps(card),
+        recontracted: true,
+        session: {
+          ...rest,
+          phase: ACTIVE_PHASES.has(resumePhase) ? resumePhase : 'application',
+          status: 'active',
+          turns: safePrevious.turns + 1,
+          transitionReason: 'recontracted',
+        },
+      };
+    }
+    if (explicitlyEstablishesNewDirection(latestText, previousAssistantText)) {
+      return startCandidateTechnique({
+        candidates,
+        mode,
+        latestText,
+        recontracted: true,
+      });
+    }
+    return {
+      card,
+      session: safePrevious,
+      steps: deriveTechniqueSteps(card),
+      suspended: true,
+      suspensionReason: 'awaiting_recontract',
+    };
   }
 
   // Pokud členka neodpověděla na měření účinku, otázku neopakujeme a stav
@@ -173,11 +231,16 @@ export function createTechniqueTurn({
     return { card, session, steps };
   }
 
+  return startCandidateTechnique({ candidates, mode, latestText });
+}
+
+function startCandidateTechnique({ candidates = [], mode, latestText, recontracted = false }) {
   const card = candidates.find(candidate => candidate?.access_level !== 'human_only') || null;
-  if (!card) return { card: null, session: null, steps: [] };
+  if (!card) return { card: null, session: null, steps: [], recontracted };
   return {
     card,
     steps: deriveTechniqueSteps(card),
+    recontracted,
     session: {
       techniqueId: card.id,
       mode,
@@ -192,6 +255,87 @@ export function createTechniqueTurn({
       consentGranted: false,
     },
   };
+}
+
+function suspendTechniqueForRecontract(previous, latestText, stopIntent) {
+  const existingScope = cleanText(previous.refusedScope, 240);
+  const refusedScope = stopIntent === 'external_stop'
+    ? extractRefusedScope(latestText) || existingScope
+    : existingScope;
+  return {
+    ...previous,
+    phase: 'awaiting_recontract',
+    status: 'paused',
+    resumePhase: previous.phase === 'awaiting_recontract'
+      ? previous.resumePhase
+      : ACTIVE_PHASES.has(previous.phase) ? previous.phase : 'application',
+    refusedScope: refusedScope || null,
+    suspensionReason: stopIntent === 'external_stop' ? 'external_stop' : 'ambiguous_stop',
+    transitionReason: null,
+  };
+}
+
+function stopTechniqueSession(previous, stopReason) {
+  const { resumePhase, refusedScope, suspensionReason, ...rest } = previous;
+  return {
+    ...rest,
+    phase: 'stopped',
+    status: 'stopped',
+    stopReason,
+    turns: previous.turns + 1,
+    transitionReason: null,
+  };
+}
+
+function explicitlyResumesTechnique(value) {
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  return /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,90}\b(?:vratit|vratit se|pokračovat|pokracovat|pokračovať|pokracovat)\b[^.!?\n]{0,70}\b(?:k te technice|k tej technike|v te technice|v tej technike|v puvodnim postupu|v povodnom postupe|u puvodniho kroku|pri povodnom kroku)\b/iu.test(normalized)
+    || /\b(?:vratme se|vratme sa|pokračujme|pokracujme)\b[^.!?\n]{0,70}\b(?:k technice|k technike|v technice|v technike|v postupu|v postupe)\b/iu.test(normalized);
+}
+
+function explicitlyEstablishesNewDirection(value, previousAssistantText = '') {
+  const normalized = normalizeCzech(value).replace(/[^a-z0-9\s]/gu, ' ').replace(/\s+/gu, ' ').trim();
+  if (!normalized) return false;
+  if (/\b(?:nevim|neviem|netusim)\b/u.test(normalized)
+    && !/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme)\b[^.]{0,80}\b(?:resit|riesit|najit|najst|vymyslet|vymysliet|zvolit|vybrat|prejit|prejst)\b/u.test(normalized)) {
+    return false;
+  }
+  if (/^(?:(?:no|tak|ale|proste|jednoduse|jednoducho)\s+)*(?:proto|preto)?\s*(?:tu|tady)?\s*(?:jsem|som)?\s*$/u.test(normalized)) return false;
+  if (wantsAnotherTechnique(normalized)) return true;
+  if (/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme|pomoz mi|pomozte mi)\b[^.!?\n]{0,100}\b(?:resit|riesit|probrat|prebrat|najit|najst|vymyslet|vymysliet|zvolit|vybrat|rozhodnout|rozhodnut|prejit|prejst|zacit|zacat)\b/u.test(normalized)) {
+    return true;
+  }
+  if (/^(?:misto|namiesto|radsi|radeji|radsej)\s+\S.{2,180}$/u.test(normalized)) return true;
+
+  const previous = normalizeCzech(previousAssistantText).replace(/[^a-z0-9\s]/gu, ' ').replace(/\s+/gu, ' ').trim();
+  const askedForDirection = /\b(?:co|cemu|cim|kam|jakym smerem|akym smerom)\b[^.!?\n]{0,100}\b(?:misto|namiesto|dal|dalej|resit|riesit|venovat|zamerit)\b/u.test(previous);
+  return askedForDirection
+    && normalized.split(' ').filter(Boolean).length >= 2
+    && !/^(?:no|tak|asi|nevim|neviem|netusim|porad mi|pomoz mi|preto som tu|proto tu jsem)(?:\s+.*)?$/u.test(normalized);
+}
+
+function extractRefusedScope(value) {
+  const text = String(value || '').replace(/\s+/gu, ' ').trim();
+  const patterns = [
+    /\b(?:nechci|nechcem|nemůžu|nemuzu|nemôžem|nemozem)\s+(?:pokračovat|pokračovať|pokracovat)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu,
+    /\b(?:chci|chcem)\s+(?:to\s+)?(?:skončit|skoncit|ukončit|ukoncit)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu,
+    /\b(?:končím|koncim|skončím|skoncim|ukončuji|ukoncuji|ukončujem|ukoncujem)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu,
+  ];
+  for (const pattern of patterns) {
+    const scope = cleanRefusedScope(pattern.exec(text)?.[1]);
+    if (scope) return scope;
+  }
+  const direction = text.match(/\b(?:tímhle|timhle|tímto|timto|takhle|tudy|týmto|tymto|takto|touto cestou|v tomhle směru|v tomhle smeru|v tomto smere)(?:\s+(?:směrem|smerem|smerom|postupem|postupom))?\b/iu)?.[0];
+  if (direction) return cleanText(direction, 240);
+  const inverted = text.match(/^([^.!?,;]{2,120}?)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:dělat|delat|robiť|robit|pořádat|poradat|organizovat|vést|vest|viest)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:nechci|nechcem|nebudu)\b/iu)?.[1];
+  return cleanRefusedScope(inverted);
+}
+
+function cleanRefusedScope(value) {
+  return cleanText(value, 240)
+    .replace(/\s+(?:ale\s+)?(?:ne|nie|nikoli)\s+(?:s|so)\s+(?:tebou|vámi|vami).*$/iu, '')
+    .replace(/[.!?,;:]+$/u, '')
+    .trim();
 }
 
 export function deriveTechniqueSteps(card) {
@@ -241,10 +385,13 @@ export function formatTechniqueExecution(turn) {
       conversation_stop: 'Členka výslovně ukončuje rozhovor nebo postup.',
       technique_stop: 'Členka výslovně odmítla nebo zastavila techniku.',
       evaluation_not_answered: 'Členka neodpověděla na otázku po účinku a otevřela jiný význam, který je třeba nejprve zachytit.',
+      awaiting_recontract: 'Předchozí technika zůstává pozastavená, protože po opravě nebo odmítnutí ještě nevznikla nová společná zakázka.',
     }[turn.suspensionReason] || 'Nejdřív je nutné obnovit společné porozumění.';
+    const refusedScope = cleanText(turn?.session?.refusedScope, 240);
     return [
       'TECHNIKA JE PRO TENTO VIDITELNÝ TAH POZASTAVENA.',
       reason,
+      refusedScope ? `Výslovně odmítnutý rozsah: ${refusedScope}.` : '',
       'V tomto tahu techniku neprováděj, neposouvej, nevyhodnocuj její účinek a netvrď, že členka dokončila krok.',
       'Krátce oprav porozumění a odpověz na skutečný význam poslední zprávy. Opři se pouze o konkrétní údaje, které členka skutečně uvedla v přepisu.',
       turn.suspensionReason === 'ambiguous_stop'
@@ -256,7 +403,12 @@ export function formatTechniqueExecution(turn) {
       turn.suspensionReason === 'conversation_repair'
         ? 'Pokud žádá přeformulování, zachovej význam poslední otázky a pouze ji řekni jednodušeji. Pokud opravuje fakt nebo téma, uznej konkrétní chybu a navazuj na její poslední věcný obsah; nezačínej sezení znovu.'
         : '',
-      'Skrytý stav techniky zůstává beze změny. K případnému pokračování se vrať až v následujícím tahu podle odpovědi členky.',
+      turn.suspensionReason === 'awaiting_recontract'
+        ? 'Neobnovuj starou techniku ani nevybírej novou jen proto, že členka neví, co dál. Lidsky unes nejistotu, drž odmítnutý rozsah a pomoz jednou krátkou otázkou nebo přesným rozlišením vytvořit novou zakázku.'
+        : '',
+      turn?.session?.phase === 'awaiting_recontract'
+        ? 'Technika smí pokračovat pouze po výslovném návratu k ní. Jiný postup smí začít až po jasně pojmenovaném novém směru členky.'
+        : 'Skrytý stav techniky zůstává beze změny. K případnému pokračování se vrať až v následujícím tahu podle odpovědi členky.',
     ].filter(Boolean).join('\n');
   }
   if (!turn?.card || !turn?.session) {
@@ -402,19 +554,27 @@ export function sanitizeTechniqueSession(input, atlasOrMap = []) {
   const stepIndex = Number.isInteger(input.stepIndex)
     ? Math.max(0, Math.min(input.stepIndex, Math.max(steps.length - 1, 0)))
     : 0;
-  return {
+  const session = {
     techniqueId,
     mode: cleanText(input.mode, 80),
     phase,
     stepIndex,
-    status: ACTIVE_PHASES.has(phase) ? 'active' : phase,
+    status: phase === 'awaiting_recontract' ? 'paused' : ACTIVE_PHASES.has(phase) ? 'active' : phase,
     turns: Number.isInteger(input.turns) ? Math.max(0, Math.min(input.turns, 100)) : 0,
     requiresConsent: input.requiresConsent === true || requiresExplicitConsent(card),
     consentGranted: input.consentGranted === true,
-    transitionReason: ['no_effect', 'stuck_repair'].includes(input.transitionReason)
+    transitionReason: ['no_effect', 'stuck_repair', 'recontracted'].includes(input.transitionReason)
       ? input.transitionReason
       : null,
   };
+  if (phase === 'awaiting_recontract') {
+    session.resumePhase = ACTIVE_PHASES.has(input.resumePhase) ? input.resumePhase : 'application';
+    session.refusedScope = cleanText(input.refusedScope, 240) || null;
+    session.suspensionReason = ['external_stop', 'ambiguous_stop', 'conversation_repair'].includes(input.suspensionReason)
+      ? input.suspensionReason
+      : 'ambiguous_stop';
+  }
+  return session;
 }
 
 function advanceSession(previous, card, latestText, conversationContext, previousAssistantText = '') {
@@ -551,6 +711,12 @@ export function classifyStopIntent(value) {
   const declinesCurrentDirection = /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,90}\b(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:nechci|nechcem|odmitam|odmietam)\b[^.!?\n]{0,90}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/iu.test(normalized);
   if (declinesCurrentDirection) return 'external_stop';
   const explicitlyKeepsConversation = /\b(?:ne|nie|nikoli)\s+(?:s\s+tebou|so\s+mnou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|sedenie|techniku)\b|\b(?:s\s+tebou|tady|tu)\s+(?:ale\s+)?(?:(?:chci|chcem)\s+)?pokracovat\b|\bpokracovat\s+(?:chci|chcem)\s+(?:s\s+tebou|tady|tu)\b/iu.test(normalized);
+  const finiteEnding = normalized.match(/\b(?:koncim|skoncim|ukoncuji|ukoncujem)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu)?.[1] || '';
+  if (finiteEnding) {
+    return /^(?:s|se|so|v|ve|vo)\s+(?:tebou|vami|rozhovorem|rozhovorom|sezenim|sedenim|konverzaci|konverzaciou)\b/iu.test(finiteEnding)
+      ? 'conversation_stop'
+      : 'external_stop';
+  }
   const invertedExternalTarget = /(?:^|[.!?;]\s*)(?!to\b|toto\b|tohle\b|takhle\b)[^.!?,;]{3,120}?\s+(?:uz\s+|dal\s+)*(?:delat|robit|poradat|organizovat|vest|viest|rozvijet)\s+(?:uz\s+|dal\s+)*(?:nechci|nechcem|nebudu)\b/iu.test(normalized);
   const namesExternalTarget = /\b(?:nechci|nechcem|nemuzu|nemozem)\s+pokracovat\s+(?:s|v|na)\s+\S+|\b(?:chci|chcem)\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)
     || invertedExternalTarget;

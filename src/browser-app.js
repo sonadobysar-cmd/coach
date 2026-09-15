@@ -20,7 +20,7 @@ import {
   trainingRetryScenarioId,
 } from './browser-training-flow.js';
 
-const APP_VERSION = '0.39.0';
+const APP_VERSION = '0.40.0';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
@@ -596,7 +596,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.39.0';
+  const cloudModuleUrl = '/cloud.js?v=0.40.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -2256,10 +2256,14 @@ function renderMasteryExam(mastery) {
   const status = state.certificateStatuses[state.activeCourse.id];
   const passport = status?.coachPassport;
   const passportProgress = passport?.progress;
+  const masteryGain = passport?.masteryGain;
+  const masteryGainLabel = Number.isFinite(masteryGain?.normalizedGainPercent)
+    ? `${masteryGain.normalizedGainPercent} %`
+    : 'ČEKÁ NA 2. POKUS';
   const passedFinalSessions = passportProgress?.finalExamsPassed ?? (passportProgress?.finalExamPassed ? 1 : 0);
   const requiredFinalSessions = passportProgress?.requiredFinalExams ?? exam.requiredPassingSessions ?? 1;
   const passportBody = passportProgress
-    ? `<article class="mastery-passport-card"><header><div><span>PROFESNÍ KOMPETENČNÍ PAS</span><h3>${passport.eligible ? 'Praxe je doložená napříč celým řemeslem' : 'Profesionalita vzniká opakováním, ne jedním povedeným finále'}</h3><p>Elitea započítá pouze serverově vyhodnocené nácviky s konkrétním důkazem. Stejný přepis ani stejný finální pokus se nezapočítá dvakrát a kritickou chybu je nutné později napravit. Profesní portfolio se dokládá samostatně.</p></div><strong>${passport.eligible ? 'SPLNĚNO' : `${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}`}</strong></header><div class="mastery-passport-grid"><section><span>ODLIŠNÉ SITUACE</span><b>${passportProgress.practiceScenarios} / ${passportProgress.requiredPracticeScenarios}</b><small>kvalitně vyhodnocených nácviků</small></section><section><span>KOMPETENCE 2×</span><b>${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}</b><small>doloženo v různých situacích</small></section><section><span>NÁROČNÁ ÚROVEŇ</span><b>${passportProgress.advancedCompetencies} / ${passportProgress.requiredAdvancedCompetencies}</b><small>advanced nebo expert</small></section><section><span>KRITICKÉ CHYBY</span><b>${passportProgress.unresolvedCriticalFailures}</b><small>${passportProgress.unresolvedCriticalFailures ? 'čeká na doloženou nápravu' : 'bez neopraveného pochybení'}</small></section><section><span>FINÁLNÍ SEZENÍ</span><b>${passedFinalSessions} / ${requiredFinalSessions}</b><small>odlišné expertní výkony</small></section></div></article>`
+    ? `<article class="mastery-passport-card"><header><div><span>PROFESNÍ KOMPETENČNÍ PAS</span><h3>${passport.eligible ? 'Praxe je doložená napříč celým řemeslem' : 'Profesionalita vzniká opakováním, ne jedním povedeným finále'}</h3><p>Elitea započítá pouze serverově vyhodnocené nácviky s konkrétním důkazem. Stejný scénář ani přepis se nezapočítá dvakrát a kritickou chybu je nutné později napravit. Profesní portfolio se dokládá samostatně.</p></div><strong>${passport.eligible ? 'SPLNĚNO' : `${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}`}</strong></header><div class="mastery-passport-grid"><section><span>MĚŘENÝ POSUN</span><b>${masteryGainLabel}</b><small>${masteryGain?.measuredCompetencies || 0} kompetencí má baseline i odlišný navazující pokus</small></section><section><span>ODLIŠNÉ SITUACE</span><b>${passportProgress.practiceScenarios} / ${passportProgress.requiredPracticeScenarios}</b><small>kvalitně vyhodnocených nácviků</small></section><section><span>KOMPETENCE 2×</span><b>${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}</b><small>doloženo v různých situacích</small></section><section><span>NÁROČNÁ ÚROVEŇ</span><b>${passportProgress.advancedCompetencies} / ${passportProgress.requiredAdvancedCompetencies}</b><small>advanced nebo expert</small></section><section><span>KRITICKÉ CHYBY</span><b>${passportProgress.unresolvedCriticalFailures}</b><small>${passportProgress.unresolvedCriticalFailures ? 'čeká na doloženou nápravu' : 'bez neopraveného pochybení'}</small></section><section><span>FINÁLNÍ SEZENÍ</span><b>${passedFinalSessions} / ${requiredFinalSessions}</b><small>odlišné expertní výkony</small></section></div></article>`
     : '';
   const certificate = status?.certificate;
   const certificateBody = status?.issued

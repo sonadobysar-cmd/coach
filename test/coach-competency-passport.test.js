@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildCoachCompetencyPassport,
   buildCoachDebriefRecord,
+  buildCoachMasteryGain,
   isTrustedCoachAssessmentProvider,
   recordCoachDebriefAttempt,
 } from '../src/coach-competency-passport.js';
@@ -40,22 +41,29 @@ function attempt({
   criticalFailures = [],
   scenarioId = `scenario-${index}`,
   transcriptHash = `transcript-${index}`,
+  trainingAttemptId = `11111111-1111-4111-8111-${String(index).padStart(12, '0')}`,
+  competencyStatuses = null,
+  completedAt = new Date(Date.UTC(2026, 8, 1, 8, index)).toISOString(),
 } = {}) {
+  const rows = competencyStatuses
+    ? Object.entries(competencyStatuses).map(([id, status]) => ({ label: LABELS[id], status }))
+    : competencyIds.map(id => ({ label: LABELS[id], status: 'proven' }));
   return {
     id: `attempt-${index}`,
     itemId: `item-${index}`,
     scenarioId,
     transcriptHash,
+    trainingAttemptId,
     difficulty,
     finalExam,
     provider,
     qualityPassed,
     achievement: {
       allProven,
-      rows: competencyIds.map(id => ({ label: LABELS[id], status: 'proven' })),
+      rows,
     },
     criticalFailures,
-    completedAt: new Date(Date.UTC(2026, 8, 1, 8, index)).toISOString(),
+    completedAt,
   };
 }
 
@@ -164,6 +172,188 @@ test('samotná standardní obtížnost nestačí bez náročného důkazu každ�
   assert.equal(status.progress.provenCompetencies, 9);
   assert.equal(status.progress.advancedCompetencies, 0);
   assert.match(status.reasons.join(' '), /náročné nebo expertní obtížnosti/i);
+});
+
+test('mastery gain změří skutečný posun každé kompetence od baseline k proven a advanced', () => {
+  const baseline = attempt({
+    index: 100,
+    scenarioId: 'baseline-contract-and-questions',
+    competencyStatuses: { contract: 'not_proven', questions: 'partial' },
+    difficulty: 'standard',
+  });
+  const proven = attempt({
+    index: 101,
+    scenarioId: 'targeted-contract-retry',
+    competencyStatuses: { contract: 'proven', questions: 'proven' },
+    difficulty: 'standard',
+  });
+  const advanced = attempt({
+    index: 102,
+    scenarioId: 'advanced-integrated-practice',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'advanced',
+  });
+
+  const gain = buildCoachMasteryGain([advanced, baseline, proven]);
+  assert.equal(gain.metric, 'verified_competency_mastery_gain');
+  assert.equal(gain.baselineCompetencies, 2);
+  assert.equal(gain.measuredCompetencies, 2);
+  assert.equal(gain.improvedCompetencies, 2);
+  assert.equal(gain.provenGains, 1);
+  assert.equal(gain.advancedGains, 1);
+  assert.equal(gain.gainedPoints, 4);
+  assert.equal(gain.availableGainPoints, 5);
+  assert.equal(gain.normalizedGainPercent, 80);
+  assert.equal(gain.measurementCoveragePercent, 22.2);
+  assert.equal(gain.verifiedGainRatePercent, 100);
+  assert.equal(gain.competencies.contract.stage, 'advanced');
+  assert.equal(gain.competencies.contract.transition, 'baseline→advanced');
+  assert.equal(gain.competencies.contract.distinctFollowUps, 2);
+  assert.equal(gain.competencies.questions.stage, 'proven');
+  assert.equal(gain.competencies.questions.transition, 'developing→proven');
+});
+
+test('stejný scénář ani stejný přepis nemohou předstírat růst dovednosti', () => {
+  const baseline = attempt({
+    index: 110,
+    scenarioId: 'contract-baseline',
+    transcriptHash: 'contract-baseline-transcript',
+    competencyStatuses: { contract: 'not_proven' },
+  });
+  const repeatedScenario = attempt({
+    index: 111,
+    scenarioId: 'contract-baseline',
+    transcriptHash: 'new-words-same-scenario',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'expert',
+  });
+  const repeatedTranscript = attempt({
+    index: 112,
+    scenarioId: 'renamed-copy',
+    transcriptHash: 'contract-baseline-transcript',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'expert',
+  });
+  const realTargetedAttempt = attempt({
+    index: 113,
+    scenarioId: 'new-contract-situation',
+    transcriptHash: 'new-contract-transcript',
+    competencyStatuses: { contract: 'partial' },
+  });
+
+  const gain = buildCoachMasteryGain([
+    baseline,
+    repeatedScenario,
+    repeatedTranscript,
+    realTargetedAttempt,
+  ]);
+  assert.equal(gain.acceptedPracticeAttempts, 2);
+  assert.equal(gain.ignoredDuplicateAttempts, 2);
+  assert.equal(gain.duplicateReasons.repeatedScenario, 1);
+  assert.equal(gain.duplicateReasons.repeatedTranscript, 1);
+  assert.equal(gain.competencies.contract.stage, 'developing');
+  assert.equal(gain.competencies.contract.bestFollowUp.status, 'partial');
+  assert.equal(gain.competencies.contract.distinctFollowUps, 1);
+  assert.equal(gain.advancedGains, 0);
+});
+
+test('mastery gain přijímá jen trusted quality-passed nácvik bez kritické chyby', () => {
+  const attempts = [
+    attempt({ index: 120, scenarioId: 'safe-baseline', competencyStatuses: { ethical_boundaries: 'not_proven' } }),
+    attempt({ index: 121, scenarioId: 'fallback-fake-gain', competencyStatuses: { ethical_boundaries: 'proven' }, difficulty: 'expert', provider: 'deterministic-training-fallback' }),
+    attempt({ index: 122, scenarioId: 'failed-quality-gain', competencyStatuses: { ethical_boundaries: 'proven' }, difficulty: 'expert', qualityPassed: false }),
+    attempt({ index: 123, scenarioId: 'critical-fake-gain', competencyStatuses: { ethical_boundaries: 'proven' }, difficulty: 'expert', criticalFailures: [{ code: 'clinical_scope_breach', competencyId: 'ethical_boundaries' }] }),
+    attempt({ index: 124, scenarioId: 'safe-targeted-proof', competencyStatuses: { ethical_boundaries: 'proven' }, difficulty: 'standard' }),
+  ];
+
+  const gain = buildCoachMasteryGain(attempts);
+  assert.equal(gain.acceptedPracticeAttempts, 2);
+  assert.equal(gain.competencies.ethical_boundaries.stage, 'proven');
+  assert.equal(gain.competencies.ethical_boundaries.bestFollowUp.scenarioId, 'safe-targeted-proof');
+  assert.equal(gain.competencies.ethical_boundaries.advancedGain, false);
+  assert.equal(gain.normalizedGainPercent, 66.7);
+});
+
+test('jediný povedený řádek neschová slabší část stejné kompetence', () => {
+  const baseline = attempt({ index: 125, scenarioId: 'mixed-question-baseline', competencyIds: [] });
+  baseline.achievement.rows = [
+    { label: LABELS.questions, status: 'proven' },
+    { label: LABELS.questions, status: 'not_proven' },
+  ];
+  const followUp = attempt({ index: 126, scenarioId: 'complete-question-follow-up', competencyIds: [], difficulty: 'standard' });
+  followUp.achievement.rows = [
+    { label: LABELS.questions, status: 'proven' },
+    { label: LABELS.questions, status: 'proven' },
+  ];
+
+  const gain = buildCoachMasteryGain([baseline, followUp]);
+  assert.equal(gain.competencies.questions.baseline.status, 'not_proven');
+  assert.equal(gain.competencies.questions.bestFollowUp.status, 'proven');
+  assert.equal(gain.competencies.questions.gainPercent, 66.7);
+});
+
+test('mastery gain je deterministický i při shodném času a libovolném pořadí vstupu', () => {
+  const completedAt = '2026-09-01T12:00:00.000Z';
+  const firstByStableId = attempt({
+    index: 130,
+    scenarioId: 'same-time-a',
+    competencyStatuses: { active_listening: 'partial' },
+    completedAt,
+  });
+  const secondByStableId = attempt({
+    index: 131,
+    scenarioId: 'same-time-b',
+    competencyStatuses: { active_listening: 'not_proven' },
+    completedAt,
+  });
+  const later = attempt({
+    index: 132,
+    scenarioId: 'later-listening',
+    competencyStatuses: { active_listening: 'proven' },
+    difficulty: 'standard',
+    completedAt: '2026-09-01T12:05:00.000Z',
+  });
+
+  const forward = buildCoachMasteryGain([firstByStableId, secondByStableId, later]);
+  const reversed = buildCoachMasteryGain([later, secondByStableId, firstByStableId]);
+  assert.deepEqual(forward, reversed);
+  assert.equal(forward.competencies.active_listening.baseline.attemptId, 'attempt-130');
+  assert.equal(forward.competencies.active_listening.distinctFollowUps, 1);
+  assert.equal(forward.competencies.active_listening.transition, 'developing→proven');
+
+  const anonymous = [firstByStableId, secondByStableId, later].map(entry => {
+    const { id: _id, trainingAttemptId: _trainingAttemptId, ...withoutIdentifiers } = entry;
+    return withoutIdentifiers;
+  });
+  assert.deepEqual(buildCoachMasteryGain(anonymous), buildCoachMasteryGain([...anonymous].reverse()));
+});
+
+test('výchozí advanced výkon se sleduje jako udržený, ale nevydává se za zlepšení', () => {
+  const gain = buildCoachMasteryGain([
+    attempt({ index: 140, scenarioId: 'advanced-baseline', competencyStatuses: { alliance_repair: 'proven' }, difficulty: 'advanced' }),
+    attempt({ index: 141, scenarioId: 'advanced-confirmation', competencyStatuses: { alliance_repair: 'proven' }, difficulty: 'expert' }),
+  ]);
+  const development = gain.competencies.alliance_repair;
+  assert.equal(development.transition, 'advanced→advanced');
+  assert.equal(development.stage, 'baseline');
+  assert.equal(development.improved, false);
+  assert.equal(development.maintainedAdvanced, true);
+  assert.equal(gain.gainEligibleCompetencies, 0);
+  assert.equal(gain.normalizedGainPercent, null);
+  assert.equal(gain.maintainedAdvancedCompetencies, 1);
+});
+
+test('passport vystaví mastery gain v progressu i u každé kompetence', () => {
+  const status = buildCoachCompetencyPassport([
+    attempt({ index: 150, scenarioId: 'outcome-baseline', competencyStatuses: { outcome: 'not_proven' } }),
+    attempt({ index: 151, scenarioId: 'outcome-targeted', competencyStatuses: { outcome: 'proven' }, difficulty: 'advanced' }),
+  ]);
+  assert.equal(status.progress.masteryGainPercent, 100);
+  assert.equal(status.progress.measuredCompetencies, 1);
+  assert.equal(status.progress.improvedCompetencies, 1);
+  assert.equal(status.progress.advancedGains, 1);
+  assert.equal(status.competencies.outcome.development.stage, 'advanced');
+  assert.deepEqual(status.competencies.outcome.development, status.masteryGain.competencies.outcome);
 });
 
 test('kritické pochybení blokuje způsobilost, dokud ho pozdější jiný scénář ve stejné kompetenci nenapraví', () => {

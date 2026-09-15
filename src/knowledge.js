@@ -116,11 +116,16 @@ export function retrieveKnowledge(records, query, limit = 5) {
 
 export function isKnowledgeApproved(record = {}) {
   if (isPoliticalKnowledge(record)) return false;
-  if (record.approved_for_ai === true) return true;
-  if (record.approved_for_ai === false) return false;
+  // Raw course captures are an internal source archive, not executable
+  // coaching methodology. Some historical imports carry approved_for_ai=true
+  // because the owner approved preserving the author's opinion. That approval
+  // must never override the runtime boundary: only a transformed practical
+  // tool, reviewed synthesis or Academy methodology may reach a client prompt.
   if (record.knowledge_role === 'pending_owner_adjudication') return false;
   if (record.source_type === 'owner_decision_register') return false;
   if (record.knowledge_role === 'faithful_course_source_capture') return false;
+  if (record.approved_for_ai === true) return true;
+  if (record.approved_for_ai === false) return false;
 
   const reviewStatus = String(record.review_status || '').toLowerCase();
   if (!reviewStatus) return false;

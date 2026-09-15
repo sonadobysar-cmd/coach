@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, retrieveKnowledge, tokenize } from '../src/knowledge.js';
+import { isKnowledgeApproved, normalize, retrieveKnowledge, tokenize } from '../src/knowledge.js';
 
 test('normalizace odstraní diakritiku a sjednotí velikost', () => {
   assert.equal(normalize('Cílová Skupina'), 'cilova skupina');
@@ -50,4 +50,22 @@ test('jediná obecná shoda nestačí k připojení nesouvisející Academy lekc
     _topicTokens: new Set(['prvni', 'pomoc']),
   }];
   assert.deepEqual(retrieveKnowledge(records, 'Potřebuji určit první krok na webu', 5), []);
+});
+
+test('syrový kurzový záznam zůstává mimo runtime i s historickým approved_for_ai', () => {
+  const rawCapture = {
+    source_id: 'raw-course-capture',
+    domain: 'koučink',
+    topic: 'Opakované otázky',
+    content: 'Autor doporučuje opakovat stejnou otázku.',
+    sequence: 1,
+    source_type: 'course_claims_synthesis',
+    knowledge_role: 'faithful_course_source_capture',
+    approved_for_ai: true,
+    _tokens: new Set(['koucink', 'opakovat', 'otazku']),
+    _topicTokens: new Set(['opakovat', 'otazku']),
+  };
+
+  assert.equal(isKnowledgeApproved(rawCapture), false);
+  assert.deepEqual(retrieveKnowledge([rawCapture], 'opakovat koučovací otázku', 5), []);
 });

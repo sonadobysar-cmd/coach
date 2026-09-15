@@ -125,12 +125,95 @@ test('konec workshopů se nezamění za ukončení rozhovoru', () => {
     conversationContext: { userTurns: 2 },
   });
   assert.equal(turn.card.id, practicalCard.id);
-  assert.equal(turn.session.phase, active.phase);
+  assert.equal(turn.session.phase, 'awaiting_recontract');
+  assert.equal(turn.session.resumePhase, active.phase);
+  assert.equal(turn.session.refusedScope, 's workshopem');
   assert.equal(turn.session.stepIndex, active.stepIndex);
   assert.equal(turn.session.turns, active.turns);
   assert.equal(turn.suspended, true);
   assert.equal(turn.suspensionReason, 'external_stop');
   assert.match(formatTechniqueExecution(turn), /nezaměňuj jej za konec rozhovoru/i);
+});
+
+test('CZ odmítnutý rozsah zůstane mezi tahy pozastavený až do nové výslovné zakázky', () => {
+  const active = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 1,
+    status: 'active', turns: 4, requiresConsent: false,
+  };
+  const correctedScope = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: active,
+    mode: 'koucovaci_hodina', latestText: 'Končím s workshopy, ne s tebou.',
+    conversationContext: { userTurns: 5 },
+  });
+  assert.equal(classifyStopIntent('Končím s workshopy, ne s tebou.'), 'external_stop');
+  assert.equal(correctedScope.session.phase, 'awaiting_recontract');
+  assert.equal(correctedScope.session.resumePhase, 'application');
+  assert.equal(correctedScope.session.refusedScope, 's workshopy');
+  assert.equal(correctedScope.session.stepIndex, 1);
+  assert.equal(correctedScope.suspended, true);
+
+  const vague = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: correctedScope.session,
+    mode: 'koucovaci_hodina', latestText: 'No to já nevím, proto tu jsem.',
+    previousAssistantText: 'Beru, workshopy končí. Co chceš řešit místo nich?',
+    conversationContext: { userTurns: 6 },
+  });
+  assert.equal(vague.card.id, practicalCard.id, 'Nová kandidátní technika nesmí obejít odmítnutou hranici.');
+  assert.equal(vague.session.phase, 'awaiting_recontract');
+  assert.equal(vague.session.refusedScope, 's workshopy');
+  assert.equal(vague.session.stepIndex, 1);
+  assert.equal(vague.suspended, true);
+  assert.equal(vague.suspensionReason, 'awaiting_recontract');
+  assert.match(formatTechniqueExecution(vague), /neobnovuj starou techniku/i);
+  assert.match(formatTechniqueExecution(vague), /s workshopy/i);
+
+  const newDirection = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: vague.session,
+    mode: 'koucovaci_hodina', latestText: 'Chci řešit, co budu dělat místo workshopů.',
+    previousAssistantText: 'Co chceš řešit místo workshopů?',
+    conversationContext: { userTurns: 7 },
+  });
+  assert.equal(newDirection.recontracted, true);
+  assert.equal(newDirection.card.id, sensitiveCard.id);
+  assert.equal(newDirection.session.techniqueId, sensitiveCard.id);
+  assert.notEqual(newDirection.session.phase, 'awaiting_recontract');
+});
+
+test('SK odmietnutý rozsah zostane medzi ťahmi uzamknutý rovnako ako český', () => {
+  const active = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
+    status: 'active', turns: 3, requiresConsent: false,
+  };
+  const correctedScope = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: active,
+    mode: 'koucovaci_hodina', latestText: 'Končím s workshopmi, nie s tebou.',
+    conversationContext: { userTurns: 4 },
+  });
+  assert.equal(classifyStopIntent('Končím s workshopmi, nie s tebou.'), 'external_stop');
+  assert.equal(correctedScope.session.phase, 'awaiting_recontract');
+  assert.equal(correctedScope.session.resumePhase, 'evaluation');
+  assert.equal(correctedScope.session.refusedScope, 's workshopmi');
+
+  const vague = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: correctedScope.session,
+    mode: 'koucovaci_hodina', latestText: 'No ja neviem, preto som tu.',
+    previousAssistantText: 'Beriem, workshopy končia. Čomu sa chceš venovať namiesto nich?',
+    conversationContext: { userTurns: 5 },
+  });
+  assert.equal(vague.card.id, practicalCard.id);
+  assert.equal(vague.session.phase, 'awaiting_recontract');
+  assert.equal(vague.session.refusedScope, 's workshopmi');
+  assert.equal(vague.suspended, true);
+
+  const newDirection = createTechniqueTurn({
+    atlas: [practicalCard, sensitiveCard], candidates: [sensitiveCard], previous: vague.session,
+    mode: 'koucovaci_hodina', latestText: 'Chcem riešiť individuálne konzultácie namiesto workshopov.',
+    previousAssistantText: 'Čomu sa chceš venovať namiesto workshopov?',
+    conversationContext: { userTurns: 6 },
+  });
+  assert.equal(newDirection.recontracted, true);
+  assert.equal(newDirection.session.techniqueId, sensitiveCard.id);
+  assert.notEqual(newDirection.session.phase, 'awaiting_recontract');
 });
 
 test('přestaň s konkrétním chováním není automaticky konec rozhovoru', () => {

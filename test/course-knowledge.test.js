@@ -87,21 +87,22 @@ test('router dohledá praktickou znalost každého Academy kurzu', () => {
   }
 });
 
-test('hromadně schválené zdroje jsou dostupné, interní registry zůstávají mimo odpovědi', async () => {
+test('syrové kurzové zdroje i interní registry zůstávají mimo klientské odpovědi', async () => {
   const sourceKnowledge = await loadKnowledge(join(ROOT, 'data', 'nia-knowledge.jsonl'));
   const blocked = sourceKnowledge.filter(record => !isKnowledgeApproved(record));
   const waiting = sourceKnowledge.filter(record => /pending|awaiting/i.test(record.review_status || ''));
   const courseSources = sourceKnowledge.filter(record => record.knowledge_role === 'faithful_course_source_capture');
   const politicalCourseSources = courseSources.filter(isPoliticalKnowledge);
-  const approvedOpinionSources = courseSources.filter(record => !isPoliticalKnowledge(record));
+  const preservedOpinionSources = courseSources.filter(record => !isPoliticalKnowledge(record));
 
   assert.equal(waiting.length, 0);
   assert.ok(courseSources.length > 700);
-  assert.ok(approvedOpinionSources.every(record => isKnowledgeApproved(record)));
+  assert.ok(preservedOpinionSources.every(record => !isKnowledgeApproved(record)));
   assert.ok(politicalCourseSources.length >= 20);
   assert.ok(politicalCourseSources.every(record => !isKnowledgeApproved(record)));
   assert.ok(blocked.every(record =>
     record.source_type === 'owner_decision_register'
+      || record.knowledge_role === 'faithful_course_source_capture'
       || isPoliticalKnowledge(record)
       || record.review_status === 'excluded_until_attachment_content_is_read'));
 
@@ -115,11 +116,12 @@ test('hromadně schválené zdroje jsou dostupné, interní registry zůstávaj�
     const matches = retrieveKnowledge(sourceKnowledge, query, 8);
     assert.ok(matches.every(match => match.approved_for_ai === true));
     assert.ok(matches.every(match => match.knowledge_role !== 'pending_owner_adjudication'));
+    assert.ok(matches.every(match => match.knowledge_role !== 'faithful_course_source_capture'));
     assert.ok(matches.every(match => !isPoliticalKnowledge(match)));
   }
 });
 
-test('NLP Practitioner PDF kolekce zůstává úplná, schválená a oddělená od interních registrů', async () => {
+test('NLP Practitioner PDF kolekce zůstává úplná v interním archivu a mimo runtime', async () => {
   const sourceKnowledge = await loadKnowledge(join(ROOT, 'data', 'nia-knowledge.jsonl'));
   const prefix = 'nlp-practitioner-certificate-pdf-';
   const records = sourceKnowledge.filter(record => record.source_id?.startsWith(prefix));
@@ -141,13 +143,14 @@ test('NLP Practitioner PDF kolekce zůstává úplná, schválená a oddělená 
     const ownerRegister = ownerRegisters.find(record => record.source_id === `${sourceId}-owner-review`);
     assert.ok(source, `Chybí zdroj ${sourceId}`);
     assert.ok(ownerRegister, `Chybí rozhodovací registr ${sourceId}`);
-    assert.equal(source.approved_for_ai, true);
+    assert.equal(source.approved_for_ai, false);
+    assert.equal(isKnowledgeApproved(source), false);
     assert.equal(ownerRegister.approved_for_ai, false);
     assert.ok(ownerRegister.content.endsWith('Nic se automaticky nevyřazuje.'));
   }
 });
 
-test('nové NLP Practitioner znalosti se vyhledají podle metody bez interního registru', async () => {
+test('syrové NLP Practitioner znalosti lze auditovat interně, ale retrieval je klientovi nevrátí', async () => {
   const sourceKnowledge = await loadKnowledge(join(ROOT, 'data', 'nia-knowledge.jsonl'));
   const cases = [
     ['Meta Mirror vztahová interakce čtyři pozice', 'nlp-practitioner-certificate-pdf-036'],
@@ -156,8 +159,10 @@ test('nové NLP Practitioner znalosti se vyhledají podle metody bez interního 
   ];
 
   for (const [query, expectedSourceId] of cases) {
+    assert.ok(sourceKnowledge.some(record => record.source_id === expectedSourceId));
     const matches = retrieveKnowledge(sourceKnowledge, query, 8);
-    assert.ok(matches.some(match => match.source_id === expectedSourceId), query);
+    assert.ok(!matches.some(match => match.source_id === expectedSourceId), query);
+    assert.ok(matches.every(match => match.knowledge_role !== 'faithful_course_source_capture'));
     assert.ok(matches.every(match => match.source_type !== 'owner_decision_register'));
     const context = formatKnowledgeContext(matches);
     assert.doesNotMatch(context, /Nic se automaticky nevyřazuje\./);
@@ -185,7 +190,8 @@ test('všechny tři úplné NLP kurzy zůstávají lekci po lekci ve dvou odděl
 
       assert.ok(source, `Chybí úplný zdrojový záznam ${sourceId}`);
       assert.ok(ownerRegister, `Chybí interní rozhodovací registr ${sourceId}`);
-      assert.equal(source.approved_for_ai, !isPoliticalKnowledge(source), sourceId);
+      assert.equal(source.approved_for_ai, false, sourceId);
+      assert.equal(isKnowledgeApproved(source), false, sourceId);
       assert.equal(ownerRegister.approved_for_ai, false);
       assert.ok(ownerRegister.content.endsWith('Nic se automaticky nevyřazuje.'));
     }
@@ -233,7 +239,7 @@ test('originální ELITEA Compass je aktivní znalost a není odvozený od bloko
 });
 
 
-test('schválené názory z kurzů zůstávají aktivní, politický obsah je vždy vyloučen', async () => {
+test('schválené názory z kurzů zůstávají interní a do runtime vstupuje jen transformovaná metodika', async () => {
   const sourceKnowledge = await loadKnowledge(join(ROOT, 'data', 'nia-knowledge.jsonl'));
   const ordinaryCoaching = retrieveKnowledge(
     sourceKnowledge,
@@ -241,13 +247,40 @@ test('schválené názory z kurzů zůstávají aktivní, politický obsah je v�
     20,
   );
 
-  assert.ok(ordinaryCoaching.some(match => match.knowledge_role === 'faithful_course_source_capture'));
+  assert.ok(ordinaryCoaching.length > 0);
+  assert.ok(ordinaryCoaching.every(match => match.knowledge_role !== 'faithful_course_source_capture'));
+  assert.ok(ordinaryCoaching.every(match => match.source_type !== 'owner_decision_register'));
   assert.ok(ordinaryCoaching.every(match => !isPoliticalKnowledge(match)));
-  const rawContext = formatKnowledgeContext(
-    ordinaryCoaching.filter(match => match.knowledge_role === 'faithful_course_source_capture').slice(0, 1),
-  );
-  assert.match(rawContext, /Nia tento kurzový názor výslovně schválila/);
-  assert.match(rawContext, /Bezpečnostní značky:/);
+  const context = formatKnowledgeContext(ordinaryCoaching);
+  assert.doesNotMatch(context, /Nia tento kurzový názor výslovně schválila/);
+});
+
+test('workshop, sebeodsouzení, odmítnutí a úzkost nikdy nevytáhnou syrový kurzový záznam', async () => {
+  const sourceKnowledge = await loadKnowledge(join(ROOT, 'data', 'nia-knowledge.jsonl'));
+  const everandKnowledge = await loadKnowledge(join(ROOT, 'data', 'everand-knowledge.jsonl'));
+  const runtimeKnowledge = [...sourceKnowledge, ...everandKnowledge, ...courseKnowledge];
+  const prompts = [
+    'První workshop dopadl špatně. Asi na podnikání prostě nemám.',
+    'Jsem úplně neschopná. Všichni ostatní dokážou věci dokončit, jen já ne.',
+    'Nechci pokračovat s workshopem, ale v našem rozhovoru pokračovat chci. Potřebuji najít jinou cestu.',
+    'Při představě dalšího workshopu mám strach a úzkost. Chci s tím pracovat bez zdravotního výslechu.',
+  ];
+
+  for (const prompt of prompts) {
+    const matches = retrieveKnowledge(runtimeKnowledge, prompt, 12);
+    assert.ok(matches.length > 0, `Dotaz nemá žádnou transformovanou metodiku: ${prompt}`);
+    assert.ok(matches.every(match => match.knowledge_role !== 'faithful_course_source_capture'), prompt);
+    assert.ok(matches.every(match => match.knowledge_role !== 'pending_owner_adjudication'), prompt);
+    assert.ok(matches.every(match => match.source_type !== 'owner_decision_register'), prompt);
+    assert.ok(matches.every(match => match.approved_for_ai === true), prompt);
+    assert.ok(matches.some(match => (
+      match.source_type === 'everand_practical_tool'
+      || match.source_type === 'everand_critical_synthesis'
+      || match.source_type === 'elitea_academy_course'
+      || /methodology|principle|framework|practice|safety|voice/u.test(match.knowledge_role || '')
+    )), `Dotaz nevrátil klientsky použitelnou metodiku: ${prompt}`);
+    assert.doesNotMatch(formatKnowledgeContext(matches), /Režim zdroje: Nia tento kurzový názor/u);
+  }
 });
 
 test('model dostane kurzový původ, praktický režim i hranice použití', () => {
