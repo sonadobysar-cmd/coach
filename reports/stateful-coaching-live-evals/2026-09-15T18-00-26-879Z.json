@@ -1,0 +1,1773 @@
+{
+  "standardVersion": 1,
+  "evidence": {
+    "type": "synthetic-stateful-live-model-eval",
+    "liveModelCalls": true,
+    "syntheticScenarios": true,
+    "stateCarriedAcrossTurns": true,
+    "humanReviewed": false,
+    "qualifiesAsHumanReviewedSession": false,
+    "statement": "Jde o syntetický stavový live-model eval. Není to lidsky vedené ani lidsky zkontrolované koučovací sezení."
+  },
+  "baseUrl": "http://127.0.0.1:4173",
+  "startedAt": "2026-09-15T18:00:26.879Z",
+  "completedAt": "2026-09-15T18:18:33.692Z",
+  "privacy": "Report neukládá text konverzace, paměť ani session objekty; obsahuje pouze názvy kontrol, omezené stavové kódy a kryptografické otisky.",
+  "summary": {
+    "expectedScenarios": 5,
+    "expectedTurns": 29,
+    "scenarios": 5,
+    "turns": 18,
+    "passedScenarios": 2,
+    "failedScenarios": 3,
+    "passedTurns": 15,
+    "failedTurns": 3,
+    "complete": false
+  },
+  "byLocale": {
+    "cs-CZ": {
+      "total": 3,
+      "passed": 1,
+      "failed": 2
+    },
+    "sk-SK": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1
+    }
+  },
+  "byCapability": {
+    "long-memory": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "fact-integrity": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "unknowns-stay-unknown": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "loop-prevention": {
+      "total": 5,
+      "passed": 2,
+      "failed": 3
+    },
+    "no-effect-pivot": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2
+    },
+    "method-change": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2
+    },
+    "workshop-failure": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "external-stop-scope": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "recontract": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "slovak": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1
+    }
+  },
+  "results": [
+    {
+      "id": "cs-long-session-memory",
+      "locale": "cs-CZ",
+      "capabilities": [
+        "long-memory",
+        "fact-integrity",
+        "unknowns-stay-unknown",
+        "loop-prevention"
+      ],
+      "pass": false,
+      "turns": [
+        {
+          "id": "request-error",
+          "pass": false,
+          "checks": [
+            {
+              "name": "request-completed",
+              "pass": false,
+              "detail": {
+                "name": "TimeoutError",
+                "code": 23,
+                "status": null
+              }
+            }
+          ],
+          "fingerprints": null,
+          "provider": null,
+          "mode": null,
+          "activeRole": null,
+          "techniquePhase": null,
+          "specialistPrimary": null,
+          "durationMs": 0
+        }
+      ],
+      "state": {
+        "accumulatedMessages": 0,
+        "techniquePhase": null,
+        "specialistPrimary": null
+      }
+    },
+    {
+      "id": "cs-no-effect-pivot",
+      "locale": "cs-CZ",
+      "capabilities": [
+        "no-effect-pivot",
+        "method-change",
+        "loop-prevention"
+      ],
+      "pass": false,
+      "turns": [
+        {
+          "id": "first-no-effect",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "no-effect-recognized",
+                  "approach-changes"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath"
+                ],
+                "actual": [
+                  "breath"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "f03aa03c1490cd4df590eeba00666897de4d3e5f1d91f317169357599453850f",
+            "normalizedSha256": "59a280c46ae0dc7fc2dc1f1509ae5407c7471d9674d87b1bbced480ff7ea0bb1",
+            "characters": 207,
+            "words": 33,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 10965
+        },
+        {
+          "id": "second-no-effect",
+          "pass": false,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": false,
+              "detail": {
+                "hit": [
+                  "second-pivot"
+                ],
+                "missing": [
+                  "second-no-effect-recognized"
+                ]
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath",
+                  "emotion_labeling"
+                ],
+                "actual": [
+                  "breath",
+                  "emotion_labeling"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "d2e2ccca254e1b100cfbfcbc5cd2060804a3e7a0f40d8ef5bd589fc0b4f59418",
+            "normalizedSha256": "01715f3091e27bbcf859a2fcc43ea0070f711b7573bca36d542c57b7f80a250b",
+            "characters": 181,
+            "words": 27,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 8092
+        },
+        {
+          "id": "explicit-method-boundary",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "method-boundary-respected",
+                  "returns-to-client-focus"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath",
+                  "emotion_labeling",
+                  "somatic_regulation"
+                ],
+                "actual": [
+                  "breath",
+                  "emotion_labeling",
+                  "somatic_regulation",
+                  "grounding",
+                  "visualization",
+                  "mindfulness"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "2066e543c9e6bc88cca91cd6bdfa8b52c700682787da698ecef595d891a85e89",
+            "normalizedSha256": "ba7a06cf84a1ed6c293388eb5986a2d8bba5de637e67dff90081b2db67f6bd53",
+            "characters": 238,
+            "words": 36,
+            "questions": 0
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "application",
+          "specialistPrimary": null,
+          "durationMs": 8867
+        }
+      ],
+      "state": {
+        "accumulatedMessages": 6,
+        "techniquePhase": "application",
+        "specialistPrimary": null
+      }
+    },
+    {
+      "id": "cs-workshop-intent-repair",
+      "locale": "cs-CZ",
+      "capabilities": [
+        "workshop-failure",
+        "external-stop-scope",
+        "recontract",
+        "loop-prevention"
+      ],
+      "pass": true,
+      "turns": [
+        {
+          "id": "opening",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "e005a72db9b5fa853813901e35792568ad4b2585fc88fdec792c0b7b472a0a14",
+            "normalizedSha256": "83d3a60621084e73def1b06a18f530c11e17ae772b79624fe046354d7d3a1e16",
+            "characters": 251,
+            "words": 38,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": null,
+          "specialistPrimary": null,
+          "durationMs": 8224
+        },
+        {
+          "id": "attendance",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "baef376f4a8a45e67ee115a7dbbc24b7b4d7acd7dfcc7bd486d1f1dd2b0802d4",
+            "normalizedSha256": "62eb7f18819e5c333acdc77a91af7e6be6950607675a3a2f0d7c7f0187ec7a83",
+            "characters": 193,
+            "words": 32,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": null,
+          "specialistPrimary": null,
+          "durationMs": 12276
+        },
+        {
+          "id": "counterevidence",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "193e555fcde2fbcff618016572bced79a470f5285d3e647b783bbb0d46ac1efc",
+            "normalizedSha256": "73ca653fe6acc322369c48be0ea0970580397b58e9cb1f280899a77787ca9885",
+            "characters": 349,
+            "words": 51,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "application",
+          "specialistPrimary": null,
+          "durationMs": 9494
+        },
+        {
+          "id": "fear",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "a8898b86a8db2214f9651cf19aefdc916616580a6dd3d81e952ac1521fab672d",
+            "normalizedSha256": "7d749d0279b2eafc0e6fa9a982a1bc1e04162323405b0d36398673e6f82b09b4",
+            "characters": 161,
+            "words": 25,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 9534
+        },
+        {
+          "id": "scope-correction",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "external-activity-understood",
+                  "conversation-stays-open"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "623c725006e63dffcdf890b9351d63720fc883a09534f46e4c2d221315066c46",
+            "normalizedSha256": "718fb9f00e4d8698def7a0576ad77ba12b2b6ff725994ff5159f1e5f6f4ba652",
+            "characters": 219,
+            "words": 33,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 10248
+        },
+        {
+          "id": "uncertain-direction",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "cs"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "helpful-direction-after-uncertainty"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "765220c1d7d7e286fa584e78be3c5971015215ce9dd4192755425defde7557f1",
+            "normalizedSha256": "b30fc1f61509f614684d8a5f18395ee5e693e8e1d6b800b8d23094f50a73206e",
+            "characters": 294,
+            "words": 44,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 15680
+        }
+      ],
+      "state": {
+        "accumulatedMessages": 12,
+        "techniquePhase": "awaiting_recontract",
+        "specialistPrimary": null
+      }
+    },
+    {
+      "id": "sk-no-effect-pivot",
+      "locale": "sk-SK",
+      "capabilities": [
+        "no-effect-pivot",
+        "method-change",
+        "loop-prevention",
+        "slovak"
+      ],
+      "pass": false,
+      "turns": [
+        {
+          "id": "first-no-effect",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "no-effect-recognized",
+                  "approach-changes"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath"
+                ],
+                "actual": [
+                  "breath"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "1abb58aabf3776db3e41553e0485cf51cf81f53b1c9a9f68e5689e7a7eb21dd5",
+            "normalizedSha256": "bce2eff757d21f56dc10e8eb85635fbedfca0216bcc284bdcfeaa93c6f9d6ce1",
+            "characters": 248,
+            "words": 34,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 7955
+        },
+        {
+          "id": "second-no-effect",
+          "pass": false,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": false,
+              "detail": {
+                "hit": [
+                  "second-pivot"
+                ],
+                "missing": [
+                  "second-no-effect-recognized"
+                ]
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath",
+                  "emotion_labeling"
+                ],
+                "actual": [
+                  "breath",
+                  "emotion_labeling"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "0cd8c8c3e25a64e2828b4902c86319626f8393dd8925b039d350467e59bf964b",
+            "normalizedSha256": "d221dc51ef5d99bee2f80a630dc0232caf514df3cc0029c6b997ee1f48641c29",
+            "characters": 201,
+            "words": 30,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 25410
+        },
+        {
+          "id": "explicit-method-boundary",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "method-boundary-respected",
+                  "returns-to-client-focus"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [
+                  "breath",
+                  "emotion_labeling",
+                  "somatic_regulation"
+                ],
+                "actual": [
+                  "breath",
+                  "emotion_labeling",
+                  "somatic_regulation",
+                  "grounding",
+                  "visualization",
+                  "mindfulness"
+                ]
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "5d63cb589121e7255555e9997465db4b954bc7b56e67b4580d4da4519892c2d7",
+            "normalizedSha256": "281044ed71875d1037383849bb7e04e89e31cfb1a2cad9c8826a91f4114a8e77",
+            "characters": 182,
+            "words": 28,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "application",
+          "specialistPrimary": null,
+          "durationMs": 13579
+        }
+      ],
+      "state": {
+        "accumulatedMessages": 6,
+        "techniquePhase": "application",
+        "specialistPrimary": null
+      }
+    },
+    {
+      "id": "sk-workshop-intent-repair",
+      "locale": "sk-SK",
+      "capabilities": [
+        "workshop-failure",
+        "external-stop-scope",
+        "recontract",
+        "loop-prevention",
+        "slovak"
+      ],
+      "pass": true,
+      "turns": [
+        {
+          "id": "opening",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "1a5f24d3ebe339a754d7669be35fd0cda6414fcd6310e435e4522225a00fd55a",
+            "normalizedSha256": "070d33b7d7ae719b2f6c65ac4c0ccb49201c2180255f7c333f7b58530a19e4cc",
+            "characters": 247,
+            "words": 38,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": null,
+          "specialistPrimary": null,
+          "durationMs": 7334
+        },
+        {
+          "id": "attendance",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "21696506e52fb63961458144e4be8d60ac92dfbff187c50f92074843458eb687",
+            "normalizedSha256": "1a33c6d19c11140ce4d8f47ba890c5330b0879811b7092d062d33ae1022c21ed",
+            "characters": 216,
+            "words": 34,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": null,
+          "specialistPrimary": null,
+          "durationMs": 11083
+        },
+        {
+          "id": "counterevidence",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "e1cbb52e42cacc7600f99fd8f87ebe957d1e3b1024ce0ae0dde4b1df61c7fbee",
+            "normalizedSha256": "b4a547dced8bc39602c01973275eed5187b52b77d5b0f628bfaa62fab164430e",
+            "characters": 277,
+            "words": 43,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "application",
+          "specialistPrimary": null,
+          "durationMs": 12180
+        },
+        {
+          "id": "scope-correction",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "external-activity-understood",
+                  "conversation-stays-open"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "8e6a76bec4908637a597ea2250126f53bca73954cc13d643a9113d9a54fe1da7",
+            "normalizedSha256": "11cd810deec85e577936bb9fcfeb25e3a50ee1798b47edcc3aa888b1ca25f03f",
+            "characters": 74,
+            "words": 10,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 3725
+        },
+        {
+          "id": "uncertain-direction",
+          "pass": true,
+          "checks": [
+            {
+              "name": "response-present",
+              "pass": true
+            },
+            {
+              "name": "real-model-provider",
+              "pass": true
+            },
+            {
+              "name": "server-quality-gate",
+              "pass": true,
+              "detail": {
+                "score": 100,
+                "issueCodes": []
+              }
+            },
+            {
+              "name": "coach-role",
+              "pass": true,
+              "detail": {
+                "mode": "koucovaci_hodina",
+                "activeRole": "coach"
+              }
+            },
+            {
+              "name": "response-language",
+              "pass": true,
+              "detail": {
+                "expected": "sk"
+              }
+            },
+            {
+              "name": "no-prior-answer-loop",
+              "pass": true,
+              "detail": {
+                "matchedPriorTurns": []
+              }
+            },
+            {
+              "name": "no-known-loop-template",
+              "pass": true
+            },
+            {
+              "name": "no-internal-language",
+              "pass": true
+            },
+            {
+              "name": "turn-required-signals",
+              "pass": true,
+              "detail": {
+                "hit": [
+                  "helpful-direction-after-uncertainty"
+                ],
+                "missing": []
+              }
+            },
+            {
+              "name": "turn-forbidden-signals",
+              "pass": true,
+              "detail": {
+                "triggered": []
+              }
+            },
+            {
+              "name": "blocked-modalities-carried",
+              "pass": true,
+              "detail": {
+                "expected": [],
+                "actual": []
+              }
+            }
+          ],
+          "fingerprints": {
+            "sha256": "409861cc6bd6476cdaa5fb7ac2bdc396af85239e2bc2d1d430ca567ca7c810e4",
+            "normalizedSha256": "0e78164efa69c7ab6be992d42509e0d8438c60b61e7497a8516ba60234bb372c",
+            "characters": 218,
+            "words": 30,
+            "questions": 1
+          },
+          "provider": "openai/gpt-5.6-sol",
+          "mode": "koucovaci_hodina",
+          "activeRole": "coach",
+          "techniquePhase": "awaiting_recontract",
+          "specialistPrimary": null,
+          "durationMs": 12106
+        }
+      ],
+      "state": {
+        "accumulatedMessages": 10,
+        "techniquePhase": "awaiting_recontract",
+        "specialistPrimary": null
+      }
+    }
+  ]
+}

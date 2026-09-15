@@ -78,7 +78,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       }),
       turn('second-no-effect', 'Ani pojmenování pocitu nic nezměnilo. Nechci dokola zkoušet totéž.', {
         requires: [
-          requirement('second-no-effect-recognized', /(?:nic nezměn|nepomoh|nezabral|bez efektu|pojmenování.{0,35}(?:nebudeme|neopak|necháme|stranou))/iu),
+          requirement('second-no-effect-recognized', /(?:nic nezměn|nepomoh|nezabral|bez efektu|pojmen(?:ován|ováv|ování).{0,45}(?:nebudeme|neopak|necháme|stranou)|(?:nebudeme|neopak|necháme|odložíme).{0,65}(?:pojmen|pocit))/iu),
           requirement('second-pivot', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}(?:opak|vracet)|necháme.{0,30}stranou|přejd|pojďme|praktick|situac|myšlenk|hovor)/iu),
         ],
         forbids: [
@@ -113,7 +113,7 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
       }),
       turn('second-no-effect', 'Ani pomenovanie pocitu nič nezmenilo. Nechcem dookola skúšať to isté.', {
         requires: [
-          requirement('second-no-effect-recognized', /(?:nič nezmen|nepomoh|nezabral|bez efektu|pomenovanie.{0,35}(?:nebudeme|neopak|necháme|bokom))/iu),
+          requirement('second-no-effect-recognized', /(?:nič nezmen|nepomoh|nezabral|bez efektu|pomenov(?:anie|ávať).{0,45}(?:nebudeme|neopak|necháme|bokom)|(?:nebudeme|neopak|necháme|odložíme).{0,65}(?:pomen|pocit))/iu),
           requirement('second-pivot', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}(?:opak|vracať)|necháme.{0,30}bokom|prejd|poďme|praktick|situáci|myšlienk|hovor)/iu),
         ],
         forbids: [

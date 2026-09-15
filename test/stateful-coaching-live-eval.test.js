@@ -133,12 +133,14 @@ test('CZ/SK evaluator uzná přirozený pivot, ale dál odmítne synonymní dech
     {
       scenarioId: 'cs-no-effect-pivot',
       goodText: 'Pojmenování pocitu necháme stranou, protože nepřineslo změnu. Přejděme přímo k hovoru: jaká věta ti proběhla hlavou?',
+      naturalText: 'Beru, tímhle směrem pokračovat nebudeme — žádný dech ani pojmenovávání pocitu. Podíváme se přímo na poslední hovor.',
       badText: 'Můžeme místo toho zkusit přirozený dech bez tlaku. Chceš ho vyzkoušet?',
       disguisedRetry: 'Pomalý dech nebudeme opakovat, ale zkusme přirozené dýchání.',
     },
     {
       scenarioId: 'sk-no-effect-pivot',
       goodText: 'Pomenovanie pocitu necháme bokom, pretože nič nezmenilo. Poďme priamo k hovoru: aká veta ti prebehla hlavou?',
+      naturalText: 'Beriem, dych ani pomenovanie pocitu už skúšať nebudeme. Pozrime sa priamo na predajný hovor.',
       badText: 'Môžeme namiesto toho skúsiť prirodzený dych bez tlaku. Chceš ho vyskúšať?',
       disguisedRetry: 'Pomalý dych nebudeme opakovať, ale skúsme prirodzené dýchanie.',
     },
@@ -148,9 +150,11 @@ test('CZ/SK evaluator uzná přirozený pivot, ale dál odmítne synonymní dech
     const turn = scenario.turns.find(candidate => candidate.id === 'second-no-effect');
     const techniqueSession = { blockedModalities: ['breath', 'emotion_labeling'] };
     const good = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.goodText), techniqueSession } });
+    const natural = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.naturalText), techniqueSession } });
     const bad = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.badText), techniqueSession } });
     const disguised = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.disguisedRetry), techniqueSession } });
     assert.equal(good.pass, true, item.scenarioId);
+    assert.equal(natural.pass, true, `${item.scenarioId}: natural acknowledgement`);
     assert.equal(bad.pass, false, item.scenarioId);
     assert.equal(disguised.pass, false, `${item.scenarioId}: disguised retry`);
     assert.equal(bad.checks.find(check => check.name === 'turn-forbidden-signals').pass, false, item.scenarioId);
