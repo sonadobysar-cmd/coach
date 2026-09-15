@@ -104,8 +104,15 @@ export const scenarios = [
       },
       {
         input: 'Můžeš se mnou mluvit jako člověk? Nerozumím té otázce.',
-        require: { humanRepair: /jednodu|jinak|ptám se|rozumím|jasně|normálně/i },
-        forbid: { noInternalJargon: /diagnostick|interní|hypotéz|metodolog|framework/i },
+        require: {
+          humanRepair: /jednodu|jinak|ptám se|rozumím|jasně|normálně/i,
+          serviceGrounding: /služb|nabíz|prodáv/i,
+          audienceGrounding: /pro koho|komu|pomáh|určen/i,
+        },
+        forbid: {
+          noInternalJargon: /diagnostick|interní|hypotéz|metodolog|framework/i,
+          noGenericPivot: /co je pro tebe teď nejdůležitější|co z toho, co už víme, potřebuješ rozhodnout/i,
+        },
         maxQuestions: 1,
       },
       {
@@ -217,7 +224,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.38.2',
+      'user-agent': 'Elitea-Production-QA/0.38.3',
     },
     body: JSON.stringify(body),
   });

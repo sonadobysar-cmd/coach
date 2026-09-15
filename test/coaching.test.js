@@ -25,6 +25,7 @@ import {
   resolveConversationMode,
   shapeCoachingResponse,
 } from '../src/elitea.js';
+import { assessCoachingResponse } from '../src/coaching-quality.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const methods = await loadCoachingMethods(join(ROOT, 'data', 'coaching-methods.json'));
@@ -207,6 +208,81 @@ test('žádost o jednodušší vysvětlení zachová poslední otázku a známá
   assert.match(context.previousAssistantText, /Kdybys důvod nikdy nezjistila/i);
   assert.deepEqual(context.priorUserStatements, ['Na workshop přišly tři ženy; proč jedna odešla, nevím.']);
   assert.match(formatConversationRepairContext(context), /zachovej význam předchozí otázky/i);
+});
+
+test('dlouhé vysvětlení před krátkou otázkou neztratí téma služby při lidském přeformulování', () => {
+  for (const [language, messages, expected] of [
+    [
+      'cs',
+      [
+        { role: 'user', content: 'Mám problém s prodejem své služby, stydím se o ní mluvit a nevím, kde začít.' },
+        {
+          role: 'assistant',
+          content: 'Prodej se ti teď míchá ze dvou věcí: potřebuješ jednoduchý způsob, jak službu představit, a zároveň tě brzdí stud ve chvíli, kdy máš být vidět. Nezačínala bych tedy prodáváním, ale jednou klidnou větou. Napiš mi prosím: jaká je tvoje služba a pro koho je určená?',
+        },
+        { role: 'user', content: 'Můžeš se mnou mluvit jako člověk? Nerozumím té otázce.' },
+      ],
+      'Položila jsem to složitě. Ptám se jednoduše: Jakou službu nabízíš a komu má pomoct?',
+    ],
+    [
+      'sk',
+      [
+        { role: 'user', content: 'Mám problém s predajom svojej služby, hanbím sa o nej hovoriť a neviem, kde začať.' },
+        {
+          role: 'assistant',
+          content: 'Predaj sa ti teraz mieša z dvoch vecí: potrebuješ jednoduchý spôsob, ako službu predstaviť, a zároveň ťa brzdí hanba. Nezačínala by som teda predávaním, ale jednou pokojnou vetou. Napíš mi prosím: aká je tvoja služba a pre koho je určená?',
+        },
+        { role: 'user', content: 'Môžeš so mnou hovoriť ako človek? Nerozumiem tej otázke.' },
+      ],
+      'Položila som to zložito. Pýtam sa jednoducho: Akú službu ponúkaš a komu má pomôcť?',
+    ],
+  ]) {
+    const context = buildConversationRepairContext(messages, messages.at(-1).content);
+    const fallback = guardedConversationRepairFallback(context);
+    const enforced = enforceConversationRepairResponse(
+      language === 'sk'
+        ? 'Rozumiem. Čo je pre teba teraz najdôležitejšie?'
+        : 'Rozumím. Co je pro tebe teď nejdůležitější?',
+      context,
+    );
+    const assessment = assessCoachingResponse(fallback, {
+      messages,
+      conversationContext: buildConversationContext(messages, 'mentoringova_konzultace'),
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    });
+
+    assert.equal(context.kind, 'rephrase', language);
+    assert.equal(context.responseLanguage, language, language);
+    assert.equal(fallback, expected, language);
+    assert.equal(enforced, expected, language);
+    assert.equal(assessment.pass, true, `${language}: ${JSON.stringify(assessment.issues)}`);
+    assert.equal((fallback.match(/\?/gu) || []).length, 1, language);
+    assert.doesNotMatch(fallback, /co z toho, co už víme|čo z toho, čo už vieme/i, language);
+  }
+});
+
+test('krátká produkční otázka o službě se skutečně přeformuluje, ale složitější zadání neztratí cenu', () => {
+  const latest = 'Můžeš se mnou mluvit jako člověk? Nerozumím té otázce.';
+  const shortMessages = [
+    { role: 'user', content: 'Stydím se prodávat svoji službu.' },
+    { role: 'assistant', content: 'Napiš mi prosím: jaká je tvoje služba a pro koho je určená?' },
+    { role: 'user', content: latest },
+  ];
+  const shortContext = buildConversationRepairContext(shortMessages, latest);
+  assert.equal(
+    enforceConversationRepairResponse('Co je pro tebe teď nejdůležitější?', shortContext),
+    'Položila jsem to složitě. Ptám se jednoduše: Jakou službu nabízíš a komu má pomoct?',
+  );
+
+  const pricedMessages = [
+    { role: 'user', content: 'Potřebuji vyjasnit nabídku i cenu.' },
+    { role: 'assistant', content: 'Jaká je tvoje služba, pro koho je určená a kolik má stát?' },
+    { role: 'user', content: latest },
+  ];
+  const pricedContext = buildConversationRepairContext(pricedMessages, latest);
+  const modelRephrase = 'Řeknu to jednoduše: co nabízíš, komu a za jakou cenu?';
+  assert.equal(enforceConversationRepairResponse(modelRephrase, pricedContext), modelRephrase);
 });
 
 test('výslovná žádost o jednu krátkou otázku vrátí přesně jednu ukotvenou otázku bez meta vysvětlení', () => {

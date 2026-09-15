@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const [html, manifest, worker, app] = await Promise.all([
+const [html, manifest, worker, app, packageJson] = await Promise.all([
   readFile(`${ROOT}/public/index.html`, 'utf8'),
   readFile(`${ROOT}/public/manifest.webmanifest`, 'utf8').then(JSON.parse),
   readFile(`${ROOT}/public/sw.js`, 'utf8'),
   readFile(`${ROOT}/src/browser-app.js`, 'utf8'),
+  readFile(`${ROOT}/package.json`, 'utf8').then(JSON.parse),
 ]);
 
 test('Elitea je instalovatelná PWA s identitou a zkratkami', () => {
@@ -28,12 +29,13 @@ test('service worker nikdy necachuje API a má offline shell', () => {
 });
 
 test('nový produkční JavaScript a CSS mají přednost před starou PWA cache', () => {
-  assert.match(worker, /elitea-shell-v0\.38\.2/);
+  const version = String(packageJson.version).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(worker, new RegExp(`elitea-shell-v${version}`));
   assert.match(worker, /\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\//);
   const mutableBranch = worker.match(/if \(\/\\\.\(\?:js\|css\|html\|webmanifest\)\$\/[\s\S]*?\n  \}/)?.[0] || '';
   assert.match(mutableBranch, /fetch\(request\)/);
   assert.match(mutableBranch, /catch\(\(\) => caches\.match\(request\)\)/);
-  assert.match(html, /\/app\.js\?v=0\.38\.2/);
-  assert.match(html, /\/styles\.css\?v=0\.38\.2/);
-  assert.match(app, /\/cloud\.js\?v=0\.38\.2/);
+  assert.match(html, new RegExp(`/app\\.js\\?v=${version}`));
+  assert.match(html, new RegExp(`/styles\\.css\\?v=${version}`));
+  assert.match(app, new RegExp(`/cloud\\.js\\?v=${version}`));
 });

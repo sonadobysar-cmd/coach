@@ -708,6 +708,22 @@ export function enforceConversationRepairResponse(value, repairContext = {}) {
     return guardedConversationRepairFallback(repairContext);
   }
 
+  // Při výslovné žádosti o lidské přeformulování má spolehlivá, významově
+  // zachovaná varianta přednost před dalším generativním pokusem. Aktivujeme ji
+  // jen tehdy, když jsme otázku opravdu zjednodušili; krátkou otázku, pro kterou
+  // nemáme bezpečnou transformaci, nesmíme pouze zopakovat slovo od slova.
+  if (repairContext.kind === 'rephrase') {
+    const previousQuestion = extractLastRepairQuestion(repairContext.previousAssistantText);
+    const simplifiedQuestion = simplifyRepairQuestion(
+      repairContext.previousAssistantText,
+      repairContext.responseLanguage,
+    );
+    if (simplifiedQuestion
+      && normalizeDialogueText(simplifiedQuestion) !== normalizeDialogueText(previousQuestion)) {
+      return guardedConversationRepairFallback(repairContext);
+    }
+  }
+
   // Jasné „končím s X, ale s tebou pokračuji“ nesmí být znovu vyloženo jako
   // konec rozhovoru. Dobrou modelovou odpověď zachováme; zasahujeme pouze,
   // když nepotvrdila pojmenovaný rozsah nebo plynule nepokračuje otázkou.
@@ -723,10 +739,26 @@ export function enforceConversationRepairResponse(value, repairContext = {}) {
   return output;
 }
 
+function extractLastRepairQuestion(value) {
+  // The old matcher started at the beginning of the whole paragraph. A short
+  // final question after two explanatory sentences therefore looked like a
+  // 40+ word question and fell through to an unrelated generic fallback.
+  // Sentence punctuation is a safe boundary here: we want the last question
+  // the member actually asked us to restate, not the entire previous reply.
+  return String(value || '').match(/[^.!?\n]{3,}\?/gu)?.at(-1)?.replace(/\s+/gu, ' ').trim() || '';
+}
+
 function simplifyRepairQuestion(value, language = 'cs') {
-  const question = String(value || '').match(/[^?\n]{3,}\?/gu)?.at(-1)?.replace(/\s+/gu, ' ').trim() || '';
+  const question = extractLastRepairQuestion(value);
   if (!question) return '';
   const normalized = normalizeDialogueText(question);
+  const asksAboutServiceAndAudience = /\b(?:jaka|aka|co)\b[^?]{0,25}\b(?:tvoje|tvoja)\s+sluzb\w*\b[^?]{0,50}\b(?:pro|pre)\s+koho\b|\bco\s+presne\s+(?:nabizis|ponukas)\b[^?]{0,45}\bkomu\b/u.test(normalized);
+  const asksForAdditionalBusinessDecision = /\b(?:cen|kanal|rozpoct|termin)\w*\b|\b(?:kdy|kolik)\b/u.test(normalized);
+  if (asksAboutServiceAndAudience && !asksForAdditionalBusinessDecision) {
+    return language === 'sk'
+      ? 'Akú službu ponúkaš a komu má pomôcť?'
+      : 'Jakou službu nabízíš a komu má pomoct?';
+  }
   if (/kdybys nikdy nezjistila[^?]*proc odesla/u.test(normalized)) {
     return language === 'sk'
       ? 'Ak by si nikdy nezistila, prečo odišla, chcela by si podľa ostatných výsledkov pokračovať, alebo skončiť?'
