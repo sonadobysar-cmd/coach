@@ -1,11 +1,25 @@
 import { requestsOneShortQuestion } from './conversation-repair-intent.js';
 
-const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'awaiting_recontract', 'completed', 'stopped']);
+const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'awaiting_recontract', 'released', 'completed', 'stopped']);
 const ACTIVE_PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration']);
 const CONSENT_FAMILIES = new Set([
   'trauma_informed_support',
   'mindfulness',
   'relaxation',
+]);
+const REGULATION_FAMILIES = new Set([
+  'trauma_informed_support',
+  'mindfulness',
+  'relaxation',
+  'emotion_skills',
+]);
+const TECHNIQUE_MODALITIES = new Set([
+  'breath',
+  'emotion_labeling',
+  'somatic_regulation',
+  'grounding',
+  'visualization',
+  'mindfulness',
 ]);
 
 const BUILTIN_TECHNIQUE_STEPS = Object.freeze({
@@ -44,15 +58,138 @@ export function createTechniqueTurn({
   const explicitTechniqueStop = stopIntent === 'technique_stop';
   const ambiguousOrExternalStop = ['external_or_ambiguous', 'external_stop'].includes(stopIntent);
   const explicitNoEffect = reportsNoEffect(latestText);
+  const explicitAdverseEffect = reportsAdverseTechniqueEffect(latestText);
   const explicitRepair = isConversationRepairRequest(latestText);
   const explicitRestart = wantsAnotherTechnique(latestText);
+  const explicitNewDirection = explicitlyEstablishesNewDirection(latestText, previousAssistantText);
+  const methodBoundary = detectRejectedTechniqueBoundary(latestText);
+  const inheritedBlocks = mergeTechniqueBlocks(
+    techniqueBlocksFromSession(safePrevious),
+    methodBoundary,
+  );
   const consentDeclined = safePrevious?.phase === 'consent' && declinesConsent(latestText);
   const noEffectFeedback = explicitNoEffect && safePrevious
     && ['application', 'evaluation'].includes(safePrevious.phase);
+
+  // Oprava porozumění je meta-komunikace, nikoli odmítnutí metody. Má vždy
+  // přednost před lexikálními hranicemi (např. „Neopakuj otázku, nerozuměla
+  // jsem“), aby se kvůli žádosti o přeformulování nezablokovala technika.
+  if (explicitRepair && !explicitStop && !explicitTechniqueStop) {
+    const card = safePrevious ? byId.get(safePrevious.techniqueId) : null;
+    return {
+      card,
+      session: safePrevious,
+      steps: deriveTechniqueSteps(card),
+      suspended: true,
+      suspensionReason: 'conversation_repair',
+    };
+  }
+
+  // „Dech mi nepomohl“, „pojmenování pocitu nic nezměnilo“ nebo výslovné
+  // „žádné další regulační cvičení“ nejsou jen běžná data pro posun fáze.
+  // Jsou to hranice konkrétní modality. Uchováváme je v podepsaném stavovém
+  // objektu napříč tahy a starou techniku pozastavíme, aby se nemohla vrátit
+  // pod synonymem (např. pomalý dech -> přirozený dech).
+  const namedNoEffect = explicitNoEffect && methodBoundary.blockedModalities.length > 0;
+  const adverseTechniqueEffect = explicitAdverseEffect && Boolean(safePrevious)
+    && ['application', 'evaluation'].includes(safePrevious.phase);
+  const interruptibleTechnique = Boolean(safePrevious)
+    && (ACTIVE_PHASES.has(safePrevious.phase) || safePrevious.phase === 'awaiting_recontract');
+  if (interruptibleTechnique && (methodBoundary.explicitBoundary || namedNoEffect || adverseTechniqueEffect)) {
+    const card = byId.get(safePrevious.techniqueId);
+    const blocks = adverseTechniqueEffect && methodBoundary.blockedModalities.length === 0
+      ? mergeTechniqueBlocks(inheritedBlocks, techniqueBlocksFromCard(card, { includeId: true }))
+      : mergeTechniqueBlocks(inheritedBlocks, { blockedTechniqueIds: [card?.id] });
+    if (adverseTechniqueEffect) {
+      return {
+        card,
+        steps: deriveTechniqueSteps(card),
+        session: {
+          ...safePrevious,
+          phase: 'stopped',
+          status: 'stopped',
+          stopReason: 'adverse_effect',
+          turns: safePrevious.turns + 1,
+          transitionReason: null,
+          ...serializeTechniqueBlocks(blocks),
+        },
+      };
+    }
+    // Jedna zpráva může současně odmítnout dosavadní modalitu a přesně říct,
+    // kam chce členka pokračovat. Takový nový kontrakt přijmeme hned; není
+    // důvod nutit ji potvrzovat totéž v dalším tahu.
+    const allowedCandidates = filterBlockedTechniqueCandidates(candidates, blocks);
+    if (methodBoundary.explicitBoundary && explicitNewDirection && allowedCandidates.length) {
+      return startCandidateTechnique({
+        candidates: allowedCandidates,
+        mode,
+        latestText,
+        recontracted: true,
+        blocks,
+      });
+    }
+    if (methodBoundary.explicitBoundary && explicitNewDirection) {
+      return {
+        card: null,
+        steps: [],
+        recontracted: true,
+        session: {
+          ...safePrevious,
+          phase: 'released',
+          status: 'released',
+          turns: safePrevious.turns + 1,
+          transitionReason: 'recontracted',
+          ...serializeTechniqueBlocks(blocks),
+        },
+      };
+    }
+    const session = pauseTechniqueForMethodBoundary(safePrevious, latestText, {
+      blocks,
+      reason: methodBoundary.explicitBoundary
+          ? 'method_boundary'
+          : 'no_effect',
+    });
+    return {
+      card,
+      session,
+      steps: deriveTechniqueSteps(card),
+      suspended: true,
+      suspensionReason: session.suspensionReason,
+    };
+  }
+
+  // Už první zpráva může říkat, že určitý přístup byl vyzkoušen a nezabral.
+  // Pokud router právě tuto modalitu vybral, neaktivujeme ji vůbec; uložíme ji
+  // jako pozastavenou hranici a model dostane prostor přejít k jiné práci.
+  if (!safePrevious && (methodBoundary.explicitBoundary || namedNoEffect)) {
+    const blockedCandidate = candidates.find(candidate => techniqueIsBlocked(candidate, inheritedBlocks)) || null;
+    if (blockedCandidate) {
+      const initial = startCandidateTechnique({
+        candidates: [blockedCandidate],
+        mode,
+        latestText,
+        blocks: inheritedBlocks,
+      });
+      const initialBlocks = mergeTechniqueBlocks(inheritedBlocks, {
+        blockedTechniqueIds: [blockedCandidate.id],
+      });
+      const session = pauseTechniqueForMethodBoundary(initial.session, latestText, {
+        blocks: initialBlocks,
+        reason: methodBoundary.explicitBoundary ? 'method_boundary' : 'no_effect',
+      });
+      return {
+        card: blockedCandidate,
+        session,
+        steps: deriveTechniqueSteps(blockedCandidate),
+        suspended: true,
+        suspensionReason: session.suspensionReason,
+      };
+    }
+  }
   // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
   // jako další krok techniky. Stav ale nezahazujeme: je pouze pozastavený,
   // aby oprava porozumění nemohla techniku skrytě posunout ani restartovat.
-  if (explicitRepair || (ambiguousOrExternalStop && !consentDeclined)) {
+  if (ambiguousOrExternalStop && !consentDeclined) {
     const card = safePrevious ? byId.get(safePrevious.techniqueId) : null;
     const persistentRecontract = Boolean(safePrevious)
       && (ambiguousOrExternalStop || safePrevious.phase === 'awaiting_recontract');
@@ -68,8 +205,6 @@ export function createTechniqueTurn({
         ? 'external_stop'
         : safePrevious?.phase === 'awaiting_recontract'
           ? 'awaiting_recontract'
-        : explicitRepair
-          ? 'conversation_repair'
           : 'ambiguous_stop',
     };
   }
@@ -111,6 +246,29 @@ export function createTechniqueTurn({
 
   // Po zastavení už starý stav nesmí v dalším tahu znovu rozběhnout techniku.
   if (safePrevious?.phase === 'stopped' && !explicitStop) {
+    const preservedBlocks = techniqueBlocksFromSession(safePrevious);
+    const allowedCandidates = filterBlockedTechniqueCandidates(candidates, preservedBlocks);
+    if ((explicitRestart || explicitNewDirection) && allowedCandidates.length) {
+      return startCandidateTechnique({
+        candidates: allowedCandidates,
+        mode,
+        latestText,
+        recontracted: true,
+        blocks: preservedBlocks,
+      });
+    }
+    if (preservedBlocks.blockedTechniqueIds.length
+      || preservedBlocks.blockedTechniqueFamilies.length
+      || preservedBlocks.blockedModalities.length) {
+      const card = byId.get(safePrevious.techniqueId);
+      return {
+        card,
+        session: safePrevious,
+        steps: deriveTechniqueSteps(card),
+        suspended: true,
+        suspensionReason: safePrevious.stopReason === 'adverse_effect' ? 'adverse_effect' : 'technique_stop',
+      };
+    }
     return { card: null, session: null, steps: [] };
   }
 
@@ -133,8 +291,9 @@ export function createTechniqueTurn({
         session: stopTechniqueSession(safePrevious, 'technique_stop'),
       };
     }
-    if (explicitlyResumesTechnique(latestText)) {
+    if (explicitlyResumesTechnique(latestText, card)) {
       const { resumePhase, refusedScope, suspensionReason, ...rest } = safePrevious;
+      const resumedBlocks = unblockTechniqueForExplicitResume(inheritedBlocks, card);
       return {
         card,
         steps: deriveTechniqueSteps(card),
@@ -145,15 +304,17 @@ export function createTechniqueTurn({
           status: 'active',
           turns: safePrevious.turns + 1,
           transitionReason: 'recontracted',
+          ...serializeTechniqueBlocks(resumedBlocks),
         },
       };
     }
-    if (explicitlyEstablishesNewDirection(latestText, previousAssistantText)) {
+    if (explicitNewDirection) {
       return startCandidateTechnique({
-        candidates,
+        candidates: filterBlockedTechniqueCandidates(candidates, inheritedBlocks),
         mode,
         latestText,
         recontracted: true,
+        blocks: inheritedBlocks,
       });
     }
     return {
@@ -172,7 +333,7 @@ export function createTechniqueTurn({
     && !explicitTechniqueStop
     && !explicitNoEffect
     && !reportsEffect(latestText)
-    && !reportsWorse(latestText)) {
+    && !reportsAdverseTechniqueEffect(latestText)) {
     const card = byId.get(safePrevious.techniqueId);
     return {
       card,
@@ -231,10 +392,31 @@ export function createTechniqueTurn({
     return { card, session, steps };
   }
 
-  return startCandidateTechnique({ candidates, mode, latestText });
+  // Po přijetí nového směru bez atlasového kandidáta pokračuje volný odborný
+  // rozhovor. Stav zde nese pouze sticky hranice; nesmí znovu aktivovat starou
+  // techniku ani se ztratit jen proto, že tento tah žádnou techniku nepotřebuje.
+  if (safePrevious?.phase === 'released'
+    && filterBlockedTechniqueCandidates(candidates, inheritedBlocks).length === 0) {
+    return {
+      card: null,
+      session: {
+        ...safePrevious,
+        ...serializeTechniqueBlocks(inheritedBlocks),
+      },
+      steps: [],
+      recontracted: true,
+    };
+  }
+
+  return startCandidateTechnique({
+    candidates: filterBlockedTechniqueCandidates(candidates, inheritedBlocks),
+    mode,
+    latestText,
+    blocks: inheritedBlocks,
+  });
 }
 
-function startCandidateTechnique({ candidates = [], mode, latestText, recontracted = false }) {
+function startCandidateTechnique({ candidates = [], mode, latestText, recontracted = false, blocks = {} }) {
   const card = candidates.find(candidate => candidate?.access_level !== 'human_only') || null;
   if (!card) return { card: null, session: null, steps: [], recontracted };
   return {
@@ -253,7 +435,25 @@ function startCandidateTechnique({ candidates = [], mode, latestText, recontract
       turns: 1,
       requiresConsent: requiresExplicitConsent(card),
       consentGranted: false,
+      ...serializeTechniqueBlocks(blocks),
     },
+  };
+}
+
+function pauseTechniqueForMethodBoundary(previous, latestText, { blocks = {}, reason = 'method_boundary' } = {}) {
+  const existingScope = cleanText(previous?.refusedScope, 240);
+  const refusedScope = extractMethodRefusedScope(latestText) || existingScope;
+  return {
+    ...previous,
+    phase: 'awaiting_recontract',
+    status: 'paused',
+    resumePhase: previous?.phase === 'awaiting_recontract'
+      ? previous.resumePhase
+      : ACTIVE_PHASES.has(previous?.phase) ? previous.phase : 'application',
+    refusedScope: refusedScope || null,
+    suspensionReason: reason,
+    transitionReason: null,
+    ...serializeTechniqueBlocks(blocks),
   };
 }
 
@@ -272,6 +472,7 @@ function suspendTechniqueForRecontract(previous, latestText, stopIntent) {
     refusedScope: refusedScope || null,
     suspensionReason: stopIntent === 'external_stop' ? 'external_stop' : 'ambiguous_stop',
     transitionReason: null,
+    ...serializeTechniqueBlocks(techniqueBlocksFromSession(previous)),
   };
 }
 
@@ -287,22 +488,37 @@ function stopTechniqueSession(previous, stopReason) {
   };
 }
 
-function explicitlyResumesTechnique(value) {
+function explicitlyResumesTechnique(value, card = null) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  return /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,90}\b(?:vratit|vratit se|pokračovat|pokracovat|pokračovať|pokracovat)\b[^.!?\n]{0,70}\b(?:k te technice|k tej technike|v te technice|v tej technike|v puvodnim postupu|v povodnom postupe|u puvodniho kroku|pri povodnom kroku)\b/iu.test(normalized)
+  const genericReturn = /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,90}\b(?:vratit|vratit se|pokračovat|pokracovat|pokračovať|pokracovat)\b[^.!?\n]{0,70}\b(?:k te technice|k tej technike|v te technice|v tej technike|v puvodnim postupu|v povodnom postupe|u puvodniho kroku|pri povodnom kroku)\b/iu.test(normalized)
     || /\b(?:vratme se|vratme sa|pokračujme|pokracujme)\b[^.!?\n]{0,70}\b(?:k technice|k technike|v technice|v technike|v postupu|v postupe)\b/iu.test(normalized);
+  if (genericReturn) return true;
+  const explicitRetry = /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,80}\b(?:znovu|znova|opet|opat|vratit|pokracovat|pokračovat)\b[^.!?\n]{0,80}\b(?:zkusit|skusit|vyzkouset|vyskusat|pouzit|pouzit|udelat|urobit)?\b/iu.test(normalized)
+    || /\b(?:chci|chcem|mozeme|muzeme|pojdme)\b[^.!?\n]{0,80}\b(?:zkusit|skusit|vyzkouset|vyskusat|pouzit|udelat|urobit)\b[^.!?\n]{0,45}\b(?:znovu|znova|opet|opat)\b/iu.test(normalized);
+  return explicitRetry && mentionsTechniqueModality(normalized, card);
+}
+
+function mentionsTechniqueModality(value, card) {
+  const modalities = new Set(modalitiesForCard(card));
+  if (modalities.has('breath') && /\b(?:dech|dych|dychani|dychanie|nadech|nadych|vydech)\w*\b/iu.test(value)) return true;
+  if (modalities.has('emotion_labeling') && /\b(?:pojmen|pomen)\w*.{0,25}\b(?:pocit|emoc)\w*/iu.test(value)) return true;
+  if (modalities.has('grounding') && /\b(?:grounding|uzemnen|orientac)\w*\b/iu.test(value)) return true;
+  if (modalities.has('visualization') && /\b(?:vizualiz|imagin|predstav)\w*\b/iu.test(value)) return true;
+  if (modalities.has('somatic_regulation') && /\b(?:regulac|somatick|telesn|telo)\w*\b/iu.test(value)) return true;
+  if (modalities.has('mindfulness') && /\b(?:mindful|vsimav|meditac|pozornost)\w*\b/iu.test(value)) return true;
+  return false;
 }
 
 function explicitlyEstablishesNewDirection(value, previousAssistantText = '') {
   const normalized = normalizeCzech(value).replace(/[^a-z0-9\s]/gu, ' ').replace(/\s+/gu, ' ').trim();
   if (!normalized) return false;
   if (/\b(?:nevim|neviem|netusim)\b/u.test(normalized)
-    && !/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme)\b[^.]{0,80}\b(?:resit|riesit|najit|najst|vymyslet|vymysliet|zvolit|vybrat|prejit|prejst)\b/u.test(normalized)) {
+    && !/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme)\b[^.]{0,80}\b(?:resit|riesit|najit|najst|vymyslet|vymysliet|zvolit|vybrat|prejit|prejst|podivat|pozriet|zamerit|venovat)\b/u.test(normalized)) {
     return false;
   }
   if (/^(?:(?:no|tak|ale|proste|jednoduse|jednoducho)\s+)*(?:proto|preto)?\s*(?:tu|tady)?\s*(?:jsem|som)?\s*$/u.test(normalized)) return false;
   if (wantsAnotherTechnique(normalized)) return true;
-  if (/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme|pomoz mi|pomozte mi)\b[^.!?\n]{0,100}\b(?:resit|riesit|probrat|prebrat|najit|najst|vymyslet|vymysliet|zvolit|vybrat|rozhodnout|rozhodnut|prejit|prejst|zacit|zacat)\b/u.test(normalized)) {
+  if (/\b(?:chci|chcem|potrebuji|potrebujem|pojďme|pojdme|pomoz mi|pomozte mi)\b[^.!?\n]{0,100}\b(?:resit|riesit|probrat|prebrat|najit|najst|vymyslet|vymysliet|zvolit|vybrat|rozhodnout|rozhodnut|prejit|prejst|zacit|zacat|podivat|pozriet|zamerit|venovat)\b/u.test(normalized)) {
     return true;
   }
   if (/^(?:misto|namiesto|radsi|radeji|radsej)\s+\S.{2,180}$/u.test(normalized)) return true;
@@ -386,12 +602,17 @@ export function formatTechniqueExecution(turn) {
       technique_stop: 'Členka výslovně odmítla nebo zastavila techniku.',
       evaluation_not_answered: 'Členka neodpověděla na otázku po účinku a otevřela jiný význam, který je třeba nejprve zachytit.',
       awaiting_recontract: 'Předchozí technika zůstává pozastavená, protože po opravě nebo odmítnutí ještě nevznikla nová společná zakázka.',
+      no_effect: 'Členka popsala, že konkrétní způsob nepřinesl účinek. Tento způsob ani jeho přejmenovanou variantu neopakuj.',
+      adverse_effect: 'Členka popsala zhoršení po konkrétním způsobu. Tento způsob zastav a nepřeváděj ji do synonymní varianty.',
+      method_boundary: 'Členka výslovně odmítla konkrétní modalitu nebo celou rodinu regulačních cvičení.',
     }[turn.suspensionReason] || 'Nejdřív je nutné obnovit společné porozumění.';
     const refusedScope = cleanText(turn?.session?.refusedScope, 240);
+    const blockedModalities = sanitizeStringArray(turn?.session?.blockedModalities, TECHNIQUE_MODALITIES, 12);
     return [
       'TECHNIKA JE PRO TENTO VIDITELNÝ TAH POZASTAVENA.',
       reason,
       refusedScope ? `Výslovně odmítnutý rozsah: ${refusedScope}.` : '',
+      blockedModalities.length ? `Blokované modality pro další práci: ${blockedModalities.join(', ')}.` : '',
       'V tomto tahu techniku neprováděj, neposouvej, nevyhodnocuj její účinek a netvrď, že členka dokončila krok.',
       'Krátce oprav porozumění a odpověz na skutečný význam poslední zprávy. Opři se pouze o konkrétní údaje, které členka skutečně uvedla v přepisu.',
       turn.suspensionReason === 'ambiguous_stop'
@@ -405,6 +626,12 @@ export function formatTechniqueExecution(turn) {
         : '',
       turn.suspensionReason === 'awaiting_recontract'
         ? 'Neobnovuj starou techniku ani nevybírej novou jen proto, že členka neví, co dál. Lidsky unes nejistotu, drž odmítnutý rozsah a pomoz jednou krátkou otázkou nebo přesným rozlišením vytvořit novou zakázku.'
+        : '',
+      ['no_effect', 'adverse_effect'].includes(turn.suspensionReason)
+        ? 'Pojmenuj, že výsledek je důležité datum, a změň druh práce. Nenabízej další variantu stejné modality ani ji neobhajuj; vrať se k situaci, myšlence, rozhodnutí nebo praktickému kontextu, který členka řeší.'
+        : '',
+      turn.suspensionReason === 'method_boundary'
+        ? 'Hranici přijmi bez vyjednávání. Pokud členka pojmenovala konkrétní hovor nebo situaci, přejdi přímo k němu a polož jednu přesnou otázku na pozorovatelný průběh; nenabízej žádné další regulační cvičení.'
         : '',
       turn?.session?.phase === 'awaiting_recontract'
         ? 'Technika smí pokračovat pouze po výslovném návratu k ní. Jiný postup smí začít až po jasně pojmenovaném novém směru členky.'
@@ -474,6 +701,10 @@ export function formatTechniqueExecution(turn) {
 
 export function enforceTechniqueResponse(text, turn, context = {}) {
   const output = String(text || '').trim();
+  const blockedModalities = sanitizeStringArray(turn?.session?.blockedModalities, TECHNIQUE_MODALITIES, 12);
+  if (blockedModalities.length && proposesBlockedModality(output, blockedModalities)) {
+    return blockedTechniqueFallback(context.latestText, blockedModalities);
+  }
   if (turn?.suspended || !turn?.card || !turn?.session) return output;
   const { card, session } = turn;
 
@@ -546,6 +777,11 @@ function contextualAssessmentQuestion(latestText) {
 export function sanitizeTechniqueSession(input, atlasOrMap = []) {
   if (!input || typeof input !== 'object') return null;
   const byId = atlasOrMap instanceof Map ? atlasOrMap : new Map(atlasOrMap.map(card => [card.id, card]));
+  const atlasFamilies = new Set(
+    [...byId.values()]
+      .map(card => cleanText(card?.family, 120))
+      .filter(Boolean),
+  );
   const techniqueId = cleanText(input.techniqueId, 120);
   const phase = PHASES.has(input.phase) ? input.phase : null;
   if (!techniqueId || !phase || !byId.has(techniqueId)) return null;
@@ -566,11 +802,14 @@ export function sanitizeTechniqueSession(input, atlasOrMap = []) {
     transitionReason: ['no_effect', 'stuck_repair', 'recontracted'].includes(input.transitionReason)
       ? input.transitionReason
       : null,
+    blockedTechniqueIds: sanitizeStringArray(input.blockedTechniqueIds, new Set(byId.keys()), 16),
+    blockedTechniqueFamilies: sanitizeStringArray(input.blockedTechniqueFamilies, atlasFamilies, 12),
+    blockedModalities: sanitizeStringArray(input.blockedModalities, TECHNIQUE_MODALITIES, 12),
   };
   if (phase === 'awaiting_recontract') {
     session.resumePhase = ACTIVE_PHASES.has(input.resumePhase) ? input.resumePhase : 'application';
     session.refusedScope = cleanText(input.refusedScope, 240) || null;
-    session.suspensionReason = ['external_stop', 'ambiguous_stop', 'conversation_repair'].includes(input.suspensionReason)
+    session.suspensionReason = ['external_stop', 'ambiguous_stop', 'conversation_repair', 'no_effect', 'adverse_effect', 'method_boundary'].includes(input.suspensionReason)
       ? input.suspensionReason
       : 'ambiguous_stop';
   }
@@ -602,7 +841,7 @@ function advanceSession(previous, card, latestText, conversationContext, previou
   }
 
   if (previous.phase === 'application') {
-    if (reportsWorse(latestText)) {
+    if (reportsAdverseTechniqueEffect(latestText)) {
       next.phase = 'stopped';
       next.status = 'stopped';
       next.stopReason = 'adverse_effect';
@@ -622,7 +861,7 @@ function advanceSession(previous, card, latestText, conversationContext, previou
   }
 
   if (previous.phase === 'evaluation') {
-    if (reportsWorse(latestText)) {
+    if (reportsAdverseTechniqueEffect(latestText)) {
       next.phase = 'stopped';
       next.status = 'stopped';
       next.stopReason = 'adverse_effect';
@@ -705,7 +944,7 @@ function isSubstantiveTechniqueAnswer(value) {
 
 export function classifyStopIntent(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  if (/\b(?:nechci|nechcem|odmitam|odmietam)\s+(?:tuhle|tohle|toto|tuto|tu|dalsi|dalsiu)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:tuhle|tohle|toto|tuto|tu)\s+(?:technik|cvicen|postup|krok)\w*\s+(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:zastav|ukonci|vynechme|vynechajme)\s+(?:tuhle|tuto|tu|toto)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:nechci|nechcem)\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*(?:technik|cvicen|postup)\w*\b/iu.test(normalized)) {
+  if (/\b(?:nechci|nechcem|odmitam|odmietam)\s+(?:tuhle|tohle|toto|tuto|tu|dalsi|dalsiu)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:tuhle|tohle|toto|tuto|tu)\s+(?:technik|cvicen|postup|krok)\w*\s+(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:zastav|ukonci|vynechme|vynechajme)\s+(?:tuhle|tuto|tu|toto)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:nechci|nechcem)\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*(?:technik|cvicen|postup)\w*\b|\b(?:zadne|zadna|ziadne|ziadna)\s+(?:dalsi|dalsie)?\s*(?:regulacni|regulacne|dechove|dychove|telesne|somaticke)?\s*(?:technik|cvicen|praktik|postup)\w*\b/iu.test(normalized)) {
     return 'technique_stop';
   }
   const declinesCurrentDirection = /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,90}\b(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:nechci|nechcem|odmitam|odmietam)\b[^.!?\n]{0,90}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/iu.test(normalized);
@@ -754,12 +993,195 @@ function wantsAnotherTechnique(value) {
 }
 
 function reportsNoEffect(value) {
-  return /\b((?:zatim )?nic (?:mi )?(?:to )?(?:nedela|nerobi|neudelalo|neudelava|nezmenilo)|nic (?:se|sa) nezmenilo|zadna zmena|ziadna zmena|bez zmeny|necitim (?:zadnou|ziadnu) zmenu|nefunguje|nepomohlo|nepomaha|nezabralo)\b/iu.test(normalizeCzech(value));
+  return /\b((?:zatim )?nic (?:mi )?(?:to )?(?:nedela|nerobi|neudelalo|neudelava|nezmenilo)|nic (?:se|sa) nezmenilo|zadna zmena|ziadna zmena|bez zmeny|necitim (?:zadnou|ziadnu) zmenu|nefunguje|nepom(?:ohl|ohol)(?:o|a|y)?|nepomaha|nezabral(?:o|a|y)?)\b/iu.test(normalizeCzech(value));
+}
+
+function splitMeaningClauses(value) {
+  return String(value || '')
+    .split(/(?:[.!?;]+\s*|,\s*(?=(?:ale|avsak|jenze|no|pritom)\b)|\s+(?:ale|avsak|jenze)\s+)/iu)
+    .map(clause => clause.trim())
+    .filter(Boolean);
+}
+
+function detectRejectedTechniqueBoundary(value) {
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  if (!normalized) return emptyTechniqueBlocks();
+  const blockedModalities = [];
+  let broadRegulation = false;
+  let explicitBoundary = false;
+  for (const clause of splitMeaningClauses(normalized)) {
+    const noEffect = reportsNoEffect(clause);
+    const namesMethod = /\b(?:dech|dych|dychani|dychanie|nadech|nadych|vydech|pojmen|pomen|cvicen|technik|prax|praktik|postup|regulac|somatick|telesn|uzemnen|grounding|vizualiz|imagin|predstav)\w*\b/iu.test(clause);
+    const explicitRejection = namesMethod && (
+      /\b(?:nechci|nechcem|odmitam|odmietam|zadne|zadna|ziadne|ziadna|nebudu|nebudem|vynechme|vynechajme)\b/iu.test(clause)
+      || /\b(?:neopakuj|neopakovat|dokola|dookola|to iste|totez)\b/iu.test(clause)
+    );
+    const genericRepeatBoundary = /\b(?:dokola|dookola)\b[^.!?]{0,60}\b(?:zkouset|skusat|opakovat)\w*\b/iu.test(clause);
+    if (!noEffect && !explicitRejection && !genericRepeatBoundary) continue;
+
+    const broadInClause = /\b(?:regulac|somatick|telesn)\w*\s+(?:cvicen|technik|prax|praktik|postup)\w*|\b(?:zadne|zadna|ziadne|ziadna)\s+(?:dalsi|dalsie)?\s*(?:cvicen|technik|prax|praktik|postup)\w*/iu.test(clause);
+    broadRegulation ||= broadInClause;
+    explicitBoundary ||= explicitRejection || genericRepeatBoundary || broadInClause;
+
+    if (/\b(?:dech|dych|dychani|dychanie|nadech|nadych|vydech)\w*\b/iu.test(clause)) blockedModalities.push('breath');
+    if (/\b(?:pojmenovan|pomenovan|pojmenovat|pomenovat|nazev|nazov)\w*\s+(?:pocit|emoc)\w*|\b(?:emotion labeling|affect labeling)\b/iu.test(clause)) {
+      blockedModalities.push('emotion_labeling');
+    }
+    if (/\b(?:vizualiz|imagin|predstav)\w*\b/iu.test(clause)) blockedModalities.push('visualization');
+    if (/\b(?:uzemnen|uzemnit|grounding|orientac)\w*\b/iu.test(clause)) blockedModalities.push('grounding');
+  }
+
+  if (broadRegulation) blockedModalities.push('breath', 'emotion_labeling', 'somatic_regulation', 'grounding', 'visualization', 'mindfulness');
+  if (!reportsNoEffect(normalized) && !explicitBoundary) return emptyTechniqueBlocks();
+  return {
+    blockedTechniqueIds: [],
+    blockedTechniqueFamilies: broadRegulation ? [...REGULATION_FAMILIES] : [],
+    blockedModalities: [...new Set(blockedModalities)],
+    explicitBoundary,
+  };
+}
+
+function techniqueBlocksFromCard(card, { includeId = false } = {}) {
+  if (!card) return emptyTechniqueBlocks();
+  return {
+    blockedTechniqueIds: includeId ? [card.id] : [],
+    blockedTechniqueFamilies: [],
+    blockedModalities: modalitiesForCard(card),
+    explicitBoundary: false,
+  };
+}
+
+function techniqueBlocksFromSession(session) {
+  return {
+    blockedTechniqueIds: Array.isArray(session?.blockedTechniqueIds) ? session.blockedTechniqueIds : [],
+    blockedTechniqueFamilies: Array.isArray(session?.blockedTechniqueFamilies) ? session.blockedTechniqueFamilies : [],
+    blockedModalities: Array.isArray(session?.blockedModalities) ? session.blockedModalities : [],
+    explicitBoundary: false,
+  };
+}
+
+function emptyTechniqueBlocks() {
+  return {
+    blockedTechniqueIds: [],
+    blockedTechniqueFamilies: [],
+    blockedModalities: [],
+    explicitBoundary: false,
+  };
+}
+
+function mergeTechniqueBlocks(...values) {
+  return {
+    blockedTechniqueIds: [...new Set(values.flatMap(value => value?.blockedTechniqueIds || []).filter(Boolean))].slice(0, 16),
+    blockedTechniqueFamilies: [...new Set(values.flatMap(value => value?.blockedTechniqueFamilies || []).filter(Boolean))].slice(0, 12),
+    blockedModalities: [...new Set(values.flatMap(value => value?.blockedModalities || []).filter(item => TECHNIQUE_MODALITIES.has(item)))].slice(0, 12),
+    explicitBoundary: values.some(value => value?.explicitBoundary === true),
+  };
+}
+
+function unblockTechniqueForExplicitResume(blocks, card) {
+  const resumedModalities = new Set(modalitiesForCard(card));
+  return {
+    blockedTechniqueIds: (blocks?.blockedTechniqueIds || []).filter(id => id !== card?.id),
+    blockedTechniqueFamilies: (blocks?.blockedTechniqueFamilies || []).filter(family => family !== card?.family),
+    blockedModalities: (blocks?.blockedModalities || []).filter(modality => !resumedModalities.has(modality)),
+    explicitBoundary: false,
+  };
+}
+
+function serializeTechniqueBlocks(value) {
+  const blocks = mergeTechniqueBlocks(value || {});
+  return {
+    blockedTechniqueIds: blocks.blockedTechniqueIds,
+    blockedTechniqueFamilies: blocks.blockedTechniqueFamilies,
+    blockedModalities: blocks.blockedModalities,
+  };
+}
+
+function filterBlockedTechniqueCandidates(candidates, blocks) {
+  return (Array.isArray(candidates) ? candidates : []).filter(candidate => !techniqueIsBlocked(candidate, blocks));
+}
+
+function techniqueIsBlocked(card, blocks) {
+  if (!card) return false;
+  if ((blocks?.blockedTechniqueIds || []).includes(card.id)) return true;
+  if ((blocks?.blockedTechniqueFamilies || []).includes(card.family)) return true;
+  const blocked = new Set(blocks?.blockedModalities || []);
+  return modalitiesForCard(card).some(modality => blocked.has(modality));
+}
+
+function modalitiesForCard(card) {
+  const text = normalizeCzech([
+    card?.id,
+    card?.name,
+    card?.family,
+    ...(card?.keywords || []),
+    ...(card?.use_when || []),
+    card?.core_move,
+  ].filter(Boolean).join(' '));
+  const modalities = [];
+  if (/\b(?:dech|dych|dychani|nadech|nadych|vydech)\w*\b/iu.test(text)) modalities.push('breath');
+  if (/\b(?:emotion.label|affect.label|pojmen|pomen).{0,25}(?:emoc|pocit)/iu.test(text)) modalities.push('emotion_labeling');
+  if (/\b(?:somat|telesn|body.scan|nervov|regulac)\w*\b/iu.test(text)) modalities.push('somatic_regulation');
+  if (/\b(?:grounding|uzemnen|orientac)\w*\b/iu.test(text)) modalities.push('grounding');
+  if (/\b(?:vizualiz|imagin|predstav)\w*\b/iu.test(text)) modalities.push('visualization');
+  if (/\b(?:mindful|vsimav|meditac)\w*\b/iu.test(text) || card?.family === 'mindfulness') modalities.push('mindfulness');
+  return [...new Set(modalities)];
+}
+
+function extractMethodRefusedScope(value) {
+  const text = String(value || '').replace(/\s+/gu, ' ').trim();
+  const named = text.match(/\b((?:regulační|regulacni|regulačné|regulacne|dechové|dechove|dychové|dychove|somatické|somaticke|tělesné|telesne)?\s*(?:cvičení|cviceni|techniky|technik|praxe|prax))\b/iu)?.[1];
+  return cleanText(named, 240) || extractRefusedScope(text);
+}
+
+function proposesBlockedModality(value, blockedModalities = []) {
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  if (!normalized) return false;
+  const proposed = /\b(?:zkus|zkusme|skus|skusme|vyzkous|vyskus|udel|urob|proved|sprav|nabid|ponuk|chces|chcete|muzeme|mozeme|pojď|pojd|vratme)\w*\b/iu;
+  const patterns = {
+    breath: /\b(?:dech|dych|dychani|dychanie|nadech|nadych|vydech)\w*\b/iu,
+    emotion_labeling: /\b(?:pojmen|pomen)\w*.{0,25}\b(?:pocit|emoc)\w*|\b(?:pocit|emoc)\w*.{0,25}\b(?:pojmen|pomen)\w*/iu,
+    somatic_regulation: /\b(?:regulac|somatick|telesn|telo|tělo|nervov)\w*\b/iu,
+    grounding: /\b(?:grounding|uzemnen|orientac|chodidl)\w*\b/iu,
+    visualization: /\b(?:vizualiz|imagin|predstav)\w*\b/iu,
+    mindfulness: /\b(?:mindful|vsimav|meditac|pozornost)\w*\b/iu,
+  };
+  return splitMeaningClauses(normalized).some(clause => blockedModalities.some(modality => {
+    const modalityPattern = patterns[modality];
+    if (!modalityPattern?.test(clause)) return false;
+    const safelyRejects = /\b(?:nebudeme|nebudu|nebudem|neopakuj|neopakovat|nechame|nechajme|vynechame|vynechajme|odmitla|odmietla|nechces|nechcete)\b|\b(?:stranou|bokom)\b/iu.test(clause);
+    return !safelyRejects && proposed.test(clause);
+  }));
+}
+
+function blockedTechniqueFallback(latestText, blockedModalities = []) {
+  const normalized = normalizeCzech(latestText);
+  const slovak = /\b(?:som|nie|nechcem|potrebujem|pozriet|konkretny|ziadne|dalsie|cvice(?:nie|nia)|chcem)\b/iu.test(normalized)
+    && !/\b(?:jsem|neni|nechci|potrebuji|podivat|konkretni)\b/iu.test(normalized);
+  const concreteCall = /\b(?:konkretni|konkretny)\w*\s+(?:hovor|rozhovor|telefonat|situac)\w*|\b(?:hovor|rozhovor|telefonat)\w*\b/iu.test(normalized);
+  if (slovak && concreteCall) {
+    return 'Regulačné cvičenia necháme bokom. Poďme priamo ku konkrétnemu hovoru: čo sa v ňom konkrétne stalo?';
+  }
+  if (concreteCall) {
+    return 'Regulační cvičení necháme stranou. Pojďme přímo ke konkrétnímu hovoru: co se v něm konkrétně stalo?';
+  }
+  if (slovak) {
+    return 'Tento spôsob nebudeme opakovať ani premenovávať. Vráťme sa priamo k situácii, ktorú potrebuješ vyriešiť: čo sa v nej konkrétne deje?';
+  }
+  return 'Tento způsob nebudeme opakovat ani přejmenovávat. Vraťme se přímo k situaci, kterou potřebuješ vyřešit: co se v ní konkrétně děje?';
+}
+
+function sanitizeStringArray(value, allowList = null, maximum = 12) {
+  const allowed = allowList instanceof Set ? allowList : null;
+  return [...new Set((Array.isArray(value) ? value : [])
+    .map(item => cleanText(item, 120))
+    .filter(item => item && (!allowed || allowed.has(item))))]
+    .slice(0, maximum);
 }
 
 export function isConversationRepairRequest(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  const ordinaryRepair = /\b(halo|slysis me|pocujes ma|ctes me|citas ma|zase se opakujes|zasa sa opakujes|opakujes (?:jednu|to|sa)|neopakuj (?:se|sa)|odpovez mi|odpovedz mi|nerozumim|nerozumiem|nechapu|nechapem|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|ved som ti to (?:uz )?(?:pisala|opisala)|psala jsem\b[^.!?\n]{0,30}\bne|pisala som\b[^.!?\n]{0,30}\bnie|uz jsem (?:ti )?odpovedela|uz som (?:ti )?odpovedala|to uz jsme si (?:rikali|rekli|probirali)|to sme si uz (?:hovorili|povedali)|tohle uz mame (?:uzavrene|hotove)|toto uz mame (?:uzavrete|hotove)|to jsem (?:vubec )?nerekla|to som (?:vobec )?nepovedala|nevymyslej si|nevymyslaj si|to neni pravda|to nie je pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|preco sa ma (?:zasa|stale)?\s*pytas|meles nesmysly|trepes nezmysly|r[ei]kas nesmysly|hovoris nezmysly|jak jsme se (?:sem )?dostal\w*|ako sme sa sem dostal\w*|ztratila jsi tema|stratila si temu|vrat se k tematu|vrat sa k teme|seres me)\b|^(?:resime|riesime|bavime se o|hovorime o|mluvim o|hovorim o|tema je|vrat se k|vrat sa k)\b/iu.test(normalized);
+  const ordinaryRepair = /\b(halo|slysis me|pocujes ma|ctes me|citas ma|zase se opakujes|zasa sa opakujes|opakujes (?:jednu|to|sa)|neopakuj (?:se|sa|to|otazk\w*)|odpovez mi|odpovedz mi|nerozumim|nerozumiem|nechapu|nechapem|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|ved som ti to (?:uz )?(?:pisala|opisala)|psala jsem\b[^.!?\n]{0,30}\bne|pisala som\b[^.!?\n]{0,30}\bnie|uz jsem (?:ti )?odpovedela|uz som (?:ti )?odpovedala|to uz jsme si (?:rikali|rekli|probirali)|to sme si uz (?:hovorili|povedali)|tohle uz mame (?:uzavrene|hotove)|toto uz mame (?:uzavrete|hotove)|to jsem (?:vubec )?nerekla|to som (?:vobec )?nepovedala|nevymyslej si|nevymyslaj si|to neni pravda|to nie je pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|preco sa ma (?:zasa|stale)?\s*pytas|meles nesmysly|trepes nezmysly|r[ei]kas nesmysly|hovoris nezmysly|jak jsme se (?:sem )?dostal\w*|ako sme sa sem dostal\w*|ztratila jsi tema|stratila si temu|vrat se k tematu|vrat sa k teme|seres me)\b|^(?:resime|riesime|bavime se o|hovorime o|mluvim o|hovorim o|tema je|vrat se k|vrat sa k)\b/iu.test(normalized);
   const shortQuestionRepair = requestsOneShortQuestion(normalized);
   return ordinaryRepair || shortQuestionRepair;
 }
@@ -774,8 +1196,21 @@ function reportsStepAttempt(value) {
     .test(normalized);
 }
 
-function reportsWorse(value) {
-  return /\b(horsi|horsie|hur|zhors|neprijemnejsi|neprijemnejsie|vic napeti|viac napatia|panika)\b/iu.test(normalizeCzech(value));
+// Bezpečnostní stop se aktivuje jen při výslovně popsaném zhoršení po kroku.
+// Pouhá zmínka paniky v anamnéze nebo negované srovnání („není to horší“)
+// nesmí zastavit techniku ani kontaminovat její další routing.
+function reportsAdverseTechniqueEffect(value) {
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  if (!normalized) return false;
+  return splitMeaningClauses(normalized).some(clause => {
+    const explicitlyWorsened = /\b(?:zhorsil|zhorsilo|zhorsila|zhorsuje|zhorsila sa|zhorsilo sa|zesilil|zesilila|zesililo)\w*\b/iu.test(clause);
+    if (explicitlyWorsened) return true;
+    const negatesWorsening = /\b(?:neni|nie je|nejsem|nie som|necitim se|necitim sa|nezda se|nezda sa)\b[^,;.!?]{0,35}\b(?:horsi|horsie|hur|zhors|neprijemnejsi|neprijemnejsie|vic napeti|viac napatia)\b/iu.test(clause)
+      || /\b(?:nezhorsil|nezhorsilo|nezhorsila|nezhorsuje|nezhorsuje sa)\w*\b/iu.test(clause);
+    if (negatesWorsening) return false;
+    return /\b(?:je mi|je mne|citit se|citim se|citim sa|mam se|mam sa)\b[^,;.!?]{0,55}\b(?:hur|horsi|horsie|neprijemnejsi|neprijemnejsie)\b/iu.test(clause)
+      || /\b(?:po tom|po kroku|po cviceni|po technice|po postupu|od te doby|odvtedy|ted|teraz)\b[^,;.!?]{0,55}\b(?:hur|horsi|horsie|vic napeti|viac napatia|panika zesilila|panika sa zhorsila)\b/iu.test(clause);
+  });
 }
 
 function reportsEffect(value) {

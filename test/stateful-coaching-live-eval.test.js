@@ -128,6 +128,36 @@ test('dlouhá paměť vyžaduje všechna doložená fakta a zachování neznám�
   assert.equal(invented.checks.find(check => check.name === 'turn-forbidden-signals').pass, false);
 });
 
+test('CZ/SK evaluator uzná přirozený pivot, ale dál odmítne synonymní dechovou nabídku', () => {
+  const cases = [
+    {
+      scenarioId: 'cs-no-effect-pivot',
+      goodText: 'Pojmenování pocitu necháme stranou, protože nepřineslo změnu. Přejděme přímo k hovoru: jaká věta ti proběhla hlavou?',
+      badText: 'Můžeme místo toho zkusit přirozený dech bez tlaku. Chceš ho vyzkoušet?',
+      disguisedRetry: 'Pomalý dech nebudeme opakovat, ale zkusme přirozené dýchání.',
+    },
+    {
+      scenarioId: 'sk-no-effect-pivot',
+      goodText: 'Pomenovanie pocitu necháme bokom, pretože nič nezmenilo. Poďme priamo k hovoru: aká veta ti prebehla hlavou?',
+      badText: 'Môžeme namiesto toho skúsiť prirodzený dych bez tlaku. Chceš ho vyskúšať?',
+      disguisedRetry: 'Pomalý dych nebudeme opakovať, ale skúsme prirodzené dýchanie.',
+    },
+  ];
+  for (const item of cases) {
+    const scenario = STATEFUL_COACHING_SCENARIOS.find(candidate => candidate.id === item.scenarioId);
+    const turn = scenario.turns.find(candidate => candidate.id === 'second-no-effect');
+    const techniqueSession = { blockedModalities: ['breath', 'emotion_labeling'] };
+    const good = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.goodText), techniqueSession } });
+    const bad = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.badText), techniqueSession } });
+    const disguised = evaluateStatefulTurn({ scenario, turn, payload: { ...payload(item.disguisedRetry), techniqueSession } });
+    assert.equal(good.pass, true, item.scenarioId);
+    assert.equal(bad.pass, false, item.scenarioId);
+    assert.equal(disguised.pass, false, `${item.scenarioId}: disguised retry`);
+    assert.equal(bad.checks.find(check => check.name === 'turn-forbidden-signals').pass, false, item.scenarioId);
+    assert.equal(disguised.checks.find(check => check.name === 'turn-forbidden-signals').pass, false, item.scenarioId);
+  }
+});
+
 test('report neukládá konverzaci, session payload ani JWT a zůstává syntetickým důkazem', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'elitea-stateful-eval-'));
   const reportPath = join(directory, 'report.json');
@@ -188,4 +218,3 @@ function payload(text) {
     specialistSession: { primary: 'professional_coach' },
   };
 }
-

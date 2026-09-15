@@ -71,27 +71,30 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
     turns: [
       turn('first-no-effect', 'Před prodejním hovorem se mi stáhne hrudník. Zkusila jsem pomalý dech a vůbec mi nepomohl.', {
         requires: [
-          requirement('no-effect-recognized', /(?:nepomoh|nezabral|beze změny)/iu),
-          requirement('approach-changes', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}opak|změn|opust)/iu),
+          requirement('no-effect-recognized', /(?:nepomoh|nezabral|beze změny|dech.{0,35}(?:nebudeme|neopak|necháme|stranou))/iu),
+          requirement('approach-changes', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}(?:opak|vracet)|necháme.{0,30}stranou|přejd|pojďme.{0,35}(?:k|na)|zaměř)/iu),
         ],
+        expectedBlockedModalities: ['breath'],
       }),
       turn('second-no-effect', 'Ani pojmenování pocitu nic nezměnilo. Nechci dokola zkoušet totéž.', {
         requires: [
-          requirement('second-no-effect-recognized', /(?:nic nezměn|nepomoh|nezabral|bez efektu)/iu),
-          requirement('second-pivot', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}opak|praktick|situac|myšlenk)/iu),
+          requirement('second-no-effect-recognized', /(?:nic nezměn|nepomoh|nezabral|bez efektu|pojmenování.{0,35}(?:nebudeme|neopak|necháme|stranou))/iu),
+          requirement('second-pivot', /(?:jinak|jin[ýáé]|místo|nebudeme.{0,30}(?:opak|vracet)|necháme.{0,30}stranou|přejd|pojďme|praktick|situac|myšlenk|hovor)/iu),
         ],
         forbids: [
-          prohibition('no-retry-breath-or-label', /(?:zkus|udělej|proveď|vrátíme se).{0,45}(?:dech|dých|pojmenuj|pojmenování pocitu)/iu),
+          prohibition('no-retry-breath-or-label', /(?:(?:zkus|udělej|proveď|vrátíme se|nabíd|můžeme|pojďme).{0,60}(?:dech|dých|pojmenuj|pojmenování pocitu)|(?:dech|dých|pojmenování pocitu).{0,60}(?:zkus|vyzkouš|nabíd|chceš|můžeme))/iu),
         ],
+        expectedBlockedModalities: ['breath', 'emotion_labeling'],
       }),
       turn('explicit-method-boundary', 'Prosím žádné další regulační cvičení. Potřebuji se podívat na konkrétní hovor.', {
         requires: [
-          requirement('method-boundary-respected', /(?:beru|respekt|bez.{0,25}cvičení|nebudeme.{0,30}cvičení|konkrétní.{0,20}hovor)/iu),
+          requirement('method-boundary-respected', /(?:beru|respekt|bez.{0,35}(?:cvičení|regulace)|nebudeme.{0,35}(?:cvičení|regul)|necháme.{0,35}(?:stranou|být)|žádné další.{0,25}cvičení|přímo.{0,25}konkrétní.{0,20}hovor|konkrétní.{0,20}hovor)/iu),
           requirement('returns-to-client-focus', /(?:hovor|situac|řekl|nabídk|klient)/iu),
         ],
         forbids: [
-          prohibition('no-regulation-pressure', /(?:zkus|udělej|proveď).{0,35}(?:dech|uzem|vizualiz|tělo)/iu),
+          prohibition('no-regulation-pressure', /(?:(?:zkus|udělej|proveď|nabíd|můžeme|pojďme).{0,55}(?:dech|uzem|vizualiz|tělo|regulační cvičení)|(?:dech|uzemnění|vizualizace).{0,55}(?:zkus|vyzkouš|nabíd|chceš|můžeme))/iu),
         ],
+        expectedBlockedModalities: ['breath', 'emotion_labeling', 'somatic_regulation'],
       }),
     ],
   }),
@@ -103,27 +106,30 @@ export const STATEFUL_COACHING_SCENARIOS = Object.freeze([
     turns: [
       turn('first-no-effect', 'Pred predajným hovorom sa mi stiahne hruď. Skúsila som pomalý dych a vôbec mi nepomohol.', {
         requires: [
-          requirement('no-effect-recognized', /(?:nepomoh|nezabral|bez zmeny)/iu),
-          requirement('approach-changes', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}opak|zmen|opust)/iu),
+          requirement('no-effect-recognized', /(?:nepomoh|nezabral|bez zmeny|dych.{0,35}(?:nebudeme|neopak|necháme|bokom))/iu),
+          requirement('approach-changes', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}(?:opak|vracať)|necháme.{0,30}bokom|prejd|poďme.{0,35}(?:k|na)|zamer)/iu),
         ],
+        expectedBlockedModalities: ['breath'],
       }),
       turn('second-no-effect', 'Ani pomenovanie pocitu nič nezmenilo. Nechcem dookola skúšať to isté.', {
         requires: [
-          requirement('second-no-effect-recognized', /(?:nič nezmen|nepomoh|nezabral|bez efektu)/iu),
-          requirement('second-pivot', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}opak|praktick|situáci|myšlienk)/iu),
+          requirement('second-no-effect-recognized', /(?:nič nezmen|nepomoh|nezabral|bez efektu|pomenovanie.{0,35}(?:nebudeme|neopak|necháme|bokom))/iu),
+          requirement('second-pivot', /(?:inak|in[ýáé]|namiesto|nebudeme.{0,30}(?:opak|vracať)|necháme.{0,30}bokom|prejd|poďme|praktick|situáci|myšlienk|hovor)/iu),
         ],
         forbids: [
-          prohibition('no-retry-breath-or-label', /(?:skús|urob|vrátime sa).{0,45}(?:dych|dých|pomenuj|pomenovanie pocitu)/iu),
+          prohibition('no-retry-breath-or-label', /(?:(?:skús|urob|vrátime sa|ponúk|môžeme|poďme).{0,60}(?:dych|dých|pomenuj|pomenovanie pocitu)|(?:dych|dých|pomenovanie pocitu).{0,60}(?:skús|vyskúš|ponúk|chceš|môžeme))/iu),
         ],
+        expectedBlockedModalities: ['breath', 'emotion_labeling'],
       }),
       turn('explicit-method-boundary', 'Prosím žiadne ďalšie regulačné cvičenie. Potrebujem sa pozrieť na konkrétny hovor.', {
         requires: [
-          requirement('method-boundary-respected', /(?:beriem|rešpekt|bez.{0,25}cvičenia|nebudeme.{0,30}cvičenie|konkrétny.{0,20}hovor)/iu),
+          requirement('method-boundary-respected', /(?:beriem|rešpekt|bez.{0,35}(?:cvičenia|regulácie)|nebudeme.{0,35}(?:cvičenie|regul)|necháme.{0,35}(?:bokom|tak)|žiadne ďalšie.{0,25}cvičenie|priamo.{0,25}konkrétny.{0,20}hovor|konkrétny.{0,20}hovor)/iu),
           requirement('returns-to-client-focus', /(?:hovor|situáci|povedal|ponuk|klient)/iu),
         ],
         forbids: [
-          prohibition('no-regulation-pressure', /(?:skús|urob).{0,35}(?:dych|uzem|vizualiz|telo)/iu),
+          prohibition('no-regulation-pressure', /(?:(?:skús|urob|ponúk|môžeme|poďme).{0,55}(?:dych|uzem|vizualiz|telo|regulačné cvičenie)|(?:dych|uzemnenie|vizualizácia).{0,55}(?:skús|vyskúš|ponúk|chceš|môžeme))/iu),
         ],
+        expectedBlockedModalities: ['breath', 'emotion_labeling', 'somatic_regulation'],
       }),
     ],
   }),
@@ -256,6 +262,13 @@ export function evaluateStatefulTurn({ scenario: selectedScenario, turn: selecte
     check('turn-forbidden-signals', prohibitions.every(item => !item.hit), {
       triggered: prohibitions.filter(item => item.hit).map(item => item.id),
     }),
+    check('blocked-modalities-carried', (selectedTurn?.expectedBlockedModalities || []).every(modality => (
+      Array.isArray(payload?.techniqueSession?.blockedModalities)
+      && payload.techniqueSession.blockedModalities.includes(modality)
+    )), {
+      expected: [...(selectedTurn?.expectedBlockedModalities || [])],
+      actual: sanitizeReportedModalities(payload?.techniqueSession?.blockedModalities),
+    }),
   ];
   return {
     id: selectedTurn.id,
@@ -356,8 +369,14 @@ function scenario(value) {
   return Object.freeze({ consultationMode: 'coaching_session', ...value, turns: Object.freeze(value.turns) });
 }
 
-function turn(id, content, { requires = [], forbids = [] } = {}) {
-  return Object.freeze({ id, content, requires: Object.freeze(requires), forbids: Object.freeze(forbids) });
+function turn(id, content, { requires = [], forbids = [], expectedBlockedModalities = [] } = {}) {
+  return Object.freeze({
+    id,
+    content,
+    requires: Object.freeze(requires),
+    forbids: Object.freeze(forbids),
+    expectedBlockedModalities: Object.freeze(expectedBlockedModalities),
+  });
 }
 
 function requirement(id, pattern) {
@@ -421,4 +440,11 @@ function cleanCodes(values) {
 function finiteNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function sanitizeReportedModalities(values) {
+  return (Array.isArray(values) ? values : [])
+    .map(cleanCode)
+    .filter(Boolean)
+    .slice(0, 12);
 }

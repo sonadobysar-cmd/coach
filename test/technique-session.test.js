@@ -456,6 +456,373 @@ test('nulový účinek plynule přejde k dalšímu kroku místo ukončení nebo 
   assert.doesNotMatch(response, /co se teď změnilo/i);
 });
 
+test('CZ no-effect před souhlasem sticky blokuje dech, pojmenování pocitu i synonymní regulaci', () => {
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'gentle_breath_choice',
+    name: 'Jemná práce s dechem s volbou',
+    family: 'mindfulness',
+    keywords: ['dech', 'napětí'],
+    core_move: 'Nabídni přirozený dech bez nucení a ověř účinek.',
+  };
+  const emotionCard = {
+    ...practicalCard,
+    id: 'emotion_labeling',
+    name: 'Přesné pojmenování emoce',
+    family: 'emotion_skills',
+    keywords: ['emoce', 'pocit'],
+    core_move: 'Nech klientku přesně pojmenovat pocit.',
+  };
+
+  const afterBreath = createTechniqueTurn({
+    atlas: [breathCard, emotionCard, practicalCard],
+    candidates: [breathCard, practicalCard],
+    mode: 'koucovaci_hodina',
+    latestText: 'Zkusila jsem pomalý dech a vůbec mi nepomohl.',
+    conversationContext: { userTurns: 1 },
+  });
+  assert.equal(afterBreath.suspended, true);
+  assert.equal(afterBreath.session.phase, 'awaiting_recontract');
+  assert.equal(afterBreath.suspensionReason, 'no_effect');
+  assert.ok(afterBreath.session.blockedModalities.includes('breath'));
+  assert.ok(afterBreath.session.blockedTechniqueIds.includes(breathCard.id));
+
+  const afterLabeling = createTechniqueTurn({
+    atlas: [breathCard, emotionCard, practicalCard],
+    candidates: [emotionCard, practicalCard],
+    previous: afterBreath.session,
+    mode: 'koucovaci_hodina',
+    latestText: 'Ani pojmenování pocitu nic nezměnilo. Nechci dokola zkoušet totéž.',
+    previousAssistantText: 'Pomalý dech nebudeme opakovat. Co ti běží hlavou?',
+    conversationContext: { userTurns: 2 },
+  });
+  assert.equal(afterLabeling.suspended, true);
+  assert.equal(afterLabeling.session.phase, 'awaiting_recontract');
+  assert.ok(afterLabeling.session.blockedModalities.includes('breath'));
+  assert.ok(afterLabeling.session.blockedModalities.includes('emotion_labeling'));
+
+  const boundary = createTechniqueTurn({
+    atlas: [breathCard, emotionCard, practicalCard],
+    candidates: [breathCard, emotionCard],
+    previous: afterLabeling.session,
+    mode: 'koucovaci_hodina',
+    latestText: 'Prosím žádné další regulační cvičení. Potřebuji se podívat na konkrétní hovor.',
+    previousAssistantText: 'Můžeme zkusit jinou cestu?',
+    conversationContext: { userTurns: 3 },
+  });
+  assert.equal(classifyStopIntent('Prosím žádné další regulační cvičení.'), 'technique_stop');
+  assert.equal(boundary.recontracted, true);
+  assert.equal(boundary.session.phase, 'released');
+  assert.ok(boundary.session.blockedTechniqueFamilies.includes('mindfulness'));
+  assert.ok(boundary.session.blockedTechniqueFamilies.includes('emotion_skills'));
+  assert.ok(boundary.session.blockedModalities.includes('somatic_regulation'));
+  assert.match(formatTechniqueExecution(boundary), /není aktivní zamčená technika/i);
+
+  const guarded = enforceTechniqueResponse(
+    'Nabídnu ti přirozený dech bez tlaku. Chceš ho vyzkoušet?',
+    boundary,
+    { latestText: 'Prosím žádné další regulační cvičení. Potřebuji se podívat na konkrétní hovor.' },
+  );
+  assert.match(guarded, /regulační cvičení necháme stranou/i);
+  assert.match(guarded, /konkrétnímu hovoru/i);
+  assert.doesNotMatch(guarded, /chceš ho vyzkoušet|přirozený dech/i);
+
+  const respectful = 'Pomalý dech nebudeme opakovat. Pojďme přímo ke konkrétnímu hovoru.';
+  assert.equal(enforceTechniqueResponse(respectful, boundary, { latestText: 'Konkrétní hovor.' }), respectful);
+});
+
+test('SK no-effect a hranica regulačných cvičení zostávajú sticky rovnako ako české', () => {
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'gentle_breath_choice',
+    name: 'Jemná práce s dechem s volbou',
+    family: 'mindfulness',
+    keywords: ['dech', 'napětí'],
+    core_move: 'Nabídni přirozený dech bez nucení a ověř účinek.',
+  };
+  const first = createTechniqueTurn({
+    atlas: [breathCard, practicalCard], candidates: [breathCard], mode: 'koucovaci_hodina',
+    latestText: 'Skúsila som pomalý dych a vôbec mi nepomohol.', conversationContext: { userTurns: 1 },
+  });
+  assert.equal(first.session.phase, 'awaiting_recontract');
+  assert.ok(first.session.blockedModalities.includes('breath'));
+
+  const boundary = createTechniqueTurn({
+    atlas: [breathCard, practicalCard], candidates: [breathCard], previous: first.session,
+    mode: 'koucovaci_hodina',
+    latestText: 'Prosím žiadne ďalšie regulačné cvičenie. Potrebujem sa pozrieť na konkrétny hovor.',
+    previousAssistantText: 'Dych nebudeme opakovať.',
+    conversationContext: { userTurns: 2 },
+  });
+  assert.equal(boundary.recontracted, true);
+  assert.equal(boundary.session.phase, 'released');
+  assert.ok(boundary.session.blockedModalities.includes('somatic_regulation'));
+
+  const guarded = enforceTechniqueResponse(
+    'Môžeme skúsiť prirodzený dych. Chceš ho vyskúšať?',
+    boundary,
+    { latestText: 'Prosím žiadne ďalšie regulačné cvičenie. Potrebujem sa pozrieť na konkrétny hovor.' },
+  );
+  assert.match(guarded, /regulačné cvičenia necháme bokom/i);
+  assert.match(guarded, /konkrétnemu hovoru/i);
+  assert.doesNotMatch(guarded, /prirodzený dych|vyskúšať/i);
+});
+
+test('zhoršení techniku zastaví, ale blokace nepříznivé modality přežije další tah', () => {
+  const bodyCard = {
+    ...sensitiveCard,
+    id: 'body_scan_opt_out',
+    family: 'mindfulness',
+    core_move: 'Nabídni krátké všimnutí těla s možností ihned skončit.',
+  };
+  const stopped = createTechniqueTurn({
+    atlas: [bodyCard, practicalCard], candidates: [], previous: {
+      techniqueId: bodyCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
+      status: 'active', turns: 3, requiresConsent: true, consentGranted: true,
+    },
+    mode: 'koucovaci_hodina', latestText: 'Je mi po tělesném cvičení hůř.', conversationContext: { userTurns: 4 },
+  });
+  assert.equal(stopped.session.phase, 'stopped');
+  assert.equal(stopped.session.stopReason, 'adverse_effect');
+  assert.ok(stopped.session.blockedTechniqueIds.includes(bodyCard.id));
+  assert.ok(stopped.session.blockedModalities.includes('somatic_regulation'));
+
+  const next = createTechniqueTurn({
+    atlas: [bodyCard, practicalCard], candidates: [bodyCard], previous: stopped.session,
+    mode: 'koucovaci_hodina', latestText: 'Nevím, co dál.', conversationContext: { userTurns: 5 },
+  });
+  assert.equal(next.suspended, true);
+  assert.equal(next.session.phase, 'stopped');
+  assert.ok(next.session.blockedTechniqueIds.includes(bodyCard.id));
+});
+
+test('historická panika a výslovně negované zhoršení nejsou adverse effect', () => {
+  const assessment = createTechniqueTurn({
+    atlas: [sensitiveCard], candidates: [], previous: {
+      techniqueId: sensitiveCard.id, mode: 'koucovaci_hodina', phase: 'assessment', stepIndex: 0,
+      status: 'active', turns: 2, requiresConsent: true, consentGranted: false,
+    },
+    mode: 'koucovaci_hodina',
+    latestText: 'Panika byla předtím, po kroku není horší.',
+    conversationContext: { userTurns: 3 },
+  });
+  assert.notEqual(assessment.session.phase, 'stopped');
+  assert.notEqual(assessment.session.stopReason, 'adverse_effect');
+
+  const application = createTechniqueTurn({
+    atlas: [sensitiveCard], candidates: [], previous: {
+      techniqueId: sensitiveCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+      status: 'active', turns: 3, requiresConsent: true, consentGranted: true,
+    },
+    mode: 'koucovaci_hodina',
+    latestText: 'Panika byla předtím, po kroku není horší.',
+    conversationContext: { userTurns: 4 },
+  });
+  assert.notEqual(application.session.phase, 'stopped');
+  assert.notEqual(application.session.stopReason, 'adverse_effect');
+});
+
+test('žádost neopakovat otázku je oprava rozhovoru, ne hranice metody', () => {
+  const previous = {
+    techniqueId: sensitiveCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+    status: 'active', turns: 3, requiresConsent: true, consentGranted: true,
+  };
+  const turn = createTechniqueTurn({
+    atlas: [sensitiveCard], candidates: [], previous, mode: 'koucovaci_hodina',
+    latestText: 'Neopakuj otázku, nerozuměla jsem.', conversationContext: { userTurns: 4 },
+  });
+  assert.equal(isConversationRepairRequest('Neopakuj otázku, nerozuměla jsem.'), true);
+  assert.equal(turn.suspended, true);
+  assert.equal(turn.suspensionReason, 'conversation_repair');
+  assert.deepEqual(turn.session, sanitizeTechniqueSession(previous, [sensitiveCard]));
+  assert.deepEqual(turn.session.blockedModalities, []);
+});
+
+test('výslovný návrat k odmítnuté technice odblokuje jen její ID, rodinu a modality', () => {
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'gentle_breath_choice',
+    name: 'Jemná práce s dechem',
+    family: 'mindfulness',
+    core_move: 'Nabídni přirozený dech bez nucení.',
+  };
+  const paused = createTechniqueTurn({
+    atlas: [breathCard, practicalCard], candidates: [breathCard], mode: 'koucovaci_hodina',
+    latestText: 'Pomalý dech mi nepomohl.', conversationContext: { userTurns: 1 },
+  });
+  paused.session.blockedTechniqueIds.push(practicalCard.id);
+  paused.session.blockedModalities.push('emotion_labeling');
+
+  const resumed = createTechniqueTurn({
+    atlas: [breathCard, practicalCard], candidates: [], previous: paused.session, mode: 'koucovaci_hodina',
+    latestText: 'Chci se vrátit k té technice s dechem.', conversationContext: { userTurns: 2 },
+  });
+  assert.equal(resumed.recontracted, true);
+  assert.notEqual(resumed.session.phase, 'awaiting_recontract');
+  assert.equal(resumed.session.status, 'active');
+  assert.equal(resumed.session.blockedTechniqueIds.includes(breathCard.id), false);
+  assert.ok(resumed.session.blockedTechniqueIds.includes(practicalCard.id));
+  assert.equal(resumed.session.blockedModalities.includes('breath'), false);
+  assert.equal(resumed.session.blockedModalities.includes('mindfulness'), false);
+  assert.ok(resumed.session.blockedModalities.includes('emotion_labeling'));
+
+  const resumedByName = createTechniqueTurn({
+    atlas: [breathCard, practicalCard], candidates: [], previous: paused.session, mode: 'koucovaci_hodina',
+    latestText: 'Chci znovu zkusit pomalý dech.', conversationContext: { userTurns: 2 },
+  });
+  assert.equal(resumedByName.recontracted, true);
+  assert.equal(resumedByName.session.blockedModalities.includes('breath'), false);
+});
+
+test('klauzový guard nepropustí přejmenovanou dechovou nabídku za bezpečnou negací', () => {
+  const turn = {
+    card: sensitiveCard,
+    steps: deriveTechniqueSteps(sensitiveCard),
+    suspended: true,
+    suspensionReason: 'method_boundary',
+    session: {
+      techniqueId: sensitiveCard.id, mode: 'koucovaci_hodina', phase: 'awaiting_recontract', stepIndex: 0,
+      status: 'paused', turns: 3, requiresConsent: true, blockedModalities: ['breath'],
+    },
+  };
+  const response = enforceTechniqueResponse(
+    'Dech nebudeme opakovat, ale zkusme přirozené dýchání.',
+    turn,
+    { latestText: 'Chci řešit konkrétní hovor.' },
+  );
+  assert.doesNotMatch(response, /zkusme přirozené dýchání/i);
+  assert.match(response, /regulační cvičení necháme stranou/i);
+  assert.doesNotMatch(response, /zasekla|prodejní/i);
+});
+
+test('pozitivní zmínka dechu vedle odmítnutí konce není no-effect ani method boundary', () => {
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'gentle_breath_choice',
+    name: 'Jemná práce s dechem',
+    family: 'mindfulness',
+    core_move: 'Nabídni přirozený dech bez nucení.',
+  };
+  const turn = createTechniqueTurn({
+    atlas: [breathCard], candidates: [breathCard], mode: 'koucovaci_hodina',
+    latestText: 'Nechci skončit. Pomalý dech mi pomáhá.', conversationContext: { userTurns: 1 },
+  });
+  assert.equal(turn.card.id, breathCard.id);
+  assert.equal(turn.suspended, undefined);
+  assert.notEqual(turn.session.phase, 'awaiting_recontract');
+  assert.deepEqual(turn.session.blockedModalities, []);
+});
+
+test('neúčinné pojmenování emoce neblokuje laskavost, agency ani validaci studu', () => {
+  const labelingCard = {
+    ...practicalCard,
+    id: 'emotion_labeling',
+    name: 'Přesné pojmenování emoce',
+    family: 'emotion_skills',
+    core_move: 'Nech klientku přesně pojmenovat pocit.',
+  };
+  const paused = createTechniqueTurn({
+    atlas: [labelingCard], candidates: [labelingCard], mode: 'koucovaci_hodina',
+    latestText: 'Pojmenování pocitu nic nezměnilo.', conversationContext: { userTurns: 1 },
+  });
+  assert.ok(paused.session.blockedModalities.includes('emotion_labeling'));
+  assert.equal(paused.session.blockedTechniqueFamilies.includes('emotion_skills'), false);
+
+  for (const candidate of [
+    { ...practicalCard, id: 'self_compassion_break', name: 'Laskavá opora', family: 'emotion_skills', core_move: 'Zvol laskavou odpověď bez popírání reality.' },
+    { ...practicalCard, id: 'agency_restore', name: 'Obnova agency', family: 'emotion_skills', core_move: 'Odděl ovlivnitelné a zvol vlastní další krok.' },
+    { ...practicalCard, id: 'shame_validation', name: 'Validace studu', family: 'emotion_skills', core_move: 'Validuj stud bez globalizace identity.' },
+  ]) {
+    const next = createTechniqueTurn({
+      atlas: [labelingCard, candidate], candidates: [candidate], previous: paused.session,
+      mode: 'koucovaci_hodina', latestText: 'Místo toho chci řešit stud laskavě.',
+      conversationContext: { userTurns: 2 },
+    });
+    assert.equal(next.recontracted, true, candidate.id);
+    assert.equal(next.card.id, candidate.id);
+    assert.notEqual(next.session.phase, 'awaiting_recontract');
+  }
+});
+
+test('hranice a jasný nový směr v jedné CZ/SK zprávě přepnou práci okamžitě', () => {
+  const breathCard = {
+    ...sensitiveCard,
+    id: 'gentle_breath_choice',
+    name: 'Jemná práce s dechem',
+    family: 'mindfulness',
+    core_move: 'Nabídni přirozený dech bez nucení.',
+  };
+  for (const latestText of [
+    'Žádná další regulační cvičení, chci řešit konkrétní hovor.',
+    'Žiadne ďalšie regulačné cvičenia, chcem riešiť konkrétny hovor.',
+  ]) {
+    const turn = createTechniqueTurn({
+      atlas: [breathCard, practicalCard], candidates: [breathCard, practicalCard], previous: {
+        techniqueId: breathCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+        status: 'active', turns: 3, requiresConsent: true, consentGranted: true,
+      },
+      mode: 'koucovaci_hodina', latestText, conversationContext: { userTurns: 4 },
+    });
+    assert.equal(turn.recontracted, true, latestText);
+    assert.equal(turn.card.id, practicalCard.id, latestText);
+    assert.notEqual(turn.session.phase, 'awaiting_recontract', latestText);
+    assert.ok(turn.session.blockedModalities.includes('breath'), latestText);
+  }
+
+  const freeConversation = createTechniqueTurn({
+    atlas: [breathCard], candidates: [], previous: {
+      techniqueId: breathCard.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 0,
+      status: 'active', turns: 3, requiresConsent: true, consentGranted: true,
+    },
+    mode: 'koucovaci_hodina',
+    latestText: 'Žádná další regulační cvičení, chci řešit konkrétní hovor.',
+    conversationContext: { userTurns: 4 },
+  });
+  assert.equal(freeConversation.recontracted, true);
+  assert.equal(freeConversation.card, null);
+  assert.equal(freeConversation.session.phase, 'released');
+  assert.ok(freeConversation.session.blockedModalities.includes('breath'));
+
+  const carried = createTechniqueTurn({
+    atlas: [breathCard], candidates: [], previous: freeConversation.session,
+    mode: 'koucovaci_hodina', latestText: 'Řekl, že si to rozmyslí.',
+    conversationContext: { userTurns: 5 },
+  });
+  assert.equal(carried.card, null);
+  assert.equal(carried.session.phase, 'released');
+  assert.ok(carried.session.blockedModalities.includes('breath'));
+});
+
+test('sanitize povolí jen rodiny skutečně přítomné v předaném atlasu', () => {
+  const card = { ...sensitiveCard, family: 'mindfulness' };
+  const session = sanitizeTechniqueSession({
+    techniqueId: card.id,
+    phase: 'awaiting_recontract',
+    blockedTechniqueFamilies: ['mindfulness', 'injected_family'],
+  }, [card]);
+  assert.deepEqual(session.blockedTechniqueFamilies, ['mindfulness']);
+});
+
+test('fallback volí SK jen podle jednoznačně slovenských slov a nic nedoplňuje', () => {
+  const turn = {
+    card: sensitiveCard,
+    steps: deriveTechniqueSteps(sensitiveCard),
+    suspended: true,
+    suspensionReason: 'method_boundary',
+    session: {
+      techniqueId: sensitiveCard.id, phase: 'awaiting_recontract', stepIndex: 0,
+      blockedModalities: ['breath'],
+    },
+  };
+  const generated = 'Můžeme zkusit pomalý dech?';
+  const czech = enforceTechniqueResponse(generated, turn, { latestText: 'Chci řešit hovor.' });
+  const slovak = enforceTechniqueResponse(generated, turn, { latestText: 'Potrebujem riešiť konkrétny hovor.' });
+  assert.match(czech, /Regulační cvičení necháme stranou/);
+  assert.doesNotMatch(czech, /zasekl|prodejn/i);
+  assert.match(slovak, /Regulačné cvičenia necháme bokom/);
+  assert.doesNotMatch(slovak, /zasekl|predajn/i);
+});
+
 test('byznys mentoring nepřepisuje konkrétní doporučení obecným koučovacím dotazem', () => {
   const mentoringTurn = {
     card: { ...practicalCard, family: 'business_offer' },

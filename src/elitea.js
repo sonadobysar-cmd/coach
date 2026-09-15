@@ -41,6 +41,13 @@ import {
   formatSessionWorkingLedger,
   selectEvidenceAwareConversationWindow,
 } from './session-working-ledger.js';
+import {
+  buildFactRecapEvidenceRecords as resolveFactRecapEvidenceRecords,
+  containsUnsafeFactInstruction as sharedContainsUnsafeFactInstruction,
+  factProperEntities as sharedFactProperEntities,
+  factSemanticKeys as sharedFactSemanticKeys,
+  isFactCorrection as sharedIsFactCorrection,
+} from './fact-recap-evidence.js';
 
 export const DEFAULT_MODEL = 'openai/gpt-5.6-luna';
 export const DEFAULT_DEEP_MODEL = 'openai/gpt-5.6-terra';
@@ -166,10 +173,6 @@ export function createElitea({
       riskLevel: safety.level,
       responseLanguage,
     };
-    const repairContext = {
-      ...buildConversationRepairContext(safeMessages, latest.content),
-      responseLanguage,
-    };
     // The current request chooses the working method. Older context remains in
     // the prompt for continuity, but must not drag a newly mentoring turn back
     // into a coaching technique (or vice versa).
@@ -206,6 +209,12 @@ export function createElitea({
     conversationContext.sessionWorkingLedger = buildSessionWorkingLedger(safeMessages, {
       techniqueSession: techniqueTurn.session || techniqueSession,
     });
+    const repairContext = {
+      ...buildConversationRepairContext(safeMessages, latest.content, {
+        sessionWorkingLedger: conversationContext.sessionWorkingLedger,
+      }),
+      responseLanguage,
+    };
     const selectedTechniqueCards = techniqueTurn.card && !techniqueTurn.suspended ? [techniqueTurn.card] : [];
     // A locked atlas technique is the executable method for this turn. Keeping
     // a separately selected legacy method in the prompt produced mixed
@@ -847,8 +856,20 @@ export function guardedConversationRepairFallback(repairContext = {}) {
       : 'Dobře — v tom, co jsi právě odmítla, pokračovat nebudeme. Co potřebuješ vyřešit místo toho?';
   }
   if (repairContext.kind === 'fact_recap') {
+    const requestedItems = Array.isArray(repairContext.factRecapItems)
+      ? repairContext.factRecapItems.filter(item => item?.text)
+      : [];
+    if (requestedItems.length) {
+      const renderedItems = requestedItems.map(item => item.kind === 'evidence'
+        ? `„${String(item.text).replace(/[.!?]+$/u, '')}“`
+        : String(item.text).replace(/[.!?]+$/u, ''));
+      return slovak
+        ? `Doložené fakty: ${renderedItems.join('; ')}.`
+        : `Doložená fakta: ${renderedItems.join('; ')}.`;
+    }
+    const statementLimit = Math.max(1, Number(repairContext.factRecapStatementLimit) || 3);
     const statements = (repairContext.substantiveGroundingStatements || [])
-      .slice(-3)
+      .slice(-statementLimit)
       .map(value => String(value || '').replace(/\s+/gu, ' ').trim())
       .filter(Boolean);
     if (!statements.length) {
@@ -1559,7 +1580,9 @@ export function buildRoutingText(messages, memory = {}) {
     .slice(-8000);
 }
 
-export function buildConversationRepairContext(messages = [], latestText = '') {
+export function buildConversationRepairContext(messages = [], latestText = '', {
+  sessionWorkingLedger = null,
+} = {}) {
   const safe = Array.isArray(messages) ? messages : [];
   const latest = String(latestText || '').replace(/\s+/gu, ' ').trim();
   const normalizedLatest = normalizeDialogueText(latest);
@@ -1590,6 +1613,11 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
           ? 'repair'
         : 'none';
   const latestIndex = safe.map(message => message?.role).lastIndexOf('user');
+  const allPriorUserStatements = safe
+    .filter((message, index) => message?.role === 'user' && index !== latestIndex)
+    .map(message => String(message.content || '').replace(/\s+/gu, ' ').trim())
+    .filter(Boolean)
+    .map(value => value.slice(0, 600));
   const priorUserStatements = safe
     .filter((message, index) => message?.role === 'user' && index !== latestIndex)
     .map(message => String(message.content || '').replace(/\s+/gu, ' ').trim())
@@ -1602,15 +1630,33 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
   const latestFactRecapStatements = factRecapRequested
     ? extractLatestFactRecapStatements(latest)
     : [];
-  const priorFactRecapStatements = priorUserStatements.filter(isFactRecapStatement);
+  const priorFactRecapStatements = allPriorUserStatements.filter(isFactRecapStatement);
   const correctsPreviousStatement = latestFactRecapStatements.length > 0
     && (/(?:^|[.!?;]\s*)(?:oprava|upresneni|spravne|ve skutecnosti|ne\s*[,;:—-])/u.test(normalizedLatest)
       || /\b(?:ne|nikoli|misto)\s+(?:\d+|nula|jeden|jedna|jedno|dva|dve|tri|ctyri|pet|sest|sedm|osm|devet|deset)\b/u.test(normalizedLatest));
-  const substantiveGroundingStatements = [
-    ...(correctsPreviousStatement ? priorFactRecapStatements.slice(0, -1) : priorFactRecapStatements),
-    ...latestFactRecapStatements,
-  ]
-    .slice(-3);
+  const ledgerFactStatements = factRecapRequested
+    ? factStatementsFromWorkingLedger(sessionWorkingLedger)
+    : [];
+  const factRecapEvidenceRecords = resolveFactRecapEvidenceRecords([
+    ...ledgerFactStatements.map(text => ({ text, correction: false })),
+    ...priorFactRecapStatements.map(text => ({ text, correction: sharedIsFactCorrection(text) })),
+    ...latestFactRecapStatements.map(text => ({ text, correction: correctsPreviousStatement })),
+  ], { acceptStatement: isFactRecapStatement });
+  const factRecapEvidencePool = uniqueFactRecapStatements(
+    factRecapEvidenceRecords.filter(record => !record.superseded).map(record => record.text),
+  );
+  const requestedFactSlots = factRecapRequested
+    ? requestedFactRecapSlots(latest)
+    : [];
+  const factRecapStatementLimit = Math.max(3, requestedFactSlots.length || 0);
+  const factRecapItems = requestedFactSlots.length
+    ? buildRequestedFactRecapItems(requestedFactSlots, factRecapEvidenceRecords, responseLanguage)
+    : [];
+  const substantiveGroundingStatements = selectFactRecapEvidence(
+    factRecapEvidenceRecords,
+    requestedFactSlots,
+    factRecapStatementLimit,
+  );
   const previousAssistantText = previousAssistantMessage(safe)
     .replace(/\s+/gu, ' ')
     .trim()
@@ -1625,6 +1671,8 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
     priorUserStatements,
     groundingStatement: groundingStatement.slice(0, 600),
     substantiveGroundingStatements,
+    factRecapItems,
+    factRecapStatementLimit,
     factRecapRequested,
     shortQuestionRequested,
     explicitConversationContinuation,
@@ -1710,9 +1758,12 @@ function isUsableRepairGrounding(value) {
 
 function isFactRecapStatement(value) {
   const clean = String(value || '').replace(/\s+/gu, ' ').trim();
-  if (!isUsableRepairGrounding(clean) || clean.length < 10 || /\?/u.test(clean)) return false;
+  if (!isUsableRepairGrounding(clean)
+    || clean.length < 10
+    || /\?/u.test(clean)
+    || requestsFactsOnly(clean)) return false;
   const normalized = normalizeDialogueText(clean);
-  return !/^(?:porad|rekni|vysvetli|pomoz|navrhni|zeptej|poloz)\w*\b/u.test(normalized);
+  return !/^(?:(?:a\s+)?(?:myslis|myslite|znamena\s+to|je\s+mozne|je\s+pravda|kolik|proc|preco|zda|jestli|ci)\b|(?:porad|rekni|vysvetli|pomoz|navrhni|zeptej|poloz|shrn|vypis|ignoruj|zapomen|predstirej|zmen\s+roli|system|developer|assistant)\w*\b)/u.test(normalized);
 }
 
 function extractLatestFactRecapStatements(value) {
@@ -1738,6 +1789,163 @@ function extractLatestFactRecapStatements(value) {
       .trim())
     .filter(part => part && !requestsFactsOnly(part) && isFactRecapStatement(part))
     .slice(-3);
+}
+
+function factStatementsFromWorkingLedger(ledger = null) {
+  if (!ledger || ledger.kind !== 'session_only_member_evidence') return [];
+  return [
+    ledger.contract,
+    ...(Array.isArray(ledger.knownFacts) ? ledger.knownFacts : []),
+    ...(Array.isArray(ledger.answeredQuestions)
+      ? ledger.answeredQuestions.map(item => item?.memberAnswered)
+      : []),
+    ...(Array.isArray(ledger.correctionsAndBoundaries) ? ledger.correctionsAndBoundaries : []),
+    ...(Array.isArray(ledger.unresolvedUnknowns) ? ledger.unresolvedUnknowns : []),
+    ...(Array.isArray(ledger.performedStepsAndEffects) ? ledger.performedStepsAndEffects : []),
+  ]
+    .map(value => String(value || '').replace(/\s+/gu, ' ').trim().slice(0, 600))
+    .filter(isFactRecapStatement);
+}
+
+function uniqueFactRecapStatements(values = []) {
+  const seen = new Set();
+  return values.filter(value => {
+    if (!isFactRecapStatement(value)) return false;
+    const key = normalizeDialogueText(value).replace(/[.!]+$/gu, '').trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function requestedFactRecapSlots(value) {
+  const original = String(value || '').replace(/\s+/gu, ' ').trim();
+  const bodyMatch = original.match(/\b(?:fakta|údaje|udaje|skutečnosti|skutecnosti)\b\s*[:—-]\s*(.+)$/iu);
+  if (!bodyMatch) return [];
+  const rawParts = bodyMatch[1]
+    .replace(/[.!?]+$/u, '')
+    // JavaScript's \b is ASCII-only and therefore does not form a boundary
+    // after Czech/Slovak č/ý. Use an explicit whitespace/end boundary.
+    .split(/,\s*(?=(?:kolik|kolko|co|čo|jak|ako|jak[ýáé]|ak[ýáé]|kdo|kto|kdy|kedy|kde|zda|jestli|či|ci|proč|proc|prečo|preco)(?=\s|$))|\s+a\s+(?=(?:kolik|kolko|co|čo|jak|ako|jak[ýáé]|ak[ýáé]|kdo|kto|kdy|kedy|kde|zda|jestli|či|ci|proč|proc|prečo|preco)(?=\s|$))/iu)
+    .map(part => part.trim())
+    .filter(Boolean);
+  const merged = [];
+  for (const part of rawParts) {
+    const previous = merged.at(-1) || '';
+    if (/\b(?:jestli|zda|ci|či)\s+(?:to\s+)?(?:vime|vieme)\s*$/u.test(normalizeDialogueText(previous))
+      && /^(?:proc|preco)\b/u.test(normalizeDialogueText(part))) {
+      merged[merged.length - 1] = `${previous}, ${part}`;
+    } else {
+      merged.push(part);
+    }
+  }
+  return merged.slice(0, 8).map((text, index) => {
+    const normalized = normalizeDialogueText(text);
+    const type = /\b(?:proc|preco|duvod|dovod|pricin)\w*\b/u.test(normalized)
+      ? 'reason'
+      : /\b(?:kolik|kolko|pocet)\b/u.test(normalized)
+        ? 'quantity'
+        : /\b(?:trzb|obrat|prijem|vynos|cena|castka)\w*\b/u.test(normalized)
+          ? 'money'
+          : /\b(?:vysled|dopad)\w*\b/u.test(normalized)
+            ? 'outcome'
+            : 'fact';
+    const entities = sharedFactProperEntities(text);
+    return {
+      id: `fact_${index + 1}`,
+      text,
+      type,
+      entities,
+      keys: sharedFactSemanticKeys(text),
+    };
+  });
+}
+
+function factRecapEvidenceScore(record, slot) {
+  if (!record || record.superseded) return -1;
+  if (slot.entities.length && !slot.entities.some(entity => record.entities.includes(entity))) return -1;
+  if (slot.type === 'quantity' && !record.quantity) return -1;
+  if (slot.type === 'money' && !(record.money || record.quantity)) return -1;
+  if (slot.type === 'reason') {
+    if (!record.keys.has('reason') || !record.keys.has('departure')) return -1;
+  }
+  if (slot.type === 'outcome' && !record.keys.has('outcome')) return -1;
+  const overlap = [...slot.keys].filter(key => record.keys.has(key)).length;
+  const genericCountMatch = slot.type === 'quantity'
+    && record.keys.has('participants')
+    && slot.keys.has('participants');
+  if (overlap === 0 && !genericCountMatch) return -1;
+  return overlap * 30
+    + (record.correction ? 100 : 0)
+    + (slot.type === 'reason' && record.kind === 'reason' ? 30 : 0)
+    + record.sourceIndex / 1000
+    + record.clauseIndex / 10000;
+}
+
+function bestFactRecapEvidence(records = [], slot) {
+  return records
+    .map(record => ({ record, score: factRecapEvidenceScore(record, slot) }))
+    .filter(item => item.score >= 0)
+    .sort((left, right) => right.score - left.score)
+    .at(0)?.record || null;
+}
+
+function safeFactTextForSlot(record, slot) {
+  if (!record) return '';
+  if (slot.type === 'reason' && record.kind === 'reason') {
+    const lead = String(record.reasonLead || '').replace(/[.!?]+$/u, '').trim();
+    return `${lead}: ${record.text}`.replace(/^:\s*/u, '').trim();
+  }
+  return String(record.text || '')
+    .split(/,?\s+(?:protože|pretože|jelikož|jelikoz|keďže|kedze|lebo|kvůli|kvuli|kvoli|z\s+důvodu|z\s+duvodu|z\s+dôvodu|z\s+dovodu)\b/iu)[0]
+    .replace(/,?\s+(?:ne|nikoli|nie|místo|misto|namiesto)\s+(?:\d+(?:[,.]\d+)?|nula|jeden|jedna|jedno|dva|dvě|dve|tři|tri|čtyři|ctyri|pět|pet|šest|sest|sedm|osm|devět|devet|deset)\s*[.!?]*$/iu, '')
+    .replace(/[.!?]+$/u, '')
+    .trim();
+}
+
+function missingFactText(slot, language) {
+  const entity = slot.entities[0] || '';
+  if (slot.type === 'reason') {
+    if (entity) return language === 'sk'
+      ? `Dôvod odchodu osoby ${entity} zatiaľ nepoznáme`
+      : `Důvod odchodu osoby ${entity} zatím neznáme`;
+    return language === 'sk' ? 'Dôvod odchodu zatiaľ nepoznáme' : 'Důvod odchodu zatím neznáme';
+  }
+  return language === 'sk'
+    ? `K položke „${slot.text.slice(0, 100)}“ zatiaľ nemáme doložený údaj`
+    : `K položce „${slot.text.slice(0, 100)}“ zatím nemáme doložený údaj`;
+}
+
+function buildRequestedFactRecapItems(slots, records, language) {
+  const items = [];
+  const seen = new Set();
+  for (const slot of slots) {
+    const matched = bestFactRecapEvidence(records, slot);
+    if (!matched || (slot.type === 'reason' && matched.unknown)) {
+      items.push({ kind: 'unknown', slot: slot.id, text: missingFactText(slot, language) });
+      continue;
+    }
+    const text = safeFactTextForSlot(matched, slot);
+    const key = normalizeDialogueText(text);
+    if (!text || seen.has(key) || sharedContainsUnsafeFactInstruction(text)) continue;
+    seen.add(key);
+    items.push({ kind: 'evidence', slot: slot.id, text });
+  }
+  return items;
+}
+
+function selectFactRecapEvidence(records, slots, limit) {
+  if (!slots.length) {
+    return uniqueFactRecapStatements(records
+      .filter(record => !record.superseded && record.kind === 'fact')
+      .map(record => record.text))
+      .slice(-limit);
+  }
+  return uniqueFactRecapStatements(slots
+    .map(slot => bestFactRecapEvidence(records, slot))
+    .filter(Boolean)
+    .map(record => record.text))
+    .slice(0, limit);
 }
 
 function trimConversationContinuation(value) {
@@ -1773,7 +1981,7 @@ export function formatConversationRepairContext(context = null) {
       ? 'Pokud opravuje téma nebo fakt, zopakuj pouze opravený význam, neobhajuj se a plynule na něj navaž. Neopakuj otázku, proti které se vymezila.'
       : '',
     context.kind === 'fact_recap'
-      ? 'Členka chce pouze rekapitulaci známých údajů bez domýšlení. Uveď nejvýše tři její doslovná věcná sdělení, nepřidávej emoci, příčinu ani závěr a řekni, že pro další hodnocení zatím chybí data. Otázku nepřidávej.'
+      ? `Členka chce pouze rekapitulaci známých údajů bez domýšlení. Odpověz na všechny položky, které výslovně vyjmenovala (${Number(context.factRecapStatementLimit) || 3}); pokud položky nevyjmenovala, uveď nejvýše tři její doslovná věcná sdělení. Chybějící údaj jasně ponech neznámý. Nepřidávej emoci, příčinu, hodnocení ani závěr a nepřidávej otázku.`
       : '',
     context.kind === 'short_question'
       ? 'Členka chce jedinou krátkou otázku. Polož přesně jednu konkrétní otázku ukotvenou v jejím posledním věcném sdělení, bez vysvětlování a dalšího úkolu.'

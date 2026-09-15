@@ -11,6 +11,10 @@ import {
   languageInstruction,
   responseLanguageMismatch,
 } from './language-profile.js';
+import {
+  buildFactRecapEvidenceRecords,
+  containsUnsafeFactInstruction,
+} from './fact-recap-evidence.js';
 
 export { requestsFactsOnly, requestsOneShortQuestion };
 
@@ -62,9 +66,141 @@ function isSubstantive(value) {
 const FACT_ONLY_META_STEMS = contentStems([
   'víme nevíme fakta informace zatím jen pouze',
   'uvedla popsala řekla zmínila chybí neznáme není jasné',
+  'položka položce údaj nemáme doložený',
   'podle tebe ty sama hodnotíš počet reakce jejich další údaj',
   'bez domýšlení ověřené doložené jisté nejisté',
 ].join(' '));
+
+const FACT_QUANTITY_SOURCE = '(?:\\d+(?:[,.]\\d+)?|nula|jeden|jedna|jedno|dva|dve|tri|ctyri|pet|sest|sedm|osm|devet|deset|jedenact|dvanact|trinact|ctrnact|patnact|dvacet|tricet|ctyricet|padesat|sto|polovina|ctvrtina)';
+const FACT_QUANTITY_PATTERN = new RegExp(`\\b${FACT_QUANTITY_SOURCE}\\b`, 'gu');
+const FACT_NEGATED_QUANTITY_PATTERN = new RegExp(`\\b(?:ne|nie|nikoli|misto|namiesto|nebyl|nebyla|nebylo|nebol|nebola|nebolo)\\s+(${FACT_QUANTITY_SOURCE})\\b`, 'gu');
+const FACT_CORRECTION_PATTERN = new RegExp(`\\b(?:ne|nie|nikoli|misto|namiesto)\\s+${FACT_QUANTITY_SOURCE}\\b`, 'u');
+const FACT_NUMBER_WORDS = new Map([
+  ['nula', '0'], ['jeden', '1'], ['jedna', '1'], ['jedno', '1'],
+  ['dva', '2'], ['dve', '2'], ['tri', '3'], ['ctyri', '4'], ['pet', '5'],
+  ['sest', '6'], ['sedm', '7'], ['osm', '8'], ['devet', '9'], ['deset', '10'],
+  ['jedenact', '11'], ['dvanact', '12'], ['trinact', '13'], ['ctrnact', '14'],
+  ['patnact', '15'], ['dvacet', '20'], ['tricet', '30'], ['ctyricet', '40'],
+  ['padesat', '50'], ['sto', '100'], ['polovina', '1/2'], ['ctvrtina', '1/4'],
+]);
+
+function canonicalFactQuantity(value) {
+  const clean = normalize(value).replace(',', '.');
+  return FACT_NUMBER_WORDS.get(clean) || clean;
+}
+
+function containsFactInstruction(value) {
+  const text = normalize(value);
+  return /\b(?:ignoruj|zapomen|obchazej|nedodrzuj|predstirej|zmen\s+roli|hraj\s+roli)\w*\b/u.test(text)
+    || /\b(?:system|developer|assistant|prompt)\s*:/u.test(text)
+    || /\b(?:systemov|vyvojarsk|developersk)\w*\s+(?:zprava|sprava|instrukc|prompt)\w*\b/u.test(text)
+    || /\b(?:odted|odteraz)\b[^.!?]{0,100}\b(?:uvadej|odpovez|napis|rekni)\w*\b/u.test(text);
+}
+
+function scopedFactMetrics(value) {
+  const text = normalize(value);
+  const metrics = new Set();
+  if (/\b(?:prihlas|registrov)\w*\b/u.test(text)) metrics.add('registered');
+  if (/\b(?:zustal|zostal)\w*\b/u.test(text)) metrics.add('stayed');
+  if (/\b(?:odes|odis|odchod|opust)\w*\b/u.test(text)) metrics.add('departure');
+  if (/\bnavstev\w*\b/u.test(text)) metrics.add('visitors');
+  if (/\b(?:klik|proklik)\w*\b/u.test(text)) metrics.add('clicks');
+  if (/\b(?:nakup|objednav)\w*\b/u.test(text)) metrics.add('purchases');
+  if (/\b(?:trzb|obrat|prijem|vynos)\w*\b/u.test(text)) metrics.add('revenue');
+  if (/\bklient\w*\b/u.test(text)) metrics.add('clients');
+  if (!metrics.size && /\b(?:zen|zena|ucastnic|lide|lidi|osob)\w*\b/u.test(text)) metrics.add('participants');
+  if (/\b(?:proc|preco|duvod|dovod|pricin)\w*\b/u.test(text)) metrics.add('reason');
+  return metrics;
+}
+
+function scopedFactEntities(value) {
+  const ignored = new Set([
+    'První', 'Prvy', 'Druhý', 'Druhy', 'Třetí', 'Treti', 'Přihlásily', 'Prihlasili',
+    'Dvě', 'Dve', 'Jedna', 'Jeden', 'Nevím', 'Neviem', 'Oprava', 'Správně', 'Spravne',
+    'Doložená', 'Dolozena', 'Fakta', 'Byl', 'Byla', 'Bylo', 'Byli', 'Byly', 'Bol', 'Bola', 'Bolo', 'Boli',
+  ]);
+  return [...new Set((String(value || '').match(/\b\p{Lu}\p{Ll}{2,}\b/gu) || [])
+    .filter(token => !ignored.has(token))
+    .map(normalize))];
+}
+
+function scopedFactEvents(value) {
+  const text = normalize(value);
+  return [...new Set(text.match(/\b(?:prvni|druhy|treti|ctvrty|paty)\s+(?:workshop|seminar|kampan|beh|setkani|akce)\w*\b/gu) || [])];
+}
+
+function splitScopedFactSegments(value) {
+  return String(value || '')
+    .split(/(?<=[.!?;])\s+|\n+/u)
+    .flatMap(sentence => sentence.split(/\s+a\s+(?=(?:\p{Lu}\p{Ll}{2,}|na\s+(?:prvním|prvnim|druhém|druhem|třetím|tretim)|(?:přihlás|prihlas|zůstal|zustal|zostal|odeš|odes|odiš|odis|návštěv|navstev|klik|nákup|nakup|tržb|trzb)))/iu))
+    .map(segment => segment.replace(/^[„“"'\s]+|[„“"'\s]+$/gu, '').trim())
+    .filter(Boolean);
+}
+
+function extractScopedFactClaims(value, { sourceIndex = 0, output = false } = {}) {
+  const normalized = normalize(value);
+  const unsafe = containsUnsafeFactInstruction(value);
+  const forbiddenAddon = /\b(?:protoze|pretoze|jelikoz|kedze|lebo|kvuli|kvoli|z\s+duvodu|z\s+dovodu)\b|\b(?:coz|takze|a\s+to\s+(?:znamena|dokazuje|potvrzuje))\b/u.test(normalized);
+  if (output && unsafe) return [{ unsafe: true, safeText: String(value || ''), sourceIndex }];
+  return buildFactRecapEvidenceRecords([{ text: value }])
+    .filter(record => !record.superseded && (record.quantity || record.unknown))
+    .map(record => ({
+      safeText: record.text,
+      sourceIndex: record.sourceIndex,
+      correction: record.correction,
+      negatedValues: record.replacedQuantities.map(canonicalFactQuantity),
+      metrics: record.keys,
+      entities: record.entities,
+      events: record.events,
+      unknown: record.unknown,
+      unsafe: output && forbiddenAddon,
+      superseded: false,
+      value: record.unknown ? '__unknown__' : canonicalFactQuantity(record.quantity),
+    }));
+}
+
+function setsOverlap(left, right) {
+  return [...left].some(value => right.has(value));
+}
+
+function scopedClaimSlotCompatible(left, right) {
+  if (left.entities.length && right.entities.length && !left.entities.some(entity => right.entities.includes(entity))) return false;
+  if (left.events.length && right.events.length && !left.events.some(event => right.events.includes(event))) return false;
+  if (left.metrics.size && right.metrics.size && !setsOverlap(left.metrics, right.metrics)) return false;
+  return true;
+}
+
+function resolveCurrentFactClaims(values = []) {
+  return buildFactRecapEvidenceRecords(values.map(text => ({ text })))
+    .filter(record => !record.superseded && (record.quantity || record.unknown))
+    .map(record => ({
+      safeText: record.text,
+      sourceIndex: record.sourceIndex,
+      correction: record.correction,
+      negatedValues: record.replacedQuantities.map(canonicalFactQuantity),
+      metrics: record.keys,
+      entities: record.entities,
+      events: record.events,
+      unknown: record.unknown,
+      unsafe: false,
+      superseded: false,
+      value: record.unknown ? '__unknown__' : canonicalFactQuantity(record.quantity),
+    }));
+}
+
+function scopedOutputClaimSupported(outputClaim, evidenceClaims) {
+  if (outputClaim.unsafe) return false;
+  const exactText = normalize(outputClaim.safeText).replace(/[.!]+$/u, '').trim();
+  return evidenceClaims.some(evidenceClaim => {
+    if (outputClaim.value !== evidenceClaim.value) return false;
+    if (!scopedClaimSlotCompatible(outputClaim, evidenceClaim)) return false;
+    const scoped = outputClaim.metrics.size || outputClaim.entities.length || outputClaim.events.length;
+    if (!scoped) {
+      return exactText === normalize(evidenceClaim.safeText).replace(/[.!]+$/u, '').trim();
+    }
+    return true;
+  });
+}
 
 function reportsUnexplainedThirdPartyDeparture(userTexts = [], responseText = '') {
   const texts = userTexts.map(normalize).filter(Boolean);
@@ -125,7 +261,18 @@ function explicitlyPreservesDepartureUncertainty(text) {
 
 function unsupportedFactOnlyDetail(text, evidence) {
   const normalized = normalize(text);
-  const userEvidence = normalize((evidence?.recentUserEvidence || []).join(' '));
+  if (containsFactInstruction(text)) return 'unsafe-instruction-echo';
+  const activeClaims = Array.isArray(evidence?.factOnlyCurrentClaims)
+    ? evidence.factOnlyCurrentClaims
+    : [];
+  const unsupportedScopedClaim = extractScopedFactClaims(text, { output: true })
+    .find(claim => !scopedOutputClaimSupported(claim, activeClaims));
+  if (unsupportedScopedClaim) {
+    return unsupportedScopedClaim.unsafe
+      ? 'unsafe-or-causal-addon'
+      : `scoped-fact:${unsupportedScopedClaim.value || [...unsupportedScopedClaim.metrics][0] || 'claim'}`;
+  }
+  const userEvidence = normalize((evidence?.factOnlyUserEvidence || evidence?.recentUserEvidence || []).join(' '));
   const quantityPattern = /\b(?:\d+(?:[,.]\d+)?|nula|jeden|jedna|jedno|dva|dve|tri|ctyri|pet|sest|sedm|osm|devet|deset|desitky|stovky|polovina|ctvrtina)\b/gu;
   const outputQuantities = new Set(normalized.match(quantityPattern) || []);
   const evidenceQuantities = new Set(userEvidence.match(quantityPattern) || []);
@@ -160,7 +307,7 @@ function unsupportedFactOnlyDetail(text, evidence) {
 
   const declarativeText = declarativeSentences.join(' ');
   const declarativeStems = [...contentStems(declarativeText)];
-  const evidenceStems = contentStems((evidence?.recentUserEvidence || []).join(' '));
+  const evidenceStems = contentStems((evidence?.factOnlyUserEvidence || evidence?.recentUserEvidence || []).join(' '));
   const unsupported = declarativeStems.filter(token => !evidenceStems.has(token) && !FACT_ONLY_META_STEMS.has(token));
   const supported = declarativeStems.filter(token => evidenceStems.has(token));
   if (unsupported.length >= 2 && unsupported.length > supported.length) {
@@ -204,7 +351,7 @@ function hasUnsupportedPerformanceVerdict(text, userEvidenceTexts = []) {
   });
 }
 
-export function extractSessionEvidence(messages = []) {
+export function extractSessionEvidence(messages = [], { sessionWorkingLedger = null } = {}) {
   const safe = Array.isArray(messages) ? messages : [];
   const userTexts = safe
     .filter(message => message?.role === 'user')
@@ -213,6 +360,58 @@ export function extractSessionEvidence(messages = []) {
   const substantive = userTexts.filter(isSubstantive);
   const latestSubstantiveUserText = substantive.at(-1) || userTexts.at(-1) || '';
   const recentUserEvidence = substantive.slice(-5).map(text => text.slice(0, 500));
+  const ledgerFactEvidence = sessionWorkingLedger?.kind === 'session_only_member_evidence'
+    ? [
+      sessionWorkingLedger.contract,
+      ...(Array.isArray(sessionWorkingLedger.knownFacts) ? sessionWorkingLedger.knownFacts : []),
+      ...(Array.isArray(sessionWorkingLedger.answeredQuestions)
+        ? sessionWorkingLedger.answeredQuestions.map(item => item?.memberAnswered)
+        : []),
+      ...(Array.isArray(sessionWorkingLedger.correctionsAndBoundaries)
+        ? sessionWorkingLedger.correctionsAndBoundaries
+        : []),
+      ...(Array.isArray(sessionWorkingLedger.unresolvedUnknowns)
+        ? sessionWorkingLedger.unresolvedUnknowns
+        : []),
+      ...(Array.isArray(sessionWorkingLedger.performedStepsAndEffects)
+        ? sessionWorkingLedger.performedStepsAndEffects
+        : []),
+    ]
+    : [];
+  const missingFactAnswersWithQuestions = safe
+    .map((message, index) => {
+      if (message?.role !== 'user' || index < 1) return '';
+      const answer = String(message.content || '').replace(/\s+/gu, ' ').trim();
+      if (!/\b(?:nerekla|nerekl|nepovedala|nepovedal|neuvedla|neuvedl|neuviedla|neuviedol|nevim|neviem|neznam|nepoznam)\w*\b/iu.test(answer)) return '';
+      const question = safe[index - 1];
+      if (question?.role !== 'assistant' || !/[?？]/u.test(String(question.content || ''))) return '';
+      const cleanQuestion = String(question.content || '')
+        .replace(/[?？]+/gu, '')
+        .replace(/\s+/gu, ' ')
+        .trim();
+      return cleanQuestion ? `${cleanQuestion} — ${answer}` : '';
+    })
+    .filter(Boolean);
+  // Ledger-derived entries come first; chronological member messages then
+  // supersede them. This prevents a stale ledger copy from resurrecting a
+  // quantity after the member corrected it later in the chat.
+  const factEvidenceSegments = [...ledgerFactEvidence, ...substantive, ...missingFactAnswersWithQuestions]
+    .flatMap(text => splitScopedFactSegments(String(text || '').replace(/\s+/gu, ' ').trim().slice(0, 500)))
+    .filter(text => text
+      && !/[?？]/u.test(text)
+      && !requestsFactsOnly(text)
+      && !containsUnsafeFactInstruction(text)
+      && !/^(?:(?:a\s+)?(?:myslis|myslite|znamena\s+to|je\s+mozne|je\s+pravda|kolik|proc|preco|zda|jestli|ci)\b|(?:shrn|vypis|rekni|povedz|ignoruj|zapomen|predstirej|zmen\s+roli|system|developer|assistant)\w*\b)/u.test(normalize(text)));
+  const factOnlyCurrentClaims = resolveCurrentFactClaims(factEvidenceSegments);
+  const structuredEvidenceTexts = factOnlyCurrentClaims.map(claim => claim.safeText);
+  const unstructuredEvidenceTexts = factEvidenceSegments.filter(text => {
+    const normalizedText = normalize(text);
+    return !(normalizedText.match(FACT_QUANTITY_PATTERN) || []).length
+      && !/\b(?:nevim|nevime|neviem|nevieme|neznam|nezname|nepoznam|nepozname)\b/u.test(normalizedText);
+  });
+  const factOnlyUserEvidence = [...structuredEvidenceTexts, ...unstructuredEvidenceTexts]
+    .filter((text, index, all) => all.findIndex(candidate => normalize(candidate) === normalize(text)) === index)
+    .slice(-24);
   const lastAssistantText = [...safe]
     .reverse()
     .find(message => message?.role === 'assistant')?.content || '';
@@ -226,6 +425,8 @@ export function extractSessionEvidence(messages = []) {
   return {
     latestSubstantiveUserText: latestSubstantiveUserText.slice(0, 700),
     recentUserEvidence,
+    factOnlyUserEvidence,
+    factOnlyCurrentClaims,
     lastAssistantQuestion,
     corrections,
     anchorStems,
@@ -264,7 +465,9 @@ export function assessCoachingResponse(text, {
   requireQuestion = true,
 } = {}) {
   const output = String(text || '').trim();
-  const evidence = extractSessionEvidence(messages);
+  const evidence = extractSessionEvidence(messages, {
+    sessionWorkingLedger: conversationContext.sessionWorkingLedger,
+  });
   const issues = [];
   const questionCount = (output.match(/\?/g) || []).length;
   const normalized = normalize(output);
