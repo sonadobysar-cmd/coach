@@ -7,10 +7,17 @@ import { loadCourses } from '../src/courses.js';
 import { attachCourseMastery } from '../src/course-mastery.js';
 import {
   certificateVariant,
+  COURSE_EVIDENCE_VALIDATION_VERSION,
   sanitizeCertificateMemberName,
+  isSubstantivePortfolioAnswer,
   summarizeCourseEvidence,
 } from '../src/certificates.js';
-import { buildCertificateStatus, isTrustedCertificateProvider } from '../src/certificate-service.js';
+import {
+  buildCertificateStatus,
+  CERTIFICATE_EXAM_POLICY_VERSION,
+  issueCertificate,
+  isTrustedCertificateProvider,
+} from '../src/certificate-service.js';
 import { renderCertificatePdf, wrapCertificateTitle } from '../src/certificate-renderer.js';
 import {
   CERTIFICATE_AUTH_MARKER,
@@ -36,11 +43,17 @@ function completeInput(course) {
       days: mastery.journey.map(day => day.id),
       templates: Object.fromEntries(mastery.professionalPack.map(template => [
         template.id,
-        Object.fromEntries(template.fields.map(field => [field.id, 'Konkrétní doložený výstup'])),
+        Object.fromEntries(template.fields.map(field => [
+          field.id,
+          `Pro šablonu ${template.title} v poli ${field.label} popisuji konkrétní situaci, vlastní rozhodnutí a ověřitelný důkaz z praxe.`,
+        ])),
       ])),
       assessment: {
         final: Object.fromEntries(mastery.assessment.dimensions.map(dimension => [
-          dimension.id, { score: '3', evidence: 'Konkrétní důkaz z praxe' },
+          dimension.id, {
+            score: '3',
+            evidence: `U dimenze ${dimension.title} dokládám konkrétní změnu pozorovanou v reálném nácviku.`,
+          },
         ])),
       },
     },
@@ -52,6 +65,14 @@ test('serverový souhrn vyžaduje všechny části, portfolio i měření', () =
   assert.equal(complete.summary.portfolioComplete, true);
   assert.equal(complete.summary.quizzesComplete, true);
   assert.equal(complete.completedItemIds.length, communication.itemCount);
+  const changedPortfolio = completeInput(communication);
+  const firstTemplate = communication.mastery.professionalPack[0];
+  const firstField = firstTemplate.fields[0];
+  changedPortfolio.mastery.templates[firstTemplate.id][firstField.id] = 'Jiný konkrétní profesní důkaz, který popisuje odlišnou situaci a výsledek.';
+  assert.notEqual(
+    summarizeCourseEvidence(communication, changedPortfolio).evidenceHash,
+    complete.evidenceHash,
+  );
   const forged = summarizeCourseEvidence(communication, {
     ...completeInput(communication),
     verifiedQuizItemIds: [],
@@ -61,6 +82,55 @@ test('serverový souhrn vyžaduje všechny části, portfolio i měření', () =
   const incomplete = summarizeCourseEvidence(communication, { completedItemIds: complete.completedItemIds, mastery: {} });
   assert.equal(incomplete.summary.portfolioComplete, false);
   assert.equal(incomplete.evidenceHash.length, 64);
+});
+
+test('portfolio odmítne prázdné fráze, příliš krátký text a zkopírovanou odpověď', () => {
+  assert.equal(isSubstantivePortfolioAnswer('hotovo'), false);
+  assert.equal(isSubstantivePortfolioAnswer('Konkrétní doložený výstup'), false);
+  assert.equal(isSubstantivePortfolioAnswer('V rozhovoru jsem oddělila pozorování od vlastní interpretace a ověřila je otázkou.'), true);
+
+  const input = completeInput(communication);
+  const repeated = 'Tuto obecnou odpověď jsem zkopírovala do každého pole bez vazby na zadání.';
+  for (const template of communication.mastery.professionalPack) {
+    for (const field of template.fields) input.mastery.templates[template.id][field.id] = repeated;
+  }
+  const evidence = summarizeCourseEvidence(communication, input);
+  assert.equal(evidence.summary.filledPortfolioFields, 1);
+  assert.equal(evidence.summary.portfolioComplete, false);
+});
+
+test('assessment skóre přijímá jen celé číslo 0–4 nebo přesný jednociferný string', () => {
+  const dimensionId = communication.mastery.assessment.dimensions[0].id;
+  const requiredDimensions = communication.mastery.assessment.dimensions.length;
+  const invalidHashes = [];
+
+  for (const invalidScore of ['', '   ', null]) {
+    const input = completeInput(communication);
+    input.mastery.assessment.final[dimensionId].score = invalidScore;
+    const evidence = summarizeCourseEvidence(communication, input);
+    assert.equal(evidence.summary.completedAssessmentDimensions, requiredDimensions - 1);
+    assert.equal(evidence.summary.portfolioComplete, false);
+    invalidHashes.push(evidence.evidenceHash);
+  }
+  assert.equal(new Set(invalidHashes).size, 1, 'všechny neplatné raw hodnoty se musí hashovat jako null');
+
+  for (const validScore of [0, 1, 2, 3, 4, '0', '1', '2', '3', '4']) {
+    const input = completeInput(communication);
+    input.mastery.assessment.final[dimensionId].score = validScore;
+    const evidence = summarizeCourseEvidence(communication, input);
+    assert.equal(evidence.summary.completedAssessmentDimensions, requiredDimensions);
+    assert.equal(evidence.summary.portfolioComplete, true);
+  }
+
+  const numeric = completeInput(communication);
+  numeric.mastery.assessment.final[dimensionId].score = 4;
+  const string = completeInput(communication);
+  string.mastery.assessment.final[dimensionId].score = '4';
+  assert.equal(
+    summarizeCourseEvidence(communication, numeric).evidenceHash,
+    summarizeCourseEvidence(communication, string).evidenceHash,
+    'completion i evidence hash musí používat stejnou kanonickou validaci skóre',
+  );
 });
 
 test('certifikát se nevydá bez důvěryhodné závěrečné AI zkoušky', () => {
@@ -77,6 +147,91 @@ test('certifikát se nevydá bez důvěryhodné závěrečné AI zkoušky', () =
   assert.equal(trusted.eligible, true);
   assert.equal(isTrustedCertificateProvider('qa-human-verified-live'), false);
   assert.equal(isTrustedCertificateProvider('openai/gpt-5.6-terra'), true);
+});
+
+test('staré studijní a zkouškové důkazy se po zpřísnění pravidel nezapočítají', () => {
+  const current = summarizeCourseEvidence(communication, completeInput(communication));
+  assert.equal(current.summary.evidenceValidationVersion, COURSE_EVIDENCE_VALIDATION_VERSION);
+
+  const staleEvidence = buildCertificateStatus(communication, {
+    evidence: {
+      completedItemIds: current.completedItemIds,
+      portfolioSummary: current.summary,
+      evidenceValidationVersion: COURSE_EVIDENCE_VALIDATION_VERSION - 1,
+    },
+    examAttempt: {
+      allProven: true,
+      qualityPassed: true,
+      provider: 'openai/gpt-5.6',
+      assessmentPolicyVersion: CERTIFICATE_EXAM_POLICY_VERSION,
+    },
+  });
+  assert.equal(staleEvidence.eligible, false);
+  assert.equal(staleEvidence.progress.evidenceCurrent, false);
+
+  const staleExam = buildCertificateStatus(communication, {
+    evidence: {
+      completedItemIds: current.completedItemIds,
+      portfolioSummary: current.summary,
+      evidenceValidationVersion: COURSE_EVIDENCE_VALIDATION_VERSION,
+    },
+    examAttempt: {
+      allProven: true,
+      qualityPassed: true,
+      provider: 'openai/gpt-5.6',
+      assessmentPolicyVersion: CERTIFICATE_EXAM_POLICY_VERSION - 1,
+    },
+  });
+  assert.equal(staleExam.eligible, false);
+  assert.equal(staleExam.progress.examPassed, false);
+});
+
+test('vydání je atomicky svázané s přesným důkazem a souběžná změna certifikát nevydá', async () => {
+  const summarized = summarizeCourseEvidence(communication, completeInput(communication));
+  const evidence = {
+    completed_item_ids: summarized.completedItemIds,
+    portfolio_summary: summarized.summary,
+    evidence_hash: summarized.evidenceHash,
+    evidence_validation_version: COURSE_EVIDENCE_VALIDATION_VERSION,
+    updated_at: '2026-09-15T12:00:00.000Z',
+  };
+  const exam = {
+    all_proven: true,
+    quality_passed: true,
+    provider: 'openai/gpt-5.6',
+    assessment_policy_version: CERTIFICATE_EXAM_POLICY_VERSION,
+    completed_at: '2026-09-15T12:05:00.000Z',
+  };
+  const calls = [];
+  const sql = async (strings, ...values) => {
+    const query = strings.join('?');
+    calls.push({ query, values });
+    if (/^SELECT completed_item_ids/u.test(query)) return [evidence];
+    if (/^SELECT all_proven/u.test(query)) return [exam];
+    if (/^SELECT member_name/u.test(query)) return [];
+    if (/^WITH locked_evidence/u.test(query)) return [];
+    throw new Error(`Neočekávaný testovací SQL dotaz: ${query}`);
+  };
+
+  await assert.rejects(
+    issueCertificate(
+      { id: '11111111-1111-4111-8111-111111111111' },
+      communication,
+      'Anna Nováková',
+      { ...SIGNING_ENV, DATABASE_URL: 'postgres://test' },
+      { sqlFactory: () => sql },
+    ),
+    error => error?.code === 'CERTIFICATE_ELIGIBILITY_CHANGED' && error?.statusCode === 409,
+  );
+
+  const atomicIssue = calls.find(call => /^WITH locked_evidence/u.test(call.query));
+  assert.ok(atomicIssue);
+  assert.match(atomicIssue.query, /FOR UPDATE/u);
+  assert.match(atomicIssue.query, /INSERT INTO academy_certificates/u);
+  assert.match(atomicIssue.query, /RETURNING id/u);
+  assert.ok(atomicIssue.values.includes(summarized.evidenceHash));
+  assert.ok(atomicIssue.values.includes(evidence.updated_at));
+  assert.ok(atomicIssue.values.includes(exam.completed_at));
 });
 
 test('osobní program používá tmavé osvědčení a profesní kurz světlý certifikát', () => {

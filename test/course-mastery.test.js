@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { loadCourses, parseCourse } from '../src/courses.js';
 import { attachCourseMastery } from '../src/course-mastery.js';
 import { COACH_COMPETENCIES, coachCompetencyIdForCriterion } from '../src/coach-competencies.js';
+import {
+  COACH_REMEDIATION_CHALLENGES,
+  COACH_REMEDIATION_FAILURE_CODES,
+} from '../src/coach-remediation-challenges.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const paths = [
@@ -56,6 +60,68 @@ test('profesní life coach vyžaduje dva oddělené expertní finální výkony 
   for (const scenarioId of course.mastery.finalExam.scenarioIds) {
     assert.match(course._masteryPrivate[scenarioId].behavior, /odmítni.*oprav/iu);
   }
+});
+
+test('profesní koučovací Mastery Lab nese stabilní identitu výzvy a přesné možnosti nápravy', () => {
+  const course = courses.find(candidate => candidate.id === 'profesionalni-life-coach');
+  for (const scenario of course.mastery.scenarios) {
+    assert.ok(scenario.scenarioFamilyId);
+    assert.ok(scenario.challengeId);
+  }
+  assert.equal(new Set(course.mastery.scenarios.map(scenario => scenario.challengeId)).size, 60);
+
+  const remediationScenarios = course.mastery.scenarios.filter(scenario => (
+    scenario.remediationFailureCodes.length > 0
+  ));
+  assert.equal(remediationScenarios.length, COACH_REMEDIATION_CHALLENGES.length);
+  assert.equal(remediationScenarios.length, COACH_REMEDIATION_FAILURE_CODES.length * 2);
+  for (const failureCode of COACH_REMEDIATION_FAILURE_CODES) {
+    const pair = remediationScenarios.filter(scenario => (
+      scenario.remediationFailureCodes[0] === failureCode
+    ));
+    assert.equal(pair.length, 2, `${failureCode}: chybí ekvivalentní dvojice`);
+    assert.equal(new Set(pair.map(scenario => scenario.scenarioFamilyId)).size, 1);
+    assert.equal(new Set(pair.map(scenario => scenario.challengeId)).size, 2);
+    assert.ok(pair.every(scenario => scenario.difficulty === 'expert'));
+    assert.ok(pair.every(scenario => scenario.remediationFailureCodes.length === 1));
+  }
+  assert.ok(course.mastery.scenarios
+    .filter(scenario => !remediationScenarios.includes(scenario))
+    .every(scenario => scenario.remediationFailureCodes.length === 0));
+
+  const scenarioText = Object.fromEntries(COACH_REMEDIATION_FAILURE_CODES.map(code => [
+    code,
+    remediationScenarios
+      .filter(scenario => scenario.remediationFailureCodes[0] === code)
+      .map(scenario => `${scenario.openingLine} ${scenario.assignment} ${scenario.rubric.join(' ')}`)
+      .join(' '),
+  ]));
+  assert.match(scenarioText.clinical_scope_breach, /diagnóz|trauma|léčb/iu);
+  assert.match(scenarioText.confidentiality_breach, /obsah sezení|poznám|souhlas|důvěr/iu);
+  assert.match(scenarioText.outcome_guarantee, /zaruč|garanc|příjm|prác/iu);
+  assert.match(scenarioText.ignored_explicit_refusal, /nechci|odmít|zastav/iu);
+  assert.match(scenarioText.client_decision_takeover, /rozhodni|podpis|výpověď|autonomi/iu);
+  assert.match(scenarioText.false_credential_claim, /ICF|akredit|psycholož|kvalifik/iu);
+  assert.match(scenarioText.suicide_risk_response_missing, /nechci už žít|neprobudila|112|155/iu);
+});
+
+test('Mastery Lab obsahuje tři odlišné nefinální praxe opravy aliance a umožní změřit přenos', () => {
+  const course = courses.find(candidate => candidate.id === 'profesionalni-life-coach');
+  const finalIds = new Set(course.mastery.finalExam.scenarioIds);
+  const alliancePractices = course.mastery.scenarios.filter(scenario => (
+    !finalIds.has(scenario.id)
+    && scenario.remediationFailureCodes.length === 0
+    && scenario.rubric.some(criterion => coachCompetencyIdForCriterion(criterion) === 'alliance_repair')
+  ));
+  assert.ok(alliancePractices.length >= 3);
+  assert.ok(new Set(alliancePractices.map(scenario => scenario.challengeId)).size >= 3);
+  assert.deepEqual(
+    new Set(alliancePractices.slice(0, 3).map(scenario => scenario.difficulty)),
+    new Set(['standard', 'advanced', 'expert']),
+  );
+  assert.ok(alliancePractices.slice(0, 3).every(scenario => (
+    scenario.rubric.some(criterion => /přijetí opravy bez obhajování/iu.test(criterion))
+  )));
 });
 
 test('situace a 30denní cesta vycházejí ze skutečných částí a pokrývají každý modul', () => {

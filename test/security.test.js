@@ -63,7 +63,16 @@ test('AI odpověď rezervuje fair-use zprávu a při selhání generování ji v
   assert.match(chatRoute, /const billableResult = isBillableAiResult\(result\)/);
   assert.match(trainingRoute, /const billableResult = isBillableAiResult\(result, \{ training: true \}\)/);
   assert.match(chatRoute, /if \(member && billableResult\)[\s\S]*?recordAiUsage/);
-  assert.match(trainingRoute, /if \(member && billableResult\)[\s\S]*?recordAiUsage/);
+  assert.match(trainingRoute, /if \(member && !releaseEvaluation && billableResult\)[\s\S]*?recordAiUsage/);
+  assert.match(trainingRoute, /if \(member && !releaseEvaluation\)[\s\S]*?await reserveAiTurn/);
+  assert.match(trainingRoute, /passportPersisted: false/);
+  assert.match(trainingRoute, /professionalReleaseEvaluation && !professionalCoachSimulation/);
+  assert.match(trainingRoute, /academyTrainerServerEvaluation/);
+  assert.match(trainingRoute, /createAcademyTrainerCaseReceipt/);
+  assert.match(trainingRoute, /RELEASE_EVALUATION_SCOPE/);
+  const scenarioRoute = server.match(/app\.get\('\/api\/training\/scenario'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(scenarioRoute, /context\.course\.id !== 'profesionalni-life-coach'/);
+  assert.match(scenarioRoute, /RELEASE_EVALUATION_SCOPE/);
   assert.match(server, /app\.get\('\/api\/ai-usage'/);
 });
 

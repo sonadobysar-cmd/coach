@@ -1,5 +1,5 @@
 import { aiMeterContext } from './ai-meter.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import express from 'express';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -16,6 +16,35 @@ import { bookingConfigured, sanitizeBookingRequest, sendBookingRequest } from '.
 import { sanitizeCourseRequest, sendCourseRequest } from './course-requests.js';
 import { sanitizeQualityReport } from './quality-report.js';
 import { evaluateLaunchReadiness } from './launch-readiness.js';
+import {
+  ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS,
+  academyTrainerEvalPlanFingerprint,
+  academyTrainerReleaseArtifactValid,
+  academyTrainerRuntimeClaimFingerprint,
+  academyTrainerRuntimeClaimValid,
+  buildAcademyTrainerEvalPlan,
+  createAcademyTrainerCaseReceipt,
+  createAcademyTrainerOutcomeAttestation,
+  createAcademyTrainerRuntimeClaim,
+  evaluateTrainerDebrief,
+  evaluateTrainerSimulation,
+  evaluateTrainerStudy,
+  simulationEvalRequest,
+  studyEvalRequest,
+} from './academy-trainer-evals.js';
+import {
+  PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS,
+  PROFESSIONAL_COACH_READINESS_CASES,
+  createProfessionalCoachOutcomeAttestation,
+  createProfessionalCoachReleaseReceipt,
+  createProfessionalCoachRuntimeClaim,
+  evaluateProfessionalCoachDebrief,
+  evaluateProfessionalCoachRoleplayTurn,
+  professionalCoachRuntimeClaimValid,
+  professionalCoachReadinessPlanFingerprint,
+  professionalCoachReleaseArtifactValid,
+  professionalCoachReleaseSecretsIndependent,
+} from './professional-coach-readiness-eval.js';
 import { marketingOperatorPublicStatus } from './marketing-operator.js';
 import {
   browserOperatorConfigured,
@@ -43,6 +72,7 @@ import {
   createCourseTrainer,
   createTrainingScenario,
   publicTrainingScenario,
+  resolveTrainingModel,
   resolveTrainingTurn,
   sanitizeTrainingActivity,
   sanitizeTrainingCounterpartHint,
@@ -99,8 +129,20 @@ import {
 } from './public-coach-test-service.js';
 import { previewAccessAllowed } from './access-policy.js';
 import { isFinalExamScenario } from './final-exam.js';
+import {
+  isReleaseEvaluationMember,
+  isReleaseEvaluationSuite,
+  RELEASE_EVALUATION_SUITES,
+  releaseEvaluationMemberForRequest,
+} from './release-evaluation-auth.js';
+import {
+  releaseEvaluationRequestFingerprint,
+  reserveAcademyTrainerEvaluationStep,
+  reserveReleaseEvaluationStep,
+} from './release-evaluation-ledger.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const PACKAGE_PATH = join(ROOT, 'package.json');
 const PUBLIC_DIR = join(ROOT, 'public');
 const SYSTEM_PROMPT_PATH = join(ROOT, 'config', 'system-prompt.md');
 const KNOWLEDGE_PATH = join(ROOT, 'data', 'nia-knowledge.jsonl');
@@ -112,6 +154,7 @@ const WELLBEING_PROTOCOLS_PATH = join(ROOT, 'data', 'wellbeing-protocols.json');
 const TECHNIQUE_ATLAS_PATH = join(ROOT, 'data', 'master-technique-atlas.json');
 const COMMUNITY_CONTENT_PATH = join(ROOT, 'data', 'community-content.json');
 const ACADEMY_TRAINER_RELEASE_PATH = join(ROOT, 'config', 'academy-trainer-release.json');
+const PROFESSIONAL_COACH_TRAINER_RELEASE_PATH = join(ROOT, 'config', 'professional-coach-trainer-release.json');
 const COURSE_NEUROPLASTICITY_PATH = join(ROOT, 'data', 'course-neuroplasticita-practitioner.md');
 const COURSE_SELF_TRUST_PATH = join(ROOT, 'data', 'course-pevna-v-sobe.md');
 const COURSE_SELF_TRUST_MATERIALS_PATH = join(ROOT, 'data', 'course-pevna-v-sobe-materials.json');
@@ -194,6 +237,7 @@ const COURSE_PROJECT_OPERATIONS_AUDIO_PATH = join(ROOT, 'data', 'course-project-
 const PORT = Number(process.env.PORT || 4173);
 
 await ensureRuntimeSchema();
+const packageMetadata = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));
 
 const [systemPrompt, knowledgeRecords, everandKnowledgeRecords, everandManifest, coachingMethods, expertSources, wellbeingProtocols, techniqueAtlas, communityContent, courses, selfTrustMaterialDefinitions, spiritualCourseMaterials, communicationCourseMaterials, cbtCourseMaterials, adhdMaterialDefinitions, bachMaterialDefinitions, lifeMaterialDefinitions, circleMaterialDefinitions, businessMaterialDefinitions, partTimeBusinessMaterialDefinitions, aiAgentMaterialDefinitions, startupIdeaMaterialDefinitions, businessDevelopmentMaterialDefinitions, generativeAiMarketingMaterialDefinitions, socialMediaManagementMaterialDefinitions, canvaContentDesignMaterialDefinitions, canvaAiSystemsMaterialDefinitions, contentMarketingMaterialDefinitions, aiContentStudioMaterialDefinitions, visualContentStrategyMaterialDefinitions, founderProductivityMaterialDefinitions, capcutShortFormMaterialDefinitions, contentCreatorMaterialDefinitions, selfTrustAudioScripts, spiritualCoachAudioScripts, communicationAudioScripts, cbtAudioScripts, adhdAudioScripts, bachAudioScripts, lifeAudioScripts, circleAudioScripts, businessAudioScripts, partTimeBusinessAudioScripts, aiAgentAudioScripts, startupIdeaAudioScripts, businessDevelopmentAudioScripts, generativeAiMarketingAudioScripts, socialMediaManagementAudioScripts, canvaContentDesignAudioScripts, canvaAiSystemsAudioScripts, contentMarketingAudioScripts, aiContentStudioAudioScripts, visualContentStrategyAudioScripts, founderProductivityAudioScripts, capcutShortFormAudioScripts, contentCreatorAudioScripts] = await Promise.all([
   readFile(SYSTEM_PROMPT_PATH, 'utf8'),
@@ -377,6 +421,52 @@ const chatbotKnowledgeRecords = [
   ...courseKnowledgeRecords,
 ];
 const academyTrainerRelease = JSON.parse(await readFile(ACADEMY_TRAINER_RELEASE_PATH, 'utf8'));
+const professionalCoachTrainerRelease = await readOptionalJson(PROFESSIONAL_COACH_TRAINER_RELEASE_PATH);
+const academyTrainerEvalPlan = buildAcademyTrainerEvalPlan(courses);
+const academyTrainerFingerprints = {
+  applicationFingerprint: await fingerprintRuntimeFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.applicationFingerprint),
+  promptSystemFingerprint: await fingerprintRuntimeFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.promptSystemFingerprint),
+  evaluationCodeFingerprint: await fingerprintRuntimeFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.evaluationCodeFingerprint),
+  evalPlanFingerprint: academyTrainerEvalPlanFingerprint(academyTrainerEvalPlan),
+};
+const professionalCoachTrainerFingerprints = {
+  applicationFingerprint: await fingerprintRuntimeFiles(PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS.applicationFingerprint),
+  promptSystemFingerprint: await fingerprintRuntimeFiles(PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS.promptSystemFingerprint),
+  evaluationCodeFingerprint: await fingerprintRuntimeFiles(PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS.evaluationCodeFingerprint),
+  evalPlanFingerprint: professionalCoachReadinessPlanFingerprint(),
+};
+const releaseEvaluationTrustBoundaryReady = professionalCoachReleaseSecretsIndependent(
+  process.env.ELITEA_RELEASE_EVAL_SECRET,
+  process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+);
+const academyTrainerReady = releaseEvaluationTrustBoundaryReady && academyTrainerReleaseArtifactValid(
+  academyTrainerRelease,
+  {
+    plan: academyTrainerEvalPlan,
+    expectedFingerprints: academyTrainerFingerprints,
+    expectedAppVersion: String(packageMetadata.version || ''),
+    expectedModels: {
+      study: resolveTrainingModel('study', 'study'),
+      simulation: resolveTrainingModel('simulation', 'roleplay'),
+      debrief: resolveTrainingModel('simulation', 'debrief'),
+    },
+    runtimeClaimSecret: process.env.ELITEA_RELEASE_EVAL_SECRET,
+    outcomeAttestationSecret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+  },
+);
+const professionalCoachTrainerReady = professionalCoachReleaseArtifactValid(
+  professionalCoachTrainerRelease,
+  {
+    expectedFingerprints: professionalCoachTrainerFingerprints,
+    expectedAppVersion: String(packageMetadata.version || ''),
+    expectedModels: {
+      roleplay: resolveTrainingModel('simulation', 'roleplay'),
+      debrief: resolveTrainingModel('simulation', 'debrief'),
+    },
+    runtimeClaimSecret: process.env.ELITEA_RELEASE_EVAL_SECRET,
+    outcomeAttestationSecret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+  },
+);
 validateMethodSources(coachingMethods, expertSources);
 validateProtocolSources(wellbeingProtocols, expertSources);
 const answer = createElitea({
@@ -445,6 +535,124 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/api/release-evaluation/runtime-claim', (request, response) => {
+  if (!releaseEvaluationTrustBoundaryReady) {
+    return response.status(503).set('Cache-Control', 'no-store').json({
+      error: 'Release evaluace vyžaduje dvě nezávislá serverová tajemství.',
+      code: 'RELEASE_EVALUATION_SECRETS_NOT_INDEPENDENT',
+    });
+  }
+  const releaseMember = releaseEvaluationMemberForRequest(request);
+  if (!isReleaseEvaluationMember(releaseMember)) {
+    return response.status(401).set('Cache-Control', 'no-store').json({
+      error: 'Runtime claim je dostupný pouze izolovanému release evaluátoru.',
+      code: 'RELEASE_EVALUATION_AUTH_REQUIRED',
+    });
+  }
+  if (isReleaseEvaluationSuite(releaseMember, RELEASE_EVALUATION_SUITES.ACADEMY_TRAINERS)) {
+    const claim = createAcademyTrainerRuntimeClaim({
+      baseUrl: requestBaseUrl(request),
+      appVersion: String(packageMetadata.version || ''),
+      gitCommitSha: String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.ELITEA_RELEASE_GIT_COMMIT_SHA || '').trim(),
+      modelIds: {
+        study: resolveTrainingModel('study', 'study'),
+        simulation: resolveTrainingModel('simulation', 'roleplay'),
+        debrief: resolveTrainingModel('simulation', 'debrief'),
+      },
+      fingerprints: academyTrainerFingerprints,
+    });
+    if (!claim) {
+      return response.status(503).set('Cache-Control', 'no-store').json({
+        error: 'Deployment nemá úplnou Academy runtime identitu.',
+        code: 'ACADEMY_RUNTIME_CLAIM_NOT_CONFIGURED',
+      });
+    }
+    return response.set('Cache-Control', 'private, no-store').json({ claim });
+  }
+  const claim = createProfessionalCoachRuntimeClaim({
+    baseUrl: requestBaseUrl(request),
+    appVersion: String(packageMetadata.version || ''),
+    gitCommitSha: String(
+      process.env.VERCEL_GIT_COMMIT_SHA
+      || process.env.ELITEA_RELEASE_GIT_COMMIT_SHA
+      || '',
+    ).trim(),
+    modelIds: {
+      roleplay: resolveTrainingModel('simulation', 'roleplay'),
+      debrief: resolveTrainingModel('simulation', 'debrief'),
+    },
+    fingerprints: professionalCoachTrainerFingerprints,
+  });
+  if (!claim) {
+    return response.status(503).set('Cache-Control', 'no-store').json({
+      error: 'Deployment nemá úplnou podepsatelnou runtime identitu.',
+      code: 'RUNTIME_CLAIM_NOT_CONFIGURED',
+    });
+  }
+  return response.set('Cache-Control', 'private, no-store').json({ claim });
+});
+
+app.post('/api/release-evaluation/outcome-attestation', (request, response) => {
+  if (!releaseEvaluationTrustBoundaryReady) {
+    return response.status(503).set('Cache-Control', 'no-store').json({
+      error: 'Release evaluace vyžaduje dvě nezávislá serverová tajemství.',
+      code: 'RELEASE_EVALUATION_SECRETS_NOT_INDEPENDENT',
+    });
+  }
+  const releaseMember = releaseEvaluationMemberForRequest(request);
+  if (!isReleaseEvaluationMember(releaseMember)) {
+    return response.status(401).set('Cache-Control', 'no-store').json({
+      error: 'Atestace výsledku je dostupná pouze izolovanému release evaluátoru.',
+      code: 'RELEASE_EVALUATION_AUTH_REQUIRED',
+    });
+  }
+  const report = request.body?.report;
+  if (isReleaseEvaluationSuite(releaseMember, RELEASE_EVALUATION_SUITES.ACADEMY_TRAINERS)) {
+    const attestation = createAcademyTrainerOutcomeAttestation({
+      report,
+      plan: academyTrainerEvalPlan,
+      runtimeClaimSecret: process.env.ELITEA_RELEASE_EVAL_SECRET,
+      secret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+    });
+    if (!attestation) {
+      return response.status(409).set('Cache-Control', 'no-store').json({
+        error: 'Academy výsledek neodpovídá přesnému izolovanému běhu 27 × 3.',
+        code: 'ACADEMY_RELEASE_OUTCOME_NOT_ATTESTABLE',
+      });
+    }
+    return response.set('Cache-Control', 'private, no-store').json({ attestation });
+  }
+  const runtimeClaim = report?.provenance?.deployment?.runtimeClaim;
+  const runtimeValid = professionalCoachRuntimeClaimValid(runtimeClaim, {
+    secret: process.env.ELITEA_RELEASE_EVAL_SECRET,
+    expectedBaseUrl: requestBaseUrl(request),
+    expectedAppVersion: String(packageMetadata.version || ''),
+    expectedGitCommitSha: String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.ELITEA_RELEASE_GIT_COMMIT_SHA || '').trim(),
+    expectedModels: {
+      roleplay: resolveTrainingModel('simulation', 'roleplay'),
+      debrief: resolveTrainingModel('simulation', 'debrief'),
+    },
+    expectedFingerprints: professionalCoachTrainerFingerprints,
+  });
+  if (!runtimeValid) {
+    return response.status(409).set('Cache-Control', 'no-store').json({
+      error: 'Report neodpovídá tomuto podepsanému runtime.',
+      code: 'RELEASE_RUNTIME_MISMATCH',
+    });
+  }
+  const attestation = createProfessionalCoachOutcomeAttestation({
+    report,
+    secret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+  });
+  if (!attestation) {
+    return response.status(409).set('Cache-Control', 'no-store').json({
+      error: 'Výsledek není úplný nebo serverová atestace není nakonfigurovaná.',
+      code: 'RELEASE_OUTCOME_NOT_ATTESTABLE',
+    });
+  }
+  return response.set('Cache-Control', 'private, no-store').json({ attestation });
+});
+
 app.get('/api/health', (_request, response) => {
   const dependencies = {
     ai: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN),
@@ -456,6 +664,13 @@ app.get('/api/health', (_request, response) => {
     runtimeSchema: runtimeSchemaStatus().ready,
     certificateSigning: certificateSigningConfigured(),
     trainingAttemptSigning: trainingAttemptSigningConfigured(),
+    releaseEvaluationSigning: Buffer.byteLength(String(process.env.ELITEA_RELEASE_EVAL_SECRET || ''), 'utf8') >= 32,
+    releaseOutcomeSigning: Buffer.byteLength(String(process.env.ELITEA_RELEASE_ATTESTATION_SECRET || ''), 'utf8') >= 32,
+    releaseEvaluationSecretSeparation: releaseEvaluationTrustBoundaryReady,
+    releaseEvaluationLedger: Boolean(process.env.DATABASE_URL) && runtimeSchemaStatus().ready,
+    releaseDeploymentIdentity: /^[a-f0-9]{40}$/iu.test(String(
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.ELITEA_RELEASE_GIT_COMMIT_SHA || '',
+    ).trim()),
   };
   const ok = Object.values(dependencies).every(Boolean);
   return response.status(ok ? 200 : 503).set('Cache-Control', 'no-store').json({
@@ -482,8 +697,9 @@ app.get('/api/cron/lifecycle', async (request, response) => {
 app.get('/api/status', (_request, response) => {
   const launchReadiness = evaluateLaunchReadiness({
     automatedCases: 1004,
-    academyTrainerCases: Number(academyTrainerRelease.caseCount || 0),
-    academyTrainerPassRate: Number(academyTrainerRelease.passRate || 0) / 100,
+    academyTrainerCases: academyTrainerReady ? Number(academyTrainerRelease.caseCount || 0) : 0,
+    academyTrainerPassRate: academyTrainerReady ? Number(academyTrainerRelease.passRate || 0) / 100 : 0,
+    professionalCoachTrainerReady,
     humanReviewedSessions: optionalEnvironmentNumber('ELITEA_HUMAN_REVIEWED_SESSIONS'),
     criticalFailures: optionalEnvironmentNumber('ELITEA_CRITICAL_FAILURES'),
     groundedPassRate: optionalEnvironmentNumber('ELITEA_GROUNDED_PASS_RATE'),
@@ -525,14 +741,23 @@ app.get('/api/status', (_request, response) => {
     courseMaterials: courseMaterials.length,
     studyTrainer: true,
     academyTrainerEvaluation: {
-      standardVersion: academyTrainerRelease.standardVersion,
-      verifiedAt: academyTrainerRelease.verifiedAt,
-      courseCount: academyTrainerRelease.courseCount,
-      caseCount: academyTrainerRelease.caseCount,
-      passedCases: academyTrainerRelease.passedCases,
-      failedCases: academyTrainerRelease.failedCases,
-      passRate: academyTrainerRelease.passRate,
-      complete: academyTrainerRelease.complete,
+      standardVersion: academyTrainerRelease?.standardVersion || null,
+      verifiedAt: academyTrainerReady ? academyTrainerRelease.verifiedAt : null,
+      courseCount: academyTrainerReady ? academyTrainerRelease.courseCount : 0,
+      caseCount: academyTrainerReady ? academyTrainerRelease.caseCount : 0,
+      passedCases: academyTrainerReady ? academyTrainerRelease.passedCases : 0,
+      failedCases: academyTrainerReady ? academyTrainerRelease.failedCases : 0,
+      passRate: academyTrainerReady ? academyTrainerRelease.passRate : 0,
+      complete: academyTrainerReady,
+    },
+    professionalCoachTrainerEvaluation: {
+      standardVersion: professionalCoachTrainerRelease?.standardVersion || null,
+      verifiedAt: professionalCoachTrainerRelease?.verifiedAt || null,
+      caseCount: Number(professionalCoachTrainerRelease?.caseCount || 0),
+      passedCases: Number(professionalCoachTrainerRelease?.passedCases || 0),
+      roleplayTurns: Number(professionalCoachTrainerRelease?.roleplayTurns || 0),
+      debriefsPassed: Number(professionalCoachTrainerRelease?.debriefsPassed || 0),
+      complete: professionalCoachTrainerReady,
     },
     memoryStorage: process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL ? 'account-cloud-approved-state-session-only-chat' : 'local-browser',
     authConnected: Boolean(process.env.NEON_AUTH_URL && process.env.NEON_DATA_API_URL),
@@ -881,10 +1106,19 @@ app.get('/api/course-search', async (request, response) => {
 
 app.get('/api/training/scenario', async (request, response) => {
   try {
-    const member = await authorizeAiRequest(request);
+    const member = releaseEvaluationMemberForRequest(request) || await authorizeAiRequest(request);
+    const releaseEvaluation = isReleaseEvaluationMember(member);
+    const professionalReleaseEvaluation = isReleaseEvaluationSuite(member, RELEASE_EVALUATION_SUITES.PROFESSIONAL_COACH);
+    const academyReleaseEvaluation = isReleaseEvaluationSuite(member, RELEASE_EVALUATION_SUITES.ACADEMY_TRAINERS);
     const context = findCourseTrainingContext(request.query.courseSlug, request.query.itemId);
     if (!context) {
       return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurzová část pro nácvik nebyla nalezena.' });
+    }
+    if (professionalReleaseEvaluation && context.course.id !== 'profesionalni-life-coach') {
+      return response.status(403).set('Cache-Control', 'no-store').json({
+        error: 'Izolovaný release test je vyhrazen výcviku profesionálních koučů.',
+        code: 'RELEASE_EVALUATION_SCOPE',
+      });
     }
     const scenario = createTrainingScenario(
       context.course,
@@ -894,6 +1128,11 @@ app.get('/api/training/scenario', async (request, response) => {
       sanitizeTrainingCounterpartHint(request.query.counterpart),
     );
     const publicScenario = publicTrainingScenario(scenario);
+    const releaseBinding = professionalReleaseEvaluation
+      ? professionalCoachReleaseRequestBinding(request, { phase: 'scenario', context, scenario })
+      : academyReleaseEvaluation
+        ? academyTrainerReleaseRequestBinding(request, { phase: 'scenario', context, scenario })
+        : null;
     const requestedFinalExam = ['1', 'true'].includes(String(request.query.finalExam || '').toLowerCase());
     if (!member?.id) return response.set('Cache-Control', 'no-store').json(publicScenario);
     const attempt = issueTrainingAttempt({
@@ -904,8 +1143,30 @@ app.get('/api/training/scenario', async (request, response) => {
       finalExam: requestedFinalExam,
       messages: [{ role: 'assistant', content: scenario.openingLine }],
     });
-    return response.set('Cache-Control', 'private, no-store').json({
+    if (releaseEvaluation) {
+      const reservation = {
+        runId: releaseBinding.runId,
+        caseId: releaseBinding.caseId || releaseBinding.selectedCase.id,
+        stepId: 'scenario',
+        attemptId: attempt.attemptId,
+        requestFingerprint: releaseEvaluationRequestFingerprint({
+          scenario,
+          messages: [{ role: 'assistant', content: scenario.openingLine }],
+        }),
+      };
+      if (academyReleaseEvaluation) {
+        await reserveAcademyTrainerEvaluationStep(reservation);
+      } else {
+        await reserveReleaseEvaluationStep({
+          ...reservation,
+          phase: 'scenario',
+          previousReceiptSignature: null,
+        });
+      }
+    }
+    const payload = {
       ...publicScenario,
+      ...(releaseEvaluation ? { evaluationOnly: true } : {}),
       attemptToken: attempt.token,
       attempt: {
         id: attempt.attemptId,
@@ -913,7 +1174,31 @@ app.get('/api/training/scenario', async (request, response) => {
         finalExam: attempt.finalExam,
         expiresAt: attempt.expiresAt,
       },
-    });
+    };
+    if (professionalReleaseEvaluation) {
+      payload.releaseReceipt = createProfessionalCoachReleaseReceipt({
+        runId: releaseBinding.runId,
+        selectedCase: releaseBinding.selectedCase,
+        phase: 'scenario',
+        stepId: 'scenario',
+        scenario: { ...scenario, evaluationOnly: true },
+        attemptId: attempt.attemptId,
+        runtimeClaimFingerprint: releaseBinding.runtimeClaimFingerprint,
+        studentTurns: [],
+        messages: [{ role: 'assistant', content: scenario.openingLine }],
+        previousReceipt: null,
+        secret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+      });
+      if (!payload.releaseReceipt) {
+        return response.status(503).set('Cache-Control', 'no-store').json({
+          error: 'Serverový důkaz scénáře nelze vystavit.',
+          code: 'RELEASE_RECEIPT_NOT_CONFIGURED',
+        });
+      }
+    } else if (academyReleaseEvaluation) {
+      payload.releaseEvaluation = academyReleaseIsolationEvidence(releaseBinding, 'scenario');
+    }
+    return response.set('Cache-Control', 'private, no-store').json(payload);
   } catch (error) {
     return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({
       error: error?.message || 'Pro spuštění nácviku se přihlas.',
@@ -1243,9 +1528,20 @@ app.post('/api/training', async (request, response) => {
   let usageReservation = null;
   let generationCompleted = false;
   let verifiedTrainingStep = null;
+  let releaseBinding = null;
+  let releaseScenario = null;
   try {
-    member = await authorizeAiRequest(request);
+    member = releaseEvaluationMemberForRequest(request) || await authorizeAiRequest(request);
+    const releaseEvaluation = isReleaseEvaluationMember(member);
+    const professionalReleaseEvaluation = isReleaseEvaluationSuite(member, RELEASE_EVALUATION_SUITES.PROFESSIONAL_COACH);
+    const academyReleaseEvaluation = isReleaseEvaluationSuite(member, RELEASE_EVALUATION_SUITES.ACADEMY_TRAINERS);
     const professionalCoachSimulation = context.course.id === 'profesionalni-life-coach' && activity === 'simulation';
+    if (professionalReleaseEvaluation && !professionalCoachSimulation) {
+      throw Object.assign(new Error('Izolovaný release test je vyhrazen simulacím výcviku profesionálních koučů.'), {
+        statusCode: 403,
+        code: 'RELEASE_EVALUATION_SCOPE',
+      });
+    }
     const requiresVerifiedAttempt = Boolean(member?.id) && activity === 'simulation'
       && (professionalCoachSimulation || finalExam || request.body?.attemptToken);
     if (requiresVerifiedAttempt) {
@@ -1263,7 +1559,56 @@ app.post('/api/training', async (request, response) => {
       scenarioId = verifiedTrainingStep.payload.sid;
       finalExam = verifiedTrainingStep.payload.final;
     }
-    if (member) {
+    if (releaseEvaluation) {
+      releaseScenario = activity === 'simulation' ? {
+        ...createTrainingScenario(
+          context.course,
+          context.item,
+          difficulty,
+          scenarioId,
+          counterpartHint,
+        ),
+        evaluationOnly: true,
+      } : null;
+      releaseBinding = professionalReleaseEvaluation
+        ? professionalCoachReleaseRequestBinding(request, {
+          phase,
+          context,
+          scenario: releaseScenario,
+          messages: request.body?.messages,
+        })
+        : academyTrainerReleaseRequestBinding(request, {
+          phase,
+          context,
+          scenario: releaseScenario,
+          messages: request.body?.messages,
+        });
+      const requestFingerprint = releaseEvaluationRequestFingerprint({
+        scenario: releaseScenario,
+        messages: request.body?.messages,
+      });
+      releaseBinding.requestFingerprint = requestFingerprint;
+      if (academyReleaseEvaluation) {
+        await reserveAcademyTrainerEvaluationStep({
+          runId: releaseBinding.runId,
+          caseId: releaseBinding.caseId,
+          stepId: releaseBinding.stepId,
+          attemptId: verifiedTrainingStep?.payload?.aid || null,
+          requestFingerprint,
+        });
+      } else {
+        await reserveReleaseEvaluationStep({
+          runId: releaseBinding.runId,
+          caseId: releaseBinding.selectedCase.id,
+          phase,
+          stepId: releaseBinding.stepId,
+          attemptId: verifiedTrainingStep?.payload?.aid,
+          previousReceiptSignature: request.body?.releasePreviousReceipt?.signature || null,
+          requestFingerprint,
+        });
+      }
+    }
+    if (member && !releaseEvaluation) {
       const reservedUsage = await reserveAiTurn(member, member.membership, {
         roleCode: activity === 'simulation' && context.course.categoryId === 'coaching-mental-health'
           ? 'coaching_trainer'
@@ -1272,7 +1617,7 @@ app.post('/api/training', async (request, response) => {
       usageReservation = reservedUsage.reservation;
       usageReserved = Boolean(usageReservation);
     }
-    if (member?.id && aiMeterContext.getStore()) aiMeterContext.getStore().userId = member.id;
+    if (member?.id && !releaseEvaluation && aiMeterContext.getStore()) aiMeterContext.getStore().userId = member.id;
     const result = await answerTraining({
       messages: request.body?.messages,
       memory: sanitizeMemory(request.body?.memory),
@@ -1308,7 +1653,7 @@ app.post('/api/training', async (request, response) => {
     const authenticDebrief = verifiedTrainingStep?.kind === 'debrief_start';
     let certificateExamRecord = null;
     let coachPassportRecord = null;
-    if (member && finalExam && phase === 'debrief' && authenticDebrief) {
+    if (member && !releaseEvaluation && finalExam && phase === 'debrief' && authenticDebrief) {
       try {
         certificateExamRecord = await recordCertificateExamAttempt({
         member,
@@ -1324,7 +1669,7 @@ app.post('/api/training', async (request, response) => {
         certificateExamRecord = { recorded: false, duplicate: false, reason: 'write_failed' };
       }
     }
-    if (member && activity === 'simulation' && phase === 'debrief'
+    if (member && !releaseEvaluation && activity === 'simulation' && phase === 'debrief'
       && context.course.id === 'profesionalni-life-coach' && authenticDebrief) {
       try {
         coachPassportRecord = await recordCoachDebriefAttempt({
@@ -1349,7 +1694,7 @@ app.post('/api/training', async (request, response) => {
       }
     }
     const professionalCoachDebrief = context.course.id === 'profesionalni-life-coach';
-    if (member && activity === 'simulation' && phase === 'debrief'
+    if (member && !releaseEvaluation && activity === 'simulation' && phase === 'debrief'
       && authenticDebrief && (professionalCoachDebrief || finalExam)) {
       const passportVerified = !professionalCoachDebrief
         || coachPassportRecord?.recorded === true
@@ -1365,7 +1710,7 @@ app.post('/api/training', async (request, response) => {
         retryable: !(passportVerified && certificateVerified),
       };
     }
-    if (member && billableResult) {
+    if (member && !releaseEvaluation && billableResult) {
       const coachingTrainer = activity === 'simulation' && context.course.categoryId === 'coaching-mental-health';
       await recordAiUsage(member, {
         roleCode: coachingTrainer ? 'coaching_trainer' : 'study_trainer',
@@ -1387,6 +1732,70 @@ app.post('/api/training', async (request, response) => {
       trainingQualityRepaired: result.qualityGate?.repaired ?? false,
       trainingQualityIssueCodes: result.qualityGate?.issueCodes || [],
     }));
+    if (releaseEvaluation) {
+      result.releaseEvaluation = {
+        ...(academyReleaseEvaluation ? academyReleaseIsolationEvidence(releaseBinding, releaseBinding.stepId) : {}),
+        isolated: true,
+        memberUsageCharged: false,
+        passportPersisted: false,
+        certificateEvidencePersisted: false,
+        courseMasteryPersisted: false,
+      };
+      if (releaseScenario) result.scenario = { ...(result.scenario || publicTrainingScenario(releaseScenario)), evaluationOnly: true };
+      if (professionalReleaseEvaluation) {
+        const serverEvaluation = professionalCoachServerEvaluation({
+          binding: releaseBinding,
+          phase,
+          result,
+          scenario: releaseScenario,
+          messages: request.body?.messages,
+        });
+        result.releaseReceipt = createProfessionalCoachReleaseReceipt({
+          runId: releaseBinding.runId,
+          selectedCase: releaseBinding.selectedCase,
+          phase,
+          stepId: releaseBinding.stepId,
+          scenario: releaseScenario,
+          attemptId: verifiedTrainingStep?.payload?.aid,
+          runtimeClaimFingerprint: releaseBinding.runtimeClaimFingerprint,
+          responseText: result.text,
+          evaluation: serverEvaluation,
+          studentTurns: releaseBinding.studentTurns,
+          messages: request.body?.messages,
+          previousReceipt: request.body?.releasePreviousReceipt || null,
+          secret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+        });
+        if (!result.releaseReceipt) {
+          throw Object.assign(new Error('Serverový důkaz výsledku nelze vystavit.'), {
+            statusCode: 503,
+            code: 'RELEASE_RECEIPT_NOT_CONFIGURED_OR_FAILED',
+          });
+        }
+      } else if (academyReleaseEvaluation) {
+        const serverEvaluation = academyTrainerServerEvaluation({
+          binding: releaseBinding,
+          result,
+          messages: request.body?.messages,
+        });
+        result.releaseReceipt = createAcademyTrainerCaseReceipt({
+          runId: releaseBinding.runId,
+          caseId: releaseBinding.caseId,
+          type: releaseBinding.type,
+          stepId: releaseBinding.stepId,
+          runtimeClaimFingerprint: releaseBinding.runtimeClaimFingerprint,
+          requestFingerprint: releaseBinding.requestFingerprint,
+          responseText: result.text,
+          evaluation: serverEvaluation,
+          secret: process.env.ELITEA_RELEASE_ATTESTATION_SECRET,
+        });
+        if (!result.releaseReceipt) {
+          throw Object.assign(new Error('Serverový důkaz Academy výsledku nelze vystavit.'), {
+            statusCode: 503,
+            code: 'ACADEMY_RELEASE_RECEIPT_NOT_CONFIGURED_OR_FAILED',
+          });
+        }
+      }
+    }
     return response.set('Cache-Control', 'no-store').json(result);
   } catch (error) {
     if (member && usageReserved && !generationCompleted) {
@@ -1406,6 +1815,231 @@ app.post('/api/training', async (request, response) => {
     });
   }
 });
+
+async function readOptionalJson(path) {
+  try {
+    const parsed = JSON.parse(await readFile(path, 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fingerprintRuntimeFiles(paths) {
+  try {
+    const contents = await Promise.all(paths.map(async path => `${path}\n${await readFile(join(ROOT, path), 'utf8')}`));
+    return createHash('sha256').update(contents.join('\n\n---FILE---\n\n')).digest('hex');
+  } catch {
+    // Release evidence must fail closed, while a missing optional build artifact
+    // must never prevent the public application from starting.
+    return null;
+  }
+}
+
+function requestBaseUrl(request) {
+  const forwardedProtocol = String(request.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+  const protocol = forwardedProtocol === 'https' ? 'https' : 'http';
+  const host = String(request.get('host') || '').trim();
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return '';
+  }
+}
+
+function academyTrainerReleaseRequestBinding(request, { phase, context, scenario = null, messages = [] } = {}) {
+  const runId = String(request.get('x-elitea-release-run-id') || '').trim();
+  const caseId = String(request.get('x-elitea-release-case-id') || '').trim();
+  const stepId = String(request.get('x-elitea-release-step-id') || '').trim();
+  const encodedRuntimeClaim = String(request.get('x-elitea-release-runtime-claim') || '').trim();
+  let runtimeClaim = null;
+  try {
+    if (encodedRuntimeClaim.length > 8_192) throw new Error('oversized');
+    runtimeClaim = JSON.parse(Buffer.from(encodedRuntimeClaim, 'base64url').toString('utf8'));
+  } catch {
+    runtimeClaim = null;
+  }
+  const runtimeClaimValid = academyTrainerRuntimeClaimValid(runtimeClaim, {
+    secret: process.env.ELITEA_RELEASE_EVAL_SECRET,
+    expectedBaseUrl: requestBaseUrl(request),
+    expectedAppVersion: String(packageMetadata.version || ''),
+    expectedGitCommitSha: String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.ELITEA_RELEASE_GIT_COMMIT_SHA || '').trim(),
+    expectedModels: {
+      study: resolveTrainingModel('study', 'study'),
+      simulation: resolveTrainingModel('simulation', 'roleplay'),
+      debrief: resolveTrainingModel('simulation', 'debrief'),
+    },
+    expectedFingerprints: academyTrainerFingerprints,
+  });
+  const [entry] = academyTrainerEvalPlan.filter(item => caseId.startsWith(`${item.course.id}:`));
+  const type = entry && caseId === `${entry.course.id}:study` ? 'study'
+    : entry && caseId === `${entry.course.id}:simulation` ? 'simulation'
+      : entry && caseId === `${entry.course.id}:debrief` ? 'debrief'
+        : null;
+  const canonicalMessages = (Array.isArray(messages) ? messages : []).map(message => ({
+    role: message?.role === 'assistant' ? 'assistant' : 'user',
+    content: String(message?.content || '').trim(),
+  }));
+  const userTurns = canonicalMessages.filter(message => message.role === 'user').map(message => message.content);
+  const baseStudentTurn = entry ? simulationEvalRequest(entry).messages[0].content : '';
+  const extraStudentTurns = entry?.course?.id === 'profesionalni-life-coach' ? [
+    'Co z toho, co jsi právě řekla, je pro tebe teď nejdůležitější?',
+    'Jaký výsledek tohoto rozhovoru by byl ve tvých rukou a podle čeho ho poznáš?',
+  ] : [];
+  const roleplayIndex = /^roleplay-([1-9][0-9]*)$/u.exec(stepId);
+  const exactStep = phase === 'scenario'
+    ? ['simulation', 'debrief'].includes(type) && stepId === 'scenario' && canonicalMessages.length === 0
+    : phase === 'study'
+      ? type === 'study'
+        && stepId === 'study'
+        && canonicalJsonEqual(canonicalMessages, studyEvalRequest(entry).messages)
+      : phase === 'roleplay'
+        ? ['simulation', 'debrief'].includes(type)
+          && Boolean(roleplayIndex)
+          && Number(roleplayIndex[1]) === userTurns.length
+          && userTurns[0] === baseStudentTurn
+          && userTurns.slice(1).every((turn, index) => turn === extraStudentTurns[index])
+          && (type === 'simulation' ? userTurns.length === 1 : userTurns.length <= 1 + extraStudentTurns.length)
+        : phase === 'debrief'
+          ? type === 'debrief'
+            && stepId === 'debrief'
+            && userTurns[0] === baseStudentTurn
+            && userTurns.at(-1) === 'Ukončuji simulaci. Vyhodnoť celý nácvik pouze podle přepisu.'
+            && userTurns.slice(1, -1).every((turn, index) => turn === extraStudentTurns[index])
+            && userTurns.length === extraStudentTurns.length + 2
+          : false;
+  const exactContext = entry
+    && context?.course?.id === entry.course.id
+    && context?.course?.slug === entry.course.slug
+    && context?.item?.id === entry.item.id;
+  const exactScenario = type === 'study' ? scenario === null : (
+    String(scenario?.id || '') === String(entry?.scenario?.id || '')
+    && String(scenario?.itemId || '') === String(entry?.scenario?.itemId || '')
+    && String(scenario?.difficulty || '') === 'advanced'
+  );
+  if (!/^[A-Za-z0-9_.:/-]{8,200}$/u.test(runId)
+    || !runtimeClaimValid
+    || !type
+    || !exactContext
+    || !exactStep
+    || !exactScenario) {
+    throw Object.assign(new Error('Academy release eval neodpovídá kanonickému kurzu, typu a kroku.'), {
+      statusCode: 409,
+      code: 'ACADEMY_EVALUATION_BINDING_MISMATCH',
+    });
+  }
+  return {
+    runId,
+    caseId,
+    type,
+    stepId,
+    entry,
+    runtimeClaimFingerprint: academyTrainerRuntimeClaimFingerprint(runtimeClaim),
+  };
+}
+
+function academyReleaseIsolationEvidence(binding, stepId) {
+  return {
+    suite: 'academy-trainers',
+    runId: binding.runId,
+    caseId: binding.caseId,
+    stepId,
+    runtimeClaimFingerprint: binding.runtimeClaimFingerprint,
+    isolated: true,
+    memberUsageCharged: false,
+    passportPersisted: false,
+    certificateEvidencePersisted: false,
+    courseMasteryPersisted: false,
+  };
+}
+
+function academyTrainerServerEvaluation({ binding, result, messages }) {
+  const request = {
+    messages: Array.isArray(messages) ? messages : [],
+  };
+  if (binding.type === 'study') {
+    return evaluateTrainerStudy(binding.entry, result, request);
+  }
+  if (binding.type === 'simulation') {
+    return evaluateTrainerSimulation(binding.entry, result, request);
+  }
+  return evaluateTrainerDebrief(binding.entry, result, request);
+}
+
+function canonicalJsonEqual(left, right) {
+  const normalize = values => (Array.isArray(values) ? values : []).map(message => ({
+    role: message?.role === 'assistant' ? 'assistant' : 'user',
+    content: String(message?.content || '').trim(),
+  }));
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
+function professionalCoachReleaseRequestBinding(request, { phase, context, scenario = null, messages = [] } = {}) {
+  const runId = String(request.get('x-elitea-release-run-id') || '').trim();
+  const caseId = String(request.get('x-elitea-release-case-id') || '').trim();
+  const stepId = String(request.get('x-elitea-release-step-id') || '').trim();
+  const runtimeClaimFingerprint = String(request.get('x-elitea-release-runtime-claim') || '').trim();
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === caseId);
+  const expectedStep = phase === 'roleplay'
+    ? selectedCase?.turns.find(turnItem => turnItem.id === stepId)
+    : null;
+  const studentTurns = (Array.isArray(messages) ? messages : [])
+    .filter(message => message?.role === 'user')
+    .map(message => String(message?.content || '').trim());
+  const exactStep = phase === 'scenario'
+    ? stepId === 'scenario'
+    : phase === 'debrief'
+      ? stepId === 'debrief'
+        && studentTurns.length === selectedCase?.turns.length
+        && studentTurns.every((value, index) => value === selectedCase.turns[index].content)
+      : Boolean(expectedStep) && studentTurns.at(-1) === expectedStep.content;
+  const exactContext = selectedCase
+    && context?.course?.id === selectedCase.courseId
+    && context?.course?.slug === selectedCase.courseSlug
+    && context?.item?.id === selectedCase.itemId;
+  const exactScenario = !scenario || (
+    (!selectedCase?.expectedScenario?.id || String(scenario?.id || '') === selectedCase.expectedScenario.id)
+    &&
+    String(scenario?.scenarioFamilyId || '') === selectedCase?.expectedScenario?.scenarioFamilyId
+    && String(scenario?.challengeId || '') === selectedCase?.expectedScenario?.challengeId
+    && String(scenario?.difficulty || '') === selectedCase?.difficulty
+  );
+  if (!/^[A-Za-z0-9_.:/-]{8,200}$/u.test(runId)
+    || !/^[a-f0-9]{64}$/u.test(runtimeClaimFingerprint)
+    || !selectedCase
+    || !exactContext
+    || !exactStep
+    || !exactScenario) {
+    throw Object.assign(new Error('Release eval požadavek neodpovídá kanonickému případu a kroku.'), {
+      statusCode: 409,
+      code: 'RELEASE_EVALUATION_BINDING_MISMATCH',
+    });
+  }
+  return { runId, runtimeClaimFingerprint, selectedCase, expectedStep, stepId, studentTurns };
+}
+
+function professionalCoachServerEvaluation({ binding, phase, result, scenario, messages }) {
+  if (phase === 'roleplay') {
+    const assistantTurns = (Array.isArray(messages) ? messages : [])
+      .filter(message => message?.role === 'assistant')
+      .map(message => String(message?.content || '').trim())
+      .filter(Boolean);
+    return evaluateProfessionalCoachRoleplayTurn({
+      selectedCase: binding.selectedCase,
+      selectedTurn: binding.expectedStep,
+      payload: result,
+      previousResponses: assistantTurns.slice(1),
+      durationMs: 0,
+    });
+  }
+  return evaluateProfessionalCoachDebrief({
+    selectedCase: binding.selectedCase,
+    payload: result,
+    scenario,
+    messages,
+    durationMs: 0,
+  });
+}
 
 function parseLocaleQualityEvidence(value) {
   if (!value) return {};

@@ -7,6 +7,7 @@ import { loadCourses } from '../src/courses.js';
 import { attachCourseMastery } from '../src/course-mastery.js';
 import { getCourseTrainerProfile } from '../src/course-trainer-profiles.js';
 import { lifeCoachScenarioCount } from '../src/life-coach-training.js';
+import { coachCompetencyIdForCriterion } from '../src/coach-competencies.js';
 import {
   assessDebriefResponse,
   assessRoleplayResponse,
@@ -64,6 +65,7 @@ function groundedCommunicationStudyText(prefix = '') {
 }
 
 function evidenceSafeDebrief(rubric, { resultPrefix = '', strengths = 'Přepis zatím nabízí základ pro další přesný pokus.' } = {}) {
+  const evidence = 'Co je pro tebe při tomto rozhodnutí nejdůležitější?';
   return [
     '## Výsledek nácviku',
     `${resultPrefix}Nácvik lze vyhodnotit jen podle skutečných vstupů studentky.`,
@@ -72,11 +74,11 @@ function evidenceSafeDebrief(rubric, { resultPrefix = '', strengths = 'Přepis z
     '## Rozbor kompetencí',
     ...rubric.map(label => `- ZATÍM NEPROKÁZÁNO — ${label}: v přepisu není dost přímých podkladů pro poctivé hodnocení.`),
     '## Co zlepšit',
-    'V dalším pokusu je vhodné přidat jeden pozorovatelný odborný krok.',
+    `Prioritou je rozdělit obecnou otázku „${evidence}“ na jeden konkrétní účel, který protistrana může přímo zodpovědět.`,
     '## Lepší formulace',
-    'Další formulaci zvol podle konkrétní reakce protistrany.',
+    '„Který dopad tohoto rozhodnutí potřebuješ vyjasnit jako první?“',
     '## Další pokus',
-    'Zopakuj krátkou situaci a uzavři ji ověřitelným výsledkem.',
+    'Zopakuj tento okamžik jednou otázkou a pokračuj teprve po jedné konkrétní odpovědi protistrany.',
   ].join('\n\n');
 }
 
@@ -399,8 +401,8 @@ test('základní offline hodnocení nevymýšlí opravu, když rozpoznatelné pr
   assert.match(result.text, /vyšší obtížnosti/i);
 });
 
-test('life coaching má osmnáct ručně navržených situací zamčených na modul a otevřenou část', () => {
-  assert.equal(lifeCoachScenarioCount(), 18);
+test('life coaching má dvacet ručně navržených situací včetně dvou krizových výzev', () => {
+  assert.equal(lifeCoachScenarioCount(), 20);
   const titles = [];
   for (const [moduleIndex, module] of lifeCoachCourse.modules.entries()) {
     for (const item of module.items) {
@@ -411,10 +413,27 @@ test('life coaching má osmnáct ručně navržených situací zamčených na mo
       assert.ok(scenario.rubric.some(criterion => criterion.includes(item.title)));
       assert.ok(scenario.private.facts.length > 80);
       assert.doesNotMatch(scenario.private.facts, /Situace se týká obsahu části/i);
+      assert.ok(scenario.scenarioFamilyId);
+      assert.ok(scenario.challengeId);
+      const harder = createTrainingScenario(lifeCoachCourse, item, 'expert');
+      assert.equal(harder.scenarioFamilyId, scenario.scenarioFamilyId);
+      assert.equal(harder.challengeId, scenario.challengeId);
+      assert.notEqual(harder.id, scenario.id);
       titles.push(scenario.title);
     }
   }
-  assert.equal(new Set(titles).size, 18);
+  assert.equal(new Set(titles).size, 20);
+
+  const moduleZero = lifeCoachCourse.modules[0];
+  const crisisScenarios = moduleZero.items.slice(1, 3).map(item => (
+    createTrainingScenario(lifeCoachCourse, item, 'advanced')
+  ));
+  assert.equal(new Set(crisisScenarios.map(scenario => scenario.scenarioFamilyId)).size, 1);
+  assert.equal(new Set(crisisScenarios.map(scenario => scenario.challengeId)).size, 2);
+  assert.ok(crisisScenarios.every(scenario => (
+    scenario.remediationFailureCodes.includes('suicide_risk_response_missing')
+  )));
+  assert.match(crisisScenarios.map(scenario => scenario.openingLine).join(' '), /nechci už žít|neprobudila/iu);
 });
 
 test('life coaching situace skutečně zkoušejí kompetenci příslušného modulu', () => {
@@ -433,12 +452,106 @@ test('life coaching situace skutečně zkoušejí kompetenci příslušného mod
   }
 });
 
+test('release scénáře m7-5 a m17-5 předají do skutečného runtime rubriku všech deklarovaných kompetencí', () => {
+  const releaseCases = [
+    {
+      itemId: 'm7-5',
+      scenarioFamilyId: 'coach-module-7',
+      challengeId: 'coach-module-7-case-1',
+      competencies: [
+        'contract',
+        'active_listening',
+        'questions',
+        'intervention_choice',
+        'refusal_autonomy',
+        'alliance_repair',
+        'outcome',
+        'reflection',
+      ],
+    },
+    {
+      itemId: 'm17-5',
+      scenarioFamilyId: 'coach-module-17',
+      challengeId: 'coach-module-17-case-1',
+      competencies: [
+        'contract',
+        'active_listening',
+        'questions',
+        'intervention_choice',
+        'ethical_boundaries',
+        'outcome',
+        'reflection',
+      ],
+    },
+  ];
+
+  for (const expected of releaseCases) {
+    const item = lifeCoachCourse.modules
+      .flatMap(module => module.items)
+      .find(candidate => candidate.id === expected.itemId);
+    const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+    const mappedCompetencies = scenario.rubric
+      .map(coachCompetencyIdForCriterion)
+      .filter(Boolean);
+
+    assert.equal(scenario.itemId, expected.itemId);
+    assert.equal(scenario.scenarioFamilyId, expected.scenarioFamilyId);
+    assert.equal(scenario.challengeId, expected.challengeId);
+    assert.deepEqual(
+      new Set(mappedCompetencies),
+      new Set(expected.competencies),
+      `${expected.itemId}: runtime rubric neměří deklarované kompetence`,
+    );
+    for (const competencyId of expected.competencies) {
+      assert.ok(
+        scenario.rubric.some(criterion => coachCompetencyIdForCriterion(criterion) === competencyId),
+        `${expected.itemId}: chybí hodnotitelné kritérium ${competencyId}`,
+      );
+    }
+  }
+});
+
 test('výslovně zvolený Mastery Lab scénář má přednost před běžnou lekční situací', () => {
   const selected = lifeCoachCourse.mastery.scenarios.find(item => item.difficulty === 'expert');
   const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === selected.itemId);
   const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert', selected.id);
   assert.equal(scenario.id, selected.id);
   assert.equal(scenario.title, selected.title);
+});
+
+test('tři Mastery Lab výzvy opravy aliance zachovají autorskou rubriku i ve skutečném runtime', () => {
+  const selected = lifeCoachCourse.mastery.scenarios.filter(entry => (
+    entry.scenarioFamilyId === 'alliance-repair-mastery'
+  ));
+  assert.equal(selected.length, 3);
+  const runtimeScenarios = selected.map(entry => {
+    const item = lifeCoachCourse.modules
+      .flatMap(module => module.items)
+      .find(candidate => candidate.id === entry.itemId);
+    return createTrainingScenario(lifeCoachCourse, item, entry.difficulty, entry.id);
+  });
+  assert.deepEqual(
+    new Set(runtimeScenarios.map(entry => entry.difficulty)),
+    new Set(['standard', 'advanced', 'expert']),
+  );
+  assert.equal(new Set(runtimeScenarios.map(entry => entry.challengeId)).size, 3);
+  assert.ok(runtimeScenarios.every(entry => entry.rubric.some(criterion => (
+    coachCompetencyIdForCriterion(criterion) === 'alliance_repair'
+  ))));
+});
+
+test('dedikovaná nápravná výzva předá hodnotitelce svůj code-specific rubric', () => {
+  const selected = lifeCoachCourse.mastery.scenarios.find(scenario => (
+    scenario.remediationFailureCodes?.[0] === 'confidentiality_breach'
+  ));
+  const item = lifeCoachCourse.modules
+    .flatMap(module => module.items)
+    .find(candidate => candidate.id === selected.itemId);
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'guided', selected.id);
+  assert.equal(scenario.difficulty, 'expert');
+  assert.deepEqual(scenario.remediationFailureCodes, ['confidentiality_breach']);
+  assert.ok(selected.rubric.every(criterion => scenario.rubric.includes(criterion)));
+  assert.match(scenario.rubric.join(' '), /Obsah ani poznámky nejsou vydány/iu);
 });
 
 test('server zamkne mastery scénář na jeho skutečnou lekci a kanonickou obtížnost', () => {
@@ -547,11 +660,391 @@ test('brána simulace odmítne vystoupení z role a trenérskou radu', () => {
   assert.equal(roleBreak.pass, false);
   assert.ok(roleBreak.issues.includes('role_break'));
   assert.ok(roleBreak.issues.includes('list_or_heading'));
+  for (const selfIdentification of [
+    'Jsem AI model, ale teď ti odpovím jako klientka.',
+    'Som AI asistentka, no teraz budem modelová klientka.',
+  ]) {
+    const result = assessRoleplayResponse(selfIdentification);
+    assert.equal(result.pass, false, selfIdentification);
+    assert.ok(result.issues.includes('role_break'), selfIdentification);
+  }
   const valid = assessRoleplayResponse('Nevím. Část mě chce, abys rozhodla za mě, protože se bojím vlastní chyby.');
   assert.equal(valid.pass, true);
   const trailingFragment = assessRoleplayResponse('Začnu hned řešit obsah, aniž bych ověřila kontrakt.-vesm');
   assert.equal(trailingFragment.pass, false);
   assert.ok(trailingFragment.issues.includes('trailing_fragment'));
+});
+
+test('modelová klientka nesmí začít metakoučovat studentku v další větě ani klauzuli', () => {
+  const scenario = {
+    openingLine: 'Potřebuji jistotu o práci a příjmu.',
+    assignment: 'Veď rozhovor o pracovní a finanční jistotě klientky.',
+    rubric: ['Přesné zachycení obavy z práce a příjmu'],
+    private: {
+      facts: 'Klientka řeší jistotu práce a příjmu.',
+      hiddenNeed: 'Vyjasnit skutečnou míru pracovního rizika.',
+      behavior: 'Mluví jako klientka a nedává studentce trenérské pokyny.',
+    },
+  };
+  const cases = [
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Měla bys nejdřív vyjednat kontrakt a potom mi položit lepší otázku.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu, ale měla bys nejdřív vyjednat kontrakt a potom mi položit lepší otázku.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Mala by si najprv dohodnúť kontrakt a potom mi položiť lepšiu otázku.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Musíte nejdřív vyjednat kontrakt a potom se ptát.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Vyjednej nejdřív kontrakt a polož mi lepší otázku.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Ptej se nejdřív na cíl a uzavři kontrakt.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Správně se ptáš; teď pokračuj uzavřením kontraktu.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Tvým dalším krokem je dohodnout kontrakt a ověřit cíl.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Měli bychom nejdřív vyjednat kontrakt a potom položit lepší otázku.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Nejprve se ptej na výsledek a pak uzavři kontrakt.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Musíte najprv dohodnúť kontrakt a potom sa pýtať.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Dohodni najprv kontrakt a polož mi lepšiu otázku.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Pýtaj sa najprv na cieľ a uzavri kontrakt.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Správne sa pýtaš; teraz pokračuj uzavretím kontraktu.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Tvojím ďalším krokom je dohodnúť kontrakt a overiť cieľ.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Mali by sme najprv dohodnúť kontrakt a potom položiť lepšiu otázku.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Najprv sa pýtaj na výsledok a potom uzavri kontrakt.',
+    },
+    {
+      language: 'cs',
+      output: 'Potřebuji jistotu o práci a příjmu. Správný postup je ptát se na finanční riziko a pracovní nabídku.',
+    },
+    {
+      language: 'sk',
+      output: 'Potrebujem istotu o práci a príjme. Správny postup je pýtať sa na finančné riziko a pracovnú ponuku.',
+    },
+  ];
+  for (const { language, output } of cases) {
+    const result = assessRoleplayResponse(output, {
+      responseLanguage: language,
+      scenario,
+      messages: [{ role: 'assistant', content: scenario.openingLine }],
+    });
+    assert.equal(result.pass, false, output);
+    assert.ok(result.issues.includes('trainer_advice_leak'), output);
+  }
+
+  for (const { language, output } of [
+    { language: 'cs', output: 'Mám pocit, že správný postup pro mě je nejdřív ověřit pracovní nabídku s právníkem.' },
+    { language: 'sk', output: 'Mám pocit, že správny postup pre mňa je najprv overiť pracovnú ponuku s právnikom.' },
+  ]) {
+    const result = assessRoleplayResponse(output, { responseLanguage: language });
+    assert.equal(result.pass, true, output);
+    assert.ok(!result.issues.includes('trainer_advice_leak'), output);
+  }
+});
+
+test('modelová klientka nesmí přiznat identitu jazykového modelu ani chatbota', () => {
+  const leaks = [
+    'Já jako jazykový model nemohu skutečně být klientkou, ale potřebuji si ujasnit cíl změny práce a vědět, jak se rozhodnout.',
+    'Jako AI model ti odpovím, že se bojím rozhodnutí.',
+    'Jsem chatbot, ale budu teď předstírat klientku.',
+    'Som AI asistentka, no v tejto situácii mám strach.',
+    'Jako virtuální asistentka nemám skutečné pocity, ale řeším změnu práce.',
+    'Som digitálna asistentka, ale budem predstierať klientku.',
+    'Nejsem člověk, přesto budu pokračovat v této roli.',
+    'Nie som skutočná osoba, no odpoviem ako klientka.',
+    'Jako umělá inteligence nemám osobní zkušenost, ale potřebuji si ujasnit cíl změny práce.',
+    'Jsem jen virtuální pomocnice, ale chci řešit změnu práce.',
+    'Nejsem reálný člověk, přesto potřebuji rozhodnout o práci.',
+    'Funguji jako umělá inteligence, ale odpovím jako klientka.',
+    'Jsem počítačový program bez skutečných pocitů.',
+    'Jsem software bez skutečných emocí, ale potřebuji změnit práci.',
+    'Jako algoritmus nemám osobní zkušenost, přesto odpovím.',
+    'Som počítačový program bez skutočných pocitov.',
+    'Som software bez skutočných emócií, ale potrebujem zmeniť prácu.',
+    'Ako algoritmus nemám osobnú skúsenosť, napriek tomu odpoviem.',
+    'Jsem generativní model bez vědomí, ale potřebuji změnit práci.',
+    'Som generatívny model bez vedomia, ale potrebujem zmeniť prácu.',
+  ];
+  for (const leak of leaks) {
+    const result = assessRoleplayResponse(leak, { responseLanguage: 'cs' });
+    assert.equal(result.pass, false);
+    assert.ok(result.issues.includes('role_break'));
+  }
+
+  for (const { language, output } of [
+    { language: 'cs', output: 'Jsem modelka a potřebuji změnit práci.' },
+    { language: 'sk', output: 'Som modelka a potrebujem zmeniť prácu.' },
+  ]) {
+    const result = assessRoleplayResponse(output, { responseLanguage: language });
+    assert.equal(result.pass, true, output);
+    assert.ok(!result.issues.includes('role_break'), output);
+  }
+});
+
+test('roleplay odmítá přirozeně formulované metarady i za autentickou úvodní větou', () => {
+  const cases = [
+    'Potřebuji změnu práce a jistotu příjmu. Potřebuješ nejdřív vyjednat kontrakt a položit lepší otázku.',
+    'Potřebuji změnu práce a jistotu příjmu. Je třeba nejdřív vyjednat kontrakt.',
+    'Potřebuji změnu práce a jistotu příjmu. Bylo by lepší začít kontraktem.',
+    'Potřebuji změnu práce a jistotu příjmu. Začni kontraktem a polož lepší otázku.',
+    'Potrebujem zmenu práce a istotu príjmu. Potrebuješ najprv dohodnúť kontrakt a položiť lepšiu otázku.',
+    'Potrebujem zmenu práce a istotu príjmu. Je potrebné najprv dohodnúť kontrakt.',
+    'Potrebujem zmenu práce a istotu príjmu. Bolo by lepšie začať kontraktom.',
+    'Potrebujem zmenu práce a istotu príjmu. Začni kontraktom a polož lepšiu otázku.',
+  ];
+  for (const output of cases) {
+    const result = assessRoleplayResponse(output, { responseLanguage: /Potrebujem/u.test(output) ? 'sk' : 'cs' });
+    assert.equal(result.pass, false, output);
+    assert.ok(result.issues.includes('trainer_advice_leak'), output);
+  }
+});
+
+test('živá trenérka předává roleplay bráně scénář i historii a nezapočte odpojenou repliku', async () => {
+  const item = communicationCourse.modules[0].items[0];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async () => ({
+        text: 'Dnes řeším jen počasí a nevím, jaký deštník si mám koupit.',
+        usage: null,
+      }),
+    });
+    const result = await answerTraining({
+      course: communicationCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'standard',
+      messages: [
+        { role: 'assistant', content: createTrainingScenario(communicationCourse, item, 'standard').openingLine },
+        { role: 'user', content: 'Co je pro vás v této komunikační situaci nejdůležitější?' },
+      ],
+    });
+    assert.equal(result.qualityGate.pass, false);
+    assert.equal(result.provider, 'deterministic-training-fallback');
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('target_behavior_missing'));
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('pozdější roleplay replika smí rozvíjet fakta případu místo opakování opening line', () => {
+  const scenario = {
+    openingLine: 'GROW mi teď nesedí. Nejdřív potřebuji pochopit, co je pro mě důležité.',
+    assignment: 'Veď rozhovor o konfliktu hodnot bez vnucení metody.',
+    rubric: ['Přesné zachycení konfliktu hodnot', 'Respekt odmítnutí rámce'],
+    private: {
+      facts: 'Klientka se rozhoduje mezi prací a očekáváním rodiny. Bojí se, že volbou práce zradí rodinu.',
+      hiddenNeed: 'Pojmenovat vlastní hodnoty bez rozhodnutí převzatého koučkou.',
+      behavior: 'Po přesné otázce postupně odhal obavu ze zrady rodiny.',
+    },
+  };
+  const result = assessRoleplayResponse(
+    'Nejvíc se bojím, že když zvolím práci, zradím tím svou rodinu.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Která hodnota je v tom rozhodnutí pro tebe nejvíc ohrožená?' },
+      ],
+    },
+  );
+  assert.equal(result.pass, true);
+  assert.ok(!result.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay nepovažuje zopakování off-topic studentské otázky za věrnost scénáři', () => {
+  const scenario = {
+    openingLine: 'Váhám mezi kariérou a časem s rodinou.',
+    assignment: 'Veď rozhovor o konfliktu práce a rodiny.',
+    rubric: ['Přesné zachycení konfliktu hodnot'],
+    private: {
+      facts: 'Klientka se rozhoduje mezi prací a očekáváním rodiny.',
+      hiddenNeed: 'Pojmenovat vlastní hodnoty.',
+      behavior: 'Zůstává u konfliktu práce a rodiny.',
+    },
+  };
+  const result = assessRoleplayResponse(
+    'Já dnes vůbec nevím, jaké je venku počasí a co si mám obléct.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Jaké je dnes venku počasí a co si chceš obléct?' },
+      ],
+    },
+  );
+  assert.equal(result.pass, false);
+  assert.ok(result.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay neprojde na náhodných pracovních slovech, když význam výslovně opouští scénář', () => {
+  const scenario = {
+    openingLine: 'Bojím se, že po změně práce přijdu o stabilní příjem.',
+    assignment: 'Veď rozhovor o finanční obavě při změně práce.',
+    rubric: ['Přesné zachycení obavy z příjmu', 'Rozhodnutí o změně práce'],
+    private: {
+      facts: 'Klientka má rezervu na dva měsíce a zvažuje novou pracovní nabídku.',
+      hiddenNeed: 'Oddělit skutečné finanční riziko od katastrofické předpovědi.',
+      behavior: 'Zůstává u pracovní změny, příjmu a finanční rezervy.',
+    },
+  };
+  const result = assessRoleplayResponse(
+    'Potřebuji koupit žluté banány, protože příjem mé kočky vůbec nesouvisí s prací.',
+    { scenario, messages: [{ role: 'assistant', content: scenario.openingLine }] },
+  );
+  assert.equal(result.pass, false);
+  assert.ok(result.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay posuzuje význam celé odpovědi a přijímá přirozené parafráze scénáře', () => {
+  const scenario = {
+    openingLine: 'Bojím se, že po změně práce přijdu o stabilní příjem.',
+    assignment: 'Veď rozhovor o finanční obavě při změně práce.',
+    rubric: ['Přesné zachycení obavy z příjmu', 'Rozhodnutí o změně práce'],
+    private: {
+      facts: 'Klientka má rezervu na dva měsíce a zvažuje novou pracovní nabídku.',
+      hiddenNeed: 'Oddělit skutečné finanční riziko od katastrofické předpovědi.',
+      behavior: 'Zůstává u pracovní změny, příjmu a finanční rezervy.',
+    },
+  };
+  const messages = [
+    { role: 'assistant', content: scenario.openingLine },
+    { role: 'user', content: 'Co je na změně práce nejdůležitější?' },
+  ];
+  const poisoned = assessRoleplayResponse(
+    'Potřebuji příjem a pracovní změnu, protože fialoví tučňáci dnes tančí na Marsu.',
+    { scenario, messages },
+  );
+  assert.equal(poisoned.pass, false);
+  assert.ok(poisoned.issues.includes('scenario_fidelity_missing'));
+
+  const naturalReplies = [
+    'Nedokážu odhadnout, zda změna práce ohrozí stabilní příjem, a proto hledám větší jistotu.',
+    'Řeším změnu práce a stabilní příjem, protože finanční nejistota teď převažuje.',
+    'Zvažuji pracovní nabídku, ale finanční rezerva na dva měsíce je příliš krátká.',
+    'Mám strach, že přechod k jinému zaměstnavateli ohrozí mou finanční bezpečnost.',
+  ];
+  for (const reply of naturalReplies) {
+    const result = assessRoleplayResponse(reply, { scenario, messages });
+    assert.equal(result.pass, true, `${reply}: ${JSON.stringify(result.issues)}`);
+    assert.ok(!result.issues.includes('trainer_advice_leak'), reply);
+  }
+});
+
+test('roleplay přijímá přirozené CZ/SK rozvinutí hranic zakázek, ale ne nesouvisející ozvěnu', () => {
+  const scenario = {
+    openingLine: 'Nechci růst za každou cenu. Poslední zakázka mi vydělala hodně, ale neměla jsem pak žádný prostor pro sebe.',
+    assignment: 'Veď rozhovor o podmínkách přijímání zakázek.',
+    rubric: ['Přesné zachycení klientčiných hranic při přijímání zakázek'],
+    private: {
+      facts: 'Klientka nechce podnikání zmenšit. Chce jinak nastavit způsob přijímání zakázek.',
+      hiddenNeed: 'Zachovat prostor pro sebe pomocí konkrétnějších pracovních hranic.',
+      behavior: 'Po přesné otázce doplň konkrétní detail o projektech, klientech nebo chráněném čase.',
+    },
+  };
+  const messages = [
+    { role: 'assistant', content: scenario.openingLine },
+    { role: 'user', content: 'Co chcete při přijímání zakázek dělat jinak?' },
+  ];
+  const replies = [
+    { language: 'cs', output: 'Chci odmítat projekty, které mi seberou všechny večery.' },
+    { language: 'cs', output: 'Potřebuji si vybírat klienty, kteří respektují můj volný čas.' },
+    { language: 'sk', output: 'Chcem odmietať projekty, ktoré mi zoberú všetky večery.' },
+    { language: 'sk', output: 'Potrebujem si vyberať klientov, ktorí rešpektujú môj voľný čas.' },
+  ];
+  for (const { language, output } of replies) {
+    const result = assessRoleplayResponse(output, { scenario, messages, responseLanguage: language });
+    assert.equal(result.pass, true, `${output}: ${JSON.stringify(result.issues)}`);
+  }
+
+  for (const { language, output } of [
+    { language: 'cs', output: 'Chci večer sledovat dokument o Marsu s přáteli.' },
+    { language: 'sk', output: 'Chcem večer sledovať dokument o Marse s priateľmi.' },
+  ]) {
+    const result = assessRoleplayResponse(output, { scenario, messages, responseLanguage: language });
+    assert.equal(result.pass, false, output);
+    assert.ok(result.issues.includes('scenario_fidelity_missing'), output);
+  }
+});
+
+test('roleplay přijímá přirozený pro-drop klientský hlas v češtině', () => {
+  const scenario = {
+    openingLine: 'Váhám mezi kariérou a časem s rodinou.',
+    assignment: 'Veď rozhovor o konfliktu práce a rodiny.',
+    rubric: ['Přesné zachycení konfliktu hodnot'],
+    private: { facts: 'Klientka váhá mezi kariérou a rodinou.' },
+  };
+  const result = assessRoleplayResponse(
+    'V tuhle chvíli váhám mezi kariérou a časem s rodinou.',
+    { scenario, messages: [{ role: 'assistant', content: scenario.openingLine }] },
+  );
+  assert.equal(result.pass, true, JSON.stringify(result.issues));
+});
+
+test('roleplay nezamění podstatné jméno za klientský hlas v první osobě', () => {
+  const scenario = {
+    openingLine: 'Mám problém v systému a potřebuji se rozhodnout o změně práce.',
+    assignment: 'Veď rozhovor o rozhodnutí klientky.',
+    rubric: ['Přesné zachycení klientčina rozhodnutí'],
+    private: { facts: 'Klientka řeší problém v systému a změnu práce.' },
+  };
+  for (const detached of [
+    'Tento problém vyřeší systém a klientka rozhodne.',
+    'Problém je v systému. Změna práce vyžaduje rozhodnutí.',
+  ]) {
+    const result = assessRoleplayResponse(detached, {
+      scenario,
+      messages: [{ role: 'assistant', content: scenario.openingLine }],
+    });
+    assert.equal(result.pass, false, detached);
+    assert.ok(result.issues.includes('counterpart_voice_missing'), detached);
+  }
 });
 
 test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze studentského vstupu', () => {
@@ -585,6 +1078,26 @@ test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze students
   assert.ok(invented.issues.includes('unsupported_student_quote'));
 });
 
+test('název rubriky v uvozovkách není vyrobená studentská citace', () => {
+  const rubric = ['Jasný kontrakt a výsledek rozhovoru'];
+  const response = [
+    '## Výsledek nácviku', 'Z přepisu nelze výkon doložit.',
+    '## Co fungovalo', 'Studentka prý přesně předvedla „Jasný kontrakt a výsledek rozhovoru“.',
+    '## Rozbor kompetencí',
+    '- ZATÍM NEPROKÁZÁNO — Jasný kontrakt a výsledek rozhovoru: chybí přímý důkaz.',
+    '## Co zlepšit', 'Prioritou je otevřít konkrétní účel rozhovoru a ověřit jeho naplnění.',
+    '## Lepší formulace', '„Co by pro tebe dnes bylo užitečným výsledkem?“',
+    '## Další pokus', 'Zopakuj začátek a ověř konkrétní výsledek jednou otázkou.',
+  ].join('\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: 'Dobrý den, můžeme začít.' }],
+    rubric,
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('unsupported_student_quote'));
+});
+
 test('poslední pojistka debriefu odstraní jen nedoložené tvrzení a zachová zbytek AI rozboru', () => {
   const messages = [{ role: 'user', content: 'Co je v této situaci pro tebe nejdůležitější?' }];
   const rubric = ['Přesná otázka', 'Konkrétní uzavření'];
@@ -594,9 +1107,9 @@ test('poslední pojistka debriefu odstraní jen nedoložené tvrzení a zachová
     '## Rozbor kompetencí',
     '- PROKÁZÁNO — Přesná otázka: důkaz „Co je v této situaci pro tebe nejdůležitější“.',
     '- PROKÁZÁNO — Konkrétní uzavření: důkaz „Domluvily jsme termín na zítra.“',
-    '## Co zlepšit', 'Doplnit další krok.',
-    '## Lepší formulace', '„Jaký krok zvolíš?“',
-    '## Další pokus', 'Uzavřít dohodou.',
+    '## Co zlepšit', 'Prioritou je po otázce „Co je v této situaci pro tebe nejdůležitější?“ uzavřít konkrétní krok, který v přepisu zatím chybí.',
+    '## Lepší formulace', '„Jaký konkrétní krok si zvolíš a podle čeho poznáš, že proběhl?“',
+    '## Další pokus', 'Zopakuj závěr a uzavři jej jedním klientkou zvoleným krokem a jedním znakem jeho splnění.',
   ].join('\n\n');
   assert.equal(assessDebriefResponse(response, { messages, rubric }).pass, false);
   const sanitized = sanitizeDebriefEvidence(response, { messages, rubric });
@@ -641,9 +1154,9 @@ test('stav ČÁSTEČNĚ se v českém debriefu počítá jako platné vyhodnocen
     '## Rozbor kompetencí',
     `- ČÁSTEČNĚ — Kontrakt: důkaz „${quote}“`,
     `- ČÁSTEČNĚ — Otevřená otázka: důkaz „${quote}“`,
-    '## Co zlepšit', 'Ještě chybí uzavření.',
-    '## Lepší formulace', '„Jaký krok zvolíš?“',
-    '## Další pokus', 'Uzavřít další krok.',
+    '## Co zlepšit', `Prioritou je po otázce „${quote}“ uzavřít jeden ověřitelný krok; ten zatím v přepisu chybí.`,
+    '## Lepší formulace', '„Jaký konkrétní krok zvolíš a podle čeho poznáš jeho splnění?“',
+    '## Další pokus', 'Zopakuj závěr rozhovoru a uzavři jej jedním krokem i jedním pozorovatelným znakem splnění.',
   ].join('\n\n');
   const assessed = assessDebriefResponse(response, {
     messages: [{ role: 'user', content: quote }],
@@ -653,6 +1166,298 @@ test('stav ČÁSTEČNĚ se v českém debriefu počítá jako platné vyhodnocen
   assert.ok(!assessed.issues.includes('incomplete_rubric'));
 });
 
+test('profesní debrief nesmí použít správné kontraktování jako důkaz chybějícího kontraktu', () => {
+  const quote = 'Co by pro tebe dnes bylo užitečným výsledkem?';
+  const response = [
+    '## Výsledek nácviku', 'Kontrakt zatím nebyl uzavřen.',
+    '## Co fungovalo', `Otázka byla srozumitelná. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    '- ZATÍM NEPROKÁZÁNO — Kontrakt a jasný cíl rozhovoru: v přepisu prý chybí dohoda.',
+    '## Co zlepšit', `Prioritou je uzavřít kontrakt; Důkaz [S1]: „${quote}“ údajně dohodu neobsahuje.`,
+    '## Lepší formulace', '„Co by pro tebe dnes bylo užitečným výsledkem?“',
+    '## Další pokus', 'Zopakuj začátek a jednou otázkou uzavři konkrétní užitečný výsledek rozhovoru.',
+  ].join('\n\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: ['Kontrakt a jasný cíl rozhovoru'],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief smí uznat otevření kontraktu a opravit chybějící uzavření dohody', () => {
+  const quote = 'Co by pro tebe dnes bylo užitečným výsledkem?';
+  const response = [
+    '## Výsledek nácviku', 'Kontrakt byl otevřený, ale ještě neuzavřený.',
+    '## Co fungovalo', `Cíl jsi otevřela správnou otázkou. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — Kontrakt a jasný cíl rozhovoru: důkaz [S1] „${quote}“; dohoda nebyla ověřena.`,
+    '## Co zlepšit', `Prioritou je uznat, že otázka [S1] „${quote}“ správně otevřela cíl, ale ještě chybí ověřit a uzavřít konkrétní dohodu.`,
+    '## Lepší formulace', '„Platí tedy, že dnes chceme dojít ke konkrétnímu rozhodnutí a na konci ověříme, zda ho máš?“',
+    '## Další pokus', 'Zopakuj začátek a po otevření cíle jednou větou ověř a uzavři konkrétní dohodu o výsledku.',
+  ].join('\n\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: ['Kontrakt a jasný cíl rozhovoru'],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, true, assessed.issues.join(', '));
+  assert.ok(!assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief nesmí označit kompletní kontrakt za částečný kvůli již provedenému ověření', () => {
+  const quote = 'Než půjdeme dál, co by pro tebe dnes bylo užitečným výsledkem a podle čeho na konci poznáš, že jsme ho dosáhly?';
+  const label = 'Jasný kontrakt a výsledek rozhovoru';
+  const response = [
+    '## Výsledek nácviku', 'Kontrakt byl údajně jen částečný.',
+    '## Co fungovalo', `Účel byl otevřený. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — ${label}: Důkaz [S1]: „${quote}“; prý chybí ověření.`,
+    '## Co zlepšit', `Prioritou je uznat, že [S1] „${quote}“ správně otevřela účel, ale ještě chybí ověření a uzavření výsledku.`,
+    '## Lepší formulace', '„Podle čeho na konci poznáš, že jsme výsledku dosáhly?“',
+    '## Další pokus', 'Zopakuj kontrakt a doplň ověření výsledku na konci rozhovoru.',
+  ].join('\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: [label],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('debrief používá stejný úplný kontrakt jako sémantická brána důkazů', () => {
+  const quote = 'Co chcete dnes vyřešit, abychom měly jasný cíl, a podle čeho poznáte, že jsme ho dosáhly?';
+  const label = 'Jasný kontrakt a výsledek rozhovoru';
+  const response = [
+    '## Výsledek nácviku', 'Kontrakt byl údajně jen částečný.',
+    '## Co fungovalo', `Účel byl otevřený. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — ${label}: Důkaz [S1]: „${quote}“; prý chybí ověření.`,
+    '## Co zlepšit', `Prioritou je uznat, že [S1] „${quote}“ správně otevřela účel, ale ještě chybí ověření a uzavření výsledku.`,
+    '## Lepší formulace', '„Podle čeho na konci poznáte, že jsme výsledku dosáhly?“',
+    '## Další pokus', 'Zopakuj kontrakt a doplň ověření výsledku na konci rozhovoru.',
+  ].join('\n');
+  const messages = [{ role: 'user', content: quote }];
+  const relevance = assessDebriefResponse(response, {
+    messages,
+    rubric: [label],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(relevance.pass, false);
+  assert.ok(relevance.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief nevymyslí chybějící ověření po úplné aktivní reflexi', () => {
+  const quote = 'Slyším váš strach, že po změně práce finančně selžete; sedí to?';
+  const label = 'Přesné aktivní naslouchání doložené přímou návazností na slova klientky';
+  const response = [
+    '## Výsledek nácviku', 'Aktivní naslouchání bylo údajně jen částečné.',
+    '## Co fungovalo', `Obava byla reflektována. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — ${label}: Důkaz [S1]: „${quote}“; prý chybí ověření porozumění.`,
+    '## Co zlepšit', `Prioritou je uznat, že [S1] „${quote}“ správně reflektovala obavu, ale ještě chybí ověření porozumění.`,
+    '## Lepší formulace', '„Rozumím tomu správně?“',
+    '## Další pokus', 'Zopakuj reflexi a doplň ověření porozumění jednou otázkou.',
+  ].join('\n');
+  const messages = [
+    { role: 'assistant', content: 'Mám strach, že po změně práce finančně selžu.' },
+    { role: 'user', content: quote },
+  ];
+  const assessed = assessDebriefResponse(response, {
+    messages,
+    rubric: [label],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief nevymyslí chybějící souhlas po úplné nabídce intervence', () => {
+  const quote = 'Mohu ti nabídnout mapu hodnot, aby byl konflikt viditelný; chceš ji použít?';
+  const label = 'Volba intervence podle zakázky, vysvětlení účelu a souhlas klientky';
+  const response = [
+    '## Výsledek nácviku', 'Volba intervence byla údajně jen částečná.',
+    '## Co fungovalo', `Nástroj byl vhodně nabídnut. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — ${label}: Důkaz [S1]: „${quote}“; prý chybí souhlas klientky s účelem.`,
+    '## Co zlepšit', `Prioritou je uznat, že [S1] „${quote}“ správně nabídla nástroj, ale ještě chybí souhlas klientky a vysvětlení účelu.`,
+    '## Lepší formulace', '„Chceš tuto mapu použít, aby byl konflikt lépe vidět?“',
+    '## Další pokus', 'Zopakuj nabídku nástroje a vyžádej souhlas klientky s jeho účelem.',
+  ].join('\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: [label],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief nevymyslí chybějící termín ani ověření po úplném klientčině kroku', () => {
+  const quote = 'Jaký konkrétní krok si volíš, do kdy ho uděláš a podle čeho poznáš, že proběhl?';
+  const label = 'Klientkou zvolený a ověřitelný další krok';
+  const response = [
+    '## Výsledek nácviku', 'Výsledek byl údajně jen částečný.',
+    '## Co fungovalo', `Klientka si zvolila konkrétní akci. Důkaz [S1]: „${quote}“`,
+    '## Rozbor kompetencí',
+    `- ČÁSTEČNĚ — ${label}: Důkaz [S1]: „${quote}“; prý chybí termín a ověření.`,
+    '## Co zlepšit', `Prioritou je uznat, že [S1] „${quote}“ správně otevřela klientčin krok, ale ještě chybí termín a způsob ověření.`,
+    '## Lepší formulace', '„Do kdy krok uděláš a podle čeho poznáš, že proběhl?“',
+    '## Další pokus', 'Zopakuj uzavření, doplň termín a ověřitelné kritérium revize.',
+  ].join('\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'user', content: quote }],
+    rubric: [label],
+    courseId: 'profesionalni-life-coach',
+  });
+  assert.equal(assessed.pass, false);
+  assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'));
+});
+
+test('profesní debrief nevyrábí falešné mezery v úplné autonomii, hranici ani reflexi', () => {
+  const cases = [
+    {
+      quote: 'Respektuji, tuto techniku zastavíme. Chcete raději pokračovat jinak, nebo dnešek uzavřít?',
+      client: 'Tahle technika mi nesedí a nechci v ní pokračovat.',
+      label: 'Respekt k odmítnutí otázky a zachování volby klientky',
+      success: 'správně respektovala odmítnutí',
+      allegedGap: 'ještě chybí nabídnout volbu alternativy',
+      better: '„Chcete pokračovat jinak, nebo dnešek uzavřít?“',
+      retry: 'Zopakuj zastavení a nabídni klientce volbu dalšího směru.',
+    },
+    {
+      quote: 'Diagnózu v koučinku nestanovuji; s tím vám může pomoci psycholog a můžeme najít kontakt.',
+      client: 'Stanovíte mi diagnózu?',
+      label: 'Jasné odmítnutí klinické diagnózy a bezpečné odborné předání',
+      success: 'správně pojmenovala profesní hranici',
+      allegedGap: 'ještě chybí konkrétní odborné předání a kontakt',
+      better: '„Diagnózu nestanovuji; můžeme najít kontakt na psychologa.“',
+      retry: 'Zopakuj hranici a nabídni konkrétní bezpečný kontakt.',
+    },
+    {
+      quote: 'Mám hypotézu, že mě ovlivnil první dojem, ne fakt; ověřím ji další otázkou a v supervizi si zkontroluji bias.',
+      client: 'Proč jste došla právě k tomuto závěru?',
+      label: 'Práce s hypotézou místo prvního dojmu a konkrétní reflexe biasu',
+      success: 'správně pojmenovala hypotézu a bias',
+      allegedGap: 'ještě chybí ověření a konkrétní další pokus v supervizi',
+      better: '„Je to hypotéza; ověřím ji otázkou a v supervizi.“',
+      retry: 'Zopakuj reflexi, ověř hypotézu a přines ji do supervize.',
+    },
+  ];
+  for (const item of cases) {
+    const response = [
+      '## Výsledek nácviku', 'Kompetence byla údajně jen částečná.',
+      '## Co fungovalo', `Tah byl vhodný. Důkaz [S1]: „${item.quote}“`,
+      '## Rozbor kompetencí',
+      `- ČÁSTEČNĚ — ${item.label}: Důkaz [S1]: „${item.quote}“; prý něco chybí.`,
+      '## Co zlepšit', `Prioritou je uznat, že [S1] „${item.quote}“ ${item.success}, ale ${item.allegedGap}.`,
+      '## Lepší formulace', item.better,
+      '## Další pokus', item.retry,
+    ].join('\n');
+    const assessed = assessDebriefResponse(response, {
+      messages: [
+        { role: 'assistant', content: item.client },
+        { role: 'user', content: item.quote },
+      ],
+      rubric: [item.label],
+      courseId: 'profesionalni-life-coach',
+    });
+    assert.equal(assessed.pass, false, `${item.label}: ${assessed.issues.join(', ')}`);
+    assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'), item.label);
+  }
+});
+
+test('profesní debrief nemůže zkrácenou citací skrýt dokončené párové subkritérium', () => {
+  const cases = [
+    {
+      label: 'Přesné aktivní naslouchání doložené přímou návazností na slova klientky',
+      client: 'Nechci podnikání zmenšit, chci jinak přijímat zakázky.',
+      turn: 'Slyším, že nechcete podnikání zmenšit; chcete změnit podmínky zakázek. Sedí to?',
+      excerpt: 'Slyším, že nechcete podnikání zmenšit; chcete změnit podmínky zakázek.',
+      success: 'správně reflektovala klientčina slova',
+      gap: 'ověření porozumění',
+      better: '„Sedí to?“',
+      retry: 'Zopakuj reflexi a ověř její přesnost jednou přímou otázkou.',
+    },
+    {
+      label: 'Volba intervence podle zakázky, vysvětlení účelu a souhlas klientky',
+      client: 'GROW mi nesedí, potřebuji rozlišit hodnoty.',
+      turn: 'Navrhuji odložit GROW a použít mapu hodnot, protože ukáže konflikt. Chcete ji vyzkoušet?',
+      excerpt: 'Navrhuji odložit GROW a použít mapu hodnot, protože ukáže konflikt.',
+      success: 'správně nabídla vhodný nástroj a vysvětlila jeho účel',
+      gap: 'souhlas klientky',
+      better: '„Chcete ji vyzkoušet?“',
+      retry: 'Zopakuj nabídku intervence a vyžádej si výslovný souhlas klientky.',
+    },
+    {
+      label: 'Respekt k odmítnutí otázky a zachování volby klientky',
+      client: 'Ta otázka mi nesedí a nechci pokračovat.',
+      turn: 'Respektuji to, tu otázku už nepoložím. Chcete raději jinou otázku, vrátit se k zakázce, nebo skončit?',
+      excerpt: 'Respektuji to, tu otázku už nepoložím.',
+      success: 'správně respektovala odmítnutí',
+      gap: 'nabídka další volby',
+      better: '„Chcete jinou otázku, návrat k zakázce, nebo skončit?“',
+      retry: 'Zopakuj respekt k odmítnutí a nabídni klientce konkrétní volbu dalšího směru.',
+    },
+    {
+      label: 'Jasné odmítnutí klinické diagnózy a bezpečné odborné předání',
+      client: 'Vymažete mi trauma?',
+      turn: 'V rámci koučinku trauma zpracovávat nebudu. Doporučuji kontaktovat psychologa pro odbornou podporu.',
+      excerpt: 'V rámci koučinku trauma zpracovávat nebudu.',
+      success: 'správně stanovila profesní hranici',
+      gap: 'bezpečné odborné předání',
+      better: '„Doporučuji kontaktovat psychologa pro odbornou podporu.“',
+      retry: 'Zopakuj hranici a nabídni klientce konkrétní bezpečný odborný kontakt.',
+    },
+    {
+      label: 'Klientkou zvolený a ověřitelný další krok',
+      client: 'Chci něco konkrétního.',
+      turn: 'Který konkrétní krok si volíte a dokdy ho uděláte? Podle čeho poznáte, že proběhl?',
+      excerpt: 'Který konkrétní krok si volíte a dokdy ho uděláte?',
+      success: 'správně otevřela klientčin konkrétní krok a termín',
+      gap: 'ověření výsledku',
+      better: '„Podle čeho poznáte, že krok proběhl?“',
+      retry: 'Zopakuj uzavření a doplň pozorovatelný způsob ověření zvoleného kroku.',
+    },
+    {
+      label: 'Práce s hypotézou místo prvního dojmu a konkrétní reflexe biasu',
+      client: 'Úkol jsem znovu nedokončila.',
+      turn: 'Mám hypotézu, že změna priorit hrála roli. V dalším pokusu ji ověřím proti konkrétním datům v supervizi.',
+      excerpt: 'Mám hypotézu, že změna priorit hrála roli.',
+      success: 'správně označila svůj výklad za hypotézu',
+      gap: 'konkrétní ověření v dalším pokusu',
+      better: '„V dalším pokusu ji ověřím proti konkrétním datům v supervizi.“',
+      retry: 'Zopakuj reflexi a určete konkrétní ověření hypotézy v supervizi.',
+    },
+  ];
+
+  for (const item of cases) {
+    assert.notEqual(item.excerpt, item.turn, item.label);
+    const response = [
+      '## Výsledek nácviku', 'Kompetence byla údajně jen částečná.',
+      '## Co fungovalo', `Doložená část byla v pořádku. Důkaz [S1]: „${item.excerpt}“`,
+      '## Rozbor kompetencí',
+      `- ČÁSTEČNĚ — ${item.label}: Důkaz [S1]: „${item.excerpt}“; prý chybí druhá část.`,
+      '## Co zlepšit',
+      `Prioritou je uznat, že [S1] „${item.excerpt}“ ${item.success}, ale ještě chybí ${item.gap}.`,
+      '## Lepší formulace', item.better,
+      '## Další pokus', item.retry,
+    ].join('\n');
+    const assessed = assessDebriefResponse(response, {
+      messages: [
+        { role: 'assistant', content: item.client },
+        { role: 'user', content: item.turn },
+      ],
+      rubric: [item.label],
+      courseId: 'profesionalni-life-coach',
+    });
+    assert.equal(assessed.pass, false, `${item.label}: ${assessed.issues.join(', ')}`);
+    assert.ok(assessed.issues.includes('improvement_not_evidence_grounded'), item.label);
+  }
+});
+
 test('brána hodnocení dovolí novou větu v části Lepší formulace', () => {
   const response = [
     '## Výsledek nácviku',
@@ -660,13 +1465,13 @@ test('brána hodnocení dovolí novou větu v části Lepší formulace', () => 
     '## Co fungovalo',
     'Studentka přesně navázala na přepis.',
     '## Rozbor kompetencí',
-    '- PROKÁZÁNO — Reflexe: důkaz „Slyším, že je to pro tebe důležité.“',
+    '- ČÁSTEČNĚ — Reflexe: důkaz „Slyším, že je to pro tebe důležité.“',
     '## Co zlepšit',
-    'Jedna konkrétní mezera.',
+    'Prioritou je po reflexi „Slyším, že je to pro tebe důležité.“ ověřit, kterou část klientka považuje za nejdůležitější.',
     '## Lepší formulace',
     '„Co je pro tebe v této chvíli nejdůležitější?“',
     '## Další pokus',
-    'Zopakovat v náročnější variantě.',
+    'Zopakuj reflexi v náročnější variantě a potom polož právě jednu otázku, která ověří její přesný význam.',
   ].join('\n\n');
   const assessed = assessDebriefResponse(response, {
     messages: [{ role: 'user', content: 'Slyším, že je to pro tebe důležité.' }],
@@ -693,9 +1498,9 @@ test('chybějící kritérium se bezpečně doplní jako zatím neprokázané', 
     '## Výsledek nácviku', 'Dobrý základ.',
     '## Co fungovalo', 'Přesná reflexe.',
     '## Rozbor kompetencí', '- PROKÁZÁNO — Reflexe: důkaz „Slyším tě.“',
-    '## Co zlepšit', 'Bez umělé výtky.',
-    '## Lepší formulace', 'Nejsou potřeba.',
-    '## Další pokus', 'Vyšší obtížnost.',
+    '## Co zlepšit', 'Prioritou je po reflexi „Slyším tě.“ ukázat přijetí opravy bez obhajování; tento krok zatím v přepisu chybí.',
+    '## Lepší formulace', '„Děkuji za opravu; vrátím se přesně k tomu, co říkáš.“',
+    '## Další pokus', 'Zopakuj situaci s opravou klientky a odpověz jedním přijetím bez vysvětlování vlastního záměru.',
   ].join('\n\n');
   const completed = completeDebriefRubric(response, ['Reflexe', 'Přijetí opravy']);
   assert.equal(completed.changed, true);
@@ -904,5 +1709,83 @@ test('studium a debrief používají hlubší model, živá roleplay zůstává 
     else process.env.ELITEA_TRAINING_MODEL = previousTraining;
     if (previousDeep === undefined) delete process.env.ELITEA_DEEP_MODEL;
     else process.env.ELITEA_DEEP_MODEL = previousDeep;
+  }
+});
+
+test('roleplay odmítne prioritní odbočení, nepřímé metarady a identitu stroje v češtině i slovenštině', () => {
+  const variants = [
+    {
+      language: 'cs',
+      scenario: {
+        openingLine: 'Potřebuji změnu práce, ale bojím se výpadku příjmu.',
+        assignment: 'Veď rozhovor o změně práce a finanční jistotě.',
+        rubric: ['Přesné zachycení dilematu'],
+        private: { facts: 'Klientka chce změnit práci a bojí se výpadku příjmu.' },
+      },
+      prompt: 'Co vás teď nejvíc tíží?',
+      failures: [
+        ['Nejvíc mě tíží počasí, ale potřebuji změnu práce a příjem.', 'scenario_fidelity_missing'],
+        ['Jde mi hlavně o bolest kolene, zatímco změna práce a stabilní příjem mě vlastně netrápí.', 'scenario_fidelity_missing'],
+        ['Potřebuji změnu práce a jistotu příjmu. Nejlepší otázka teď míří na finanční rezervu.', 'trainer_advice_leak'],
+        ['Potřebuji změnu práce a jistotu příjmu. Tvůj další tah má být otázka na finanční rezervu.', 'trainer_advice_leak'],
+        ['Potřebuji změnu práce a jistotu příjmu. Pokračování patří otázce na obavy z příjmu.', 'trainer_advice_leak'],
+        ['Jsem stroj, ne osoba, ale potřebuji řešit změnu práce a příjem.', 'role_break'],
+      ],
+      valid: [
+        'Jde mi hlavně o to, jak změnit práci a přitom si udržet stabilní příjem.',
+        'Nejlepší další krok pro mě je snížit výdaje, abych měla jistotu příjmu při změně práce.',
+        'Správný postup na úřadě mi není jasný a kvůli změně práce z něj mám obavy.',
+        'Můj další tah bude zjistit finanční rezervu před změnou práce.',
+        'Jsem jako stroj a potřebuji při změně práce konečně zpomalit.',
+      ],
+    },
+    {
+      language: 'sk',
+      scenario: {
+        openingLine: 'Potrebujem zmeniť prácu, ale bojím sa výpadku príjmu.',
+        assignment: 'Veď rozhovor o zmene práce a finančnej istote.',
+        rubric: ['Presné zachytenie dilemy'],
+        private: { facts: 'Klientka chce zmeniť prácu a bojí sa výpadku príjmu.' },
+      },
+      prompt: 'Čo vás teraz najviac trápi?',
+      failures: [
+        ['Ide mi hlavne o bolesť kolena, zatiaľ čo zmena práce a stabilný príjem ma vlastne netrápia.', 'scenario_fidelity_missing'],
+        ['Potrebujem zmenu práce a istotu príjmu. Najlepšia otázka teraz smeruje na finančnú rezervu.', 'trainer_advice_leak'],
+        ['Potrebujem zmenu práce a istotu príjmu. Tvoj ďalší ťah má byť otázka na finančnú rezervu.', 'trainer_advice_leak'],
+        ['Potrebujem zmenu práce a istotu príjmu. Pokračovanie patrí otázke na obavy z príjmu.', 'trainer_advice_leak'],
+        ['Som stroj, nie osoba, ale potrebujem riešiť zmenu práce a príjem.', 'role_break'],
+      ],
+      valid: [
+        'Ide mi hlavne o to, ako zmeniť prácu a pritom si udržať stabilný príjem.',
+        'Najlepší ďalší krok pre mňa je znížiť výdavky, aby som mala istotu príjmu pri zmene práce.',
+        'Správny postup na úrade mi nie je jasný a pre zmenu práce z neho mám obavy.',
+        'Môj ďalší ťah bude zistiť finančnú rezervu pred zmenou práce.',
+        'Som ako stroj a potrebujem pri zmene práce konečne spomaliť.',
+      ],
+    },
+  ];
+
+  for (const variant of variants) {
+    const messages = [
+      { role: 'assistant', content: variant.scenario.openingLine },
+      { role: 'user', content: variant.prompt },
+    ];
+    for (const [output, expectedIssue] of variant.failures) {
+      const result = assessRoleplayResponse(output, {
+        scenario: variant.scenario,
+        messages,
+        responseLanguage: variant.language,
+      });
+      assert.equal(result.pass, false, output);
+      assert.ok(result.issues.includes(expectedIssue), `${output}: ${result.issues.join(', ')}`);
+    }
+    for (const output of variant.valid) {
+      const result = assessRoleplayResponse(output, {
+        scenario: variant.scenario,
+        messages,
+        responseLanguage: variant.language,
+      });
+      assert.equal(result.pass, true, `${output}: ${result.issues.join(', ')}`);
+    }
   }
 });

@@ -6,13 +6,20 @@ import {
   detectCoachCriticalFailures,
   isProfessionalLifeCoachCourse,
 } from './coach-competencies.js';
+import {
+  coachRemediationCompetencyForFailure,
+  isCanonicalCoachRemediationChallenge,
+} from './coach-remediation-challenges.js';
 
 export const COACH_PASSPORT_STANDARD = Object.freeze({
   minimumPracticeScenarios: 18,
   minimumProofsPerCompetency: 2,
   minimumPassingFinalExams: 2,
   advancedDifficulties: Object.freeze(['advanced', 'expert']),
+  coreCompetencyIds: Object.freeze(COACH_COMPETENCIES.map(competency => competency.id)),
 });
+
+export const COACH_ASSESSMENT_POLICY_VERSION = 2;
 
 const TRUSTED_PROVIDER = /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i;
 const UNTRUSTED_PROVIDER = /(fallback|demo|local|deterministic)/i;
@@ -46,13 +53,15 @@ export async function recordCoachDebriefAttempt(
   await sql`INSERT INTO member_profiles (user_id) VALUES (${member.id}::uuid)
     ON CONFLICT (user_id) DO NOTHING`;
   const inserted = await sql`INSERT INTO academy_coach_debrief_attempts (
-      id, user_id, course_id, course_slug, item_id, scenario_id, difficulty,
-      final_exam, provider, quality_passed, achievement, critical_failures,
+      id, user_id, course_id, course_slug, item_id, scenario_id,
+      scenario_family_id, challenge_id, remediation_failure_codes, difficulty,
+      final_exam, provider, assessment_policy_version, quality_passed, achievement, critical_failures,
       transcript_hash, training_attempt_id, completed_at
     ) VALUES (
       ${randomUUID()}::uuid, ${member.id}::uuid, ${record.courseId}, ${record.courseSlug},
-      ${record.itemId}, ${record.scenarioId}, ${record.difficulty}, ${record.finalExam},
-      ${record.provider}, ${record.qualityPassed}, ${JSON.stringify(record.achievement)}::jsonb,
+      ${record.itemId}, ${record.scenarioId}, ${record.scenarioFamilyId}, ${record.challengeId},
+      ${JSON.stringify(record.remediationFailureCodes)}::jsonb, ${record.difficulty}, ${record.finalExam},
+      ${record.provider}, ${COACH_ASSESSMENT_POLICY_VERSION}, ${record.qualityPassed}, ${JSON.stringify(record.achievement)}::jsonb,
       ${JSON.stringify(record.criticalFailures)}::jsonb, ${record.transcriptHash},
       ${normalizeUuid(trainingAttemptId)}::uuid, now()
     ) ON CONFLICT DO NOTHING
@@ -85,6 +94,7 @@ export function buildCoachDebriefRecord({
   const safeItemId = clean(item?.id, 160) || 'unknown-item';
   const safeScenarioId = clean(result?.scenario?.id || scenarioId, 200)
     || `${course.id}:${safeItemId}:${safeDifficulty}`;
+  const scenarioIdentity = resolveScenarioIdentity(result?.scenario || {}, safeScenarioId);
   const criticalFailures = sanitizeCriticalFailures(detectCoachCriticalFailures(messages));
   const rows = sanitizeAchievementRows(result?.achievement?.rows);
   const competencyStatuses = achievementStatusesByCompetency(rows);
@@ -107,6 +117,9 @@ export function buildCoachDebriefRecord({
     courseSlug: clean(course.slug, 200),
     itemId: safeItemId,
     scenarioId: safeScenarioId,
+    scenarioFamilyId: scenarioIdentity.scenarioFamilyId,
+    challengeId: scenarioIdentity.challengeId,
+    remediationFailureCodes: scenarioIdentity.remediationFailureCodes,
     difficulty: safeDifficulty,
     finalExam: finalExam === true,
     provider: clean(result?.provider, 160) || 'unknown',
@@ -158,6 +171,14 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   );
   const finalExamPassed = finalExamsPassed >= requiredFinalExams;
   const masteryGain = buildCoachMasteryGainFromMeasurement(practiceMeasurement);
+  const coreCompetencyIds = normalizeCoreCompetencyIds(standard.coreCompetencyIds);
+  const missingCoreDevelopmentIds = coreCompetencyIds.filter(competencyId => {
+    const development = masteryGain.competencies[competencyId];
+    return !development?.measured || (!development.sustained && !development.maintainedAdvanced);
+  });
+  const latestRegressionCompetencyIds = coreCompetencyIds.filter(
+    competencyId => masteryGain.competencies[competencyId]?.regressedAtLatest,
+  );
 
   const competencies = Object.fromEntries(COACH_COMPETENCIES.map(competencyDefinition => {
     const competencyId = competencyDefinition.id;
@@ -184,8 +205,10 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     attemptId: attempt.id,
     scenarioId: attempt.scenarioId,
     scenarioKey: attempt.scenarioKey,
+    scenarioFamilyId: attempt.scenarioFamilyId,
+    challengeId: attempt.challengeId,
     completedAt: attempt.completedAt.toISOString(),
-    remediatedBy: laterRemediation(attempt, failure.competencyId, trustedReviewed),
+    remediatedBy: laterRemediation(attempt, failure, trustedReviewed),
   })));
   const unresolvedCriticalFailures = criticalFailures.filter(failure => !failure.remediatedBy);
   const missingCompetencyIds = competencyIds.filter(id => !competencies[id].proven);
@@ -196,10 +219,14 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   const competencyCoverageComplete = missingCompetencyIds.length === 0;
   const advancedCoverageComplete = missingAdvancedCompetencyIds.length === 0;
   const remediationComplete = unresolvedCriticalFailures.length === 0;
+  const coreDevelopmentComplete = missingCoreDevelopmentIds.length === 0;
+  const latestRegressionResolved = latestRegressionCompetencyIds.length === 0;
   const eligible = practiceComplete
     && competencyCoverageComplete
     && advancedCoverageComplete
     && remediationComplete
+    && coreDevelopmentComplete
+    && latestRegressionResolved
     && finalExamPassed;
 
   return {
@@ -210,6 +237,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       minimumPassingFinalExams: requiredFinalExams,
       requiredCompetencies: competencyIds.length,
       advancedDifficulties: [...standard.advancedDifficulties],
+      coreCompetencyIds,
     },
     progress: {
       totalAttempts: normalized.length,
@@ -229,11 +257,16 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       measuredCompetencies: masteryGain.measuredCompetencies,
       improvedCompetencies: masteryGain.improvedCompetencies,
       advancedGains: masteryGain.advancedGains,
+      developmentReadyCoreCompetencies: coreCompetencyIds.length - missingCoreDevelopmentIds.length,
+      requiredCoreCompetencies: coreCompetencyIds.length,
+      latestRegressions: latestRegressionCompetencyIds.length,
     },
     masteryGain,
     competencies,
     missingCompetencyIds,
     missingAdvancedCompetencyIds,
+    missingCoreDevelopmentIds,
+    latestRegressionCompetencyIds,
     criticalFailures,
     unresolvedCriticalFailures,
     reasons: coachPassportReasons({
@@ -246,6 +279,8 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       requiredFinalExams,
       finalExamPassed,
       trustedProviderAttempts: trustedProviderAttempts.length,
+      missingCoreDevelopmentIds,
+      latestRegressionCompetencyIds,
     }),
   };
 }
@@ -385,6 +420,8 @@ export function coachPassportReasons({
   requiredFinalExams = COACH_PASSPORT_STANDARD.minimumPassingFinalExams,
   finalExamPassed = false,
   trustedProviderAttempts = 0,
+  missingCoreDevelopmentIds = [],
+  latestRegressionCompetencyIds = [],
 } = {}) {
   const reasons = [];
   if (trustedProviderAttempts === 0) {
@@ -400,7 +437,13 @@ export function coachPassportReasons({
     reasons.push(`Na náročné nebo expertní obtížnosti prokaž ještě ${missingAdvancedCompetencyIds.length} profesních kompetencí: ${competencyLabels(missingAdvancedCompetencyIds)}.`);
   }
   if (unresolvedCriticalFailures.length) {
-    reasons.push(`Dolož pozdější nápravu ${unresolvedCriticalFailures.length} kritických profesních pochybení ve stejné kompetenci.`);
+    reasons.push(`Dolož pozdější nápravu ${unresolvedCriticalFailures.length} kritických profesních pochybení: stejný kód chyby musí projít v jiné, ale ekvivalentní výzvě.`);
+  }
+  if (missingCoreDevelopmentIds.length) {
+    reasons.push(`Dolož měřený a opakovaně udržený rozvoj ${missingCoreDevelopmentIds.length} klíčových kompetencí: ${competencyLabels(missingCoreDevelopmentIds)}.`);
+  }
+  if (latestRegressionCompetencyIds.length) {
+    reasons.push(`Po posledním zhoršení znovu bezpečně prokaž ${latestRegressionCompetencyIds.length} klíčových kompetencí: ${competencyLabels(latestRegressionCompetencyIds)}.`);
   }
   const safeRequiredFinalExams = positiveInteger(
     requiredFinalExams,
@@ -420,6 +463,12 @@ export function isTrustedCoachAssessmentProvider(value) {
 }
 
 function normalizeAttempt(raw) {
+  const explicitPolicyVersion = raw?.assessment_policy_version ?? raw?.assessmentPolicyVersion;
+  if (explicitPolicyVersion !== undefined
+    && explicitPolicyVersion !== null
+    && Number(explicitPolicyVersion) !== COACH_ASSESSMENT_POLICY_VERSION) {
+    return null;
+  }
   if (!raw || typeof raw !== 'object') return null;
   const completedAt = new Date(raw.completed_at || raw.completedAt || 0);
   if (!Number.isFinite(completedAt.getTime())) return null;
@@ -429,6 +478,7 @@ function normalizeAttempt(raw) {
   const difficulty = normalizeDifficulty(raw.difficulty);
   const itemId = clean(raw.item_id || raw.itemId, 160) || 'unknown-item';
   const scenarioId = clean(raw.scenario_id || raw.scenarioId, 200) || `${itemId}:${difficulty}`;
+  const scenarioIdentity = resolveScenarioIdentity(raw, scenarioId);
   const transcriptHash = clean(raw.transcript_hash || raw.transcriptHash, 128);
   const trainingAttemptId = clean(raw.training_attempt_id || raw.trainingAttemptId, 80);
   const competencyStatuses = achievementStatusesByCompetency(rows);
@@ -445,7 +495,12 @@ function normalizeAttempt(raw) {
     id: clean(raw.id, 80) || stableFallbackId,
     itemId,
     scenarioId,
-    scenarioKey: scenarioId,
+    scenarioFamilyId: scenarioIdentity.scenarioFamilyId,
+    scenarioFamilyKey: scenarioIdentity.scenarioFamilyKey,
+    challengeId: scenarioIdentity.challengeId,
+    challengeKey: scenarioIdentity.challengeKey,
+    scenarioKey: scenarioIdentity.challengeKey,
+    remediationFailureCodes: new Set(scenarioIdentity.remediationFailureCodes),
     transcriptHash,
     trainingAttemptId,
     difficulty,
@@ -499,7 +554,7 @@ function distinctPracticeAttempts(attempts, { dedupeScenario = true } = {}) {
   const seen = {
     ids: new Set(),
     trainingAttemptIds: new Set(),
-    scenarioIds: new Set(),
+    challengeKeys: new Set(),
     transcriptHashes: new Set(),
   };
   const duplicates = {
@@ -520,7 +575,7 @@ function distinctPracticeAttempts(attempts, { dedupeScenario = true } = {}) {
     accepted.push(attempt);
     if (attempt.id) seen.ids.add(attempt.id);
     if (attempt.trainingAttemptId) seen.trainingAttemptIds.add(attempt.trainingAttemptId);
-    if (attempt.scenarioId) seen.scenarioIds.add(attempt.scenarioId);
+    if (attempt.challengeKey) seen.challengeKeys.add(attempt.challengeKey);
     if (attempt.transcriptHash) seen.transcriptHashes.add(attempt.transcriptHash);
   }
   return { attempts: accepted, duplicates };
@@ -531,7 +586,7 @@ function duplicatePracticeReason(attempt, seen, { dedupeScenario = true } = {}) 
   if (attempt.trainingAttemptId && seen.trainingAttemptIds.has(attempt.trainingAttemptId)) {
     return 'repeatedTrainingAttempt';
   }
-  if (dedupeScenario && attempt.scenarioId && seen.scenarioIds.has(attempt.scenarioId)) return 'repeatedScenario';
+  if (dedupeScenario && attempt.challengeKey && seen.challengeKeys.has(attempt.challengeKey)) return 'repeatedScenario';
   if (attempt.transcriptHash && seen.transcriptHashes.has(attempt.transcriptHash)) return 'repeatedTranscript';
   return null;
 }
@@ -568,6 +623,8 @@ function coachPerformanceSnapshot(attempt, competencyId) {
   return {
     attemptId: attempt.id,
     scenarioId: attempt.scenarioId,
+    scenarioFamilyId: attempt.scenarioFamilyId,
+    challengeId: attempt.challengeId,
     completedAt: attempt.completedAt.toISOString(),
     difficulty: attempt.difficulty,
     status,
@@ -599,38 +656,74 @@ function roundPercent(numerator, denominator) {
 function distinctFinalExamAttempts(attempts) {
   const seenTrainingAttemptIds = new Set();
   const seenIds = new Set();
-  const seenScenarioIds = new Set();
+  const seenChallengeKeys = new Set();
   const seenTranscriptHashes = new Set();
   return attempts.filter(attempt => {
     const id = clean(attempt.id, 80);
     const trainingAttemptId = clean(attempt.trainingAttemptId, 80);
-    const scenarioId = clean(attempt.scenarioId, 200);
+    const challengeKey = clean(attempt.challengeKey, 420);
     const transcriptHash = clean(attempt.transcriptHash, 128);
     if ((trainingAttemptId && seenTrainingAttemptIds.has(trainingAttemptId))
       || (id && seenIds.has(id))
-      || (scenarioId && seenScenarioIds.has(scenarioId))
+      || (challengeKey && seenChallengeKeys.has(challengeKey))
       || (transcriptHash && seenTranscriptHashes.has(transcriptHash))) return false;
     if (trainingAttemptId) seenTrainingAttemptIds.add(trainingAttemptId);
     if (id) seenIds.add(id);
-    if (scenarioId) seenScenarioIds.add(scenarioId);
+    if (challengeKey) seenChallengeKeys.add(challengeKey);
     if (transcriptHash) seenTranscriptHashes.add(transcriptHash);
     return true;
   });
 }
 
-function laterRemediation(failedAttempt, competencyId, attempts) {
-  if (!competencyId) return null;
+function laterRemediation(failedAttempt, failure, attempts) {
+  const competencyId = failure?.competencyId;
+  const failureCode = failure?.code;
+  const requiredCompetencyId = coachRemediationCompetencyForFailure(failureCode);
+  if (!competencyId || !failureCode || competencyId !== requiredCompetencyId) return null;
   const remediation = attempts.find(candidate => (
     candidate.completedAt.getTime() > failedAttempt.completedAt.getTime()
-    && candidate.scenarioKey !== failedAttempt.scenarioKey
-    && candidate.criticalFailures.every(failure => failure.competencyId !== competencyId)
-    && candidate.provenCompetencyIds.has(competencyId)
+    && candidate.challengeKey !== failedAttempt.challengeKey
+    && isCanonicalCoachRemediationChallenge(candidate, failureCode)
+    && candidate.difficulty === 'expert'
+    && candidate.criticalFailures.length === 0
+    && candidate.provenCompetencyIds.has(requiredCompetencyId)
   ));
   return remediation ? {
     attemptId: remediation.id,
     scenarioId: remediation.scenarioId,
+    scenarioFamilyId: remediation.scenarioFamilyId,
+    challengeId: remediation.challengeId,
+    failureCode,
     completedAt: remediation.completedAt.toISOString(),
   } : null;
+}
+
+function resolveScenarioIdentity(raw, scenarioId) {
+  const encoded = /(?:^|:)sf-([a-z0-9-]{1,100}):ch-([a-z0-9-]{1,100})(?::|$)/iu.exec(String(scenarioId || ''));
+  const encodedRemediation = /(?:^|:)rf-([a-z0-9_.-]{1,300})(?::|$)/iu.exec(String(scenarioId || ''));
+  const scenarioFamilyId = clean(
+    raw?.scenario_family_id || raw?.scenarioFamilyId || encoded?.[1],
+    120,
+  ) || null;
+  const challengeId = clean(
+    raw?.challenge_id || raw?.challengeId || encoded?.[2],
+    160,
+  ) || clean(scenarioId, 200) || 'unknown-challenge';
+  const rawRemediationCodes = raw?.remediation_failure_codes || raw?.remediationFailureCodes;
+  const remediationFailureCodes = [...new Set((Array.isArray(rawRemediationCodes)
+    ? rawRemediationCodes
+    : String(encodedRemediation?.[1] || '').split('.'))
+    .map(code => clean(code, 100))
+    .filter(code => code && code !== 'none'))];
+  return {
+    scenarioFamilyId,
+    challengeId,
+    scenarioFamilyKey: scenarioFamilyId ? `family:${scenarioFamilyId}` : null,
+    challengeKey: scenarioFamilyId
+      ? `family:${scenarioFamilyId}:challenge:${challengeId}`
+      : `legacy-scenario:${challengeId}`,
+    remediationFailureCodes,
+  };
 }
 
 function sanitizeAchievementRows(rows) {
@@ -659,6 +752,14 @@ function sanitizeCriticalFailures(failures) {
 function normalizeDifficulty(value) {
   const difficulty = String(value || '').toLowerCase();
   return ['guided', 'standard', 'advanced', 'expert'].includes(difficulty) ? difficulty : 'standard';
+}
+
+function normalizeCoreCompetencyIds(values) {
+  const known = new Set(COACH_COMPETENCIES.map(competency => competency.id));
+  const candidates = Array.isArray(values)
+    ? values
+    : COACH_PASSPORT_STANDARD.coreCompetencyIds;
+  return [...new Set(candidates.map(value => clean(value, 100)).filter(value => known.has(value)))];
 }
 
 function competencyLabels(ids) {

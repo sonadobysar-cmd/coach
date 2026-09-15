@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+export const COURSE_EVIDENCE_VALIDATION_VERSION = 2;
+
 export function certificateEligibility(course, evidence = {}) {
   const items = (course?.modules || []).flatMap(module => module.items || []);
   const completed = new Set(Array.isArray(evidence.completedItemIds) ? evidence.completedItemIds : []);
@@ -65,23 +67,49 @@ export function summarizeCourseEvidence(course, input = {}) {
   const templates = progress.templates && typeof progress.templates === 'object' ? progress.templates : {};
   const requiredFields = (mastery.professionalPack || []).flatMap(template =>
     (template.fields || []).map(field => ({ templateId: template.id, fieldId: field.id })));
-  const filledPortfolioFields = requiredFields.filter(({ templateId, fieldId }) =>
-    String(templates?.[templateId]?.[fieldId] || '').trim().length >= 3).length;
+  const acceptedPortfolioAnswers = new Set();
+  const filledPortfolioFields = requiredFields.filter(({ templateId, fieldId }) => {
+    const value = templates?.[templateId]?.[fieldId];
+    const fingerprint = portfolioAnswerFingerprint(value);
+    if (!isSubstantivePortfolioAnswer(value) || acceptedPortfolioAnswers.has(fingerprint)) return false;
+    acceptedPortfolioAnswers.add(fingerprint);
+    return true;
+  }).length;
   const assessment = progress.assessment?.final && typeof progress.assessment.final === 'object'
     ? progress.assessment.final
     : {};
   const dimensions = mastery.assessment?.dimensions || [];
+  const acceptedAssessmentEvidence = new Set();
   const completedAssessmentDimensions = dimensions.filter(dimension => {
     const record = assessment[dimension.id] || {};
-    return Number.isInteger(Number(record.score))
-      && Number(record.score) >= 0
-      && Number(record.score) <= 4
-      && String(record.evidence || '').trim().length >= 3;
+    const score = normalizeAssessmentScore(record.score);
+    const fingerprint = portfolioAnswerFingerprint(record.evidence);
+    const valid = score !== null
+      && isSubstantivePortfolioAnswer(record.evidence)
+      && !acceptedAssessmentEvidence.has(fingerprint);
+    if (valid) acceptedAssessmentEvidence.add(fingerprint);
+    return valid;
   }).length;
   const portfolioComplete = missingDayIds.length === 0
     && filledPortfolioFields === requiredFields.length
     && completedAssessmentDimensions === dimensions.length;
+  const completedDayIds = requiredDays.filter(id => completedDays.has(id));
+  const portfolioAnswerHashes = requiredFields.map(({ templateId, fieldId }) => ({
+    templateId,
+    fieldId,
+    answerHash: hashPrivateEvidence(templates?.[templateId]?.[fieldId]),
+  }));
+  const assessmentEvidenceHashes = dimensions.map(dimension => {
+    const record = assessment[dimension.id] || {};
+    return {
+      dimensionId: dimension.id,
+      score: normalizeAssessmentScore(record.score),
+      evidenceHash: hashPrivateEvidence(record.evidence),
+    };
+  });
   const summary = {
+    evidenceValidationVersion: COURSE_EVIDENCE_VALIDATION_VERSION,
+    masteryVersion: Number(mastery.version || 0),
     passedQuizzes: [...quizItemIds].filter(id => verifiedQuizItemIds.has(id)).length,
     requiredQuizzes: quizItemIds.size,
     quizzesComplete: [...quizItemIds].every(id => verifiedQuizItemIds.has(id)),
@@ -94,11 +122,65 @@ export function summarizeCourseEvidence(course, input = {}) {
     portfolioComplete,
   };
   const evidenceHash = createHash('sha256').update(JSON.stringify({
+    evidenceValidationVersion: COURSE_EVIDENCE_VALIDATION_VERSION,
+    masteryVersion: Number(mastery.version || 0),
     courseId: course?.id,
     completedItemIds: [...completedItemIds].sort(),
+    completedDayIds,
+    portfolioAnswerHashes,
+    assessmentEvidenceHashes,
     summary,
   })).digest('hex');
   return { completedItemIds, missingDayIds, summary, evidenceHash };
+}
+
+/**
+ * Certifikační portfolio není chatové pole „něco jsem vyplnila“. Server přijme
+ * jen krátký, ale konkrétní profesní záznam. Stejný text vložený do více polí se
+ * započítá jen jednou; tím nezíská certifikát prázdná šablona přejmenovaná na
+ * důkaz. Samotný text se do souhrnu ani hashe neukládá v otevřené podobě;
+ * hash ale kryptograficky váže vydaný stav na konkrétní odevzdané důkazy.
+ */
+export function isSubstantivePortfolioAnswer(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length < 24) return false;
+  const normalized = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('cs-CZ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (/^(?:ano|ne|nevim|neviem|nic|zatim nic|zatial nic|hotovo|splneno|test|zkouska|skuska|x+|n ?a|bez komentare)$/u.test(normalized)) {
+    return false;
+  }
+  const words = normalized.split(' ').filter(Boolean);
+  const meaningfulWords = new Set(words.filter(word => word.length >= 3));
+  return words.length >= 5 && meaningfulWords.size >= 4;
+}
+
+function portfolioAnswerFingerprint(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('cs-CZ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hashPrivateEvidence(value) {
+  const fingerprint = portfolioAnswerFingerprint(value);
+  return fingerprint
+    ? createHash('sha256').update(fingerprint).digest('hex')
+    : null;
+}
+
+function normalizeAssessmentScore(value) {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value >= 0 && value <= 4 ? value : null;
+  }
+  return typeof value === 'string' && /^[0-4]$/.test(value) ? Number(value) : null;
 }
 
 function validDate(value) {

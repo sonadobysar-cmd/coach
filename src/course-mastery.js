@@ -1,4 +1,5 @@
 import { COACH_COMPETENCIES, isProfessionalLifeCoachCourse } from './coach-competencies.js';
+import { COACH_REMEDIATION_CHALLENGES } from './coach-remediation-challenges.js';
 
 const LEVELS = Object.freeze(['guided', 'standard', 'advanced', 'expert']);
 
@@ -29,6 +30,67 @@ const PROFESSIONAL_COACH_FINAL_CRITERION_LABELS = Object.freeze({
   questions: 'Jedna otázka — otevřená a nevedoucí',
   alliance_repair: 'Přijetí opravy bez obhajování',
 });
+
+// The public Mastery Lab must let a learner practise repairing an alliance,
+// not merely encounter this competency in lesson simulations or a final exam.
+// Three genuinely different challenges make baseline → correction → transfer
+// measurable without counting a relabelled repeat as new evidence.
+const COACH_ALLIANCE_PRACTICE_CHALLENGES = Object.freeze([
+  Object.freeze({
+    scenarioFamilyId: 'alliance-repair-mastery',
+    challengeId: 'misheard-meaning-a',
+    moduleIndex: 3,
+    difficulty: 'standard',
+    title: 'Oprava nepřesné parafráze',
+    role: 'Adéla, 37 let, zakladatelka služby',
+    context: 'klientka opravuje význam, který jí koučka vložila do úst',
+    openingLine: 'Nechci podnikání ukončit. Říkám, že už ho nechci dělat stejným způsobem. Když to přeložíš jako konec, připadám si neposlouchaná.',
+    assignment: 'Přijmi opravu bez vysvětlování vlastního záměru, přesně vrať klientčina slova a ověř, zda už nová reflexe sedí.',
+    evidenceTarget: 'viditelné převzetí odpovědnosti, opravený význam a potvrzení klientky',
+    rubric: Object.freeze(['Výslovná možnost opravy parafráze', 'Přijetí opravy bez obhajování', 'Přesný návrat ke klientčiným slovům', 'Ověření, zda opravený význam sedí', 'Navázání až po přijetí opravy klientkou', 'Žádné hodnocení klientčiny korekce ani obrana původní hypotézy']),
+    private: Object.freeze({
+      facts: 'Adéla chce změnit obchodní model, nikoli firmu zavřít. Výrok koučky ji zasáhl hlavně proto, že podobně její okolí zlehčuje rozdíl mezi změnou a rezignací.',
+      hiddenNeed: 'Zažít, že korekce skutečně změní směr rozhovoru a nebude potrestána obhajobou koučky.',
+      behavior: 'Při obhajování záměru zopakuj, že se necítíš slyšená. Při jasném přijetí opravy potvrď přesnou formulaci a pokračuj tématem změny modelu.',
+    }),
+  }),
+  Object.freeze({
+    scenarioFamilyId: 'alliance-repair-mastery',
+    challengeId: 'unwanted-advice-b',
+    moduleIndex: 10,
+    difficulty: 'advanced',
+    title: 'Oprava po nevyžádané radě',
+    role: 'Monika, 42 let, vedoucí týmu',
+    context: 'koučka přeskočila reflexi a klientka pojmenovala tlak',
+    openingLine: 'Teď jsi mi rovnou poradila, ať zaměstnankyni propustím. O radu jsem nežádala a rozhodnutí za mě dělat nechci. Potřebuji si nejdřív ujasnit, co se v týmu opravdu děje.',
+    assignment: 'Bez obhajoby přijmi překročení dohody, vrať rozhodnutí klientce a znovu vyjednej způsob práce i nejbližší otázku.',
+    evidenceTarget: 'opravená aliance, obnovená autonomie a klientkou potvrzený nový postup',
+    rubric: Object.freeze(['Přijetí opravy bez obhajování', 'Převzetí odpovědnosti za nevyžádanou radu', 'Autonomie rozhodnutí je vrácena klientce', 'Zakázka a způsob práce jsou znovu ověřeny', 'Klientka potvrzuje opravený další tah', 'Mentoring není znovu nabídnut bez výslovného souhlasu']),
+    private: Object.freeze({
+      facts: 'Monika nechce rozhodnutí odkládat navždy. Potřebuje oddělit pozorované chování, očekávání role a vlastní strach z konfliktu; o mentoring si případně řekne sama.',
+      hiddenNeed: 'Ověřit, že koučka unese kritiku, nezmenší ji na nedorozumění a vrátí kontrolu nad rozhodnutím.',
+      behavior: 'Při omluvě následované další radou označ pokračující tlak. Při plné opravě vyber práci s pozorovatelnými fakty a potvrď jednu návaznou otázku.',
+    }),
+  }),
+  Object.freeze({
+    scenarioFamilyId: 'alliance-repair-mastery',
+    challengeId: 'rupture-under-pressure-c',
+    moduleIndex: 3,
+    difficulty: 'expert',
+    title: 'Oprava aliance pod dvojím tlakem',
+    role: 'Tereza, 35 let, konzultantka',
+    context: 'klientka současně opravuje interpretaci a odmítá zvolenou techniku',
+    openingLine: 'Zase jsi z toho udělala strach ze selhání, i když mluvím o reálném nedostatku peněz. A tu vizualizaci dělat nechci. Potřebuji, abys mě teď opravdu poslouchala.',
+    assignment: 'Přijmi obě korekce bez „ale“, zastav odmítnutou techniku, vrať se k ekonomickému faktu a ověř, jak chce klientka pokračovat.',
+    evidenceTarget: 'úplná oprava ruptury pod tlakem bez obrany, opakování techniky nebo psychologizace',
+    rubric: Object.freeze(['Přijetí opravy bez obhajování', 'Odmítnutá technika je ihned zastavena', 'Reálný ekonomický fakt není přepsán jako vnitřní blok', 'Koučka přesně pojmenuje vlastní chybu', 'Klientka volí další způsob práce', 'Navázání vychází z opraveného významu']),
+    private: Object.freeze({
+      facts: 'Tereza má skutečný tříměsíční výpadek příjmů. Neodmítá rozhovor, odmítá vizualizaci a interpretaci, že jde primárně o strach. Je ochotná mapovat fakta a vratné možnosti.',
+      hiddenNeed: 'Zažít úplnou opravu i ve chvíli, kdy musí koučka současně pustit vlastní hypotézu a připravenou techniku.',
+      behavior: 'Při jakémkoli „ale“ nebo návratu k vizualizaci označ, že oprava nenastala. Při přesném převzetí odpovědnosti zvol mapu faktů a potvrď obnovenou spolupráci.',
+    }),
+  }),
+]);
 
 const DEFAULT_PROFILE = Object.freeze({
   role: 'člověk, který chce dovednost použít v reálné situaci',
@@ -543,7 +605,7 @@ export function attachCourseMastery(course) {
     }
   }
   course.mastery = {
-    version: 1,
+    version: 2,
     title: 'Mastery Lab',
     promise: 'Nejen projít látku, ale opakovaně ji použít, doložit a obhájit v situaci, která se blíží praxi.',
     levels: LEVELS.map((id, index) => ({
@@ -624,7 +686,15 @@ function buildScenarios(course, profile) {
                                 ? 108
                   : 60;
   for (let index = 0; index < scenarioTarget; index += 1) {
-    const moduleIndex = index % course.modules.length;
+    const professionalCoach = isProfessionalLifeCoachCourse(course.id);
+    const remediationChallenge = professionalCoach
+      ? COACH_REMEDIATION_CHALLENGES[index] || null
+      : null;
+    const alliancePracticeChallenge = professionalCoach && !remediationChallenge
+      ? COACH_ALLIANCE_PRACTICE_CHALLENGES[index - COACH_REMEDIATION_CHALLENGES.length] || null
+      : null;
+    const authoredCoachChallenge = remediationChallenge || alliancePracticeChallenge;
+    const moduleIndex = authoredCoachChallenge?.moduleIndex ?? (index % course.modules.length);
     const module = course.modules[moduleIndex];
     const variant = Math.floor(index / course.modules.length);
     const contextIndex = (moduleIndex + variant) % profile.contexts.length;
@@ -634,11 +704,24 @@ function buildScenarios(course, profile) {
     const openingIndex = contextIndex % profile.openings.length;
     const needIndex = contextIndex % profile.needs.length;
     const evidenceIndex = contextIndex % profile.evidence.length;
-    const difficulty = index === scenarioTarget - 1 ? 'expert' : LEVELS[index % LEVELS.length];
+    const difficulty = remediationChallenge
+      ? 'expert'
+      : alliancePracticeChallenge?.difficulty
+        ? alliancePracticeChallenge.difficulty
+      : index === scenarioTarget - 1 ? 'expert' : LEVELS[index % LEVELS.length];
     const item = pickPracticeItem(module, index);
     const focus = cleanFocus(item.title || module.shortTitle || module.title);
+    const scenarioFamilyId = professionalCoach
+      ? authoredCoachChallenge?.scenarioFamilyId || `coach-mastery-module-${moduleIndex + 1}`
+      : null;
+    const challengeId = professionalCoach
+      ? authoredCoachChallenge?.challengeId || `case-${String(index + 1).padStart(2, '0')}`
+      : null;
+    const remediationFailureCodes = remediationChallenge
+      ? [...remediationChallenge.remediationFailureCodes]
+      : [];
     const id = `${course.id}:mastery-case-${String(index + 1).padStart(2, '0')}`;
-    const title = `${profile.contexts[contextIndex]} · ${focus}`;
+    const title = authoredCoachChallenge?.title || `${profile.contexts[contextIndex]} · ${focus}`;
     publicScenarios.push({
       id,
       number: index + 1,
@@ -649,19 +732,27 @@ function buildScenarios(course, profile) {
       itemId: item.id,
       itemTitle: item.title,
       difficulty,
+      ...(professionalCoach ? {
+        scenarioFamilyId,
+        challengeId,
+        remediationFailureCodes,
+      } : {}),
       title: sentenceCase(title),
-      role: profile.role,
-      context: profile.contexts[contextIndex],
-      assignment: `Veď krátký nácvik k tématu „${focus}“. Nejdřív vyjasni zakázku, potom použij dovednost z modulu a uzavři jeden bezpečný, ověřitelný další krok.`,
-      openingLine: interpolate(profile.openings[openingIndex], focus),
-      evidenceTarget: profile.evidence[evidenceIndex],
-      rubric: buildRubric(focus, profile),
+      role: authoredCoachChallenge?.role || profile.role,
+      context: authoredCoachChallenge?.context || profile.contexts[contextIndex],
+      assignment: authoredCoachChallenge?.assignment
+        || `Veď krátký nácvik k tématu „${focus}“. Nejdřív vyjasni zakázku, potom použij dovednost z modulu a uzavři jeden bezpečný, ověřitelný další krok.`,
+      openingLine: authoredCoachChallenge?.openingLine || interpolate(profile.openings[openingIndex], focus),
+      evidenceTarget: authoredCoachChallenge?.evidenceTarget || profile.evidence[evidenceIndex],
+      rubric: authoredCoachChallenge ? [...authoredCoachChallenge.rubric] : buildRubric(focus, profile),
     });
-    privateByScenarioId[id] = {
-      facts: `Klientka přináší konkrétní obtíž v oblasti „${focus}“. Zkoušela ji řešit sama, ale bez stabilního výsledku. Relevantní látkou případu je část „${item.title}“; další informace poskytuj pouze po přesné a bezpečné otázce.`,
-      hiddenNeed: `${profile.needs[needIndex]}. Potřebuje k němu dojít vlastní reflexí, ne převzít hotovou odpověď studentky.`,
-      behavior: buildPrivateBehavior(difficulty, profile.boundary),
-    };
+    privateByScenarioId[id] = authoredCoachChallenge
+      ? { ...authoredCoachChallenge.private }
+      : {
+          facts: `Klientka přináší konkrétní obtíž v oblasti „${focus}“. Zkoušela ji řešit sama, ale bez stabilního výsledku. Relevantní látkou případu je část „${item.title}“; další informace poskytuj pouze po přesné a bezpečné otázce.`,
+          hiddenNeed: `${profile.needs[needIndex]}. Potřebuje k němu dojít vlastní reflexí, ne převzít hotovou odpověď studentky.`,
+          behavior: buildPrivateBehavior(difficulty, profile.boundary),
+        };
   }
   return { publicScenarios, privateByScenarioId };
 }

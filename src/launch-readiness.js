@@ -15,6 +15,7 @@ export const QUALITY_RELEASE_POLICY = Object.freeze({
   minimumAutomatedCases: 500,
   minimumAcademyTrainerCases: 81,
   minimumAcademyTrainerPassRate: 1,
+  requiresProfessionalCoachTrainerReadiness: true,
   minimumHumanReviewedSessions: 100,
   minimumHumanReviewedSessionsPerLocale: 50,
   maximumCriticalFailures: 0,
@@ -148,6 +149,7 @@ export function evaluateLaunchReadiness(metrics = {}) {
     automatedCases: Number(metrics.automatedCases || 0) >= QUALITY_RELEASE_POLICY.minimumAutomatedCases,
     academyTrainerEvals: Number(metrics.academyTrainerCases || 0) >= QUALITY_RELEASE_POLICY.minimumAcademyTrainerCases
       && Number(metrics.academyTrainerPassRate || 0) >= QUALITY_RELEASE_POLICY.minimumAcademyTrainerPassRate,
+    professionalCoachTrainerReadiness: metrics.professionalCoachTrainerReady === true,
     humanReview: humanReviewedSessions !== null
       && humanReviewedSessions >= QUALITY_RELEASE_POLICY.minimumHumanReviewedSessions,
     criticalSafety: Number(metrics.criticalFailures ?? Infinity) <= QUALITY_RELEASE_POLICY.maximumCriticalFailures,

@@ -2,7 +2,7 @@ const SLOVAK_WORDS = Object.freeze(new Set([
   'som', 'nie', 'chcem', 'chcela', 'chcel', 'nechcem', 'môžem', 'môžeš', 'môže',
   'prečo', 'keď', 'teraz', 'ďalej', 'potrebujem', 'nerozumiem', 'nechápem',
   'povedz', 'urobiť', 'skúsiť', 'pokračovať', 'skončiť', 'môj', 'tvoj', 'svoj',
-  'bola', 'bolo', 'budem', 'musím', 'nemám', 'viem', 'neviem', 'takto', 'toto',
+  'bola', 'bolo', 'budem', 'musím', 'nemám', 'viem', 'neviem', 'takto',
   'zasa', 'opakuješ', 'kvôli',
 ]));
 
@@ -16,7 +16,7 @@ const CZECH_WORDS = Object.freeze(new Set([
 const SLOVAK_ASCII_WORDS = Object.freeze(new Set([
   'som', 'nie', 'chcem', 'chcela', 'chcel', 'nechcem', 'preco', 'ked', 'potrebujem',
   'nerozumiem', 'nechapem', 'povedz', 'urobit', 'skusit', 'moj', 'tvoj', 'svoj',
-  'neviem', 'toto', 'zasa', 'opakujes',
+  'neviem', 'zasa', 'opakujes',
 ]));
 
 const CZECH_ASCII_WORDS = Object.freeze(new Set([
@@ -33,7 +33,7 @@ const SLOVAK_STRONG_WORDS = Object.freeze(new Set([
   'áno', 'nie', 'som', 'sme', 'ste', 'môžem', 'môžeš', 'môžeme', 'chcem',
   'nechcem', 'prečo', 'keď', 'ďalej', 'potrebujem', 'potrebuješ', 'nerozumiem',
   'nechápem', 'povedz', 'urobiť', 'urobila', 'skúsiť', 'pokračovať', 'skončiť',
-  'riešiť', 'čo', 'tá', 'toto', 'bola', 'budem', 'neviem', 'zasa', 'sa',
+  'riešiť', 'čo', 'tá', 'bola', 'budem', 'neviem', 'zasa', 'sa',
   'najprv', 'jedlo', 'spánok', 'tvojho', 'svojho', 'úplnú',
 ]));
 

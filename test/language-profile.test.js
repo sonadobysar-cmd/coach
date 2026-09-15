@@ -46,4 +46,8 @@ test('výstupní brána odmítne českou i smíšenou odpověď ve slovenském s
 test('výstupní brána odmítne slovenskou i smíšenou odpověď v českém sezení', () => {
   assert.equal(responseLanguageMismatch('Tá otázka bola mimo. Co potřebuješ?', 'cs'), true);
   assert.equal(responseLanguageMismatch('Ta otázka byla mimo. Co potřebuješ?', 'cs'), false);
+  assert.equal(
+    responseLanguageMismatch('Rozumím správně, že právě toto bude náš dnešní užitečný výsledek?', 'cs'),
+    false,
+  );
 });

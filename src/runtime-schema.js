@@ -137,6 +137,34 @@ const RUNTIME_SCHEMA_STATEMENTS = [
   `ALTER TABLE public_coach_test_feedback ENABLE ROW LEVEL SECURITY`,
   `CREATE INDEX IF NOT EXISTS public_coach_test_feedback_created_idx
     ON public_coach_test_feedback (created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS release_evaluation_steps (
+    run_id text NOT NULL,
+    case_id text NOT NULL,
+    phase text NOT NULL CHECK (phase IN ('scenario', 'roleplay', 'debrief')),
+    step_id text NOT NULL,
+    attempt_id text NOT NULL,
+    previous_receipt_signature text,
+    request_fingerprint text NOT NULL CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
+    reserved_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (run_id, case_id, phase, step_id),
+    CHECK ((phase = 'scenario' AND previous_receipt_signature IS NULL)
+      OR (phase <> 'scenario' AND previous_receipt_signature ~ '^[0-9a-f]{64}$'))
+  )`,
+  `ALTER TABLE release_evaluation_steps ENABLE ROW LEVEL SECURITY`,
+  `CREATE INDEX IF NOT EXISTS release_evaluation_steps_reserved_idx
+    ON release_evaluation_steps (reserved_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS academy_trainer_evaluation_steps (
+    run_id text NOT NULL,
+    case_id text NOT NULL,
+    step_id text NOT NULL CHECK (step_id ~ '^(scenario|study|debrief|roleplay(-[1-9][0-9]*)?)$'),
+    attempt_id text,
+    request_fingerprint text NOT NULL CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
+    reserved_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (run_id, case_id, step_id)
+  )`,
+  `ALTER TABLE academy_trainer_evaluation_steps ENABLE ROW LEVEL SECURITY`,
+  `CREATE INDEX IF NOT EXISTS academy_trainer_evaluation_steps_reserved_idx
+    ON academy_trainer_evaluation_steps (reserved_at DESC)`,
   `CREATE TABLE IF NOT EXISTS academy_course_evidence (
     user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
     course_id text NOT NULL,
@@ -144,9 +172,11 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     completed_item_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
     portfolio_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
     evidence_hash text NOT NULL,
+    evidence_validation_version integer NOT NULL DEFAULT 2,
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, course_id)
   )`,
+  `ALTER TABLE academy_course_evidence ADD COLUMN IF NOT EXISTS evidence_validation_version integer NOT NULL DEFAULT 1`,
   `CREATE TABLE IF NOT EXISTS academy_exam_attempts (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
@@ -157,9 +187,11 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     all_proven boolean NOT NULL DEFAULT false,
     quality_passed boolean NOT NULL DEFAULT false,
     provider text NOT NULL,
+    assessment_policy_version integer NOT NULL DEFAULT 2,
     transcript_hash text NOT NULL,
     completed_at timestamptz NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE academy_exam_attempts ADD COLUMN IF NOT EXISTS assessment_policy_version integer NOT NULL DEFAULT 1`,
   `ALTER TABLE academy_exam_attempts ADD COLUMN IF NOT EXISTS training_attempt_id uuid`,
   `CREATE UNIQUE INDEX IF NOT EXISTS academy_exam_attempts_training_attempt_idx
     ON academy_exam_attempts (user_id, course_id, training_attempt_id)
@@ -173,9 +205,13 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     course_slug text NOT NULL,
     item_id text NOT NULL,
     scenario_id text NOT NULL,
+    scenario_family_id text,
+    challenge_id text,
+    remediation_failure_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
     difficulty text NOT NULL CHECK (difficulty IN ('guided', 'standard', 'advanced', 'expert')),
     final_exam boolean NOT NULL DEFAULT false,
     provider text NOT NULL,
+    assessment_policy_version integer NOT NULL DEFAULT 2,
     quality_passed boolean NOT NULL DEFAULT false,
     achievement jsonb NOT NULL DEFAULT '{}'::jsonb,
     critical_failures jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -184,6 +220,10 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     UNIQUE (user_id, course_id, transcript_hash)
   )`,
   `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS training_attempt_id uuid`,
+  `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS assessment_policy_version integer NOT NULL DEFAULT 1`,
+  `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS scenario_family_id text`,
+  `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS challenge_id text`,
+  `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS remediation_failure_codes jsonb NOT NULL DEFAULT '[]'::jsonb`,
   `CREATE UNIQUE INDEX IF NOT EXISTS academy_coach_debrief_training_attempt_idx
     ON academy_coach_debrief_attempts (user_id, course_id, training_attempt_id)
     WHERE training_attempt_id IS NOT NULL`,

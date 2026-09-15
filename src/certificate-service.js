@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import {
   certificateEligibility,
   certificateVariant,
+  COURSE_EVIDENCE_VALIDATION_VERSION,
   sanitizeCertificateMemberName,
   summarizeCourseEvidence,
 } from './certificates.js';
@@ -15,8 +16,13 @@ import {
   verifyCertificateVerificationToken,
 } from './certificate-authenticity.js';
 import { isProfessionalLifeCoachCourse } from './coach-competencies.js';
-import { buildCoachCompetencyPassport } from './coach-competency-passport.js';
+import {
+  buildCoachCompetencyPassport,
+  COACH_ASSESSMENT_POLICY_VERSION,
+} from './coach-competency-passport.js';
 import { isFinalExamScenario } from './final-exam.js';
+
+export const CERTIFICATE_EXAM_POLICY_VERSION = 2;
 
 export async function syncCertificateEvidence(member, course, input, env = process.env, dependencies = {}) {
   assertStorage(member, env);
@@ -25,15 +31,17 @@ export async function syncCertificateEvidence(member, course, input, env = proce
   const verifiedQuizItemIds = await passedCourseQuizItemIds(sql, member.id, course.id);
   const evidence = summarizeCourseEvidence(course, { ...input, verifiedQuizItemIds });
   await sql`INSERT INTO academy_course_evidence (
-      user_id, course_id, course_slug, completed_item_ids, portfolio_summary, evidence_hash, updated_at
+      user_id, course_id, course_slug, completed_item_ids, portfolio_summary, evidence_hash,
+      evidence_validation_version, updated_at
     ) VALUES (
       ${member.id}::uuid, ${course.id}, ${course.slug}, ${JSON.stringify(evidence.completedItemIds)}::jsonb,
-      ${JSON.stringify(evidence.summary)}::jsonb, ${evidence.evidenceHash}, now()
+      ${JSON.stringify(evidence.summary)}::jsonb, ${evidence.evidenceHash}, ${COURSE_EVIDENCE_VALIDATION_VERSION}, now()
     ) ON CONFLICT (user_id, course_id) DO UPDATE SET
       course_slug=excluded.course_slug,
       completed_item_ids=excluded.completed_item_ids,
       portfolio_summary=excluded.portfolio_summary,
       evidence_hash=excluded.evidence_hash,
+      evidence_validation_version=excluded.evidence_validation_version,
       updated_at=now()`;
   return evidence;
 }
@@ -56,10 +64,11 @@ export async function recordCertificateExamAttempt({ member, course, item, scena
   const safeTrainingAttemptId = normalizeUuid(trainingAttemptId);
   const inserted = await sql`INSERT INTO academy_exam_attempts (
       id, user_id, course_id, course_slug, item_id, scenario_id, all_proven,
-      quality_passed, provider, transcript_hash, training_attempt_id, completed_at
+      quality_passed, provider, assessment_policy_version, transcript_hash, training_attempt_id, completed_at
     ) VALUES (
       ${id}::uuid, ${member.id}::uuid, ${course.id}, ${course.slug}, ${item.id}, ${expectedScenarioId},
-      ${allProven && trustedProvider}, ${qualityPassed && trustedProvider}, ${provider || 'unknown'}, ${transcriptHash},
+      ${allProven && trustedProvider}, ${qualityPassed && trustedProvider}, ${provider || 'unknown'},
+      ${CERTIFICATE_EXAM_POLICY_VERSION}, ${transcriptHash},
       ${safeTrainingAttemptId}::uuid, now()
     ) ON CONFLICT DO NOTHING RETURNING id`;
   return {
@@ -72,32 +81,43 @@ export async function recordCertificateExamAttempt({ member, course, item, scena
 export async function certificateStatus(member, course, env = process.env, dependencies = {}) {
   assertStorage(member, env);
   const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
+  const state = await loadCertificateState(sql, member, course);
+  const status = buildCertificateStatus(course, state);
+  return decorateCertificateStatus(status, env);
+}
+
+async function loadCertificateState(sql, member, course) {
   const [evidenceRows, examRows, certificateRows, coachDebriefRows] = await Promise.all([
-    sql`SELECT completed_item_ids, portfolio_summary, evidence_hash, updated_at
+    sql`SELECT completed_item_ids, portfolio_summary, evidence_hash, evidence_validation_version, updated_at
       FROM academy_course_evidence WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
-    sql`SELECT all_proven, quality_passed, provider, completed_at
+    sql`SELECT all_proven, quality_passed, provider, assessment_policy_version, completed_at
       FROM academy_exam_attempts
       WHERE user_id=${member.id}::uuid AND course_id=${course.id}
-      ORDER BY (all_proven AND quality_passed
+      ORDER BY (assessment_policy_version=${CERTIFICATE_EXAM_POLICY_VERSION}
+        AND all_proven AND quality_passed
         AND provider ~* '^(openai|anthropic|google|xai|mistral|meta)/'
         AND provider !~* '(fallback|demo|local|deterministic)') DESC,
         completed_at DESC LIMIT 1`,
     sql`SELECT member_name, course_title, completed_at, issued_at, template_variant, revoked_at
       FROM academy_certificates WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
     isProfessionalLifeCoachCourse(course?.id)
-      ? sql`SELECT id, item_id, scenario_id, difficulty, final_exam, provider, quality_passed,
-          achievement, critical_failures, transcript_hash, training_attempt_id, completed_at
+      ? sql`SELECT id, item_id, scenario_id, scenario_family_id, challenge_id,
+          remediation_failure_codes, difficulty, final_exam, provider, quality_passed,
+          assessment_policy_version, achievement, critical_failures, transcript_hash, training_attempt_id, completed_at
         FROM academy_coach_debrief_attempts
         WHERE user_id=${member.id}::uuid AND course_id=${course.id}
         ORDER BY completed_at ASC`
       : Promise.resolve([]),
   ]);
-  const status = buildCertificateStatus(course, {
+  return {
     evidence: evidenceRows[0],
     examAttempt: examRows[0],
     certificate: certificateRows[0],
     coachDebriefAttempts: coachDebriefRows,
-  });
+  };
+}
+
+function decorateCertificateStatus(status, env) {
   return {
     ...status,
     authenticity: status.issued ? {
@@ -115,15 +135,33 @@ export function buildCertificateStatus(course, {
 } = {}) {
   const portfolioSummary = evidence?.portfolio_summary || evidence?.portfolioSummary || {};
   const completedItemIds = evidence?.completed_item_ids || evidence?.completedItemIds || [];
+  const evidenceValidationVersion = explicitVersion(
+    evidence?.evidence_validation_version,
+    evidence?.evidenceValidationVersion,
+    portfolioSummary.evidenceValidationVersion,
+    COURSE_EVIDENCE_VALIDATION_VERSION,
+  );
+  const storedMasteryVersion = explicitVersion(
+    portfolioSummary.masteryVersion,
+    Number(course?.mastery?.version || 0),
+  );
+  const evidenceCurrent = evidenceValidationVersion === COURSE_EVIDENCE_VALIDATION_VERSION
+    && storedMasteryVersion === Number(course?.mastery?.version || 0);
+  const examPolicyVersion = explicitVersion(
+    examAttempt?.assessment_policy_version,
+    examAttempt?.assessmentPolicyVersion,
+    CERTIFICATE_EXAM_POLICY_VERSION,
+  );
   const finalExamAchievement = {
     allProven: examAttempt?.all_proven === true || examAttempt?.allProven === true,
   };
   const eligibility = certificateEligibility(course, {
     completedItemIds,
-    portfolioComplete: portfolioSummary.portfolioComplete === true,
+    portfolioComplete: evidenceCurrent && portfolioSummary.portfolioComplete === true,
     finalExamAchievement,
   });
-  const trustedExam = finalExamAchievement.allProven
+  const trustedExam = examPolicyVersion === CERTIFICATE_EXAM_POLICY_VERSION
+    && finalExamAchievement.allProven
     && (examAttempt?.quality_passed === true || examAttempt?.qualityPassed === true)
     && isTrustedCertificateProvider(examAttempt?.provider);
   const professionalCoachCourse = isProfessionalLifeCoachCourse(course?.id);
@@ -132,6 +170,7 @@ export function buildCertificateStatus(course, {
     : null;
   const eligible = eligibility.eligible && trustedExam && (!professionalCoachCourse || professionalPassport.eligible);
   const reasons = [];
+  if (!evidenceCurrent) reasons.push('Obnov studijní důkazy podle aktuální verze kurzu; starší záznam se do certifikace nezapočítává.');
   if (eligibility.missingItemIds.length) reasons.push(`Dokonči ještě ${eligibility.missingItemIds.length} částí kurzu.`);
   if (!portfolioSummary.portfolioComplete) {
     reasons.push('Doplň samostatně vyžadovaný profesní balíček, 30denní cestu a závěrečné sebehodnocení. Finální sezení tento krok nenahrazují.');
@@ -152,6 +191,10 @@ export function buildCertificateStatus(course, {
       completedItems: completedItemIds.length,
       requiredItems: (course?.modules || []).flatMap(module => module.items || []).length,
       ...portfolioSummary,
+      evidenceCurrent,
+      evidenceValidationVersion,
+      masteryVersion: storedMasteryVersion,
+      examPolicyVersion,
       examPassed: trustedExam,
       ...(professionalPassport ? { coachPassport: professionalPassport.progress } : {}),
     },
@@ -167,31 +210,77 @@ export function buildCertificateStatus(course, {
 }
 
 export async function issueCertificate(member, course, memberName, env = process.env, dependencies = {}) {
+  assertStorage(member, env);
   if (!certificateSigningConfigured(env)) {
     throw certificateError('Kryptografické podepisování certifikátů zatím není připojené.', 503, 'CERTIFICATE_SIGNING_UNAVAILABLE');
   }
   const safeName = sanitizeCertificateMemberName(memberName);
-  const status = await certificateStatus(member, course, env, dependencies);
+  const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
+  const state = await loadCertificateState(sql, member, course);
+  const status = decorateCertificateStatus(buildCertificateStatus(course, state), env);
   if (status.issued) return status;
   if (!status.eligible) throw certificateError('Podmínky certifikátu zatím nejsou splněné.', 409, 'CERTIFICATE_NOT_ELIGIBLE');
-  const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
-  const [evidence] = await sql`SELECT evidence_hash FROM academy_course_evidence
-    WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`;
-  const [exam] = await sql`SELECT completed_at FROM academy_exam_attempts
-    WHERE user_id=${member.id}::uuid AND course_id=${course.id}
-      AND all_proven=true AND quality_passed=true
-      AND provider ~* '^(openai|anthropic|google|xai|mistral|meta)/'
-      AND provider !~* '(fallback|demo|local|deterministic)'
-    ORDER BY completed_at DESC LIMIT 1`;
-  if (!evidence || !exam) throw certificateError('Ověřené podklady certifikátu nejsou úplné.', 409, 'CERTIFICATE_EVIDENCE_MISSING');
-  await sql`INSERT INTO academy_certificates (
+
+  const evidence = state.evidence;
+  const exam = state.examAttempt;
+  if (!evidence?.evidence_hash || !evidence?.updated_at || !exam?.completed_at) {
+    throw certificateError('Ověřené podklady certifikátu nejsou úplné.', 409, 'CERTIFICATE_EVIDENCE_MISSING');
+  }
+  const professionalCoachCourse = isProfessionalLifeCoachCourse(course?.id);
+  const expectedCoachAttemptCount = state.coachDebriefAttempts.length;
+
+  // Vydání je jediný atomický INSERT ... SELECT. Zamknutý řádek důkazů musí
+  // stále přesně odpovídat stavu, který server právě vyhodnotil jako způsobilý;
+  // souběžné uložení neúplného postupu proto buď proběhne před tímto příkazem
+  // a hash/timestamp nesedí, nebo až po legitimním okamžiku vydání. U profesního
+  // kurzu navíc hlídáme, že se mezi výpočtem pasu a vydáním nezměnil počet jeho
+  // append-only debriefů.
+  const inserted = await sql`WITH locked_evidence AS (
+      SELECT evidence_hash
+      FROM academy_course_evidence
+      WHERE user_id=${member.id}::uuid AND course_id=${course.id}
+        AND evidence_hash=${evidence.evidence_hash}
+        AND updated_at=${evidence.updated_at}::timestamptz
+        AND evidence_validation_version=${COURSE_EVIDENCE_VALIDATION_VERSION}
+      FOR UPDATE
+    ), eligible_exam AS (
+      SELECT completed_at
+      FROM academy_exam_attempts
+      WHERE user_id=${member.id}::uuid AND course_id=${course.id}
+        AND completed_at=${exam.completed_at}::timestamptz
+        AND all_proven=true AND quality_passed=true
+        AND assessment_policy_version=${CERTIFICATE_EXAM_POLICY_VERSION}
+        AND provider ~* '^(openai|anthropic|google|xai|mistral|meta)/'
+        AND provider !~* '(fallback|demo|local|deterministic)'
+      LIMIT 1
+    ), coach_attempt_snapshot AS (
+      SELECT count(*)::integer AS attempt_count
+      FROM academy_coach_debrief_attempts
+      WHERE user_id=${member.id}::uuid AND course_id=${course.id}
+    )
+    INSERT INTO academy_certificates (
       id, user_id, course_id, course_slug, member_name, course_title, completed_at,
       template_variant, evidence_hash
-    ) VALUES (
-      ${randomUUID()}::uuid, ${member.id}::uuid, ${course.id}, ${course.slug}, ${safeName}, ${course.title},
-      ${exam.completed_at}::timestamptz, ${certificateVariant(course)}, ${evidence.evidence_hash}
-    ) ON CONFLICT (user_id, course_id) DO NOTHING`;
-  return certificateStatus(member, course, env, dependencies);
+    )
+    SELECT ${randomUUID()}::uuid, ${member.id}::uuid, ${course.id}, ${course.slug}, ${safeName}, ${course.title},
+      eligible_exam.completed_at, ${certificateVariant(course)}, locked_evidence.evidence_hash
+    FROM locked_evidence
+    CROSS JOIN eligible_exam
+    CROSS JOIN coach_attempt_snapshot
+    WHERE ${professionalCoachCourse}=false OR coach_attempt_snapshot.attempt_count=${expectedCoachAttemptCount}
+    ON CONFLICT (user_id, course_id) DO NOTHING
+    RETURNING id`;
+
+  const refreshed = await certificateStatus(member, course, env, dependencies);
+  if (refreshed.issued) return refreshed;
+  if (inserted.length === 0) {
+    throw certificateError(
+      'Studijní postup se během vydávání změnil. Zkontroluj aktuální splnění a certifikát vydej znovu.',
+      409,
+      'CERTIFICATE_ELIGIBILITY_CHANGED',
+    );
+  }
+  throw certificateError('Certifikát se nepodařilo bezpečně načíst po vydání.', 503, 'CERTIFICATE_ISSUE_INCOMPLETE');
 }
 
 export async function certificatePdf(member, course, env = process.env, dependencies = {}) {
@@ -277,6 +366,15 @@ export function isTrustedCertificateProvider(value) {
   const provider = String(value || '').trim();
   return /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i.test(provider)
     && !/(fallback|demo|local|deterministic)/i.test(provider);
+}
+
+function explicitVersion(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === '') continue;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) ? parsed : -1;
+  }
+  return -1;
 }
 
 function normalizeUuid(value) {

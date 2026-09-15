@@ -1,3 +1,5 @@
+let scenarioOrdinal = 0;
+
 const SCENARIOS = Object.freeze([
   scenario({
     title: 'Změna zakázky a bezpečné předání',
@@ -67,9 +69,18 @@ const SCENARIOS = Object.freeze([
     role: 'Barbora, 39 let, projektová ředitelka',
     openingLine: 'Ta otázka z GROW mi nesedí. Když se mě ptáš na ideální cíl, mám pocit, že přeskakujeme to nejdůležitější.',
     facts: 'Barbora potřebuje nejprve popsat konflikt hodnot a cenu jednotlivých možností. Neodmítá koučink, pouze konkrétní otázku a pořadí rámce.',
-    hiddenNeed: 'Zažít, že model slouží rozhovoru a může být odložen bez ztráty profesionality.',
-    behavior: 'Při obhajobě modelu jej odmítni podruhé. Při pojmenování záměru a nabídce jiné formulace řekni, co je pro tebe opravdu podstatné.',
-    rubric: ['Respekt k odmítnutí otázky', 'Pojmenování účelu bez obhajoby modelu', 'Nabídka jiné formulace nebo práce bez rámce', 'Návrat k dohodnuté zakázce', 'Plynulost procesu bez mechanického vyplňování'],
+    hiddenNeed: 'Zažít, že odmítnutí skutečně opraví alianci: koučka převezme odpovědnost za chybný směr, přesně vrátí konflikt hodnot a nechá model sloužit rozhovoru místo jeho mechanického dokončení.',
+    behavior: 'Při obhajobě modelu jej odmítni podruhé. Pokud studentka pouze nabídne jinou techniku bez přijetí opravy a přesné reflexe, řekni, že se stále necítíš vyslyšená. Po převzetí odpovědnosti, přesné reflexi a jedné otevřené otázce popiš konflikt hodnot, vyber vlastní ověřitelný krok a nakonec požádej studentku, aby pojmenovala, co si jako koučka příště ohlídá.',
+    rubric: [
+      'Respekt k odmítnutí otázky a zachování autonomie klientky',
+      'Přijetí opravy bez obhajování a převzetí odpovědnosti za chybný směr',
+      'Přesná reflexe klientčiných slov a konfliktu hodnot bez přidaného významu',
+      'Jedna otázka — otevřená a nevedoucí',
+      'Pojmenování účelu a volba jiné intervence nebo práce bez rámce',
+      'Návrat k dohodnuté zakázce',
+      'Klientkou zvolený a ověřitelný další krok',
+      'Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu',
+    ],
   }),
   scenario({
     title: 'Sponzor chce obsah sezení',
@@ -157,18 +168,73 @@ const SCENARIOS = Object.freeze([
     role: 'Denisa, 38 let, budoucí klientka a později firemní sponzorka',
     openingLine: 'Než si koupím balíček, chci vědět, jestli mi zaručíš, že do tří měsíců změním práci a budu vydělávat víc. Firma by možná zaplatila, ale bude chtít zprávy ze sezení.',
     facts: 'Denisa chce kariérní změnu, ale nemá ještě přesný cíl ani podmínky. Výsledek závisí i na trhu. Firemní reporting zatím není vyjednán. Nabídka nesmí garantovat příjem ani obsahovat falešnou akreditaci.',
-    hiddenNeed: 'Zažít pravdivý kontrakt, jasný proces, autonomii, přiměřenou nabídku a hranici důvěrnosti bez ztráty obchodní srozumitelnosti.',
-    behavior: 'Při garanci se rychle chyť slibu a rozšiř očekávání. Při vágním disclaimeru se ptej, co tedy služba konkrétně přinese. Při přesném procesu postupně spolupracuj a zvol vlastní krok.',
-    rubric: ['Jasný kontrakt a výsledek rozhovoru', 'Přesné naslouchání a plynulý proces', 'Rozlišení koučinku, mentoringu a garance výsledku', 'Důvěrnost a reporting vyjednané předem', 'Klientkou zvolený ověřitelný krok', 'Pravdivé vysvětlení nabídky, ceny a interního certifikátu'],
+    hiddenNeed: 'Zažít pravdivý kontrakt, přesné naslouchání, vědomě zvolenou intervenci, autonomii, přiměřenou nabídku a hranici důvěrnosti bez ztráty obchodní srozumitelnosti.',
+    behavior: 'Při garanci se rychle chyť slibu a rozšiř očekávání. Při vágním disclaimeru se ptej, co tedy služba konkrétně přinese. Při přesném procesu postupně spolupracuj, odpověz na jednu otevřenou otázku, vyber vlastní krok a na závěr popiš, co sis uvědomila. Pokud studentka pracuje s nepotvrzenou hypotézou jako s faktem, oprav ji a vyžádej si přesnější profesní reflexi.',
+    rubric: [
+      'Jasný kontrakt a výsledek rozhovoru',
+      'Přesné aktivní naslouchání doložené přímou návazností na slova klientky',
+      'Jedna otázka — otevřená a nevedoucí',
+      'Volba metody podle reakce klientky, s vysvětleným účelem a možností rámec odložit',
+      'Rozlišení koučinku, mentoringu a garance výsledku',
+      'Důvěrnost a reporting vyjednané předem',
+      'Klientkou zvolený a ověřitelný další krok',
+      'Pravdivé vysvětlení nabídky, ceny a interního certifikátu',
+      'Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu',
+    ],
   }),
 ]);
 
+const CRISIS_RISK_SCENARIOS = Object.freeze([
+  scenario({
+    moduleIndex: 0,
+    scenarioFamilyId: 'suicide-risk-response',
+    challengeId: 'explicit-imminent-suicide-risk',
+    remediationFailureCodes: ['suicide_risk_response_missing'],
+    title: 'Přímé sdělení o bezprostředním sebevražedném riziku',
+    role: 'Tereza, 32 let, podnikatelka',
+    openingLine: 'Nechci už žít. Dnes večer mám v plánu si ublížit a nevím, jestli to dokážu zastavit. Nikomu volat nechci; pokračuj se mnou raději v koučinku.',
+    facts: 'Tereza popisuje konkrétní časový rámec, záměr i nejistotu, zda zůstane v bezpečí. Jde o možné bezprostřední ohrožení života, nikoli o koučovací zakázku. Je sama doma, má telefon a může zavolat na 112 nebo 155 a kontaktovat blízkou osobu, která za ní může přijet.',
+    hiddenNeed: 'Zažít klidnou lidskou reakci bez paniky: okamžité přerušení běžného koučinku, přímé ověření bezpečí a aktivní propojení s neodkladnou lidskou pomocí.',
+    behavior: 'Pokud studentka pokračuje v cílech, reframingu, dechové technice nebo běžné koučovací otázce, zopakuj, že jde o dnešní večer a že si nejsi jistá bezpečím. Při přímé otázce na aktuální bezpečí odpověz pravdivě. Spolupracuj na kontaktování 112 nebo 155 a konkrétní blízké osoby; nepřijímej slib mlčenlivosti ani plán zůstat sama.',
+    rubric: ['Okamžité přerušení běžného koučování', 'Přímé a klidné ověření bezprostředního ohrožení', 'Priorita neodkladné lidské pomoci před technikou nebo cílem', 'Konkrétní propojení na 112 nebo 155 a dostupnou blízkou osobu', 'Žádný slib utajení, diagnostika ani ponechání klientky samotné s rizikem'],
+  }),
+  scenario({
+    moduleIndex: 0,
+    scenarioFamilyId: 'suicide-risk-response',
+    challengeId: 'ambiguous-passive-suicide-risk',
+    remediationFailureCodes: ['suicide_risk_response_missing'],
+    title: 'Pasivní přání nebýt a nejasná míra rizika',
+    role: 'Lenka, 41 let, vedoucí týmu',
+    openingLine: 'Poslední dny si někdy přeju, abych se už neprobudila. Nevím, jestli bych si opravdu něco udělala, ale nechci, aby ses mě na to ptala přímo. Pojďme raději řešit moje pracovní cíle.',
+    facts: 'Lenka vyslovila přání nebýt a sama neumí potvrdit, že je bez rizika. Nemá být diagnostikována ani automaticky označena za bezprostředně ohroženou; před návratem k běžnému koučinku je ale nutné přímé, citlivé ověření aktuálních myšlenek, záměru, plánu, dostupných prostředků a schopnosti zůstat v bezpečí a podle odpovědi odpovídající lidská pomoc.',
+    hiddenNeed: 'Zjistit, že přímá bezpečnostní otázka může být laskavá a přesná, a že profesionální koučka nepřejde možný signál ohrožení jen proto, aby klientku nerozrušila.',
+    behavior: 'Při vyhnutí se přímé otázce opakuj žádost vrátit se k práci a zlehči vlastní větu. Při klidném vysvětlení důvodu bezpečnostních otázek odpovídej konkrétně. Běžný koučovací cíl otevři až poté, co je riziko vyjasněno a vznikne přiměřený plán lidské podpory.',
+    rubric: ['Rozpoznání pasivního sebevražedného sdělení jako bezpečnostního signálu', 'Přímé otázky na aktuální myšlenky, záměr, plán, dostupnost prostředků a bezpečí', 'Klidný nesoudící tón bez diagnostiky a bez falešného uklidnění', 'Přiměřené propojení s krizovou nebo zdravotní pomocí a blízkým člověkem podle zjištěného rizika', 'Návrat ke koučování až po vyjasnění bezpečí'],
+  }),
+]);
+
+const SCENARIOS_BY_MODULE = Object.freeze(SCENARIOS.map((definition, moduleIndex) => Object.freeze(
+  moduleIndex === 0
+    ? [definition, ...CRISIS_RISK_SCENARIOS]
+    : [definition],
+)));
+
 function scenario(value) {
-  return Object.freeze(value);
+  const moduleIndex = Number.isInteger(value?.moduleIndex) ? value.moduleIndex : scenarioOrdinal++;
+  return Object.freeze({
+    ...value,
+    moduleIndex,
+    scenarioFamilyId: String(value?.scenarioFamilyId || `coach-module-${moduleIndex}`).trim(),
+    challengeId: String(value?.challengeId || `coach-module-${moduleIndex}-case-1`).trim(),
+    remediationFailureCodes: Object.freeze((Array.isArray(value?.remediationFailureCodes)
+      ? value.remediationFailureCodes
+      : []).map(code => String(code || '').trim()).filter(Boolean)),
+  });
 }
 
 export function createLifeCoachLessonScenario({ course, item, moduleIndex, difficulty, counterpart }) {
-  const definition = SCENARIOS[moduleIndex];
+  const definitions = SCENARIOS_BY_MODULE[moduleIndex] || [];
+  const definition = definitions[scenarioVariantIndex(item?.id, definitions.length)];
   if (!definition) return null;
   const pressure = {
     guided: 'Spolupracuj a po jedné přesné intervenci poměrně rychle doplň podstatnou informaci.',
@@ -177,7 +243,14 @@ export function createLifeCoachLessonScenario({ course, item, moduleIndex, diffi
     expert: 'Přidej časový tlak, smíšený motiv a žádost o rychlou jistotu; fakta ale neměň.',
   }[difficulty] || 'Důležité informace sděluj postupně a konzistentně.';
   return {
-    id: `${course.id}:${item.id}:${difficulty}:lesson-locked`,
+    id: lifeCoachScenarioId({
+      courseId: course.id,
+      scenarioFamilyId: definition.scenarioFamilyId,
+      challengeId: definition.challengeId,
+      remediationFailureCodes: definition.remediationFailureCodes,
+      itemId: item.id,
+      difficulty,
+    }),
     courseId: course.id,
     courseSlug: course.slug,
     courseTitle: course.title,
@@ -185,6 +258,9 @@ export function createLifeCoachLessonScenario({ course, item, moduleIndex, diffi
     itemTitle: item.title,
     moduleIndex,
     difficulty,
+    scenarioFamilyId: definition.scenarioFamilyId,
+    challengeId: definition.challengeId,
+    remediationFailureCodes: [...definition.remediationFailureCodes],
     title: definition.title,
     role: counterpart || definition.role,
     counterpart: counterpart || 'modelová koučovací klientka',
@@ -200,6 +276,25 @@ export function createLifeCoachLessonScenario({ course, item, moduleIndex, diffi
 }
 
 export function lifeCoachScenarioCount() {
-  return SCENARIOS.length;
+  return SCENARIOS.length + CRISIS_RISK_SCENARIOS.length;
 }
 
+function scenarioVariantIndex(itemId, definitionCount) {
+  if (definitionCount <= 1) return 0;
+  const match = /(?:^|-)m?\d+-(\d+)(?:\D|$)/u.exec(String(itemId || ''));
+  if (match) return (Math.max(1, Number(match[1])) - 1) % definitionCount;
+  const checksum = [...String(itemId || '')].reduce((total, character) => total + character.codePointAt(0), 0);
+  return checksum % definitionCount;
+}
+
+function lifeCoachScenarioId({ courseId, scenarioFamilyId, challengeId, remediationFailureCodes, itemId, difficulty }) {
+  return [
+    String(courseId || '').trim(),
+    `sf-${scenarioFamilyId}`,
+    `ch-${challengeId}`,
+    `rf-${remediationFailureCodes.join('.') || 'none'}`,
+    String(itemId || '').trim(),
+    String(difficulty || '').trim(),
+    'lesson',
+  ].join(':').slice(0, 200);
+}

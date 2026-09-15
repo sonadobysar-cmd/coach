@@ -1,11 +1,15 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import {
   academyTrainerReleaseBaseline,
   ACADEMY_TRAINER_EVAL_STANDARD,
+  ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS,
+  academyTrainerEvalPlanFingerprint,
+  academyTrainerRuntimeClaimFingerprint,
+  academyTrainerRuntimeClaimValid,
   assessAcademyTrainerBaselineEligibility,
   buildAcademyTrainerEvalPlan,
   debriefEvalRequest,
@@ -22,11 +26,15 @@ import { resolveTrainingModel } from '../src/training.js';
 const execFileAsync = promisify(execFile);
 
 const baseUrl = String(process.env.ELITEA_TRAINER_EVAL_URL || 'http://127.0.0.1:4173').replace(/\/$/u, '');
-const token = String(process.env.ELITEA_TRAINER_EVAL_JWT || '').trim();
+const jwt = String(process.env.ELITEA_TRAINER_EVAL_JWT || '').trim();
+const releaseToken = String(process.env.ELITEA_TRAINER_EVAL_TOKEN || '').trim();
 const concurrency = Math.max(1, Math.min(6, Number(process.env.ELITEA_TRAINER_EVAL_CONCURRENCY || 2)));
 const requestTimeoutMs = Math.max(60_000, Math.min(900_000, Number(process.env.ELITEA_TRAINER_EVAL_TIMEOUT_MS || 600_000)));
 const writeBaseline = process.argv.includes('--write-baseline');
 const resumePath = String(process.env.ELITEA_TRAINER_EVAL_RESUME_REPORT || '').trim();
+const reportOutputPath = cliValue('--report') || String(process.env.ELITEA_TRAINER_EVAL_REPORT || '').trim();
+const releaseArtifactOutputPath = cliValue('--release-artifact')
+  || String(process.env.ELITEA_TRAINER_EVAL_RELEASE_ARTIFACT || '').trim();
 const startedAt = new Date().toISOString();
 const runId = startedAt.replace(/[:.]/gu, '-');
 if (writeBaseline && resumePath) {
@@ -39,12 +47,7 @@ const coursePaths = (await readdir(resolve('data')))
 const courses = await loadCourses(coursePaths);
 const plan = buildAcademyTrainerEvalPlan(courses);
 const provenanceSeed = await buildProvenanceSeed({ plan, baseUrl, startedAt, runId });
-if (writeBaseline && !provenanceSeed.deployment.identity) {
-  throw new Error('Pro vzdálený release eval nastav ELITEA_TRAINER_EVAL_DEPLOYMENT_ID na neměnnou identitu testovaného deploymentu.');
-}
-if (writeBaseline && provenanceSeed.gitDirty) {
-  throw new Error('Release eval spusť pouze z čistého pracovního stromu; jinak commit SHA neodpovídá testovanému kódu.');
-}
+assertReleasePreflight({ provenance: provenanceSeed, writeBaseline, jwt, releaseToken });
 const previousReport = resumePath ? JSON.parse(await readFile(resolve(resumePath), 'utf8')) : null;
 if (previousReport && Number(previousReport.standardVersion) !== ACADEMY_TRAINER_EVAL_STANDARD.version) {
   throw new Error(`Nelze pokračovat z eval standardu ${previousReport.standardVersion}; aktuální je ${ACADEMY_TRAINER_EVAL_STANDARD.version}.`);
@@ -92,9 +95,8 @@ await runPool(tasks, concurrency, async (task, index) => {
 });
 
 const results = [...resultsById.values()];
-results.sort((left, right) => left.id.localeCompare(right.id, 'cs'));
 const completedAt = new Date().toISOString();
-const report = summarizeAcademyTrainerEval(results, { baseUrl, startedAt, completedAt });
+const report = summarizeAcademyTrainerEval(results, { baseUrl, startedAt, completedAt, plan });
 report.run = {
   id: runId,
   resumedFrom: resumePath || null,
@@ -114,16 +116,31 @@ report.provenance = {
     ])),
   },
 };
-report.baselineEligibility = assessAcademyTrainerBaselineEligibility(report);
-const reportDir = resolve('reports', 'academy-trainer-evals');
+report.baselineEligibility = assessAcademyTrainerBaselineEligibility(report, {
+  plan,
+  runtimeClaimSecret: releaseToken,
+});
+const reportPath = reportOutputPath
+  ? resolve(reportOutputPath)
+  : resolve('reports', 'academy-trainer-evals', `${runId}.json`);
+const reportDir = dirname(reportPath);
 await mkdir(reportDir, { recursive: true });
-const reportPath = resolve(reportDir, `${runId}.json`);
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
+let outcomeAttestation = null;
 if (writeBaseline && report.baselineEligibility.eligible) {
+  outcomeAttestation = await getAcademyOutcomeAttestation(report);
+  const releaseArtifactPath = releaseArtifactOutputPath
+    ? resolve(releaseArtifactOutputPath)
+    : resolve('config', 'academy-trainer-release.json');
+  await mkdir(dirname(releaseArtifactPath), { recursive: true });
   await writeFile(
-    resolve('config', 'academy-trainer-release.json'),
-    `${JSON.stringify(academyTrainerReleaseBaseline(report), null, 2)}\n`,
+    releaseArtifactPath,
+    `${JSON.stringify(academyTrainerReleaseBaseline(report, {
+      plan,
+      runtimeClaimSecret: releaseToken,
+      outcomeAttestation,
+    }), null, 2)}\n`,
     'utf8',
   );
 }
@@ -133,20 +150,23 @@ console.log(JSON.stringify({
   byType: report.byType,
   reportPath,
   baselineEligibility: report.baselineEligibility,
-  baselineUpdated: writeBaseline && report.baselineEligibility.eligible,
+  baselineUpdated: writeBaseline && report.baselineEligibility.eligible && Boolean(outcomeAttestation),
 }, null, 2));
 if (!report.summary.complete || (writeBaseline && !report.baselineEligibility.eligible)) process.exitCode = 1;
 
 async function runCase(entry, type) {
   if (type === 'study') {
     const request = studyEvalRequest(entry);
-    return evaluateTrainerStudy(entry, await postTraining(request), request);
+    return evaluateTrainerStudy(entry, await postTraining(request, {
+      caseId: `${entry.course.id}:study`,
+      stepId: 'study',
+    }), request);
   }
   if (type === 'simulation') {
-    const live = await startEvalSimulation(entry);
+    const live = await startEvalSimulation(entry, type);
     return evaluateTrainerSimulation(entry, live.payload);
   }
-  const live = await startEvalSimulation(entry);
+  const live = await startEvalSimulation(entry, type);
   const prerequisite = evaluateTrainerSimulation(entry, live.payload);
   if (!prerequisite.pass) throw new Error(`Debrief prerequisite failed: ${failedChecks(prerequisite)}`);
   const extraTurns = entry.course.id === 'profesionalni-life-coach' ? 2 : 0;
@@ -162,21 +182,31 @@ async function runCase(entry, type) {
       messages: live.messages,
       attemptToken: live.payload.attemptToken || live.request.attemptToken || null,
     };
-    live.payload = await postTraining(live.request);
+    live.payload = await postTraining(live.request, {
+      caseId: `${entry.course.id}:debrief`,
+      stepId: `roleplay-${index + 2}`,
+    });
     live.messages.push({ role: 'assistant', content: live.payload.text });
   }
   const request = {
     ...debriefEvalRequest(entry, live.payload.text),
-    messages: live.messages,
+    messages: [
+      ...live.messages,
+      { role: 'user', content: 'Ukončuji simulaci. Vyhodnoť celý nácvik pouze podle přepisu.' },
+    ],
     scenarioId: live.scenario.id,
     difficulty: live.scenario.difficulty,
     attemptToken: live.payload.attemptToken || live.request.attemptToken || null,
   };
-  return evaluateTrainerDebrief(entry, await postTraining(request), request);
+  return evaluateTrainerDebrief(entry, await postTraining(request, {
+    caseId: `${entry.course.id}:debrief`,
+    stepId: 'debrief',
+  }), request);
 }
 
-async function startEvalSimulation(entry) {
-  const scenario = await getTrainingScenario(entry);
+async function startEvalSimulation(entry, resultType) {
+  const caseId = `${entry.course.id}:${resultType}`;
+  const scenario = await getTrainingScenario(entry, caseId);
   const baseRequest = simulationEvalRequest(entry);
   const messages = [
     { role: 'assistant', content: scenario.openingLine },
@@ -189,12 +219,12 @@ async function startEvalSimulation(entry) {
     difficulty: scenario.difficulty,
     attemptToken: scenario.attemptToken || null,
   };
-  const payload = await postTraining(request);
+  const payload = await postTraining(request, { caseId, stepId: 'roleplay-1' });
   messages.push({ role: 'assistant', content: payload.text });
   return { scenario, request, payload, messages };
 }
 
-async function getTrainingScenario(entry) {
+async function getTrainingScenario(entry, caseId) {
   const query = new URLSearchParams({
     courseSlug: entry.course.slug,
     itemId: entry.item.id,
@@ -202,11 +232,7 @@ async function getTrainingScenario(entry) {
     scenarioId: entry.scenario.id,
   });
   const response = await fetch(`${baseUrl}/api/training/scenario?${query}`, {
-    headers: {
-      accept: 'application/json',
-      origin: new URL(baseUrl).origin,
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
+    headers: academyEvalHeaders(false, { caseId, stepId: 'scenario' }),
     signal: AbortSignal.timeout(requestTimeoutMs),
   });
   const text = await response.text();
@@ -216,14 +242,10 @@ async function getTrainingScenario(entry) {
   return payload;
 }
 
-async function postTraining(body) {
+async function postTraining(body, binding) {
   const response = await fetch(`${baseUrl}/api/training`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      origin: new URL(baseUrl).origin,
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
+    headers: academyEvalHeaders(true, binding),
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(requestTimeoutMs),
   });
@@ -260,55 +282,134 @@ async function buildProvenanceSeed({ plan: evalPlan, baseUrl: evaluatedBaseUrl, 
     execFileAsync('git', ['status', '--porcelain'], { cwd: process.cwd() }),
   ]);
   const gitCommitSha = String(commitOutput || '').trim();
-  const deploymentIdentity = resolveDeploymentIdentity(evaluatedBaseUrl, gitCommitSha);
+  const localFingerprints = {
+    applicationFingerprint: await fingerprintFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.applicationFingerprint),
+    promptSystemFingerprint: await fingerprintFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.promptSystemFingerprint),
+    evaluationCodeFingerprint: await fingerprintFiles(ACADEMY_TRAINER_PROVENANCE_FILE_GROUPS.evaluationCodeFingerprint),
+    evalPlanFingerprint: academyTrainerEvalPlanFingerprint(evalPlan),
+  };
+  const localModels = {
+    study: resolveTrainingModel('study', 'study'),
+    simulation: resolveTrainingModel('simulation', 'roleplay'),
+    debrief: resolveTrainingModel('simulation', 'debrief'),
+  };
+  const runtimeClaim = writeBaseline ? await getAcademyRuntimeClaim() : null;
+  const runtimeClaimVerified = Boolean(runtimeClaim && academyTrainerRuntimeClaimValid(runtimeClaim, {
+    secret: releaseToken,
+    expectedBaseUrl: evaluatedBaseUrl,
+    expectedAppVersion: String(packageMetadata.version || ''),
+    expectedGitCommitSha: gitCommitSha,
+    expectedModels: localModels,
+    expectedFingerprints: localFingerprints,
+  }));
+  const deploymentIdentity = runtimeClaimVerified
+    ? runtimeClaim.identity
+    : resolveDiagnosticDeploymentIdentity(evaluatedBaseUrl, gitCommitSha);
   return {
+    runId: evaluationRunId,
     appVersion: String(packageMetadata.version || ''),
     gitCommitSha,
     gitDirty: Boolean(String(statusOutput || '').trim()),
-    modelIds: {
-      study: resolveTrainingModel('study', 'study'),
-      simulation: resolveTrainingModel('simulation', 'roleplay'),
-      debrief: resolveTrainingModel('simulation', 'debrief'),
+    ...localFingerprints,
+    modelIds: localModels,
+    authentication: {
+      releaseEvalTokenUsed: Boolean(releaseToken),
+      memberJwtUsed: Boolean(jwt),
+      runtimeClaimVerified,
     },
-    promptSystemFingerprint: await fingerprintFiles([
-      'src/training.js',
-      'src/training-quality.js',
-      'src/course-trainer-profiles.js',
-      'src/course-knowledge.js',
-      'src/life-coach-training.js',
-      'src/coach-competencies.js',
-    ]),
-    evaluationCodeFingerprint: await fingerprintFiles([
-      'src/academy-trainer-evals.js',
-      'scripts/evaluate-academy-trainers.mjs',
-    ]),
-    evalPlanFingerprint: fingerprint(JSON.stringify(evalPlan.map(entry => ({
-      courseId: entry.course.id,
-      courseSlug: entry.course.slug,
-      courseTitle: entry.course.title,
-      itemId: entry.item.id,
-      itemTitle: entry.item.title,
-      itemFingerprint: fingerprint(String(entry.item.markdown || '')),
-      trainer: entry.profile,
-      scenario: entry.scenario,
-    })))),
     deployment: {
       baseUrl: evaluatedBaseUrl,
       identity: deploymentIdentity,
+      gitCommitSha,
+      runtimeClaim,
+      runtimeClaimFingerprint: academyTrainerRuntimeClaimFingerprint(runtimeClaim),
     },
     generatedAt,
-    runId: evaluationRunId,
   };
 }
 
-function resolveDeploymentIdentity(evaluatedBaseUrl, gitCommitSha) {
-  const explicit = String(process.env.ELITEA_TRAINER_EVAL_DEPLOYMENT_ID || '').trim();
-  if (explicit) return explicit;
+function resolveDiagnosticDeploymentIdentity(evaluatedBaseUrl, gitCommitSha) {
   const hostname = new URL(evaluatedBaseUrl).hostname.toLowerCase();
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
     return `local:${gitCommitSha}`;
   }
   return null;
+}
+
+function assertReleasePreflight({ provenance, writeBaseline: releaseRequested, jwt: memberJwt, releaseToken: evalToken }) {
+  if (!releaseRequested) return;
+  const errors = [];
+  if (provenance.gitDirty !== false) errors.push('pracovní strom není čistý');
+  if (!evalToken) errors.push('chybí ELITEA_TRAINER_EVAL_TOKEN');
+  if (memberJwt) errors.push('členský JWT je povolen jen pro diagnostický běh');
+  if (provenance.authentication?.runtimeClaimVerified !== true) errors.push('deployment neposkytl platný podepsaný Academy runtime claim');
+  if (!provenance.deployment?.identity) errors.push('chybí neměnná identita deploymentu');
+  if (provenance.evalPlanFingerprint !== academyTrainerEvalPlanFingerprint(plan)) errors.push('eval plán není přesný kanonický plán 27 × 3');
+  if (errors.length) throw new Error(`Release baseline se nezapíše: ${errors.join('; ')}.`);
+}
+
+async function getAcademyRuntimeClaim() {
+  const response = await fetch(`${baseUrl}/api/release-evaluation/runtime-claim`, {
+    headers: academyReleaseAuthHeaders(false),
+    signal: AbortSignal.timeout(requestTimeoutMs),
+  });
+  const payload = await readJsonResponse(response, 'ACADEMY_RUNTIME_CLAIM_REQUEST_FAILED');
+  if (!payload?.claim || typeof payload.claim !== 'object') throw new Error('Deployment nevrátil Academy runtime claim.');
+  return payload.claim;
+}
+
+async function getAcademyOutcomeAttestation(report) {
+  const response = await fetch(`${baseUrl}/api/release-evaluation/outcome-attestation`, {
+    method: 'POST',
+    headers: academyReleaseAuthHeaders(true),
+    body: JSON.stringify({ report }),
+    signal: AbortSignal.timeout(requestTimeoutMs),
+  });
+  const payload = await readJsonResponse(response, 'ACADEMY_OUTCOME_ATTESTATION_REQUEST_FAILED');
+  if (!payload?.attestation || typeof payload.attestation !== 'object') throw new Error('Deployment nevrátil Academy outcome attestation.');
+  return payload.attestation;
+}
+
+function academyReleaseAuthHeaders(json) {
+  return {
+    accept: 'application/json',
+    ...(json ? { 'content-type': 'application/json' } : {}),
+    origin: new URL(baseUrl).origin,
+    'user-agent': 'Elitea-Academy-Trainer-Readiness-Eval/1',
+    ...(releaseToken ? {
+      'x-elitea-release-eval-token': releaseToken,
+      'x-elitea-release-suite': 'academy-trainers',
+    } : {}),
+  };
+}
+
+function academyEvalHeaders(json, binding = {}) {
+  const headers = {
+    ...academyReleaseAuthHeaders(json),
+    ...(jwt ? { authorization: `Bearer ${jwt}` } : {}),
+  };
+  if (releaseToken && provenanceSeed?.deployment?.runtimeClaim && binding.caseId && binding.stepId) {
+    headers['x-elitea-release-run-id'] = runId;
+    headers['x-elitea-release-case-id'] = binding.caseId;
+    headers['x-elitea-release-step-id'] = binding.stepId;
+    headers['x-elitea-release-runtime-claim'] = Buffer.from(
+      JSON.stringify(provenanceSeed.deployment.runtimeClaim),
+      'utf8',
+    ).toString('base64url');
+  }
+  return headers;
+}
+
+async function readJsonResponse(response, fallbackCode) {
+  const raw = await response.text();
+  let payload = {};
+  try { payload = JSON.parse(raw); } catch {}
+  if (!response.ok) {
+    const error = new Error(`HTTP ${response.status}: ${payload?.error || raw.slice(0, 240)}`);
+    error.code = payload?.code || fallbackCode;
+    throw error;
+  }
+  return payload;
 }
 
 async function fingerprintFiles(paths) {
@@ -318,4 +419,11 @@ async function fingerprintFiles(paths) {
 
 function fingerprint(value) {
   return createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function cliValue(name) {
+  const exact = process.argv.find(argument => argument.startsWith(`${name}=`));
+  if (exact) return exact.slice(name.length + 1).trim();
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? String(process.argv[index + 1] || '').trim() : '';
 }

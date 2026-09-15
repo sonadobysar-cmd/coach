@@ -1,6 +1,6 @@
 {
   "name": "elitea",
-  "version": "0.40.0",
+  "version": "0.42.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "eval:public-coach": "node scripts/evaluate-public-coach-test.mjs",
     "eval:czsk-live": "node scripts/evaluate-czsk-coaching-live.mjs",
     "eval:stateful-coach": "node scripts/evaluate-stateful-coaching-live.mjs",
+    "eval:coach-readiness": "node scripts/evaluate-professional-coach-readiness.mjs",
     "qa:academy-production": "node scripts/qa-production-academy-e2e.mjs",
     "qa:certificate-production": "node scripts/qa-issue-production-certificate.mjs",
     "audit:courses": "node scripts/audit-course-depth.mjs",

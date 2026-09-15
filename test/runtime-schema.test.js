@@ -13,6 +13,11 @@ test('produkční schéma vytváří limity, monitoring a lifecycle idempotentn�
   assert.match(statements, /academy_exam_attempts_training_attempt_idx/);
   assert.match(statements, /academy_coach_debrief_training_attempt_idx/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_coach_debrief_attempts/);
+  assert.match(statements, /evidence_validation_version integer NOT NULL DEFAULT 1/);
+  assert.match(statements, /assessment_policy_version integer NOT NULL DEFAULT 1/);
+  assert.match(statements, /scenario_family_id text/);
+  assert.match(statements, /challenge_id text/);
+  assert.match(statements, /remediation_failure_codes jsonb/);
   assert.match(statements, /UNIQUE \(user_id, course_id, transcript_hash\)/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS academy_certificates/);
   assert.match(statements, /CREATE TABLE IF NOT EXISTS stripe_webhook_events/);

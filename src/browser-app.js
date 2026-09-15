@@ -20,7 +20,7 @@ import {
   trainingRetryScenarioId,
 } from './browser-training-flow.js';
 
-const APP_VERSION = '0.40.0';
+const APP_VERSION = '0.42.0';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
@@ -596,7 +596,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.40.0';
+  const cloudModuleUrl = '/cloud.js?v=0.42.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -2239,7 +2239,7 @@ function renderMasteryAssessment(mastery, progress) {
 }
 
 function renderMasteryPack(mastery, progress) {
-  return `<div class="mastery-section-intro"><div><span>PROFESNÍ BALÍČEK</span><h3>12 nástrojů, které po kurzu nezůstanou prázdné</h3><p>Každá šablona je navázaná na skutečný modul a vyžaduje situaci, fakta, postup, hranici i důkaz.</p></div><strong>${mastery.professionalPack.length} šablon</strong></div>
+  return `<div class="mastery-section-intro"><div><span>PROFESNÍ BALÍČEK</span><h3>12 nástrojů, které po kurzu nezůstanou prázdné</h3><p>Každá šablona je navázaná na skutečný modul a vyžaduje situaci, fakta, postup, hranici i důkaz. Piš konkrétně alespoň jednu plnou větu; prázdné fráze ani stejný text vložený do více polí se nezapočítají.</p></div><strong>${mastery.professionalPack.length} šablon</strong></div>
     <div class="mastery-template-list">${mastery.professionalPack.map(template => {
       const values = progress.templates?.[template.id] || {};
       const filled = template.fields.filter(field => String(values[field.id] || '').trim()).length;
@@ -3228,7 +3228,7 @@ async function loadStatus() {
     updateLiveCount('worksheets', status.worksheets);
     elements.status.className = `status-pill ${status.providerConnected ? 'online' : 'demo'}`;
     elements.status.querySelector('span').textContent = status.providerConnected
-      ? `${status.launchStage === 'controlled_beta' ? 'Řízený pilot' : 'Elitea připravena'} · ${status.coachingTechniqueCards ?? status.availableTechniqueCards ?? status.techniqueCards} koučovacích a mentoringových technik`
+      ? `Elitea online · ${status.coachingTechniqueCards ?? status.availableTechniqueCards ?? status.techniqueCards} koučovacích a mentoringových technik`
       : `Ukázkový režim · ${status.coachingTechniqueCards ?? status.availableTechniqueCards ?? status.techniqueCards} koučovacích a mentoringových technik`;
   } catch {
     elements.status.querySelector('span').textContent = 'Server nedostupný';

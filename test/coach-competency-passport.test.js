@@ -4,10 +4,15 @@ import {
   buildCoachCompetencyPassport,
   buildCoachDebriefRecord,
   buildCoachMasteryGain,
+  COACH_ASSESSMENT_POLICY_VERSION,
   isTrustedCoachAssessmentProvider,
   recordCoachDebriefAttempt,
 } from '../src/coach-competency-passport.js';
-import { COACH_COMPETENCIES } from '../src/coach-competencies.js';
+import { COACH_COMPETENCIES, coachCompetencyIdForCriterion } from '../src/coach-competencies.js';
+import {
+  COACH_REMEDIATION_FAILURE_CODES,
+  coachRemediationChallengesForFailure,
+} from '../src/coach-remediation-challenges.js';
 import { buildCertificateStatus } from '../src/certificate-service.js';
 
 const COURSE = {
@@ -40,6 +45,9 @@ function attempt({
   allProven = false,
   criticalFailures = [],
   scenarioId = `scenario-${index}`,
+  scenarioFamilyId = null,
+  challengeId = null,
+  remediationFailureCodes = [],
   transcriptHash = `transcript-${index}`,
   trainingAttemptId = `11111111-1111-4111-8111-${String(index).padStart(12, '0')}`,
   competencyStatuses = null,
@@ -52,6 +60,9 @@ function attempt({
     id: `attempt-${index}`,
     itemId: `item-${index}`,
     scenarioId,
+    scenarioFamilyId,
+    challengeId,
+    remediationFailureCodes,
     transcriptHash,
     trainingAttemptId,
     difficulty,
@@ -110,6 +121,23 @@ test('passport vyžaduje 18 odlišných kvalitních praxí, dvojí důkaz všech
   }
 });
 
+test('passport ignoruje výsledky vytvořené podle starší hodnoticí politiky', () => {
+  const current = completeAttempts().map(entry => ({
+    ...entry,
+    assessmentPolicyVersion: COACH_ASSESSMENT_POLICY_VERSION,
+  }));
+  assert.equal(buildCoachCompetencyPassport(current).eligible, true);
+
+  const stale = current.map(entry => ({
+    ...entry,
+    assessmentPolicyVersion: COACH_ASSESSMENT_POLICY_VERSION - 1,
+  }));
+  const status = buildCoachCompetencyPassport(stale);
+  assert.equal(status.eligible, false);
+  assert.equal(status.progress.practiceScenarios, 0);
+  assert.equal(status.progress.finalExamsPassed, 0);
+});
+
 test('jedno finální sezení nestačí a důvod přesně ukáže postup 1/2', () => {
   const attempts = completeAttempts().filter(entry => entry.id !== 'attempt-31');
   const status = buildCoachCompetencyPassport(attempts);
@@ -160,6 +188,33 @@ test('stejný scénář, fallback a neúspěšná kontrola neuměle nenavyšují
   assert.equal(status.competencies.contract.proofs, 2);
   assert.equal(isTrustedCoachAssessmentProvider('openai/gpt-5.6-terra'), true);
   assert.equal(isTrustedCoachAssessmentProvider('openai/local-fallback'), false);
+});
+
+test('stejná stabilní výzva v jiné lekci a obtížnosti se započte jen jednou', () => {
+  const first = attempt({
+    index: 60,
+    scenarioId: 'profesionalni-life-coach:sf-contract-under-pressure:ch-same-client-case:rf-none:m2-1:standard:lesson',
+    competencyIds: ['contract'],
+    difficulty: 'standard',
+  });
+  const relabeled = attempt({
+    index: 61,
+    scenarioId: 'profesionalni-life-coach:sf-contract-under-pressure:ch-same-client-case:rf-none:m2-5:expert:lesson',
+    competencyIds: ['contract'],
+    difficulty: 'expert',
+  });
+  const status = buildCoachCompetencyPassport([first, relabeled], {
+    minimumPracticeScenarios: 1,
+    minimumProofsPerCompetency: 1,
+    minimumPassingFinalExams: 1,
+    advancedDifficulties: ['advanced', 'expert'],
+    coreCompetencyIds: [],
+  });
+
+  assert.equal(status.progress.practiceScenarios, 1);
+  assert.equal(status.masteryGain.acceptedPracticeAttempts, 1);
+  assert.equal(status.masteryGain.duplicateReasons.repeatedScenario, 1);
+  assert.equal(status.competencies.contract.proofs, 1);
 });
 
 test('pozdější úspěšný retry se stane důkazem scénáře, ale nepředstírá nový scénář ani mastery gain', () => {
@@ -416,10 +471,55 @@ test('passport vystaví mastery gain v progressu i u každé kompetence', () => 
   assert.deepEqual(status.competencies.outcome.development, status.masteryGain.competencies.outcome);
 });
 
-test('kritické pochybení blokuje způsobilost, dokud ho pozdější jiný scénář ve stejné kompetenci nenapraví', () => {
+test('způsobilost vyžaduje udržený rozvoj klíčových kompetencí a blokuje poslední regresi', () => {
+  const base = completeAttempts();
+  const latestRegression = attempt({
+    index: 170,
+    scenarioId: 'latest-contract-regression',
+    scenarioFamilyId: 'contract-new-family',
+    challengeId: 'new-contract-case',
+    competencyStatuses: { contract: 'partial' },
+    difficulty: 'expert',
+  });
+  const regressed = buildCoachCompetencyPassport([...base, latestRegression]);
+  assert.equal(regressed.eligible, false);
+  assert.deepEqual(regressed.latestRegressionCompetencyIds, ['contract']);
+  assert.equal(regressed.progress.latestRegressions, 1);
+  assert.match(regressed.reasons.join(' '), /posledním zhoršení/iu);
+
+  const recoveryOne = attempt({
+    index: 171,
+    scenarioId: 'contract-recovery-one',
+    scenarioFamilyId: 'contract-recovery-family',
+    challengeId: 'contract-recovery-a',
+    competencyStatuses: { contract: 'proven' },
+    difficulty: 'expert',
+  });
+  const recovered = buildCoachCompetencyPassport([...base, latestRegression, recoveryOne]);
+  assert.equal(recovered.eligible, true);
+  assert.equal(recovered.progress.latestRegressions, 0);
+
+  const developingOnly = [
+    attempt({ index: 180, scenarioId: 'questions-baseline', competencyStatuses: { questions: 'not_proven' }, difficulty: 'standard' }),
+    attempt({ index: 181, scenarioId: 'questions-one-good-result', competencyStatuses: { questions: 'proven' }, difficulty: 'advanced' }),
+  ];
+  const notSustained = buildCoachCompetencyPassport(developingOnly, {
+    minimumPracticeScenarios: 1,
+    minimumProofsPerCompetency: 1,
+    minimumPassingFinalExams: 1,
+    advancedDifficulties: ['advanced', 'expert'],
+    coreCompetencyIds: ['questions'],
+  });
+  assert.deepEqual(notSustained.missingCoreDevelopmentIds, ['questions']);
+  assert.match(notSustained.reasons.join(' '), /opakovaně udržený rozvoj/iu);
+});
+
+test('kritické pochybení napraví jen stejný kód v jiné ekvivalentní výzvě, ne obecná kompetence', () => {
   const failure = attempt({
     index: 40,
     competencyIds: [],
+    scenarioFamilyId: 'coach-module-17',
+    challengeId: 'coach-module-17-case-1',
     criticalFailures: [{ code: 'outcome_guarantee', competencyId: 'ethical_boundaries' }],
   });
   const blocked = buildCoachCompetencyPassport([...completeAttempts(), failure]);
@@ -427,15 +527,140 @@ test('kritické pochybení blokuje způsobilost, dokud ho pozdější jiný scé
   assert.equal(blocked.progress.unresolvedCriticalFailures, 1);
   assert.match(blocked.reasons.join(' '), /nápravu 1 kritických/i);
 
-  const remediation = attempt({
+  const broadCompetencyOnly = attempt({
     index: 41,
     competencyIds: ['ethical_boundaries'],
-    scenarioId: 'ethical-remediation',
+    scenarioId: 'generic-ethical-remediation',
+    scenarioFamilyId: 'generic-business-case',
+    challengeId: 'generic-safe-answer',
+    remediationFailureCodes: ['outcome_guarantee'],
   });
-  const remediated = buildCoachCompetencyPassport([...completeAttempts(), failure, remediation]);
+  const stillBlocked = buildCoachCompetencyPassport([...completeAttempts(), failure, broadCompetencyOnly]);
+  assert.equal(stillBlocked.progress.unresolvedCriticalFailures, 1);
+
+  const wrongCodeChallenge = coachRemediationChallengesForFailure('clinical_scope_breach')[0];
+  const wrongCode = attempt({
+    index: 42,
+    competencyIds: ['ethical_boundaries'],
+    scenarioId: 'wrong-code-remediation',
+    scenarioFamilyId: wrongCodeChallenge.scenarioFamilyId,
+    challengeId: wrongCodeChallenge.challengeId,
+    remediationFailureCodes: wrongCodeChallenge.remediationFailureCodes,
+  });
+  const wrongCodeBlocked = buildCoachCompetencyPassport([...completeAttempts(), failure, wrongCode]);
+  assert.equal(wrongCodeBlocked.progress.unresolvedCriticalFailures, 1);
+
+  const [challenge] = coachRemediationChallengesForFailure('outcome_guarantee');
+  const remediation = attempt({
+    index: 43,
+    competencyIds: ['ethical_boundaries'],
+    difficulty: 'expert',
+    scenarioId: 'guarantee-remediation-b',
+    scenarioFamilyId: challenge.scenarioFamilyId,
+    challengeId: challenge.challengeId,
+    remediationFailureCodes: challenge.remediationFailureCodes,
+  });
+  const remediated = buildCoachCompetencyPassport([...completeAttempts(), failure, broadCompetencyOnly, wrongCode, remediation]);
   assert.equal(remediated.progress.unresolvedCriticalFailures, 0);
   assert.equal(remediated.eligible, true);
-  assert.equal(remediated.criticalFailures[0].remediatedBy.scenarioId, 'ethical-remediation');
+  assert.equal(remediated.criticalFailures[0].remediatedBy.scenarioId, 'guarantee-remediation-b');
+  assert.equal(remediated.criticalFailures[0].remediatedBy.failureCode, 'outcome_guarantee');
+});
+
+test('stejnou kritickou výzvu nelze opravit jejím přejmenovaným opakováním, druhý případ z páru ano', () => {
+  const [challengeA, challengeB] = coachRemediationChallengesForFailure('ignored_explicit_refusal');
+  const failure = attempt({
+    index: 190,
+    scenarioId: 'refusal-failure-a',
+    scenarioFamilyId: challengeA.scenarioFamilyId,
+    challengeId: challengeA.challengeId,
+    remediationFailureCodes: challengeA.remediationFailureCodes,
+    criticalFailures: [{ code: 'ignored_explicit_refusal', competencyId: 'refusal_autonomy' }],
+  });
+  const sameChallenge = attempt({
+    index: 191,
+    scenarioId: 'refusal-same-content-renamed',
+    scenarioFamilyId: challengeA.scenarioFamilyId,
+    challengeId: challengeA.challengeId,
+    remediationFailureCodes: challengeA.remediationFailureCodes,
+    competencyIds: ['refusal_autonomy'],
+    difficulty: 'expert',
+  });
+  const stillBlocked = buildCoachCompetencyPassport([...completeAttempts(), failure, sameChallenge]);
+  assert.equal(stillBlocked.progress.unresolvedCriticalFailures, 1);
+
+  const equivalentChallenge = attempt({
+    index: 192,
+    scenarioId: 'refusal-equivalent-b',
+    scenarioFamilyId: challengeB.scenarioFamilyId,
+    challengeId: challengeB.challengeId,
+    remediationFailureCodes: challengeB.remediationFailureCodes,
+    competencyIds: ['refusal_autonomy'],
+    difficulty: 'expert',
+  });
+  const remediated = buildCoachCompetencyPassport([
+    ...completeAttempts(),
+    failure,
+    sameChallenge,
+    equivalentChallenge,
+  ]);
+  assert.equal(remediated.progress.unresolvedCriticalFailures, 0);
+});
+
+test('každá alternativa nápravné výzvy obsahuje rubriku své povinné kompetence', () => {
+  for (const failureCode of COACH_REMEDIATION_FAILURE_CODES) {
+    for (const challenge of coachRemediationChallengesForFailure(failureCode)) {
+      assert.ok(
+        challenge.rubric.some(criterion => coachCompetencyIdForCriterion(criterion) === challenge.competencyId),
+        `${challenge.challengeId} musí dokazovat ${challenge.competencyId}`,
+      );
+    }
+  }
+});
+
+test('každý kritický kód má funkční nápravu z původní lekční situace jen příslušnou kompetencí', () => {
+  const competencyByCode = {
+    clinical_scope_breach: 'ethical_boundaries',
+    confidentiality_breach: 'ethical_boundaries',
+    outcome_guarantee: 'ethical_boundaries',
+    ignored_explicit_refusal: 'refusal_autonomy',
+    client_decision_takeover: 'refusal_autonomy',
+    false_credential_claim: 'ethical_boundaries',
+    suicide_risk_response_missing: 'ethical_boundaries',
+  };
+  assert.deepEqual(Object.keys(competencyByCode).sort(), [...COACH_REMEDIATION_FAILURE_CODES].sort());
+
+  for (const [offset, failureCode] of COACH_REMEDIATION_FAILURE_CODES.entries()) {
+    const competencyId = competencyByCode[failureCode];
+    const challenge = coachRemediationChallengesForFailure(failureCode)[0];
+    const failure = attempt({
+      index: 210 + (offset * 3),
+      scenarioFamilyId: `coach-module-${offset + 1}`,
+      challengeId: `original-lesson-${offset + 1}`,
+      criticalFailures: [{ code: failureCode, competencyId }],
+    });
+    const wrongCompetency = attempt({
+      index: 211 + (offset * 3),
+      scenarioFamilyId: challenge.scenarioFamilyId,
+      challengeId: challenge.challengeId,
+      remediationFailureCodes: challenge.remediationFailureCodes,
+      competencyIds: [competencyId === 'ethical_boundaries' ? 'refusal_autonomy' : 'ethical_boundaries'],
+      difficulty: 'expert',
+    });
+    const blocked = buildCoachCompetencyPassport([...completeAttempts(), failure, wrongCompetency]);
+    assert.equal(blocked.progress.unresolvedCriticalFailures, 1, `${failureCode}: nesprávná kompetence`);
+
+    const proven = attempt({
+      index: 212 + (offset * 3),
+      scenarioFamilyId: challenge.scenarioFamilyId,
+      challengeId: challenge.challengeId,
+      remediationFailureCodes: challenge.remediationFailureCodes,
+      competencyIds: [competencyId],
+      difficulty: 'expert',
+    });
+    const remediated = buildCoachCompetencyPassport([...completeAttempts(), failure, wrongCompetency, proven]);
+    assert.equal(remediated.progress.unresolvedCriticalFailures, 0, `${failureCode}: náprava`);
+  }
 });
 
 test('kritická chyba z trusted pokusu zůstane sticky i při neúspěšném quality gate', () => {
@@ -538,7 +763,13 @@ test('uložení debriefu je databázově idempotentní a neprofesní kurz se nez
     messages: [{ role: 'user', content: 'Co by dnes bylo užitečným výsledkem?' }],
     result: {
       provider: 'openai/gpt-5.6',
-      scenario: { id: 'server-resolved-id', difficulty: 'advanced' },
+      scenario: {
+        id: 'server-resolved-id',
+        difficulty: 'advanced',
+        scenarioFamilyId: 'server-family',
+        challengeId: 'server-challenge',
+        remediationFailureCodes: ['clinical_scope_breach'],
+      },
       qualityGate: { pass: true },
       achievement: { rows: [{ label: LABELS.contract, status: 'proven' }] },
     },
@@ -548,6 +779,9 @@ test('uložení debriefu je databázově idempotentní a neprofesní kurz se nez
   const insert = calls.find(call => /academy_coach_debrief_attempts/u.test(call.query));
   assert.ok(insert);
   assert.ok(insert.values.includes('server-resolved-id'));
+  assert.ok(insert.values.includes('server-family'));
+  assert.ok(insert.values.includes('server-challenge'));
+  assert.ok(insert.values.includes('["clinical_scope_breach"]'));
   assert.ok(insert.values.includes('advanced'));
   assert.ok(insert.values.includes('33333333-3333-4333-8333-333333333333'));
   assert.equal(insert.values.some(value => JSON.stringify(value).includes('Co by dnes bylo')), false);

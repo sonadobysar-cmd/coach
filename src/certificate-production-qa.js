@@ -3,11 +3,15 @@ import { neon } from '@neondatabase/serverless';
 import { PDFDocument } from 'pdf-lib';
 import { submitCourseQuizAttempt } from './course-quiz-service.js';
 import { isProfessionalLifeCoachCourse } from './coach-competencies.js';
-import { recordCoachDebriefAttempt } from './coach-competency-passport.js';
+import {
+  COACH_ASSESSMENT_POLICY_VERSION,
+  recordCoachDebriefAttempt,
+} from './coach-competency-passport.js';
 import { finalExamScenarioIds } from './final-exam.js';
 import {
   certificatePdf,
   certificateStatus,
+  CERTIFICATE_EXAM_POLICY_VERSION,
   issueCertificate,
   isTrustedCertificateProvider,
   recordCertificateExamAttempt,
@@ -97,12 +101,14 @@ export async function runCertificateProductionQa({ member, course, answerTrainin
   const [certificateAttemptRows, coachAttemptRows] = await Promise.all([
     sql`SELECT scenario_id, training_attempt_id, all_proven, quality_passed, provider
       FROM academy_exam_attempts
-      WHERE user_id=${member.id}::uuid AND course_id=${course.id}`,
+      WHERE user_id=${member.id}::uuid AND course_id=${course.id}
+        AND assessment_policy_version=${CERTIFICATE_EXAM_POLICY_VERSION}`,
     professionalCoachCourse
       ? sql`SELECT scenario_id, training_attempt_id, difficulty, provider, quality_passed,
           achievement, critical_failures
         FROM academy_coach_debrief_attempts
-        WHERE user_id=${member.id}::uuid AND course_id=${course.id} AND final_exam=true`
+        WHERE user_id=${member.id}::uuid AND course_id=${course.id} AND final_exam=true
+          AND assessment_policy_version=${COACH_ASSESSMENT_POLICY_VERSION}`
       : Promise.resolve([]),
   ]);
   const signedFinalScenarioIds = signedQaFinalScenarioIds({

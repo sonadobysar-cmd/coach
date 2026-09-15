@@ -133,6 +133,9 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
     const privateScenario = course._masteryPrivate?.[masteryScenario.id];
     if (!privateScenario) throw new Error('Soukromá část modelové situace není dostupná.');
     const canonicalDifficulty = sanitizeTrainingDifficulty(masteryScenario.difficulty);
+    const authoredScenarioRubric = Array.isArray(masteryScenario.rubric)
+      ? masteryScenario.rubric
+      : [];
     return {
       ...masteryScenario,
       trainerLabel: trainerProfile.label,
@@ -140,11 +143,12 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       counterpart: requestedCounterpart || trainerProfile.counterpart,
       counterpartHint: safeCounterpartHint,
       role: requestedCounterpart || masteryScenario.role,
-      rubric: [
+      rubric: [...new Set([
         ...trainerProfile.rubric,
+        ...authoredScenarioRubric,
         `Přesné použití dovednosti z části „${item.title}“`,
         `Pozorovatelný důkaz: ${masteryScenario.evidenceTarget}`,
-      ],
+      ])],
       courseId: course.id,
       courseSlug: course.slug,
       courseTitle: course.title,
@@ -308,6 +312,11 @@ export function buildTrainingInstructions({
           ? trainingLanguage === 'sk'
             ? 'PRE TENTO PROFESIJNÝ KOUČOVACÍ VÝCVIK JE DÔKAZOVÝ REŽIM POVINNÝ: každý stav PREUKÁZANÉ alebo ČIASTOČNE musí v rovnakej odrážke obsahovať presne „Dôkaz [S#]: „doslovná citácia““. Číslo S# musí označovať skutočný študentský vstup s touto citáciou a citácia musí významovo dokazovať práve dané kritérium; všeobecná zdvorilosť ani iná vydarená veta nestačí.'
             : 'PRO TENTO PROFESNÍ KOUČOVACÍ VÝCVIK JE DŮKAZNÍ REŽIM POVINNÝ: každý stav PROKÁZÁNO nebo ČÁSTEČNĚ musí ve stejné odrážce obsahovat přesně „Důkaz [S#]: „doslovná citace““. Číslo S# musí označovat skutečný studentský tah s touto citací a citace musí významově dokazovat právě dané kritérium; obecná zdvořilost ani jiná povedená věta nestačí.'
+          : '',
+        strictCoachDebrief
+          ? trainingLanguage === 'sk'
+            ? 'V „Čo zlepšiť“ pomenuj presný názov jedného kritéria z rubriky, ktorého sa prioritná oprava týka. Citovaný S-tah musí významovo súvisieť práve s týmto kritériom; nepouži pravdivú, ale nesúvisiacu citáciu.'
+            : 'V „Co zlepšit“ pojmenuj přesný název jednoho kritéria z rubriky, kterého se prioritní oprava týká. Citovaný S-tah musí významově souviset právě s tímto kritériem; nepoužij pravdivou, ale nesouvisející citaci.'
           : '',
         strictCoachDebrief
           ? trainingLanguage === 'sk'
@@ -717,7 +726,11 @@ function assessTrainingOutput(text, {
     });
   }
   if (activity === 'simulation' && phase === 'roleplay') {
-    return assessRoleplayResponse(text, { responseLanguage });
+    return assessRoleplayResponse(text, {
+      responseLanguage,
+      scenario,
+      messages,
+    });
   }
   if (activity === 'study' && phase === 'study') {
     return assessStudyResponse(text, {
