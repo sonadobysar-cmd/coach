@@ -187,17 +187,30 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       throw trainingScenarioError('Požadovaný scénář pro tuto část kurzu neexistuje.', 'TRAINING_SCENARIO_NOT_FOUND');
     }
   }
-  masteryScenario ||= masteryScenarios.find(candidate => candidate.itemId === item.id && candidate.difficulty === safeDifficulty)
+  // A module-level scenario may be reused as a rich starting point for another
+  // lesson, but its public identity must then be rebound to that exact lesson.
+  // Otherwise the first response exposes an impossible scenario/item pair and
+  // the following signed turn correctly rejects it as tampering.
+  if (!masteryScenario && requestedScenarioId) {
+    masteryScenario = masteryScenarios.find(candidate => (
+      candidate.moduleIndex === moduleIndex
+      && lessonBoundMasteryScenarioId(candidate, item.id) === requestedScenarioId
+    )) || null;
+  }
+  if (!requestedScenarioId) {
+    masteryScenario = masteryScenarios.find(candidate => candidate.itemId === item.id && candidate.difficulty === safeDifficulty)
       || masteryScenarios.find(candidate => candidate.itemId === item.id)
       || masteryScenarios.find(candidate => candidate.moduleIndex === moduleIndex && candidate.difficulty === safeDifficulty)
       || masteryScenarios.find(candidate => candidate.moduleIndex === moduleIndex)
       || null;
+  }
   if (masteryScenario) {
     const privateScenario = course._masteryPrivate?.[masteryScenario.id];
     if (!privateScenario) throw new Error('Soukromá část modelové situace není dostupná.');
     const canonicalDifficulty = sanitizeTrainingDifficulty(masteryScenario.difficulty);
     return {
       ...masteryScenario,
+      id: lessonBoundMasteryScenarioId(masteryScenario, item.id),
       trainerLabel: trainerProfile.label,
       studentRole: trainerProfile.studentRole,
       counterpart: requestedCounterpart || trainerProfile.counterpart,
@@ -260,6 +273,10 @@ export function publicTrainingScenario(scenario) {
 
 function trainingScenarioError(message, code) {
   return Object.assign(new Error(message), { statusCode: 409, code });
+}
+
+function lessonBoundMasteryScenarioId(scenario, itemId) {
+  return scenario.itemId === itemId ? scenario.id : `${scenario.id}:lesson:${itemId}`;
 }
 
 export function buildBusinessAcademyFacultyContext({

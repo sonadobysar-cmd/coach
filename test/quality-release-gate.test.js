@@ -102,7 +102,10 @@ test('každá část všech 27 kurzů má vlastní trenérku a lekčně ukotveno
     assert.notEqual(getCourseTrainerProfile(course.id), defaultProfile, `${course.id}: používá obecnou trenérku`);
     for (const item of course.modules.flatMap(module => module.items)) {
       const scenario = createTrainingScenario(course, item, 'standard');
+      const roundTrip = createTrainingScenario(course, item, scenario.difficulty, scenario.id);
       const exposed = publicTrainingScenario(scenario);
+      assert.equal(roundTrip.id, scenario.id, `${course.id}/${item.id}: situaci nelze bezpečně znovu načíst`);
+      assert.equal(roundTrip.itemId, item.id, `${course.id}/${item.id}: situace změnila lekci`);
       assert.ok(scenario.rubric.length >= 6, `${course.id}/${item.id}: krátká rubrika`);
       assert.ok(scenario.openingLine.length >= 40, `${course.id}/${item.id}: krátké zadání protistrany`);
       assert.equal(scenario.title.startsWith('Praktický nácvik:'), false, `${course.id}/${item.id}: obecná záložní situace`);

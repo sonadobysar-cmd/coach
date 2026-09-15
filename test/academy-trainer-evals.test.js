@@ -17,6 +17,7 @@ import {
   summarizeAcademyTrainerEval,
 } from '../src/academy-trainer-evals.js';
 import { loadCourses } from '../src/courses.js';
+import { createTrainingScenario } from '../src/training.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const paths = (await readdir(join(ROOT, 'data')))
@@ -34,6 +35,14 @@ test('živá maturita trenérek plánuje přesně 27 × 3 odborně ukotvených p
   for (const entry of plan) {
     assert.ok(entry.item.markdown.length >= 240, `${entry.course.id}: krátká evaluační lekce`);
     assert.ok(entry.scenario.rubric.length >= 5, `${entry.course.id}: krátká rubrika`);
+    const roundTrip = createTrainingScenario(
+      entry.course,
+      entry.item,
+      entry.scenario.difficulty,
+      entry.scenario.id,
+    );
+    assert.equal(roundTrip.id, entry.scenario.id, `${entry.course.id}: eval situaci nelze bezpečně znovu načíst`);
+    assert.equal(roundTrip.itemId, entry.item.id, `${entry.course.id}: eval situace nepatří zvolené lekci`);
     assert.match(studyEvalRequest(entry).messages[0].content, new RegExp(escapeRegExp(entry.item.title), 'u'));
     assert.equal(simulationEvalRequest(entry).courseSlug, entry.course.slug);
   }
