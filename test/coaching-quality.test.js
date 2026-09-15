@@ -243,6 +243,68 @@ test('brána odmítne emoci a motiv, které klientka neuvedla', () => {
   assert.equal(assessment.shouldRepair, true);
 });
 
+test('české tvary stejné emoce nejsou mylně označené jako nově domyšlené', () => {
+  const cases = [
+    {
+      input: 'Můj první workshop dopadl podle mě špatně a stydím se za něj.',
+      output: 'Stud teď oddělíme od faktů o workshopu. Co se na něm konkrétně stalo?',
+    },
+    {
+      input: 'Bojím se zveřejnit svou nabídku.',
+      output: 'Strach přichází ve chvíli zveřejnění. Co si představíš těsně před kliknutím?',
+    },
+    {
+      input: 'Jsem na sebe naštvaná, že jsem to odložila.',
+      output: 'Vztek na sebe přišel po odložení. Co se stalo těsně předtím?',
+    },
+  ];
+
+  for (const example of cases) {
+    const messages = [{ role: 'user', content: example.input }];
+    const assessment = assessCoachingResponse(example.output, {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+    });
+    assert.equal(
+      assessment.issues.some(issue => issue.code === 'invented_emotion'),
+      false,
+      JSON.stringify(assessment.issues),
+    );
+  }
+});
+
+test('část slova ani obecné bojovat nejsou vydávané za emoci klientky', () => {
+  const cases = [
+    {
+      input: 'Nevím, jak pojmenovat svůj nový projekt.',
+      output: 'Symbolika názvu navazuje na hodnotu značky. Co má název vyjadřovat?',
+    },
+    {
+      input: 'Odkládám zveřejnění nabídky.',
+      output: 'Nemusíš s tím bojovat; zmenši první krok. Co můžeš zveřejnit dnes?',
+    },
+    {
+      input: 'Připravuji studijní materiály pro nový kurz.',
+      output: 'Studium rozděl na krátké části. Kterou kapitolu dokončíš jako první?',
+    },
+  ];
+
+  for (const example of cases) {
+    const messages = [{ role: 'user', content: example.input }];
+    const assessment = assessCoachingResponse(example.output, {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+    });
+    assert.equal(
+      assessment.issues.some(issue => issue.code === 'invented_emotion'),
+      false,
+      JSON.stringify(assessment.issues),
+    );
+  }
+});
+
 test('brána dovolí opatrnou, ukotvenou pracovní hypotézu o motivu ve vztahu', () => {
   const messages = [{ role: 'user', content: 'Ve vztahu s partnerem neumím říct ne a pak se na sebe zlobím.' }];
   const assessment = assessCoachingResponse(

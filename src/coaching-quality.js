@@ -259,11 +259,25 @@ export function assessCoachingResponse(text, {
   const asksForHumanLanguage = /\b(?:mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(?:clovek|lidsk|normaln|jednodus)|\b(?:nerozumim|nechapu|moc slozit|co tim myslis|nepochopil|nepochopila|meles nesmysly|jak jsme se (?:sem )?dostal\w*|opakujes)\b/u.test(normalizedLatestUserText);
   const assistantAssertions = normalized.replace(/[„“"][^„“"]+[„“"]/gu, ' ');
   const userEvidenceText = normalize((evidence.recentUserEvidence || []).join(' '));
-  const emotionRoots = ['bolest', 'smut', 'vztek', 'zlost', 'strach', 'obav', 'stud', 'vin', 'bezmoc', 'frustr', 'uzkost', 'radost', 'zklaman', 'napeti'];
-  const inventedEmotion = emotionRoots.find(root => {
-    if (!assistantAssertions.includes(root) || userEvidenceText.includes(root)) return false;
-    const position = assistantAssertions.indexOf(root);
-    const localContext = assistantAssertions.slice(Math.max(0, position - 70), position + root.length + 20);
+  const emotionFamilies = [
+    { label: 'bolest', pattern: /\b(?:bolest\w*|boli)\b/u },
+    { label: 'smutek', pattern: /\bsmut(?:ek|ku|kem|n\w*)\b/u },
+    { label: 'vztek', pattern: /\b(?:vztek|zlost|nastvan)\w*\b/u },
+    { label: 'strach', pattern: /\b(?:strach|obav)\w*\b|\bboj(?:im|is|i|ime|ite)\s+se\b/u },
+    { label: 'stud', pattern: /\b(?:stud|studu|studem|styd\w*)\b/u },
+    { label: 'vina', pattern: /\b(?:vina|viny|vinu|vinou|vinna|vinny|vinne)\b/u },
+    { label: 'bezmoc', pattern: /\bbezmoc\w*\b/u },
+    { label: 'frustrace', pattern: /\bfrustr\w*\b/u },
+    { label: 'úzkost', pattern: /\buzkost\w*\b/u },
+    { label: 'radost', pattern: /\bradost\w*\b/u },
+    { label: 'zklamání', pattern: /\bzklaman\w*\b/u },
+    { label: 'napětí', pattern: /\bnapeti\w*\b/u },
+  ];
+  const inventedEmotion = emotionFamilies.find(({ pattern }) => {
+    const assertedMatch = assistantAssertions.match(pattern);
+    if (!assertedMatch || pattern.test(userEvidenceText)) return false;
+    const position = assertedMatch.index || 0;
+    const localContext = assistantAssertions.slice(Math.max(0, position - 70), position + assertedMatch[0].length + 20);
     // Obecná, podmíněná informace není tvrzení o vnitřním stavu členky.
     // „Může se objevit při napětí“ je bezpečné; „je v tom hodně bolesti“ je podsunutá emoce.
     return !/\b(?:muze|mohlo|mohla|nekdy|obecne|napriklad|jednou z moznosti)\b/u.test(localContext);
@@ -372,7 +386,7 @@ export function assessCoachingResponse(text, {
     issues.push({ code: 'fabricated_empathy', severity: 'high' });
   }
   if (inventedEmotion) {
-    issues.push({ code: 'invented_emotion', severity: 'high', detail: inventedEmotion });
+    issues.push({ code: 'invented_emotion', severity: 'high', detail: inventedEmotion.label });
   }
   if (inventedRelationshipRole) {
     issues.push({ code: 'invented_relationship_role', severity: 'high', detail: inventedRelationshipRole.name });
