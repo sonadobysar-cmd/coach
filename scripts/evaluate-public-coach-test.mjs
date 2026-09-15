@@ -83,7 +83,7 @@ export const scenarios = [
       },
       {
         input: 'Zatím jsem ti neřekla, kolik lidí přišlo ani jak reagovali.',
-        require: { missingDataAcknowledged: /neřekla|nev(?:í|íme)|nemáme|chybí|kolik|reakc|zept/i },
+        require: { missingDataAcknowledged: /neřekla|nev(?:í|íme)|nemáme|chybí|kolik|reakc|bez (?:těchto )?(?:údajů|dat)|nelze|nejde|nemůžeme (?:zatím )?(?:hodnotit|vyhodnotit)/i },
         forbid: { stillNoInventedWorkshopEvidence: unsupportedWorkshopFacts() },
       },
       {
@@ -217,7 +217,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.38.1',
+      'user-agent': 'Elitea-Production-QA/0.38.2',
     },
     body: JSON.stringify(body),
   });

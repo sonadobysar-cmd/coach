@@ -790,6 +790,12 @@ function specificMentoringFallback(latestText, { messages = [] } = {}) {
     return `Jasně. Řeknu to jednoduše. ${guardedMentoringFallback(previousUserText)}`;
   }
 
+  const explicitlyMissingWorkshopData = /\b(?:zatim\s+)?(?:jsem\s+ti\s+)?(?:nerekla|neuvedla)\b/u.test(normalized)
+    && /\b(?:kolik|pocet|jak|reakc|reagoval|reagovali|udaj|data|informac)\w*\b/u.test(normalized);
+  if (explicitlyMissingWorkshopData) {
+    return 'Počet účastnic ani jejich reakce zatím neznáme, takže workshop ještě nejde poctivě vyhodnotit. Který z těchto dvou údajů chceš doplnit jako první?';
+  }
+
   const mentionsProject = /\b(projekt|podnik\w*|byznys\w*|sluzb\w*|produkt\w*|nabidk\w*|znack\w*)\b/u.test(normalized);
   const wantsLaunch = /\b(rozjet\w*|spust\w*|zacit\w*|zverejn\w*|dostat ven|prodat\w*|prodej\w*)\b/u.test(normalized);
   const socialVisibility = /\b(sock\w*|sochach|socialn\w*|instagram\w*|facebook\w*|tiktok\w*|linkedin\w*|vystupovat\w*|viditeln\w*)\b/u.test(normalized);
@@ -859,6 +865,11 @@ export function guardedMentoringFallback(latestText, {
 function guardedSlovakMentoringFallback(latestText) {
   const clean = String(latestText || '').replace(/\s+/gu, ' ').trim().slice(0, 320);
   const normalized = normalizeDialogueText(clean);
+  const explicitlyMissingWorkshopData = /\b(?:zatial\s+)?(?:som\s+ti\s+)?(?:nepovedala|neuviedla)\b/u.test(normalized)
+    && /\b(?:kolko|pocet|ako|reakc|reagoval|reagovali|udaj|data|informac)\w*\b/u.test(normalized);
+  if (explicitlyMissingWorkshopData) {
+    return 'Počet účastníčok ani ich reakcie zatiaľ nepoznáme, takže workshop ešte nemožno poctivo vyhodnotiť. Ktorý z týchto dvoch údajov chceš doplniť ako prvý?';
+  }
   if (/\b(cen|kolko|nacen|zdraz|zlacn)\w*\b/u.test(normalized)) {
     return 'Cenu nemožno spoľahlivo určiť iba podľa konkurencie. Musí pokryť celý čas a náklady, zodpovedať hodnote výsledku a dávať zmysel konkrétnej cieľovej skupine. Čo ponúkaš, komu a koľko času aj priamych nákladov stojí jedno dodanie?';
   }

@@ -472,6 +472,63 @@ test('žádost o normální řeč odmítne další konzultantský žargon', () =
   assert.equal(assessment.pass, false);
 });
 
+test('žádost o lidské přeformulování dovolí nejvýše jednu novou otázku', () => {
+  const messages = [
+    { role: 'user', content: 'Mám problém s prodejem služby a nevím, kde začít.' },
+    { role: 'assistant', content: 'Který distribuční mechanismus selhává?' },
+    { role: 'user', content: 'Můžeš se mnou mluvit jako člověk? Nerozumím té otázce.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jasně, jednoduše: vědí lidé o tvé nabídce? A pokud ano, co udělají potom?',
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'question_overload'));
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('výslovně chybějící údaje musí mentorka uznat a nesmí je obejít', () => {
+  const messages = [
+    { role: 'user', content: 'Můj workshop podle mě dopadl špatně.' },
+    { role: 'assistant', content: 'Kolik lidí přišlo a jak reagovali?' },
+    { role: 'user', content: 'Zatím jsem ti neřekla, kolik lidí přišlo ani jak reagovali.' },
+  ];
+  const missed = assessCoachingResponse(
+    'Pojďme tedy rovnou upravit příští workshop. Co chceš změnit?',
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.ok(missed.issues.some(issue => issue.code === 'missing_data_acknowledgement_missing'));
+  assert.equal(missed.shouldRepair, true);
+
+  const fallback = guardedMentoringFallback(messages.at(-1).content, { messages });
+  assert.match(fallback, /neznáme|nejde.+vyhodnotit/i);
+  const checked = assessCoachingResponse(
+    fallback,
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.equal(checked.pass, true, JSON.stringify(checked.issues));
+});
+
+test('slovenská mentorka stejně uzná výslovně chybějící údaje', () => {
+  const messages = [
+    { role: 'user', content: 'Môj workshop podľa mňa dopadol zle.' },
+    { role: 'assistant', content: 'Koľko ľudí prišlo a ako reagovali?' },
+    { role: 'user', content: 'Zatiaľ som ti nepovedala, koľko ľudí prišlo ani ako reagovali.' },
+  ];
+  const missed = assessCoachingResponse(
+    'Čo chceš na ďalšom workshope zmeniť?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'mentoringova_konzultace'), responseLanguage: 'sk' },
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    },
+  );
+  assert.ok(missed.issues.some(issue => issue.code === 'missing_data_acknowledgement_missing'));
+
+  const fallback = guardedMentoringFallback(messages.at(-1).content, { messages, responseLanguage: 'sk' });
+  assert.match(fallback, /nepoznáme|nemožno.+vyhodnotiť/i);
+});
+
 test('kontrola nepustí interní bezpečnostní formulaci do odpovědi členky', () => {
   const messages = [{ role: 'user', content: 'Nevím, jak rozjet projekt.' }];
   const assessment = assessCoachingResponse(

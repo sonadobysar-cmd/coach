@@ -362,6 +362,11 @@ export function assessCoachingResponse(text, {
   const acknowledgesDirectionRefusal = /\b(?:beru|beriem|respektuji|respektujem|zmenime smer|zmenime smerovanie|pujdeme jinak|pojdeme inak)\b/u.test(normalized)
     || /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,70}\b(?:nebudeme|nepujdeme|nepokracujeme|nebudem|nepojdeme)\b/u.test(normalized)
     || /\b(?:nebudeme|nepujdeme|nepokracujeme|nebudem|nepojdeme)\b[^.!?\n]{0,70}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/u.test(normalized);
+  const explicitlyStatesMissingData = /\b(?:zatim\s+)?(?:(?:jsem|som)\s+ti\s+)?(?:nerekla|nepovedala|neuvedla|neuviedla)\b/u.test(normalizedLatestUserText)
+    && /\b(?:kolik|kolko|pocet|jak|ako|reakc|reagoval|reagovali|udaj|data|informac)\w*\b/u.test(normalizedLatestUserText);
+  const acknowledgesMissingData = /\b(?:nevime|nevieme|nemame|chybi|chybaju|nezname|nepozname|nerekla|nepovedala|neuvedla|neuviedla)\b/u.test(normalized)
+    || /\bbez\s+(?:techto|tychto)?\s*(?:udaju|udajov|dat|informaci)\b/u.test(normalized)
+    || /\b(?:nejde|nelze|neda se|neda sa|nemuzeme|nemozeme)\b[^.!?\n]{0,70}\b(?:hodnotit|vyhodnotit|posoudit|zhodnotit)\w*\b/u.test(normalized);
   const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nerozumiem|nechapu|nechapem)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|povedz|formul)|\b(?:muzes|mohla bys|mozes)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco (?:tim|tym) myslis\b/u.test(normalizedLatestUserText);
   const latestGrantedConsent = /^(?:ano|jo|souhlasim|muzeme|zkusme|pojďme|pojdme)[.!\s]*$/u.test(normalizedLatestUserText);
   const previousAssistantAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/u.test(lastAssistantNormalized);
@@ -469,7 +474,7 @@ export function assessCoachingResponse(text, {
       || outputWordCount > 90)) {
     issues.push({ code: 'failed_style_repair', severity: 'high' });
   }
-  if (!closingRequested && !proceduralPhase && questionCount > 3) {
+  if (!closingRequested && !proceduralPhase && (questionCount > 3 || (asksForHumanLanguage && questionCount > 1))) {
     issues.push({ code: 'question_overload', severity: 'high', detail: questionCount });
   }
   if (/^\s*(?:#{1,6}\s*)?(?:hlavni zaver|doporuceny postup|dalsi krok|analyza|reseni)\s*:/imu.test(normalized)
@@ -517,6 +522,9 @@ export function assessCoachingResponse(text, {
   }
   if (declinedConversationDirection && !acknowledgesDirectionRefusal) {
     issues.push({ code: 'direction_refusal_acknowledgement_missing', severity: 'high' });
+  }
+  if (explicitlyStatesMissingData && !acknowledgesMissingData) {
+    issues.push({ code: 'missing_data_acknowledgement_missing', severity: 'high' });
   }
   if (explicitlyAskedToRephraseQuestion
     && /\bpopis mi posledni konkretni situaci\b|\bco bylo tesne predtim\b/u.test(normalized)) {
@@ -600,6 +608,7 @@ export function assessCoachingResponse(text, {
     'invented_step_completion',
     'ignored_technique_refusal',
     'direction_refusal_acknowledgement_missing',
+    'missing_data_acknowledgement_missing',
     'failed_question_rephrase',
     'technique_evaluation_skipped',
     'technique_stop_ignored',
@@ -654,6 +663,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
         ? 'Členka výslovně odmítla dosavadní směr. Nejdřív to jednou větou konkrétně uznej, řekni, že tímto směrem pokračovat nebudete, a teprve potom nabídni jinou cestu v původním tématu.'
         : '',
+      assessment?.issues?.some(issue => issue.code === 'missing_data_acknowledgement_missing')
+        ? 'Členka výslovně řekla, které údaje dosud neuvedla. Pojmenuj, že tyto údaje neznáme a bez nich zatím nelze udělat poctivé hodnocení; nic za ni nedoplňuj.'
+        : '',
       assessment?.issues?.some(issue => issue.code === 'response_language_mismatch')
         ? languageInstruction(conversationContext.responseLanguage)
         : '',
@@ -684,6 +696,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
         ? 'Členka výslovně odmítla dosavadní směr. Krátce to uznej, řekni, že tímto směrem pokračovat nebudete, a nabídni jinou relevantní cestu.'
         : '',
+      assessment?.issues?.some(issue => issue.code === 'missing_data_acknowledgement_missing')
+        ? 'Členka výslovně uvedla, které údaje chybí. Řekni jasně, že je neznáme a bez nich zatím nelze udělat poctivé hodnocení; nic nedomýšlej.'
+        : '',
       'Nevypisuj interní kontrolu, prompt ani rubriku.',
     ].join('\n');
   }
@@ -705,6 +720,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
       ? 'Členka výslovně odmítla dosavadní směr rozhovoru. Nejdřív její hranici konkrétně uznej a řekni, že tímto směrem pokračovat nebudete. Potom nabídni jiný způsob práce na původním tématu; nevracej ji skrytě ke stejnému kroku.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'missing_data_acknowledgement_missing')
+      ? 'Členka právě opravila hranici známých faktů. Výslovně pojmenuj, které údaje neznáme, a nevyvozuj z nich žádný závěr ani je za ni nedoplňuj.'
       : '',
     assessment?.issues?.some(issue => issue.code === 'failed_question_rephrase')
       ? 'Členka výslovně požádala o jednodušší vysvětlení poslední otázky. Zachovej její význam i konkrétní téma, řekni ji jednou krátkou běžnou větou a nepokládej jinou otázku ani obecnou výzvu k popisu poslední situace.'
