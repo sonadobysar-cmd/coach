@@ -146,9 +146,11 @@ export function createTechniqueTurn({
     }
     const session = pauseTechniqueForMethodBoundary(safePrevious, latestText, {
       blocks,
-      reason: methodBoundary.explicitBoundary
-          ? 'method_boundary'
-          : 'no_effect',
+      // A sentence can both report zero effect and set a boundary ("nothing
+      // changed, I do not want to keep trying this"). Keep the stronger
+      // no-effect signal so the visible response acknowledges the result,
+      // while the sticky block list still enforces the boundary.
+      reason: explicitNoEffect ? 'no_effect' : 'method_boundary',
     });
     return {
       card,
@@ -176,7 +178,7 @@ export function createTechniqueTurn({
       });
       const session = pauseTechniqueForMethodBoundary(initial.session, latestText, {
         blocks: initialBlocks,
-        reason: methodBoundary.explicitBoundary ? 'method_boundary' : 'no_effect',
+        reason: explicitNoEffect ? 'no_effect' : 'method_boundary',
       });
       return {
         card: blockedCandidate,
@@ -191,7 +193,7 @@ export function createTechniqueTurn({
     // a later turn could silently offer the refused modality again. This
     // sentinel carries only signed block state; it never represents or runs a
     // technique.
-    const suspensionReason = methodBoundary.explicitBoundary ? 'method_boundary' : 'no_effect';
+    const suspensionReason = explicitNoEffect ? 'no_effect' : 'method_boundary';
     const hasPersistentBlocks = inheritedBlocks.blockedTechniqueIds.length
       || inheritedBlocks.blockedTechniqueFamilies.length
       || inheritedBlocks.blockedModalities.length;
@@ -737,7 +739,7 @@ export function formatTechniqueExecution(turn) {
         ? 'Neobnovuj starou techniku ani nevybírej novou jen proto, že členka neví, co dál. Lidsky unes nejistotu, drž odmítnutý rozsah a pomoz jednou krátkou otázkou nebo přesným rozlišením vytvořit novou zakázku.'
         : '',
       ['no_effect', 'adverse_effect'].includes(turn.suspensionReason)
-        ? 'Pojmenuj, že výsledek je důležité datum, a změň druh práce. Nenabízej další variantu stejné modality ani ji neobhajuj; vrať se k situaci, myšlence, rozhodnutí nebo praktickému kontextu, který členka řeší.'
+        ? 'Krátce a lidsky uznej, že tento způsob nepřinesl změnu, a změň druh práce. Nenabízej další variantu stejné modality ani ji neobhajuj; vrať se k situaci, myšlence, rozhodnutí nebo praktickému kontextu, který členka řeší.'
         : '',
       turn.suspensionReason === 'method_boundary'
         ? 'Hranici přijmi bez vyjednávání. Pokud členka pojmenovala konkrétní hovor nebo situaci, přejdi přímo k němu a polož jednu přesnou otázku na pozorovatelný průběh; nenabízej žádné další regulační cvičení.'

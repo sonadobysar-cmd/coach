@@ -498,6 +498,8 @@ test('CZ no-effect před souhlasem sticky blokuje dech, pojmenování pocitu i s
   });
   assert.equal(afterLabeling.suspended, true);
   assert.equal(afterLabeling.session.phase, 'awaiting_recontract');
+  assert.equal(afterLabeling.suspensionReason, 'no_effect');
+  assert.match(formatTechniqueExecution(afterLabeling), /tento způsob nepřinesl změnu/i);
   assert.ok(afterLabeling.session.blockedModalities.includes('breath'));
   assert.ok(afterLabeling.session.blockedModalities.includes('emotion_labeling'));
 

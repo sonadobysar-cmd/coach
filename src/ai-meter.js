@@ -10,6 +10,12 @@ export const AI_RATES = Object.freeze({
   'openai/gpt-5.6-sol': { input: 2e-6, cached: .2e-6, write: 2.5e-6, output: 10e-6 },
   'openai/gpt-5.6-terra': { input: 2e-6, cached: .2e-6, write: 2.5e-6, output: 12e-6 },
 });
+
+export function resolveAiCallTimeoutMs(value = process.env.ELITEA_AI_CALL_TIMEOUT_MS) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 90_000;
+  return Math.max(20_000, Math.min(180_000, Math.round(parsed)));
+}
 export function priceUsage(model, usage) {
   const rates = AI_RATES[model];
   const input = usage?.inputTokens, output = usage?.outputTokens;
@@ -34,6 +40,10 @@ export async function persistAiCall(event) {
 export function createMeteredGenerate({ generate = generateText, sink = persistAiCall } = {}) {
   return async function meteredGenerate(options) {
     const { meterPhase = 'primary', ...args } = options;
+    // A provider request must never hold a paid member in a spinner until the
+    // whole Vercel function expires. AI SDK applies this budget across its own
+    // retry attempts; callers can still choose a stricter timeout explicitly.
+    if (args.timeout === undefined) args.timeout = { totalMs: resolveAiCallTimeoutMs() };
     const instructionText = typeof args.instructions === 'string' ? args.instructions : '';
     if (process.env.ELITEA_CONTEXT_COMPACT !== '0' && instructionText.includes('# AKTUÁLNÍ PAMĚŤ ČLENKY')) {
       const boundary = instructionText.indexOf('# AKTUÁLNÍ PAMĚŤ ČLENKY');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMeteredGenerate, priceUsage, aiMeterContext } from '../src/ai-meter.js';
+import { createMeteredGenerate, priceUsage, aiMeterContext, resolveAiCallTimeoutMs } from '../src/ai-meter.js';
 test('charges cached input separately and reasoning once', () => {
   assert.ok(Math.abs(priceUsage('openai/gpt-5.6-terra', { inputTokens: 1000, outputTokens: 100, inputTokenDetails: { cacheReadTokens: 800 }, outputTokenDetails: { reasoningTokens: 80 } }) - .00176) < 1e-10);
   assert.equal(priceUsage('unknown', {inputTokens: 1, outputTokens: 1}), null);
@@ -34,5 +34,25 @@ test('split instructions retain every byte and order',async()=>{
  let seen;const fn=createMeteredGenerate({generate:async args=>{seen=args;return{}},sink:()=>{}});
  const original='STATIC\n\n# AKTUÁLNÍ PAMĚŤ ČLENKY\nPRIVATE';
  await fn({model:'openai/gpt-5.6-sol',instructions:original});
- assert.equal(seen.instructions.map(m=>m.content).join(''),original);
+  assert.equal(seen.instructions.map(m=>m.content).join(''),original);
+});
+
+test('AI call has a bounded production timeout and respects an explicit stricter budget', async () => {
+  assert.equal(resolveAiCallTimeoutMs('not-a-number'), 90_000);
+  assert.equal(resolveAiCallTimeoutMs('1000'), 20_000);
+  assert.equal(resolveAiCallTimeoutMs('999999'), 180_000);
+  let first;
+  let second;
+  const fn = createMeteredGenerate({
+    generate: async args => {
+      if (!first) first = args;
+      else second = args;
+      return {};
+    },
+    sink: () => {},
+  });
+  await fn({ model: 'openai/gpt-5.6-sol' });
+  await fn({ model: 'openai/gpt-5.6-sol', timeout: { totalMs: 35_000 } });
+  assert.deepEqual(first.timeout, { totalMs: 90_000 });
+  assert.deepEqual(second.timeout, { totalMs: 35_000 });
 });
