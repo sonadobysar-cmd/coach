@@ -596,6 +596,12 @@ test('viditelná odpověď vždy lidsky uzná nulový účinek a CZ/SK hranici i
   assert.match(cs, /konkrétní hovor/i);
   assert.match(sk, /ani tento spôsob nepomohol/i);
   assert.match(sk, /konkrétny hovor/i);
+  const respectfulButIncomplete = enforceTechniqueResponse(
+    'Tento postup už nebudeme opakovať. Pozrime sa na samotný hovor.',
+    paused,
+    { latestText: 'Ani pomenovanie pocitu nič nezmenilo. Nechcem to skúšať dookola.' },
+  );
+  assert.match(respectfulButIncomplete, /^Beriem\. Ani tento spôsob nepomohol/u);
 
   const released = {
     card: null,

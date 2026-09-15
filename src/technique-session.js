@@ -1334,7 +1334,10 @@ function prefersSlovak(value) {
 }
 
 function acknowledgesNoEffect(value) {
-  return /\b(?:nepomoh\w*|nezabral\w*|nic\s+(?:(?:se|sa)\s+)?nezmen\w*|bez\s+(?:zmeny|efektu)|neprinies\w*\s+zmen\w*|neprines\w*\s+zmen\w*)\b|\b(?:nebudeme|nebudu|nebudem|neopakuj\w*|nechame|nechajme).{0,55}(?:zpusob|sposob|dech|dych|pojmen|pomen)/iu.test(normalizeCzech(value));
+  // Merely saying "we will not repeat it" respects a boundary but does not
+  // acknowledge the member's reported result. Keep this deliberately stricter
+  // than the modality guard so the empathetic first sentence is guaranteed.
+  return /\b(?:nepomoh\w*|nezabral\w*|nic\s+(?:(?:se|sa)\s+)?nezmen\w*|bez\s+(?:zmeny|efektu)|neprinies\w*\s+zmen\w*|neprines\w*\s+zmen\w*)\b/iu.test(normalizeCzech(value));
 }
 
 function acknowledgesRegulationBoundary(value) {
