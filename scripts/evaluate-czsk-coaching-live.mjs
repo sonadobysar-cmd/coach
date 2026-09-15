@@ -50,7 +50,9 @@ export async function runCzskLiveEvaluation(options = {}) {
     const completed = await Promise.all(batch.map(async ({ scenario, request }, batchIndex) => {
       const previousAttempts = Number(priorById.get(scenario.id)?.attempts || 0);
       try {
-        const payload = await postJson(config, request.endpoint, request.body);
+        const payload = request.endpoint === '/api/training'
+          ? await runAuthenticTrainingDebrief(config, request.body, scenario.language)
+          : await postJson(config, request.endpoint, request.body);
         return {
           ...evaluateCzskLiveResponse({ scenario, request, payload }),
           attempts: previousAttempts + 1,
@@ -82,6 +84,46 @@ export async function runCzskLiveEvaluation(options = {}) {
   ensurePrivateReport(report, conversationNeedles());
   await atomicWriteJson(reportPath, report);
   return { report, reportPath };
+}
+
+async function runAuthenticTrainingDebrief(config, body, language = 'cs') {
+  if (!body?.openingLine) throw new Error('Training eval nemá serverem ověřený začátek scénáře.');
+  let attemptToken = body.attemptToken || null;
+  const messages = [{ role: 'assistant', content: body.openingLine }];
+  const suppliedTurns = (Array.isArray(body.messages) ? body.messages : [])
+    .filter(message => message?.role === 'user')
+    .map(message => String(message.content || '').trim())
+    .filter(Boolean);
+  const fallbackTurns = language === 'sk'
+    ? [
+        'Čo by pre teba dnes bolo užitočným výsledkom?',
+        'Čomu z toho, čo si práve povedala, zatiaľ nerozumiem dostatočne presne?',
+        'Aký ďalší krok si chceš zvoliť sama?',
+      ]
+    : [
+        'Co by pro tebe dnes bylo užitečným výsledkem?',
+        'Čemu z toho, co jsi právě řekla, zatím nerozumím dostatečně přesně?',
+        'Jaký další krok si chceš zvolit sama?',
+      ];
+  const studentTurns = [...suppliedTurns, ...fallbackTurns].slice(0, 3);
+  let lastPayload = null;
+  for (const content of studentTurns) {
+    messages.push({ role: 'user', content });
+    lastPayload = await postJson(config, '/api/training', {
+      ...body,
+      phase: 'roleplay',
+      messages,
+      attemptToken,
+    });
+    messages.push({ role: 'assistant', content: lastPayload.text });
+    attemptToken = lastPayload.attemptToken || attemptToken;
+  }
+  return postJson(config, '/api/training', {
+    ...body,
+    phase: 'debrief',
+    messages,
+    attemptToken,
+  });
 }
 
 async function loadAndVerifyTrainingFixture(config) {

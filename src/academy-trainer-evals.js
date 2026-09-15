@@ -9,7 +9,7 @@ import {
 import { createTrainingScenario, trainingMode } from './training.js';
 
 export const ACADEMY_TRAINER_EVAL_STANDARD = Object.freeze({
-  version: 1,
+  version: 2,
   courseCount: 27,
   casesPerCourse: 3,
   requiredCases: 81,
@@ -191,7 +191,78 @@ export function summarizeAcademyTrainerEval(results = [], { baseUrl = '', starte
   };
 }
 
+export function assessAcademyTrainerBaselineEligibility(report) {
+  const reasons = [];
+  const run = report?.run || {};
+  const provenance = report?.provenance || {};
+  const modelIds = provenance.modelIds || {};
+  const observedByType = modelIds.observedByType || {};
+  const deployment = provenance.deployment || {};
+  const results = Array.isArray(report?.results) ? report.results : [];
+  const runId = String(run.id || '');
+
+  if (Number(report?.standardVersion) !== ACADEMY_TRAINER_EVAL_STANDARD.version) {
+    reasons.push('standard-version-mismatch');
+  }
+  if (report?.summary?.complete !== true) reasons.push('incomplete-81-case-result');
+  if (run.resumedFrom) reasons.push('resumed-run-cannot-release');
+  if (Number(run.freshCases) !== ACADEMY_TRAINER_EVAL_STANDARD.requiredCases) {
+    reasons.push('all-cases-must-be-fresh');
+  }
+  if (Number(run.reusedCases ?? run.reusedPassedCases) !== 0) reasons.push('reused-cases-present');
+  if (Number(run.attemptedCases) !== ACADEMY_TRAINER_EVAL_STANDARD.requiredCases) {
+    reasons.push('all-cases-must-be-attempted-in-run');
+  }
+  if (!runId || provenance.runId !== runId) reasons.push('run-id-missing-or-mismatched');
+  if (results.length !== ACADEMY_TRAINER_EVAL_STANDARD.requiredCases
+    || results.some(result => result.evaluationRunId !== runId)) {
+    reasons.push('results-not-bound-to-current-run');
+  }
+  if (new Set(results.map(result => result.id)).size !== ACADEMY_TRAINER_EVAL_STANDARD.requiredCases) {
+    reasons.push('result-identities-not-unique');
+  }
+  if (!/^\d+\.\d+\.\d+(?:[-+].+)?$/u.test(String(provenance.appVersion || ''))) {
+    reasons.push('app-version-missing');
+  }
+  if (!/^[a-f0-9]{40}$/iu.test(String(provenance.gitCommitSha || ''))) {
+    reasons.push('git-commit-missing');
+  }
+  if (provenance.gitDirty !== false) reasons.push('git-worktree-must-be-clean');
+  if (!/^[a-f0-9]{64}$/iu.test(String(provenance.promptSystemFingerprint || ''))) {
+    reasons.push('prompt-system-fingerprint-missing');
+  }
+  if (!/^[a-f0-9]{64}$/iu.test(String(provenance.evaluationCodeFingerprint || ''))) {
+    reasons.push('evaluation-code-fingerprint-missing');
+  }
+  if (!/^[a-f0-9]{64}$/iu.test(String(provenance.evalPlanFingerprint || ''))) {
+    reasons.push('eval-plan-fingerprint-missing');
+  }
+  if (!provenance.generatedAt || Number.isNaN(Date.parse(provenance.generatedAt))) {
+    reasons.push('provenance-timestamp-missing');
+  }
+  if (!deployment.identity || !deployment.baseUrl || deployment.baseUrl !== report?.baseUrl) {
+    reasons.push('deployment-identity-missing-or-mismatched');
+  }
+
+  for (const type of ACADEMY_TRAINER_EVAL_STANDARD.caseTypes) {
+    const configured = String(modelIds[type] || '');
+    const observed = Array.isArray(observedByType[type]) ? observedByType[type] : [];
+    if (!configured || observed.length !== 1 || observed[0] !== configured) {
+      reasons.push(`model-provenance-${type}-mismatch`);
+    }
+  }
+
+  return {
+    eligible: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+  };
+}
+
 export function academyTrainerReleaseBaseline(report) {
+  const eligibility = assessAcademyTrainerBaselineEligibility(report);
+  if (!eligibility.eligible) {
+    throw new Error(`Academy trainer baseline nelze zapsat: ${eligibility.reasons.join(', ')}.`);
+  }
   return {
     standardVersion: ACADEMY_TRAINER_EVAL_STANDARD.version,
     verifiedAt: report?.completedAt || null,
@@ -202,6 +273,7 @@ export function academyTrainerReleaseBaseline(report) {
     failedCases: Number(report?.summary?.failed || 0),
     passRate: Number(report?.summary?.passRate || 0),
     complete: report?.summary?.complete === true,
+    provenance: report.provenance,
   };
 }
 

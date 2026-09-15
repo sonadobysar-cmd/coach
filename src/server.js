@@ -81,6 +81,12 @@ import {
   syncCertificateEvidence,
 } from './certificate-service.js';
 import { recordCoachDebriefAttempt } from './coach-competency-passport.js';
+import {
+  advanceTrainingAttempt,
+  issueTrainingAttempt,
+  trainingAttemptSigningConfigured,
+  verifyTrainingAttemptStep,
+} from './training-attempt-auth.js';
 import { certificateSigningConfigured } from './certificate-authenticity.js';
 import { authorizeCertificateQaRequest, runCertificateProductionQa } from './certificate-production-qa.js';
 import {
@@ -92,6 +98,7 @@ import {
   savePublicCoachTestFeedback,
 } from './public-coach-test-service.js';
 import { previewAccessAllowed } from './access-policy.js';
+import { isFinalExamScenario } from './final-exam.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -448,6 +455,7 @@ app.get('/api/health', (_request, response) => {
     cron: Boolean(process.env.CRON_SECRET),
     runtimeSchema: runtimeSchemaStatus().ready,
     certificateSigning: certificateSigningConfigured(),
+    trainingAttemptSigning: trainingAttemptSigningConfigured(),
   };
   const ok = Object.values(dependencies).every(Boolean);
   return response.status(ok ? 200 : 503).set('Cache-Control', 'no-store').json({
@@ -873,7 +881,7 @@ app.get('/api/course-search', async (request, response) => {
 
 app.get('/api/training/scenario', async (request, response) => {
   try {
-    await authorizeAiRequest(request);
+    const member = await authorizeAiRequest(request);
     const context = findCourseTrainingContext(request.query.courseSlug, request.query.itemId);
     if (!context) {
       return response.status(404).set('Cache-Control', 'no-store').json({ error: 'Kurzová část pro nácvik nebyla nalezena.' });
@@ -885,9 +893,32 @@ app.get('/api/training/scenario', async (request, response) => {
       request.query.scenarioId,
       sanitizeTrainingCounterpartHint(request.query.counterpart),
     );
-    return response.set('Cache-Control', 'no-store').json(publicTrainingScenario(scenario));
+    const publicScenario = publicTrainingScenario(scenario);
+    const requestedFinalExam = ['1', 'true'].includes(String(request.query.finalExam || '').toLowerCase());
+    if (!member?.id) return response.set('Cache-Control', 'no-store').json(publicScenario);
+    const attempt = issueTrainingAttempt({
+      member,
+      course: context.course,
+      item: context.item,
+      scenario,
+      finalExam: requestedFinalExam,
+      messages: [{ role: 'assistant', content: scenario.openingLine }],
+    });
+    return response.set('Cache-Control', 'private, no-store').json({
+      ...publicScenario,
+      attemptToken: attempt.token,
+      attempt: {
+        id: attempt.attemptId,
+        turns: attempt.turns,
+        finalExam: attempt.finalExam,
+        expiresAt: attempt.expiresAt,
+      },
+    });
   } catch (error) {
-    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({ error: error?.message || 'Pro spuštění nácviku se přihlas.' });
+    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({
+      error: error?.message || 'Pro spuštění nácviku se přihlas.',
+      ...(error?.code ? { code: error.code } : {}),
+    });
   }
 });
 
@@ -1200,18 +1231,38 @@ app.post('/api/training', async (request, response) => {
     counterpartHint: request.body?.counterpartHint,
   });
   const { activity, phase, autoTransition, counterpartHint } = turn;
-  const difficulty = sanitizeTrainingDifficulty(request.body?.difficulty);
-  const finalExam = request.body?.finalExam === true
+  let difficulty = sanitizeTrainingDifficulty(request.body?.difficulty);
+  let scenarioId = String(request.body?.scenarioId || '').trim().slice(0, 200) || null;
+  let finalExam = request.body?.finalExam === true
     && activity === 'simulation'
-    && String(request.body?.scenarioId || '') === String(context.course?.mastery?.finalExam?.scenarioId || '');
+    && isFinalExamScenario(context.course, scenarioId);
   console.log(JSON.stringify({ level: 'info', message: 'training_started', requestId, activity, phase, autoTransition, counterpartHint }));
 
   let member = null;
   let usageReserved = false;
   let usageReservation = null;
   let generationCompleted = false;
+  let verifiedTrainingStep = null;
   try {
     member = await authorizeAiRequest(request);
+    const professionalCoachSimulation = context.course.id === 'profesionalni-life-coach' && activity === 'simulation';
+    const requiresVerifiedAttempt = Boolean(member?.id) && activity === 'simulation'
+      && (professionalCoachSimulation || finalExam || request.body?.attemptToken);
+    if (requiresVerifiedAttempt) {
+      verifiedTrainingStep = verifyTrainingAttemptStep(request.body?.attemptToken, {
+        member,
+        course: context.course,
+        item: context.item,
+        messages: request.body?.messages,
+        requestedPhase: phase,
+        requestedScenarioId: scenarioId,
+        requestedDifficulty: difficulty,
+        requestedFinalExam: request.body?.finalExam === true,
+      });
+      difficulty = verifiedTrainingStep.payload.d;
+      scenarioId = verifiedTrainingStep.payload.sid;
+      finalExam = verifiedTrainingStep.payload.final;
+    }
     if (member) {
       const reservedUsage = await reserveAiTurn(member, member.membership, {
         roleCode: activity === 'simulation' && context.course.categoryId === 'coaching-mental-health'
@@ -1230,47 +1281,89 @@ app.post('/api/training', async (request, response) => {
       activity,
       phase,
       difficulty,
-      scenarioId: request.body?.scenarioId,
+      scenarioId,
       counterpartHint,
       autoTransition,
       finalExam,
     });
     generationCompleted = true;
+    if (verifiedTrainingStep) {
+      const nextAttempt = advanceTrainingAttempt(verifiedTrainingStep, result.text);
+      result.attemptToken = nextAttempt.token;
+      result.trainingAttempt = {
+        id: nextAttempt.attemptId,
+        turns: nextAttempt.turns,
+        closed: nextAttempt.closed,
+        finalExam: nextAttempt.finalExam,
+        step: verifiedTrainingStep.kind,
+        evidenceEligible: verifiedTrainingStep.kind === 'debrief_start',
+        expiresAt: nextAttempt.expiresAt,
+      };
+    }
     const billableResult = isBillableAiResult(result, { training: true });
     if (member && usageReserved && !billableResult) {
       await refundAiTurn(member, member.membership, usageReservation).catch(() => {});
       usageReserved = false;
     }
-    if (member && finalExam && phase === 'debrief') {
-      await recordCertificateExamAttempt({
+    const authenticDebrief = verifiedTrainingStep?.kind === 'debrief_start';
+    let certificateExamRecord = null;
+    let coachPassportRecord = null;
+    if (member && finalExam && phase === 'debrief' && authenticDebrief) {
+      try {
+        certificateExamRecord = await recordCertificateExamAttempt({
         member,
         course: context.course,
         item: context.item,
-        scenarioId: request.body?.scenarioId,
+        scenarioId,
+        trainingAttemptId: verifiedTrainingStep.payload.aid,
         messages: request.body?.messages,
         result,
-      }).catch(async error => {
+        });
+      } catch (error) {
         await reportOperationalError({ area: 'academy_certificate', code: error?.code || 'EXAM_RECORD_FAILED', path: request.path, summary: error });
-      });
+        certificateExamRecord = { recorded: false, duplicate: false, reason: 'write_failed' };
+      }
     }
-    if (member && activity === 'simulation' && phase === 'debrief' && context.course.id === 'profesionalni-life-coach') {
-      await recordCoachDebriefAttempt({
+    if (member && activity === 'simulation' && phase === 'debrief'
+      && context.course.id === 'profesionalni-life-coach' && authenticDebrief) {
+      try {
+        coachPassportRecord = await recordCoachDebriefAttempt({
         member,
         course: context.course,
         item: context.item,
-        scenarioId: request.body?.scenarioId,
+        scenarioId,
         difficulty,
         finalExam,
+        trainingAttemptId: verifiedTrainingStep.payload.aid,
         messages: request.body?.messages,
         result,
-      }).catch(async error => {
+        });
+      } catch (error) {
         await reportOperationalError({
           area: 'academy_coach_passport',
           code: error?.code || 'COACH_DEBRIEF_RECORD_FAILED',
           path: request.path,
           summary: error,
         });
-      });
+        coachPassportRecord = { recorded: false, duplicate: false, reason: 'write_failed' };
+      }
+    }
+    const professionalCoachDebrief = context.course.id === 'profesionalni-life-coach';
+    if (member && activity === 'simulation' && phase === 'debrief'
+      && authenticDebrief && (professionalCoachDebrief || finalExam)) {
+      const passportVerified = !professionalCoachDebrief
+        || coachPassportRecord?.recorded === true
+        || coachPassportRecord?.duplicate === true;
+      const certificateVerified = !finalExam
+        || certificateExamRecord?.recorded === true
+        || certificateExamRecord?.duplicate === true;
+      result.evidencePersistence = {
+        required: true,
+        verified: passportVerified && certificateVerified,
+        passportRecorded: professionalCoachDebrief ? passportVerified : null,
+        finalExamRecorded: finalExam ? certificateVerified : null,
+        retryable: !(passportVerified && certificateVerified),
+      };
     }
     if (member && billableResult) {
       const coachingTrainer = activity === 'simulation' && context.course.categoryId === 'coaching-mental-health';

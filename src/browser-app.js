@@ -10,11 +10,21 @@ import {
   recordOutcomeFollowUp,
   saveOutcomeStore,
 } from '../public/outcomes.js';
+import {
+  canonicalTrainingDifficulty,
+  inferTrainingCounterpartHint,
+  isTrainingAttemptErrorCode,
+  isTrainingDebriefCommand,
+  isTrainingSimulationRequest,
+  resolveTrainingEvidenceUpdate,
+  trainingRetryScenarioId,
+} from './browser-training-flow.js';
 
-const APP_VERSION = '0.38.3';
+const APP_VERSION = '0.39.0';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
+let trainingPortfolioMigrationPending = false;
 const accountLocalStorage = createAccountStorage(localStorage);
 const accountSessionStorage = createAccountStorage(sessionStorage);
 
@@ -574,6 +584,10 @@ async function restoreCloudAccount(cloud, currentSession = null) {
   if (loaded.user.id !== activeAccountId) activateAccountIdentity(loaded.user.id);
   state.cloudSession = loaded;
   hydrateAccountStateFromStorage();
+  if (cloud.needsStateSync?.() || trainingPortfolioMigrationPending) {
+    trainingPortfolioMigrationPending = false;
+    syncCloudState();
+  }
   return loaded;
 }
 
@@ -582,7 +596,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.38.3';
+  const cloudModuleUrl = '/cloud.js?v=0.39.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
@@ -969,7 +983,7 @@ function bindEvents() {
     const certificateDownload = event.target.closest('[data-certificate-download]');
     if (day) toggleMasteryDay(day.dataset.masteryDay);
     if (scenario) startMasteryScenario(scenario.dataset.masteryScenario);
-    if (exam) startMasteryScenario(state.activeCourse?.mastery?.finalExam?.scenarioId, { finalExam: true });
+    if (exam) startMasteryScenario(nextMasteryFinalExamScenarioId(), { finalExam: true });
     if (certificateRefresh) refreshCertificateStatus({ sync: true });
     if (certificateIssue) issueCurrentCertificate();
     if (certificateDownload) downloadCurrentCertificate();
@@ -986,7 +1000,7 @@ function bindEvents() {
   elements.retryTraining.addEventListener('click', retryTrainingSimulation);
   elements.exitTraining.addEventListener('click', () => setAssistantRole('coach'));
   elements.trainingDifficulty.addEventListener('change', () => {
-    if (state.trainingSession?.activity === 'simulation') retryTrainingSimulation();
+    if (state.trainingSession?.activity === 'simulation') retryTrainingSimulation({ preserveScenario: false });
   });
   elements.lessonNotes?.addEventListener('input', saveCurrentCourseNote);
   elements.lessonAudioToggle?.addEventListener('click', toggleLessonAudio);
@@ -2235,12 +2249,17 @@ function renderMasteryPack(mastery, progress) {
 
 function renderMasteryExam(mastery) {
   const exam = mastery.finalExam;
-  const attempts = state.trainingPortfolio.filter(entry => entry.courseId === state.activeCourse.id && entry.scenarioId === exam.scenarioId).length;
+  const finalScenarioIds = Array.isArray(exam.scenarioIds) && exam.scenarioIds.length ? exam.scenarioIds : [exam.scenarioId];
+  const attempts = state.trainingPortfolio.filter(entry => (
+    entry.courseId === state.activeCourse.id && finalScenarioIds.includes(entry.scenarioId)
+  )).length;
   const status = state.certificateStatuses[state.activeCourse.id];
   const passport = status?.coachPassport;
   const passportProgress = passport?.progress;
+  const passedFinalSessions = passportProgress?.finalExamsPassed ?? (passportProgress?.finalExamPassed ? 1 : 0);
+  const requiredFinalSessions = passportProgress?.requiredFinalExams ?? exam.requiredPassingSessions ?? 1;
   const passportBody = passportProgress
-    ? `<article class="mastery-passport-card"><header><div><span>PROFESNÍ KOMPETENČNÍ PAS</span><h3>${passport.eligible ? 'Praxe je doložená napříč celým řemeslem' : 'Profesionalita vzniká opakováním, ne jedním povedeným finále'}</h3><p>Elitea započítá pouze serverově vyhodnocené nácviky s konkrétním důkazem. Stejný přepis se nezapočítá dvakrát a kritickou chybu je nutné později napravit.</p></div><strong>${passport.eligible ? 'SPLNĚNO' : `${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}`}</strong></header><div class="mastery-passport-grid"><section><span>ODLIŠNÉ SITUACE</span><b>${passportProgress.practiceScenarios} / ${passportProgress.requiredPracticeScenarios}</b><small>kvalitně vyhodnocených nácviků</small></section><section><span>KOMPETENCE 2×</span><b>${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}</b><small>doloženo v různých situacích</small></section><section><span>NÁROČNÁ ÚROVEŇ</span><b>${passportProgress.advancedCompetencies} / ${passportProgress.requiredAdvancedCompetencies}</b><small>advanced nebo expert</small></section><section><span>KRITICKÉ CHYBY</span><b>${passportProgress.unresolvedCriticalFailures}</b><small>${passportProgress.unresolvedCriticalFailures ? 'čeká na doloženou nápravu' : 'bez neopraveného pochybení'}</small></section><section><span>FINÁLNÍ ZKOUŠKA</span><b>${passportProgress.finalExamPassed ? 'ANO' : 'ČEKÁ'}</b><small>integrovaný případ</small></section></div></article>`
+    ? `<article class="mastery-passport-card"><header><div><span>PROFESNÍ KOMPETENČNÍ PAS</span><h3>${passport.eligible ? 'Praxe je doložená napříč celým řemeslem' : 'Profesionalita vzniká opakováním, ne jedním povedeným finále'}</h3><p>Elitea započítá pouze serverově vyhodnocené nácviky s konkrétním důkazem. Stejný přepis ani stejný finální pokus se nezapočítá dvakrát a kritickou chybu je nutné později napravit. Profesní portfolio se dokládá samostatně.</p></div><strong>${passport.eligible ? 'SPLNĚNO' : `${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}`}</strong></header><div class="mastery-passport-grid"><section><span>ODLIŠNÉ SITUACE</span><b>${passportProgress.practiceScenarios} / ${passportProgress.requiredPracticeScenarios}</b><small>kvalitně vyhodnocených nácviků</small></section><section><span>KOMPETENCE 2×</span><b>${passportProgress.provenCompetencies} / ${passportProgress.requiredCompetencies}</b><small>doloženo v různých situacích</small></section><section><span>NÁROČNÁ ÚROVEŇ</span><b>${passportProgress.advancedCompetencies} / ${passportProgress.requiredAdvancedCompetencies}</b><small>advanced nebo expert</small></section><section><span>KRITICKÉ CHYBY</span><b>${passportProgress.unresolvedCriticalFailures}</b><small>${passportProgress.unresolvedCriticalFailures ? 'čeká na doloženou nápravu' : 'bez neopraveného pochybení'}</small></section><section><span>FINÁLNÍ SEZENÍ</span><b>${passedFinalSessions} / ${requiredFinalSessions}</b><small>odlišné expertní výkony</small></section></div></article>`
     : '';
   const certificate = status?.certificate;
   const certificateBody = status?.issued
@@ -2248,7 +2267,22 @@ function renderMasteryExam(mastery) {
     : status?.eligible
       ? `<div><span>SPLNĚNO</span><h3>Tvůj certifikát je připravený</h3><p>Doplň jméno. Elitea vytvoří PDF s názvem programu a skutečným datem absolvování.</p><label><span>Jméno na certifikátu</span><input id="certificate-member-name" maxlength="120" autocomplete="name" value="${escapeHtml(state.cloudSession?.user?.name || '')}" placeholder="Jméno a příjmení"></label></div><button type="button" data-certificate-issue>Vystavit a stáhnout PDF</button>`
       : `<div><span>CERTIFIKÁT</span><h3>${status ? 'Ještě zbývá několik kroků' : 'Zkontrolovat dokončení programu'}</h3>${status ? `<ul>${status.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : '<p>Elitea zkontroluje dokončené části, portfolio a výsledek závěrečné zkoušky.</p>'}</div><button type="button" data-certificate-refresh>${status ? 'Zkontrolovat znovu' : 'Zkontrolovat dokončení'}</button>`;
-  return `<article class="mastery-exam"><header><span>EXPERTNÍ INTEGROVANÝ PŘÍPAD</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× absolvováno` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Opakovat expertní případ' : 'Spustit závěrečnou zkoušku'}</button></footer></article>${passportBody}<article class="mastery-certificate-card">${certificateBody}</article>`;
+  return `<article class="mastery-exam"><header><span>${exam.requiredPassingSessions > 1 ? 'DVA EXPERTNÍ INTEGROVANÉ VÝKONY' : 'EXPERTNÍ INTEGROVANÝ PŘÍPAD'}</span><h3>${escapeHtml(exam.title)}</h3><p>${escapeHtml(exam.purpose)}</p></header><div class="mastery-exam-rounds">${exam.rounds.map(round => `<section><span>${round.number}</span><div><b>${escapeHtml(round.title)}</b><small>${escapeHtml(round.moduleTitle)}</small><p>${escapeHtml(round.requirement)}</p></div></section>`).join('')}</div><div class="mastery-exam-columns"><section><h4>Kritéria každého sezení</h4><ul>${exam.criteria.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><section><h4>Povinné důkazy</h4><ul>${exam.requiredEvidence.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section></div><footer><div><b>${attempts ? `${attempts}× odevzdáno k vyhodnocení` : 'Zatím bez pokusu'}</b><p>${escapeHtml(exam.passRule)}</p></div><button type="button" data-mastery-exam="true">${attempts ? 'Spustit další expertní sezení' : 'Spustit závěrečnou zkoušku'}</button></footer></article>${passportBody}<article class="mastery-certificate-card">${certificateBody}</article>`;
+}
+
+function nextMasteryFinalExamScenarioId() {
+  const exam = state.activeCourse?.mastery?.finalExam;
+  const scenarioIds = Array.isArray(exam?.scenarioIds) && exam.scenarioIds.length
+    ? exam.scenarioIds
+    : [exam?.scenarioId].filter(Boolean);
+  if (!scenarioIds.length) return null;
+  const attemptCounts = new Map(scenarioIds.map(id => [id, 0]));
+  for (const entry of state.trainingPortfolio) {
+    if (entry.courseId === state.activeCourse?.id && attemptCounts.has(entry.scenarioId)) {
+      attemptCounts.set(entry.scenarioId, attemptCounts.get(entry.scenarioId) + 1);
+    }
+  }
+  return [...scenarioIds].sort((left, right) => attemptCounts.get(left) - attemptCounts.get(right))[0];
 }
 
 function toggleMasteryDay(dayId) {
@@ -2289,11 +2323,12 @@ async function startMasteryScenario(scenarioId, { finalExam = false } = {}) {
   state.pending = true;
   try {
     const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(course.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(scenarioEntry.difficulty)}&scenarioId=${encodeURIComponent(scenarioEntry.id)}${finalExam ? '&finalExam=1' : ''}`);
+    const difficulty = canonicalTrainingDifficulty(scenario, scenarioEntry.difficulty);
     beginTrainingSession({
       activity: 'simulation', phase: 'roleplay', course, item,
-      difficulty: scenarioEntry.difficulty, scenario,
+      difficulty, scenario,
       finalExam,
-      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(course).counterpart} · ${difficultyLabel(scenarioEntry.difficulty)}` }],
+      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(course).counterpart} · ${difficultyLabel(difficulty)}` }],
     });
     switchView('chat');
     elements.chatInput.focus();
@@ -2452,14 +2487,15 @@ async function startCurrentLessonSimulation() {
   try {
     const trainer = courseTrainer(state.activeCourse);
     const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(state.activeCourse.slug)}&itemId=${encodeURIComponent(item.id)}&difficulty=${encodeURIComponent(difficulty)}`);
+    const canonicalDifficulty = canonicalTrainingDifficulty(scenario, difficulty);
     beginTrainingSession({
       activity: 'simulation',
       phase: 'roleplay',
       course: state.activeCourse,
       item,
-      difficulty,
+      difficulty: canonicalDifficulty,
       scenario,
-      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || trainer.counterpart} · ${difficultyLabel(difficulty)}` }],
+      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || trainer.counterpart} · ${difficultyLabel(canonicalDifficulty)}` }],
     });
     switchView('chat');
     elements.chatInput.focus();
@@ -2491,6 +2527,8 @@ function beginTrainingSession({ activity, phase, course, item, messages, difficu
     itemId: item.id,
     itemTitle: item.title,
     scenario,
+    attemptToken: scenario?.attemptToken || null,
+    serverAttemptId: scenario?.attempt?.id || null,
     finalExam: finalExam === true,
     messages: [...messages].map(message => message.role === 'assistant'
       ? { ...message, trainingActivity: activity, trainingPhase: phase }
@@ -2800,10 +2838,19 @@ function renderTrainingBanner() {
   elements.finishTraining.hidden = !simulation || debrief;
   elements.retryTraining.hidden = !simulation || !debrief;
   const saved = state.trainingPortfolio.filter(entry => entry.courseId === session.courseId && entry.itemId === session.itemId).length;
+  const evidenceDestination = session.courseId === 'profesionalni-life-coach'
+    ? 'profesního pasu'
+    : session.finalExam
+      ? 'podkladů pro certifikát'
+      : 'kurzového portfolia';
   elements.trainingPortfolioStatus.textContent = debrief
-    ? session.completedAt
+    ? session.evidencePersistenceFailed
+      ? `Rozbor je hotový, ale jeho ověřený důkaz se nepodařilo zapsat. Spusť prosím nový pokus; neuložený výkon se do ${evidenceDestination} nezapočítal.`
+      : session.evaluationQualityFailed
+      ? `Rozbor se zobrazil, ale neprošel kontrolou kvality. Do ${evidenceDestination} se nezapočítal; spusť prosím nový pokus.`
+      : session.completedAt
       ? `Ověřené vyhodnocení je uloženo v tvém kurzovém portfoliu · ${saved} ${czechCountLabel(saved, 'pokus', 'pokusy', 'pokusů')} u této části.`
-      : 'Plné AI vyhodnocení nebylo ověřeno a do portfolia se neuložilo. Až bude model dostupný, spusť vyhodnocení znovu.'
+      : 'Vyhodnocení nemá ověřenou serverovou relaci a do portfolia se neuložilo. Spusť prosím nový pokus.'
     : simulation
       ? `Elitea drží pouze roli: ${counterpart}. Hodnocení dostaneš až po ukončení simulace.`
       : 'Tento přepis je oddělený od soukromého koučovacího sezení.';
@@ -2814,10 +2861,56 @@ function renderTrainingBanner() {
 
 async function finishTrainingSimulation() {
   if (state.pending || state.trainingSession?.activity !== 'simulation' || state.trainingSession?.phase === 'debrief') return;
-  await submitTrainingMessage('Ukončuji simulaci. Vyhodnoť prosím celý nácvik podle kompetencí této lekce.', 'debrief');
+  await submitTrainingMessage('', 'debrief', { appendUser: false });
 }
 
-async function retryTrainingSimulation() {
+async function startTrainingSimulationFromStudyRequest(requestText) {
+  const session = state.trainingSession;
+  if (!session || session.activity !== 'study' || state.pending) return;
+  const course = state.courses.find(candidate => candidate.id === session.courseId) || {
+    id: session.courseId,
+    slug: session.courseSlug,
+    title: session.courseTitle,
+    categoryId: session.categoryId,
+    trainer: session.trainer,
+  };
+  const item = flattenCourseItems(course).find(candidate => candidate.id === session.itemId) || {
+    id: session.itemId,
+    title: session.itemTitle,
+  };
+  const difficulty = canonicalTrainingDifficulty(null, session.difficulty);
+  const counterpartHint = inferTrainingCounterpartHint(requestText);
+  const counterpartQuery = counterpartHint ? `&counterpart=${encodeURIComponent(counterpartHint)}` : '';
+  state.pending = true;
+  try {
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(session.courseSlug)}&itemId=${encodeURIComponent(session.itemId)}&difficulty=${encodeURIComponent(difficulty)}${counterpartQuery}`);
+    const canonicalDifficulty = canonicalTrainingDifficulty(scenario, difficulty);
+    beginTrainingSession({
+      activity: 'simulation',
+      phase: 'roleplay',
+      course,
+      item,
+      difficulty: canonicalDifficulty,
+      scenario,
+      messages: [{
+        role: 'assistant',
+        content: scenario.openingLine,
+        meta: `${scenario.counterpart || courseTrainer(course).counterpart} · ${difficultyLabel(canonicalDifficulty)}`,
+      }],
+    });
+  } catch (error) {
+    elements.chatInput.value = requestText;
+    autoResize();
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') window.alert(error.message);
+  } finally {
+    state.pending = false;
+    renderAssistantRole();
+    renderMessages();
+    elements.chatInput.focus();
+  }
+}
+
+async function retryTrainingSimulation({ preserveScenario = true } = {}) {
   const session = state.trainingSession;
   if (!session || state.pending) return;
   const course = { id: session.courseId, slug: session.courseSlug, title: session.courseTitle, categoryId: session.categoryId, trainer: session.trainer };
@@ -2825,16 +2918,23 @@ async function retryTrainingSimulation() {
   const difficulty = elements.trainingDifficulty.value || session.difficulty || 'standard';
   state.pending = true;
   try {
-    const scenarioId = session.scenario?.id || '';
-    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(session.courseSlug)}&itemId=${encodeURIComponent(session.itemId)}&difficulty=${encodeURIComponent(difficulty)}${scenarioId ? `&scenarioId=${encodeURIComponent(scenarioId)}` : ''}`);
+    const scenarioId = trainingRetryScenarioId({
+      scenarioId: session.scenario?.id,
+      preserveScenario,
+      finalExam: session.finalExam === true,
+    });
+    const scenario = await authenticatedRequest(`/api/training/scenario?courseSlug=${encodeURIComponent(session.courseSlug)}&itemId=${encodeURIComponent(session.itemId)}&difficulty=${encodeURIComponent(difficulty)}${scenarioId ? `&scenarioId=${encodeURIComponent(scenarioId)}` : ''}${session.finalExam ? '&finalExam=1' : ''}`);
+    const canonicalDifficulty = canonicalTrainingDifficulty(scenario, difficulty);
     beginTrainingSession({
-      activity: 'simulation', phase: 'roleplay', course, item, difficulty, scenario,
-      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(session).counterpart} · ${difficultyLabel(difficulty)}` }],
+      activity: 'simulation', phase: 'roleplay', course, item, difficulty: canonicalDifficulty, scenario,
+      finalExam: session.finalExam === true,
+      messages: [{ role: 'assistant', content: scenario.openingLine, meta: `${scenario.counterpart || courseTrainer(session).counterpart} · ${difficultyLabel(canonicalDifficulty)}` }],
     });
   } catch (error) {
-    state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba nácviku' });
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') window.alert(error.message);
   } finally {
     state.pending = false;
+    renderAssistantRole();
     renderMessages();
   }
 }
@@ -2845,10 +2945,17 @@ function restartStudySession() {
   state.trainingSession = {
     ...session,
     id: crypto.randomUUID(),
+    activity: 'study',
     phase: 'study',
+    scenario: null,
+    attemptToken: null,
+    serverAttemptId: null,
+    finalExam: false,
     messages: [{ role: 'assistant', content: `Začínáme znovu s částí „${session.itemTitle}“. ${courseTrainer(session).studyOpening}`, meta: `${courseTrainer(session).label} · práce s lekcí` }],
     startedAt: new Date().toISOString(),
     completedAt: null,
+    evidencePersistenceFailed: false,
+    evaluationQualityFailed: false,
   };
   state.trainingSessions[state.assistantRole] = state.trainingSession;
   state.messages = state.trainingSession.messages;
@@ -3348,10 +3455,17 @@ async function onSubmit(event) {
   if (isTrainingRole()) {
     elements.chatInput.value = '';
     autoResize();
-    const requestedPhase = state.trainingSession?.activity === 'simulation' && /\b(stop|ukonč|ukonc|konec simulace|vyhodnoť|vyhodnot)\b/i.test(content)
-      ? 'debrief'
-      : null;
-    await submitTrainingMessage(content, requestedPhase);
+    if (state.trainingSession?.activity === 'study' && isTrainingSimulationRequest(content)) {
+      await startTrainingSimulationFromStudyRequest(content);
+      return;
+    }
+    if (state.trainingSession?.activity === 'simulation'
+      && state.trainingSession?.phase !== 'debrief'
+      && isTrainingDebriefCommand(content)) {
+      await finishTrainingSimulation();
+      return;
+    }
+    await submitTrainingMessage(content);
     return;
   }
 
@@ -3464,6 +3578,7 @@ async function requestCoachReply() {
 async function submitTrainingMessage(content, requestedPhase = null, { appendUser = true } = {}) {
   const session = state.trainingSession;
   if (!session || state.pending || (appendUser && !content)) return;
+  const messagesBeforeRequest = [...state.messages];
   if (appendUser) state.messages.push({ role: 'user', content });
   session.messages = state.messages;
   state.pending = true;
@@ -3489,6 +3604,7 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
         scenarioId: session.scenario?.id || null,
         counterpartHint: session.scenario?.counterpartHint || null,
         finalExam: session.finalExam === true,
+        attemptToken: session.attemptToken || null,
       }),
     });
     const assistantMessage = {
@@ -3514,19 +3630,40 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
     session.activity = result.activity || session.activity;
     session.phase = result.phase;
     session.scenario = result.scenario || session.scenario;
+    if (result.attemptToken) session.attemptToken = result.attemptToken;
+    if (result.trainingAttempt?.id) session.serverAttemptId = result.trainingAttempt.id;
     if (result.phase === 'debrief') {
-      if (result.qualityGate?.pass === false) {
-        session.completedAt = null;
-      } else {
-        session.completedAt = new Date().toISOString();
-        saveTrainingPortfolioEntry(session, result.text, result.achievement);
+      const evidenceUpdate = resolveTrainingEvidenceUpdate({
+        result,
+        completedAt: retryContext.completedAt,
+        persistenceFailed: session.evidencePersistenceFailed === true,
+      });
+      if (evidenceUpdate.initialDebrief) {
+        session.evidencePersistenceFailed = evidenceUpdate.persistenceFailed;
+        session.evaluationQualityFailed = result.qualityGate?.pass !== true;
+        session.completedAt = evidenceUpdate.completedAt;
+      }
+      if (evidenceUpdate.shouldSave) {
+        saveTrainingPortfolioEntry(session, result.achievement);
         if (session.finalExam) window.setTimeout(() => refreshCertificateStatus({ sync: true }), 0);
       }
     }
   } catch (error) {
-    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') {
-      state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba studijního režimu' });
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED'
+      && state.trainingSession === session
+      && session.attemptToken
+      && appendUser) {
+      state.messages = messagesBeforeRequest;
       session.messages = state.messages;
+      elements.chatInput.value = content;
+      autoResize();
+    }
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') {
+      if (session.attemptToken) window.alert(error.message);
+      else {
+        state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba studijního režimu' });
+        session.messages = state.messages;
+      }
     }
   } finally {
     state.pending = false;
@@ -3538,14 +3675,20 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
 
 function handleMessageAction(event) {
   const retry = event.target.closest('[data-retry-message]');
+  const retryTraining = event.target.closest('[data-retry-training]');
   const report = event.target.closest('[data-report-message]');
   if (retry) retryAssistantMessage(Number(retry.dataset.retryMessage));
+  if (retryTraining) retryTrainingSimulation();
   if (report) openQualityReport(Number(report.dataset.reportMessage));
 }
 
 async function retryAssistantMessage(index) {
   if (state.pending || !Number.isInteger(index) || state.messages[index]?.role !== 'assistant') return;
   if (state.messages.slice(index + 1).some(message => message.role === 'user')) return;
+  if (isTrainingRole() && state.trainingSession?.attemptToken) {
+    await retryTrainingSimulation();
+    return;
+  }
   const replacedMessage = state.messages[index];
   state.messages.splice(index, 1);
   if (isTrainingRole()) {
@@ -3661,9 +3804,13 @@ function messageTemplate(message, index) {
   const user = message.role === 'user';
   const broadcast = message.role === 'broadcast' || message.kind === 'broadcast';
   const latestAssistantIndex = state.messages.findLastIndex(item => item.role === 'assistant');
+  const signedTrainingAttempt = isTrainingRole() && Boolean(state.trainingSession?.attemptToken);
+  const retryAction = signedTrainingAttempt
+    ? '<button type="button" data-retry-training>↻ Spustit nácvik znovu</button>'
+    : `<button type="button" data-retry-message="${index}">↻ Zkusit odpověď znovu</button>`;
   const actions = !user && !broadcast && index === latestAssistantIndex && !state.pending
     ? `<div class="message-quality-actions" aria-label="Kontrola odpovědi">
-        <button type="button" data-retry-message="${index}">↻ Zkusit odpověď znovu</button>
+        ${retryAction}
         <button type="button" data-report-message="${index}" ${message.reported ? 'disabled' : ''}>${message.reported ? '✓ Nahlášeno' : 'Nahlásit chybu'}</button>
       </div>`
     : '';
@@ -4428,9 +4575,9 @@ function persistTrainingSession() {
   accountSessionStorage.removeItem('elitea.trainingSession');
 }
 
-function saveTrainingPortfolioEntry(session, debrief, achievement = null) {
-  const entry = {
-    id: session.id,
+function saveTrainingPortfolioEntry(session, achievement = null) {
+  const entry = sanitizeTrainingPortfolioEntry({
+    id: session.serverAttemptId || session.id,
     courseId: session.courseId,
     courseSlug: session.courseSlug,
     courseTitle: session.courseTitle,
@@ -4441,10 +4588,9 @@ function saveTrainingPortfolioEntry(session, debrief, achievement = null) {
     difficulty: session.difficulty,
     startedAt: session.startedAt,
     completedAt: session.completedAt || new Date().toISOString(),
-    transcript: (session.messages || []).slice(-80),
-    debrief: String(debrief || '').slice(0, 24000),
-    achievement: achievement && typeof achievement === 'object' ? achievement : null,
-  };
+    achievement,
+  });
+  if (!entry) return;
   const existingIndex = state.trainingPortfolio.findIndex(item => item.id === entry.id);
   if (existingIndex >= 0) state.trainingPortfolio[existingIndex] = entry;
   else state.trainingPortfolio.unshift(entry);
@@ -4494,10 +4640,86 @@ function loadTrainingSessionStore() {
 function loadTrainingPortfolio() {
   try {
     const parsed = JSON.parse(accountLocalStorage.getItem('elitea.trainingPortfolio') || '[]');
-    return Array.isArray(parsed) ? parsed.filter(item => item && item.id && item.courseId && item.itemId).slice(0, 1200) : [];
+    const sanitized = sanitizeTrainingPortfolio(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(sanitized)) {
+      accountLocalStorage.setItem('elitea.trainingPortfolio', JSON.stringify(sanitized));
+      trainingPortfolioMigrationPending = true;
+    }
+    return sanitized;
   } catch {
     return [];
   }
+}
+
+function sanitizeTrainingPortfolio(input) {
+  return (Array.isArray(input) ? input : [])
+    .map(sanitizeTrainingPortfolioEntry)
+    .filter(Boolean)
+    .slice(0, 1200);
+}
+
+function sanitizeTrainingPortfolioEntry(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const id = trainingPortfolioText(input.id, 200);
+  const courseId = trainingPortfolioText(input.courseId, 200);
+  const itemId = trainingPortfolioText(input.itemId, 200);
+  if (!id || !courseId || !itemId) return null;
+  return {
+    schemaVersion: 2,
+    id,
+    courseId,
+    courseSlug: trainingPortfolioText(input.courseSlug, 240),
+    courseTitle: trainingPortfolioText(input.courseTitle, 300),
+    itemId,
+    itemTitle: trainingPortfolioText(input.itemTitle, 300),
+    scenarioId: trainingPortfolioText(input.scenarioId, 240) || null,
+    scenarioTitle: trainingPortfolioText(input.scenarioTitle, 300) || null,
+    difficulty: trainingPortfolioText(input.difficulty, 40) || 'standard',
+    startedAt: trainingPortfolioTimestamp(input.startedAt),
+    completedAt: trainingPortfolioTimestamp(input.completedAt),
+    achievement: sanitizeTrainingAchievement(input.achievement),
+  };
+}
+
+function sanitizeTrainingAchievement(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const statuses = new Set(['proven', 'partial', 'not_proven', 'missing']);
+  const rows = (Array.isArray(input.rows) ? input.rows : []).slice(0, 80).map(row => {
+    const label = trainingPortfolioText(row?.label, 500);
+    if (!label) return null;
+    return {
+      label,
+      status: statuses.has(row?.status) ? row.status : 'missing',
+      competencyId: trainingPortfolioText(row?.competencyId, 120) || null,
+    };
+  }).filter(Boolean);
+  if (!rows.length) return null;
+  const criticalFailureCount = Number.isInteger(input.criticalFailureCount)
+    ? Math.min(80, Math.max(0, input.criticalFailureCount))
+    : Array.isArray(input.criticalFailures)
+      ? Math.min(80, input.criticalFailures.length)
+      : input.hasCriticalFailure === true ? 1 : 0;
+  return {
+    rows,
+    proven: rows.filter(row => row.status === 'proven').length,
+    partial: rows.filter(row => row.status === 'partial').length,
+    notProven: rows.filter(row => row.status === 'not_proven').length,
+    missing: rows.filter(row => row.status === 'missing').length,
+    total: rows.length,
+    criticalFailureCount,
+    hasCriticalFailure: criticalFailureCount > 0,
+    allProven: criticalFailureCount === 0 && rows.every(row => row.status === 'proven'),
+  };
+}
+
+function trainingPortfolioText(value, maxLength) {
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
+  return String(value).replace(/\s+/gu, ' ').trim().slice(0, maxLength);
+}
+
+function trainingPortfolioTimestamp(value) {
+  const text = trainingPortfolioText(value, 60);
+  return text && Number.isFinite(new Date(text).getTime()) ? text : null;
 }
 
 function persistLastMethods() {
@@ -4810,8 +5032,11 @@ async function request(path, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const rawMessage = String(payload.error || '');
+    const domainTrainingError = isTrainingAttemptErrorCode(payload.code);
     const technical = /(?:claim|jwt|token|timestamp|jose|sql|database|stack|syntax|ECONN|ETIMEDOUT)/i.test(rawMessage);
-    const message = response.status === 401
+    const message = domainTrainingError && rawMessage
+      ? rawMessage
+      : response.status === 401
       ? 'Přihlášení vypršelo. Obnovuji ho; pokud se to nepodaří, přihlas se prosím znovu.'
       : response.status === 403
         ? 'K této části teď účet nemá přístup.'
@@ -4908,7 +5133,7 @@ async function authenticatedRequest(path, options = {}) {
   try {
     return await run();
   } catch (error) {
-    if (error?.status !== 401) throw error;
+    if (error?.status !== 401 || isTrainingAttemptErrorCode(error?.code)) throw error;
     authorization = await freshAuthorization(expectedAccountId);
     try {
       return await run();

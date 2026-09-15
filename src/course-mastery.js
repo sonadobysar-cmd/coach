@@ -1,3 +1,5 @@
+import { COACH_COMPETENCIES, isProfessionalLifeCoachCourse } from './coach-competencies.js';
+
 const LEVELS = Object.freeze(['guided', 'standard', 'advanced', 'expert']);
 
 const SCORE_ANCHORS = Object.freeze([
@@ -22,6 +24,11 @@ const COMMON_TEMPLATE_TYPES = Object.freeze([
   ['Supervizní příprava', 'S čím potřebuji konzultaci nebo druhý pohled'],
   ['Portfolio důkazů', 'Jak prokážu kompetenci konkrétním artefaktem'],
 ]);
+
+const PROFESSIONAL_COACH_FINAL_CRITERION_LABELS = Object.freeze({
+  questions: 'Jedna otázka — otevřená a nevedoucí',
+  alliance_repair: 'Přijetí opravy bez obhajování',
+});
 
 const DEFAULT_PROFILE = Object.freeze({
   role: 'člověk, který chce dovednost použít v reálné situaci',
@@ -529,6 +536,12 @@ export function attachCourseMastery(course) {
   const assessment = buildAssessment(course, profile);
   const professionalPack = buildProfessionalPack(course, profile);
   const finalExam = buildFinalExam(course, profile, publicScenarios);
+  if (isProfessionalLifeCoachCourse(course.id)) {
+    for (const scenarioId of finalExam.scenarioIds || [finalExam.scenarioId]) {
+      const privateScenario = privateByScenarioId[scenarioId];
+      if (privateScenario) privateScenario.behavior = `${privateScenario.behavior} Během integrovaného případu jednou odmítni navržený směr a později koučku oprav v jednom konkrétním detailu. Dál spolupracuj až tehdy, když respektuje odmítnutí, přijme opravu bez obhajování a nově vyjasní další postup.`;
+    }
+  }
   course.mastery = {
     version: 1,
     title: 'Mastery Lab',
@@ -555,6 +568,7 @@ export function attachCourseMastery(course) {
       assessmentDimensions: assessment.dimensions.length,
       professionalTemplates: professionalPack.length,
       finalExamRounds: finalExam.rounds.length,
+      finalExamPassingSessions: finalExam.requiredPassingSessions,
     },
   };
   Object.defineProperty(course, '_masteryPrivate', {
@@ -731,14 +745,23 @@ function buildProfessionalPack(course, profile) {
 }
 
 function buildFinalExam(course, profile, scenarios) {
-  const selected = scenarios[scenarios.length - 1];
+  const professionalCoachCourse = isProfessionalLifeCoachCourse(course.id);
+  const expertScenarios = scenarios.filter(scenario => scenario.difficulty === 'expert');
+  const selectedScenarios = professionalCoachCourse
+    ? expertScenarios.slice(-2)
+    : [scenarios[scenarios.length - 1]];
+  const selected = selectedScenarios.at(-1);
+  const scenarioIds = selectedScenarios.map(scenario => scenario.id);
   const moduleIndexes = [0, Math.floor(course.modules.length / 3), Math.floor(course.modules.length * 2 / 3), course.modules.length - 1];
+  const requiredPassingSessions = professionalCoachCourse ? 2 : 1;
   return {
     id: `${course.id}:final-exam`,
     title: `Integrovaný případ: ${course.title}`,
     purpose: profile.finalFrame,
     scenarioId: selected.id,
+    scenarioIds,
     difficulty: 'expert',
+    requiredPassingSessions,
     rounds: moduleIndexes.map((moduleIndex, index) => ({
       number: index + 1,
       title: ['Kontrakt a mapa', 'Práce s jádrem situace', 'Tlak a hranice', 'Integrace a další krok'][index],
@@ -751,16 +774,25 @@ function buildFinalExam(course, profile, scenarios) {
         'Uzavři klientkou zvolený ověřitelný krok a pojmenuj, jak se vyhodnotí.',
       ][index],
     })),
-    criteria: [
-      'Kontrakt a přesnost zakázky jsou v přepisu viditelné.',
-      'Alespoň dvě intervence přímo navazují na slova modelové klientky.',
-      'Použitá metoda odpovídá situaci a není mechanicky vnucená.',
-      'Souhlas, tempo a hranice role jsou aktivně prokázané.',
-      'Další krok zvolila klientka a lze poznat, zda proběhl.',
-      'Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu.',
+    criteria: professionalCoachCourse
+      ? COACH_COMPETENCIES.map(competency => `${PROFESSIONAL_COACH_FINAL_CRITERION_LABELS[competency.id] || competency.label}: ${competency.description}`)
+      : [
+          'Kontrakt a přesnost zakázky jsou v přepisu viditelné.',
+          'Alespoň dvě intervence přímo navazují na slova modelové klientky.',
+          'Použitá metoda odpovídá situaci a není mechanicky vnucená.',
+          'Souhlas, tempo a hranice role jsou aktivně prokázané.',
+          'Další krok zvolila klientka a lze poznat, zda proběhl.',
+          'Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu.',
+        ],
+    requiredEvidence: [
+      'vyhodnocený expertní přepis',
+      'vyplněný profesní artefakt',
+      'sebereflexe s citací vlastní intervence',
+      'plán jednoho cíleného opakování',
     ],
-    requiredEvidence: ['vyhodnocený expertní přepis', 'vyplněný profesní artefakt', 'sebereflexe s citací vlastní intervence', 'plán jednoho cíleného opakování'],
-    passRule: 'Zkouška je dokončena teprve tehdy, když portfolio obsahuje všechny čtyři důkazy. Samotné spuštění nebo dojem z rozhovoru nestačí.',
+    passRule: professionalCoachCourse
+      ? 'Finále tvoří dvě odlišná úspěšná expertní sezení. Obě musí projít živým hodnocením bez kritické chyby; samostatně je nutné dokončit i profesní balíček, cestu a sebehodnocení.'
+      : 'Zkouška je dokončena teprve tehdy, když portfolio obsahuje všechny čtyři důkazy. Samotné spuštění nebo dojem z rozhovoru nestačí.',
   };
 }
 

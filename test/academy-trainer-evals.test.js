@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   ACADEMY_TRAINER_EVAL_STANDARD,
   academyTrainerReleaseBaseline,
+  assessAcademyTrainerBaselineEligibility,
   buildAcademyTrainerEvalPlan,
   debriefEvalRequest,
   evaluateTrainerDebrief,
@@ -62,20 +63,35 @@ test('eval odmítne demo, fallback, rozbitou roli i nepodložený debrief', () =
   assert.equal(badDebrief.pass, false);
 });
 
-test('release baseline lze zapsat pouze z úplného výsledku 81/81', () => {
+test('release baseline lze zapsat pouze z jednoho čerstvého a verzovaného výsledku 81/81', () => {
+  const runId = 'fresh-81-run';
   const results = plan.flatMap(entry => ACADEMY_TRAINER_EVAL_STANDARD.caseTypes.map(type => ({
-    id: `${entry.course.id}:${type}`, courseId: entry.course.id, type, pass: true,
+    id: `${entry.course.id}:${type}`,
+    courseId: entry.course.id,
+    type,
+    pass: true,
+    evaluationRunId: runId,
   })));
   const report = summarizeAcademyTrainerEval(results, {
     baseUrl: 'http://127.0.0.1:4173',
     startedAt: '2026-08-31T10:00:00.000Z',
     completedAt: '2026-08-31T10:05:00.000Z',
   });
+  report.run = {
+    id: runId,
+    resumedFrom: null,
+    freshCases: 81,
+    reusedCases: 0,
+    attemptedCases: 81,
+  };
+  report.provenance = validProvenance(runId);
   assert.equal(report.summary.complete, true);
   assert.equal(report.summary.total, 81);
   assert.equal(report.byType.study.passed, 27);
-  assert.deepEqual(academyTrainerReleaseBaseline(report), {
-    standardVersion: 1,
+  assert.deepEqual(assessAcademyTrainerBaselineEligibility(report), { eligible: true, reasons: [] });
+  const baseline = academyTrainerReleaseBaseline(report);
+  assert.deepEqual(baseline, {
+    standardVersion: 2,
     verifiedAt: '2026-08-31T10:05:00.000Z',
     baseUrl: 'http://127.0.0.1:4173',
     courseCount: 27,
@@ -84,8 +100,86 @@ test('release baseline lze zapsat pouze z úplného výsledku 81/81', () => {
     failedCases: 0,
     passRate: 100,
     complete: true,
+    provenance: report.provenance,
   });
 });
+
+test('resume s 79 recyklovanými PASS nikdy nevytvoří release baseline', () => {
+  const report = completeReport('resume-run');
+  report.run.resumedFrom = 'reports/older.json';
+  report.run.freshCases = 2;
+  report.run.reusedCases = 79;
+  report.run.attemptedCases = 2;
+  for (const result of report.results.slice(0, 79)) result.evaluationRunId = 'older-run';
+
+  const eligibility = assessAcademyTrainerBaselineEligibility(report);
+  assert.equal(eligibility.eligible, false);
+  assert.ok(eligibility.reasons.includes('resumed-run-cannot-release'));
+  assert.ok(eligibility.reasons.includes('all-cases-must-be-fresh'));
+  assert.ok(eligibility.reasons.includes('reused-cases-present'));
+  assert.ok(eligibility.reasons.includes('results-not-bound-to-current-run'));
+  assert.throws(() => academyTrainerReleaseBaseline(report), /baseline nelze zapsat/u);
+});
+
+test('baseline odmítne chybějící provenance, špinavý commit a jiný skutečně použitý model', () => {
+  const missing = completeReport('missing-provenance');
+  missing.provenance.promptSystemFingerprint = null;
+  missing.provenance.deployment.identity = null;
+  assert.deepEqual(
+    assessAcademyTrainerBaselineEligibility(missing).reasons,
+    ['prompt-system-fingerprint-missing', 'deployment-identity-missing-or-mismatched'],
+  );
+
+  const dirty = completeReport('dirty-run');
+  dirty.provenance.gitDirty = true;
+  dirty.provenance.modelIds.observedByType.simulation = ['openai/jiny-model'];
+  const eligibility = assessAcademyTrainerBaselineEligibility(dirty);
+  assert.equal(eligibility.eligible, false);
+  assert.ok(eligibility.reasons.includes('git-worktree-must-be-clean'));
+  assert.ok(eligibility.reasons.includes('model-provenance-simulation-mismatch'));
+});
+
+function completeReport(runId) {
+  const results = plan.flatMap(entry => ACADEMY_TRAINER_EVAL_STANDARD.caseTypes.map(type => ({
+    id: `${entry.course.id}:${type}`,
+    courseId: entry.course.id,
+    type,
+    pass: true,
+    evaluationRunId: runId,
+  })));
+  const report = summarizeAcademyTrainerEval(results, {
+    baseUrl: 'http://127.0.0.1:4173',
+    startedAt: '2026-08-31T10:00:00.000Z',
+    completedAt: '2026-08-31T10:05:00.000Z',
+  });
+  report.run = { id: runId, resumedFrom: null, freshCases: 81, reusedCases: 0, attemptedCases: 81 };
+  report.provenance = validProvenance(runId);
+  return report;
+}
+
+function validProvenance(runId) {
+  return {
+    appVersion: '0.39.0',
+    gitCommitSha: 'a'.repeat(40),
+    gitDirty: false,
+    modelIds: {
+      study: 'openai/gpt-5.6-terra',
+      simulation: 'openai/gpt-5.6-luna',
+      debrief: 'openai/gpt-5.6-terra',
+      observedByType: {
+        study: ['openai/gpt-5.6-terra'],
+        simulation: ['openai/gpt-5.6-luna'],
+        debrief: ['openai/gpt-5.6-terra'],
+      },
+    },
+    promptSystemFingerprint: 'b'.repeat(64),
+    evaluationCodeFingerprint: 'c'.repeat(64),
+    evalPlanFingerprint: 'd'.repeat(64),
+    deployment: { baseUrl: 'http://127.0.0.1:4173', identity: `local:${'a'.repeat(40)}` },
+    generatedAt: '2026-08-31T10:00:00.000Z',
+    runId,
+  };
+}
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');

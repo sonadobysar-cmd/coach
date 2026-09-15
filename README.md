@@ -127,6 +127,19 @@ npm run qa:academy-production
 npm run qa:certificate-production
 ```
 
+Přihlášené profesní nácviky používají serverem podepsanou relaci. V produkci nastavte náhodný `ELITEA_TRAINING_SECRET` o délce nejméně 32 bajtů; `CERTIFICATE_SIGNING_SECRET` zůstává odděleným klíčem pro podepsané PDF certifikáty. Ani jeden klíč nepatří do prohlížeče.
+
+Release baseline všech 27 Academy trenérek vznikne pouze jedním čerstvým během všech 81 případů. U vzdáleného běhu je povinná neměnná identita konkrétního deploymentu; `resume` slouží jen k diagnostice a baseline z něj zapsat nelze:
+
+```bash
+ELITEA_TRAINER_EVAL_URL="https://konkretni-preview.vercel.app" \
+ELITEA_TRAINER_EVAL_JWT="..." \
+ELITEA_TRAINER_EVAL_DEPLOYMENT_ID="vercel-deployment-id-nebo-immutable-url" \
+npm run eval:academy-trainers -- --write-baseline
+```
+
+Baseline ukládá verzi aplikace, commit, přesné modely skutečně pozorované v odpovědích, otisk promptů a evaluačního plánu, identitu deploymentu a počet čerstvých/recyklovaných případů. Zápis se odmítne při špinavém pracovním stromu, odlišném modelu, chybějící provenance nebo jediném recyklovaném výsledku.
+
 `/api/status` je zdroj aktuálních runtime počtů, připojených schopností a launch gate. Pole `ready` znamená, že server sestavil runtime; samostatné `commercialLaunchReady` určuje, zda byly splněné důkazní podmínky komerčního spuštění.
 
 ## Aktuální launch fáze

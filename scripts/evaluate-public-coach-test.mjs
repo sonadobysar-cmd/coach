@@ -224,7 +224,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.38.3',
+      'user-agent': 'Elitea-Production-QA/0.39.0',
     },
     body: JSON.stringify(body),
   });

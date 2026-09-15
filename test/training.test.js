@@ -410,6 +410,24 @@ test('výslovně zvolený Mastery Lab scénář má přednost před běžnou lek
   assert.equal(scenario.title, selected.title);
 });
 
+test('server zamkne mastery scénář na jeho skutečnou lekci a kanonickou obtížnost', () => {
+  const scenarioEntry = lifeCoachCourse.mastery.scenarios.find(scenario => scenario.difficulty === 'expert');
+  const correctItem = lifeCoachCourse.modules.flatMap(module => module.items).find(item => item.id === scenarioEntry.itemId);
+  const wrongItem = lifeCoachCourse.modules.flatMap(module => module.items).find(item => item.id !== scenarioEntry.itemId);
+  const scenario = createTrainingScenario(lifeCoachCourse, correctItem, 'guided', scenarioEntry.id);
+  assert.equal(scenario.id, scenarioEntry.id);
+  assert.equal(scenario.itemId, correctItem.id);
+  assert.equal(scenario.difficulty, 'expert');
+  assert.throws(
+    () => createTrainingScenario(lifeCoachCourse, wrongItem, 'expert', scenarioEntry.id),
+    error => error.code === 'TRAINING_SCENARIO_ITEM_MISMATCH',
+  );
+  assert.throws(
+    () => createTrainingScenario(lifeCoachCourse, correctItem, 'expert', 'podvrzeny-scenar'),
+    error => error.code === 'TRAINING_SCENARIO_NOT_FOUND',
+  );
+});
+
 test('brána simulace odmítne vystoupení z role a trenérskou radu', () => {
   const roleBreak = assessRoleplayResponse('Jako AI trenérka ti doporučuji tři kroky:\n- nejdřív se zeptej na cíl');
   assert.equal(roleBreak.pass, false);

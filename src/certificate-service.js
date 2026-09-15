@@ -16,6 +16,7 @@ import {
 } from './certificate-authenticity.js';
 import { isProfessionalLifeCoachCourse } from './coach-competencies.js';
 import { buildCoachCompetencyPassport } from './coach-competency-passport.js';
+import { isFinalExamScenario } from './final-exam.js';
 
 export async function syncCertificateEvidence(member, course, input, env = process.env, dependencies = {}) {
   assertStorage(member, env);
@@ -37,10 +38,10 @@ export async function syncCertificateEvidence(member, course, input, env = proce
   return evidence;
 }
 
-export async function recordCertificateExamAttempt({ member, course, item, scenarioId, messages, result }, env = process.env, dependencies = {}) {
+export async function recordCertificateExamAttempt({ member, course, item, scenarioId, trainingAttemptId = null, messages, result }, env = process.env, dependencies = {}) {
   if (!member?.id || !env.DATABASE_URL) return { recorded: false, reason: 'storage_unavailable' };
-  const expectedScenarioId = String(course?.mastery?.finalExam?.scenarioId || '');
-  if (!expectedScenarioId || String(scenarioId || '') !== expectedScenarioId) return { recorded: false, reason: 'not_final_exam' };
+  const expectedScenarioId = String(scenarioId || '').trim();
+  if (!isFinalExamScenario(course, expectedScenarioId)) return { recorded: false, reason: 'not_final_exam' };
   const provider = String(result?.provider || '').slice(0, 160);
   const trustedProvider = isTrustedCertificateProvider(provider);
   const qualityPassed = result?.qualityGate?.pass === true;
@@ -52,14 +53,20 @@ export async function recordCertificateExamAttempt({ member, course, item, scena
     content: String(message?.content || ''),
   })))).digest('hex');
   const id = randomUUID();
-  await sql`INSERT INTO academy_exam_attempts (
+  const safeTrainingAttemptId = normalizeUuid(trainingAttemptId);
+  const inserted = await sql`INSERT INTO academy_exam_attempts (
       id, user_id, course_id, course_slug, item_id, scenario_id, all_proven,
-      quality_passed, provider, transcript_hash, completed_at
+      quality_passed, provider, transcript_hash, training_attempt_id, completed_at
     ) VALUES (
       ${id}::uuid, ${member.id}::uuid, ${course.id}, ${course.slug}, ${item.id}, ${expectedScenarioId},
-      ${allProven && trustedProvider}, ${qualityPassed && trustedProvider}, ${provider || 'unknown'}, ${transcriptHash}, now()
-    )`;
-  return { recorded: true, passed: allProven && qualityPassed && trustedProvider };
+      ${allProven && trustedProvider}, ${qualityPassed && trustedProvider}, ${provider || 'unknown'}, ${transcriptHash},
+      ${safeTrainingAttemptId}::uuid, now()
+    ) ON CONFLICT DO NOTHING RETURNING id`;
+  return {
+    recorded: inserted.length > 0,
+    duplicate: inserted.length === 0,
+    passed: allProven && qualityPassed && trustedProvider,
+  };
 }
 
 export async function certificateStatus(member, course, env = process.env, dependencies = {}) {
@@ -79,7 +86,7 @@ export async function certificateStatus(member, course, env = process.env, depen
       FROM academy_certificates WHERE user_id=${member.id}::uuid AND course_id=${course.id} LIMIT 1`,
     isProfessionalLifeCoachCourse(course?.id)
       ? sql`SELECT id, item_id, scenario_id, difficulty, final_exam, provider, quality_passed,
-          achievement, critical_failures, transcript_hash, completed_at
+          achievement, critical_failures, transcript_hash, training_attempt_id, completed_at
         FROM academy_coach_debrief_attempts
         WHERE user_id=${member.id}::uuid AND course_id=${course.id}
         ORDER BY completed_at ASC`
@@ -126,12 +133,15 @@ export function buildCertificateStatus(course, {
   const eligible = eligibility.eligible && trustedExam && (!professionalCoachCourse || professionalPassport.eligible);
   const reasons = [];
   if (eligibility.missingItemIds.length) reasons.push(`Dokonči ještě ${eligibility.missingItemIds.length} částí kurzu.`);
-  if (!portfolioSummary.portfolioComplete) reasons.push('Doplň profesní balíček, cestu a závěrečné sebehodnocení.');
-  if (!trustedExam) reasons.push('Absolvuj závěrečnou AI zkoušku a prokaž všechna kritéria.');
+  if (!portfolioSummary.portfolioComplete) {
+    reasons.push('Doplň samostatně vyžadovaný profesní balíček, 30denní cestu a závěrečné sebehodnocení. Finální sezení tento krok nenahrazují.');
+  }
+  if (!trustedExam && !professionalCoachCourse) reasons.push('Absolvuj závěrečnou AI zkoušku a prokaž všechna kritéria.');
   if (professionalPassport && !professionalPassport.eligible) {
-    reasons.push(...professionalPassport.reasons.filter(reason => (
-      trustedExam || !/závěrečnou koučovací zkoušku/iu.test(reason)
-    )));
+    reasons.push(...professionalPassport.reasons);
+  }
+  if (professionalCoachCourse && !trustedExam && professionalPassport?.progress?.finalExamPassed) {
+    reasons.push('Obnov serverový záznam závěrečné zkoušky; profesní pas má dva úspěšné výkony, ale certifikační záznam chybí.');
   }
   const activeCertificate = certificate && !certificate.revoked_at && !certificate.revokedAt ? certificate : null;
   return {
@@ -267,4 +277,11 @@ export function isTrustedCertificateProvider(value) {
   const provider = String(value || '').trim();
   return /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i.test(provider)
     && !/(fallback|demo|local|deterministic)/i.test(provider);
+}
+
+function normalizeUuid(value) {
+  const text = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(text)
+    ? text
+    : null;
 }

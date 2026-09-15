@@ -10,6 +10,7 @@ import {
 export const COACH_PASSPORT_STANDARD = Object.freeze({
   minimumPracticeScenarios: 18,
   minimumProofsPerCompetency: 2,
+  minimumPassingFinalExams: 2,
   advancedDifficulties: Object.freeze(['advanced', 'expert']),
 });
 
@@ -22,7 +23,7 @@ const ACHIEVEMENT_STATUSES = new Set(['proven', 'partial', 'not_proven', 'missin
  * samotného sezení. Opakované odeslání stejného přepisu je idempotentní.
  */
 export async function recordCoachDebriefAttempt(
-  { member, course, item, scenarioId, difficulty, finalExam = false, messages, result },
+  { member, course, item, scenarioId, difficulty, finalExam = false, trainingAttemptId = null, messages, result },
   env = process.env,
   dependencies = {},
 ) {
@@ -44,13 +45,14 @@ export async function recordCoachDebriefAttempt(
   const inserted = await sql`INSERT INTO academy_coach_debrief_attempts (
       id, user_id, course_id, course_slug, item_id, scenario_id, difficulty,
       final_exam, provider, quality_passed, achievement, critical_failures,
-      transcript_hash, completed_at
+      transcript_hash, training_attempt_id, completed_at
     ) VALUES (
       ${randomUUID()}::uuid, ${member.id}::uuid, ${record.courseId}, ${record.courseSlug},
       ${record.itemId}, ${record.scenarioId}, ${record.difficulty}, ${record.finalExam},
       ${record.provider}, ${record.qualityPassed}, ${JSON.stringify(record.achievement)}::jsonb,
-      ${JSON.stringify(record.criticalFailures)}::jsonb, ${record.transcriptHash}, now()
-    ) ON CONFLICT (user_id, course_id, transcript_hash) DO NOTHING
+      ${JSON.stringify(record.criticalFailures)}::jsonb, ${record.transcriptHash},
+      ${normalizeUuid(trainingAttemptId)}::uuid, now()
+    ) ON CONFLICT DO NOTHING
     RETURNING id, completed_at`;
 
   return {
@@ -82,9 +84,15 @@ export function buildCoachDebriefRecord({
     || `${course.id}:${safeItemId}:${safeDifficulty}`;
   const criticalFailures = sanitizeCriticalFailures(detectCoachCriticalFailures(messages));
   const rows = sanitizeAchievementRows(result?.achievement?.rows);
+  const provenCompetencyIds = new Set(
+    rows.filter(row => row.status === 'proven').map(row => row.competencyId).filter(Boolean),
+  );
+  const finalCompetenciesComplete = finalExam !== true
+    || COACH_COMPETENCIES.every(competency => provenCompetencyIds.has(competency.id));
   const allProven = criticalFailures.length === 0
     && rows.length > 0
-    && rows.every(row => row.status === 'proven');
+    && rows.every(row => row.status === 'proven')
+    && finalCompetenciesComplete;
   const transcriptHash = createHash('sha256').update(JSON.stringify(
     (Array.isArray(messages) ? messages : []).map(message => ({
       role: clean(message?.role, 24),
@@ -121,6 +129,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     .filter(Boolean)
     .sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime());
   const competencyIds = COACH_COMPETENCIES.map(competency => competency.id);
+  const trustedProviderAttempts = normalized.filter(attempt => attempt.trustedProvider);
   const trustedReviewed = normalized.filter(attempt => attempt.qualityPassed && attempt.trustedProvider);
   const qualifyingPractice = trustedReviewed.filter(attempt => (
     !attempt.finalExam
@@ -128,11 +137,19 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     && attempt.provenCompetencyIds.size > 0
   ));
   const practiceScenarioKeys = new Set(qualifyingPractice.map(attempt => attempt.scenarioKey));
-  const finalExamPassed = trustedReviewed.some(attempt => (
+  const passingFinalExamAttempts = distinctFinalExamAttempts(trustedReviewed.filter(attempt => (
     attempt.finalExam
+    && attempt.difficulty === 'expert'
     && attempt.achievement.allProven === true
+    && competencyIds.every(competencyId => attempt.provenCompetencyIds.has(competencyId))
     && attempt.criticalFailures.length === 0
-  ));
+  )));
+  const finalExamsPassed = passingFinalExamAttempts.length;
+  const requiredFinalExams = positiveInteger(
+    standard.minimumPassingFinalExams,
+    COACH_PASSPORT_STANDARD.minimumPassingFinalExams,
+  );
+  const finalExamPassed = finalExamsPassed >= requiredFinalExams;
 
   const competencies = Object.fromEntries(COACH_COMPETENCIES.map(competencyDefinition => {
     const competencyId = competencyDefinition.id;
@@ -151,7 +168,9 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     }];
   }));
 
-  const criticalFailures = trustedReviewed.flatMap(attempt => attempt.criticalFailures.map(failure => ({
+  // Kritická profesní chyba musí zůstat v pase i tehdy, když celý debrief
+  // neprošel quality gate. Jinak by přísnější kontrola paradoxně chybu skryla.
+  const criticalFailures = trustedProviderAttempts.flatMap(attempt => attempt.criticalFailures.map(failure => ({
     ...failure,
     attemptId: attempt.id,
     scenarioId: attempt.scenarioId,
@@ -162,7 +181,7 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
   const unresolvedCriticalFailures = criticalFailures.filter(failure => !failure.remediatedBy);
   const missingCompetencyIds = competencyIds.filter(id => !competencies[id].proven);
   const missingAdvancedCompetencyIds = competencyIds.filter(id => !competencies[id].advancedProven);
-  const trustedProviderAttempts = trustedReviewed.length;
+  const trustedReviewedAttempts = trustedReviewed.length;
   const practiceScenarios = practiceScenarioKeys.size;
   const practiceComplete = practiceScenarios >= standard.minimumPracticeScenarios;
   const competencyCoverageComplete = missingCompetencyIds.length === 0;
@@ -179,12 +198,14 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
     standard: {
       minimumPracticeScenarios: standard.minimumPracticeScenarios,
       minimumProofsPerCompetency: standard.minimumProofsPerCompetency,
+      minimumPassingFinalExams: requiredFinalExams,
       requiredCompetencies: competencyIds.length,
       advancedDifficulties: [...standard.advancedDifficulties],
     },
     progress: {
       totalAttempts: normalized.length,
-      trustedProviderAttempts,
+      trustedProviderAttempts: trustedProviderAttempts.length,
+      trustedReviewedAttempts,
       practiceScenarios,
       requiredPracticeScenarios: standard.minimumPracticeScenarios,
       provenCompetencies: competencyIds.length - missingCompetencyIds.length,
@@ -192,6 +213,8 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       advancedCompetencies: competencyIds.length - missingAdvancedCompetencyIds.length,
       requiredAdvancedCompetencies: competencyIds.length,
       unresolvedCriticalFailures: unresolvedCriticalFailures.length,
+      finalExamsPassed,
+      requiredFinalExams,
       finalExamPassed,
     },
     competencies,
@@ -205,8 +228,10 @@ export function buildCoachCompetencyPassport(attempts = [], standard = COACH_PAS
       missingCompetencyIds,
       missingAdvancedCompetencyIds,
       unresolvedCriticalFailures,
+      finalExamsPassed,
+      requiredFinalExams,
       finalExamPassed,
-      trustedProviderAttempts,
+      trustedProviderAttempts: trustedProviderAttempts.length,
     }),
   };
 }
@@ -217,6 +242,8 @@ export function coachPassportReasons({
   missingCompetencyIds = [],
   missingAdvancedCompetencyIds = [],
   unresolvedCriticalFailures = [],
+  finalExamsPassed = 0,
+  requiredFinalExams = COACH_PASSPORT_STANDARD.minimumPassingFinalExams,
   finalExamPassed = false,
   trustedProviderAttempts = 0,
 } = {}) {
@@ -236,7 +263,15 @@ export function coachPassportReasons({
   if (unresolvedCriticalFailures.length) {
     reasons.push(`Dolož pozdější nápravu ${unresolvedCriticalFailures.length} kritických profesních pochybení ve stejné kompetenci.`);
   }
-  if (!finalExamPassed) reasons.push('Úspěšně dokonči integrovanou závěrečnou koučovací zkoušku.');
+  const safeRequiredFinalExams = positiveInteger(
+    requiredFinalExams,
+    COACH_PASSPORT_STANDARD.minimumPassingFinalExams,
+  );
+  const safeFinalExamsPassed = Math.max(0, Math.min(safeRequiredFinalExams, Number(finalExamsPassed) || 0));
+  if (!finalExamPassed || safeFinalExamsPassed < safeRequiredFinalExams) {
+    const remaining = safeRequiredFinalExams - safeFinalExamsPassed;
+    reasons.push(`Úspěšně dokonči ještě ${remaining} ze ${safeRequiredFinalExams} odlišných expertních závěrečných koučovacích sezení.`);
+  }
   return reasons;
 }
 
@@ -255,11 +290,15 @@ function normalizeAttempt(raw, index) {
   const difficulty = normalizeDifficulty(raw.difficulty);
   const itemId = clean(raw.item_id || raw.itemId, 160) || 'unknown-item';
   const scenarioId = clean(raw.scenario_id || raw.scenarioId, 200) || `${itemId}:${difficulty}`;
+  const transcriptHash = clean(raw.transcript_hash || raw.transcriptHash, 128);
+  const trainingAttemptId = clean(raw.training_attempt_id || raw.trainingAttemptId, 80);
   return {
     id: clean(raw.id, 80) || `attempt-${index}`,
     itemId,
     scenarioId,
     scenarioKey: scenarioId,
+    transcriptHash,
+    trainingAttemptId,
     difficulty,
     finalExam: raw.final_exam === true || raw.finalExam === true,
     provider: clean(raw.provider, 160),
@@ -273,6 +312,28 @@ function normalizeAttempt(raw, index) {
     criticalFailures,
     completedAt,
   };
+}
+
+function distinctFinalExamAttempts(attempts) {
+  const seenTrainingAttemptIds = new Set();
+  const seenIds = new Set();
+  const seenScenarioIds = new Set();
+  const seenTranscriptHashes = new Set();
+  return attempts.filter(attempt => {
+    const id = clean(attempt.id, 80);
+    const trainingAttemptId = clean(attempt.trainingAttemptId, 80);
+    const scenarioId = clean(attempt.scenarioId, 200);
+    const transcriptHash = clean(attempt.transcriptHash, 128);
+    if ((trainingAttemptId && seenTrainingAttemptIds.has(trainingAttemptId))
+      || (id && seenIds.has(id))
+      || (scenarioId && seenScenarioIds.has(scenarioId))
+      || (transcriptHash && seenTranscriptHashes.has(transcriptHash))) return false;
+    if (trainingAttemptId) seenTrainingAttemptIds.add(trainingAttemptId);
+    if (id) seenIds.add(id);
+    if (scenarioId) seenScenarioIds.add(scenarioId);
+    if (transcriptHash) seenTranscriptHashes.add(transcriptHash);
+    return true;
+  });
 }
 
 function laterRemediation(failedAttempt, competencyId, attempts) {
@@ -328,6 +389,18 @@ function competencyLabels(ids) {
     .filter(competency => wanted.has(competency.id))
     .map(competency => competency.label)
     .join(', ');
+}
+
+function positiveInteger(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function normalizeUuid(value) {
+  const text = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(text)
+    ? text
+    : null;
 }
 
 function clean(value, max) {

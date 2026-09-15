@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCourses, parseCourse } from '../src/courses.js';
 import { attachCourseMastery } from '../src/course-mastery.js';
+import { COACH_COMPETENCIES, coachCompetencyIdForCriterion } from '../src/coach-competencies.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const paths = [
@@ -32,6 +33,28 @@ test('všech devět kurzů má kompletní Mastery Lab se stejným standardem roz
     assert.equal(mastery.professionalPack.length, 12, `${course.id}: profesní balíček`);
     assert.equal(mastery.finalExam.rounds.length, 4, `${course.id}: zkouška`);
     assert.equal(mastery.finalExam.difficulty, 'expert');
+  }
+});
+
+test('profesní life coach vyžaduje dva oddělené expertní finální výkony a portfolio zvlášť', () => {
+  const course = courses.find(candidate => candidate.id === 'profesionalni-life-coach');
+  assert.equal(course.mastery.finalExam.requiredPassingSessions, 2);
+  assert.equal(course.mastery.finalExam.scenarioIds.length, 2);
+  assert.equal(new Set(course.mastery.finalExam.scenarioIds).size, 2);
+  assert.ok(course.mastery.finalExam.scenarioIds.every(id => (
+    course.mastery.scenarios.find(scenario => scenario.id === id)?.difficulty === 'expert'
+  )));
+  assert.equal(course.mastery.summary.finalExamPassingSessions, 2);
+  assert.match(course.mastery.finalExam.passRule, /dvě odlišná.*expertní sezení/iu);
+  assert.match(course.mastery.finalExam.passRule, /samostatně.*profesní balíček/iu);
+  assert.equal(course.mastery.finalExam.requiredEvidence.length, 4);
+  assert.equal(course.mastery.finalExam.criteria.length, 9);
+  assert.deepEqual(
+    course.mastery.finalExam.criteria.map(coachCompetencyIdForCriterion),
+    COACH_COMPETENCIES.map(competency => competency.id),
+  );
+  for (const scenarioId of course.mastery.finalExam.scenarioIds) {
+    assert.match(course._masteryPrivate[scenarioId].behavior, /odmítni.*oprav/iu);
   }
 });
 

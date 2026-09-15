@@ -26,6 +26,7 @@ import {
   sanitizeDebriefEvidence,
   sanitizeStudyQuestionCount,
 } from './training-quality.js';
+import { isFinalExamScenario } from './final-exam.js';
 
 const DIFFICULTIES = new Set(['guided', 'standard', 'advanced', 'expert']);
 const ACTIVITIES = new Set(['study', 'simulation']);
@@ -161,14 +162,18 @@ export function resolveTrainingTurn({ activity, phase, messages, counterpartHint
 export function createTrainingScenario(course, item, difficulty = 'standard', scenarioId = null, counterpartHint = null) {
   if (!course || !item) throw new Error('Pro trénink chybí kurz nebo jeho část.');
   const safeDifficulty = sanitizeTrainingDifficulty(difficulty);
+  const requestedScenarioId = String(scenarioId || '').trim().slice(0, 200);
   const trainerProfile = getCourseTrainerProfile(course.id);
   const safeCounterpartHint = sanitizeTrainingCounterpartHint(counterpartHint);
   const requestedCounterpart = trainingCounterpartLabel(safeCounterpartHint, course.id);
   const moduleIndex = course.modules?.findIndex(module => module.items?.some(candidate => candidate.id === item.id));
   const masteryScenarios = course.mastery?.scenarios || [];
-  let masteryScenario = scenarioId
-    ? masteryScenarios.find(candidate => candidate.id === scenarioId)
+  let masteryScenario = requestedScenarioId
+    ? masteryScenarios.find(candidate => candidate.id === requestedScenarioId)
     : null;
+  if (masteryScenario && masteryScenario.itemId !== item.id) {
+    throw trainingScenarioError('Vybraný scénář nepatří k této části kurzu.', 'TRAINING_SCENARIO_ITEM_MISMATCH');
+  }
   if (!masteryScenario && course.id === 'profesionalni-life-coach') {
     const lessonScenario = createLifeCoachLessonScenario({
       course,
@@ -177,7 +182,10 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       difficulty: safeDifficulty,
       counterpart: requestedCounterpart,
     });
-    if (lessonScenario) return lessonScenario;
+    if (lessonScenario && (!requestedScenarioId || requestedScenarioId === lessonScenario.id)) return lessonScenario;
+    if (requestedScenarioId) {
+      throw trainingScenarioError('Požadovaný scénář pro tuto část kurzu neexistuje.', 'TRAINING_SCENARIO_NOT_FOUND');
+    }
   }
   masteryScenario ||= masteryScenarios.find(candidate => candidate.itemId === item.id && candidate.difficulty === safeDifficulty)
       || masteryScenarios.find(candidate => candidate.itemId === item.id)
@@ -187,6 +195,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
   if (masteryScenario) {
     const privateScenario = course._masteryPrivate?.[masteryScenario.id];
     if (!privateScenario) throw new Error('Soukromá část modelové situace není dostupná.');
+    const canonicalDifficulty = sanitizeTrainingDifficulty(masteryScenario.difficulty);
     return {
       ...masteryScenario,
       trainerLabel: trainerProfile.label,
@@ -204,7 +213,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       courseTitle: course.title,
       itemId: item.id,
       itemTitle: item.title,
-      difficulty: safeDifficulty,
+      difficulty: canonicalDifficulty,
       private: privateScenario,
     };
   }
@@ -217,7 +226,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
     advanced: 'Klientka zkouší předat odpovědnost, odporuje obecným frázím a citlivě reaguje na nátlak nebo podsouvání.',
     expert: 'Klientka přináší smíšené motivy, časový tlak a neúplná nebo zdánlivě protichůdná data; žádá rychlou jistotu a zároveň citlivě reaguje na překročení etické hranice.',
   }[safeDifficulty];
-  return {
+  const generated = {
     id: `${course.id}:${item.id}:${safeDifficulty}`,
     courseId: course.id,
     courseSlug: course.slug,
@@ -238,11 +247,19 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       behavior: `${preset.behavior} ${pressure}`,
     },
   };
+  if (requestedScenarioId && requestedScenarioId !== generated.id) {
+    throw trainingScenarioError('Požadovaný scénář pro tuto část kurzu neexistuje.', 'TRAINING_SCENARIO_NOT_FOUND');
+  }
+  return generated;
 }
 
 export function publicTrainingScenario(scenario) {
   const { private: _private, ...publicScenario } = scenario;
   return publicScenario;
+}
+
+function trainingScenarioError(message, code) {
+  return Object.assign(new Error(message), { statusCode: 409, code });
 }
 
 export function buildBusinessAcademyFacultyContext({
@@ -468,7 +485,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
     const finalExamDefinition = course?.mastery?.finalExam;
     const isFinalExam = finalExam === true
       && safeActivity === 'simulation'
-      && String(scenarioId || '') === String(finalExamDefinition?.scenarioId || '');
+      && isFinalExamScenario(course, scenarioId);
     const scenario = isFinalExam ? {
       ...baseScenario,
       assignment: finalExamDefinition.purpose || baseScenario.assignment,

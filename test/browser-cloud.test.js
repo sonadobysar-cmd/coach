@@ -12,6 +12,8 @@ import {
   migrateLegacyOutcomeState,
   readAccountState,
   replaceAccountState,
+  sanitizeTrainingAchievement,
+  sanitizeTrainingPortfolio,
 } from '../src/browser-cloud.js';
 
 class MemoryStorage {
@@ -47,7 +49,21 @@ test('account A cannot leak local or session state into a new account B', () => 
     course_notes: { 'course-a:item-1': { value: 'Soukromá poznámka A' } },
     worksheet_entries: { worksheetA: { answer: 'Jen A' } },
     course_mastery: { courseA: { days: ['day-1'] } },
-    training_portfolio: [{ id: 'portfolio-a' }],
+    training_portfolio: [{
+      schemaVersion: 2,
+      id: 'portfolio-a',
+      courseId: 'course-a',
+      courseSlug: '',
+      courseTitle: '',
+      itemId: 'item-a',
+      itemTitle: '',
+      scenarioId: null,
+      scenarioTitle: null,
+      difficulty: 'standard',
+      startedAt: null,
+      completedAt: null,
+      achievement: null,
+    }],
     content_favorites: ['content-a'],
     outcome_store: { schemaVersion: 1, activeId: null, records: [{ id: 'outcome-a' }] },
     approved_memory: { identity_preferences: { preferred_name: 'A' } },
@@ -79,6 +95,99 @@ test('account A cannot leak local or session state into a new account B', () => 
 test('account state maps outcomes only to elitea.outcomes.v1', () => {
   assert.equal(ACCOUNT_STATE_KEYS.outcome_store, OUTCOME_STORAGE_KEY);
   assert.notEqual(ACCOUNT_STATE_KEYS.outcome_store, LEGACY_OUTCOME_STORAGE_KEY);
+});
+
+test('training portfolio keeps only structured metadata and strips raw session content', () => {
+  const source = [{
+    id: 'attempt-1',
+    courseId: 'professional-life-coach',
+    courseSlug: 'profesionalni-life-coach',
+    courseTitle: 'Profesionální life coach',
+    itemId: 'final-exam',
+    itemTitle: 'Závěrečná zkouška',
+    scenarioId: 'exam-1',
+    scenarioTitle: 'Integrovaný případ',
+    difficulty: 'expert',
+    startedAt: '2026-09-15T08:00:00.000Z',
+    completedAt: '2026-09-15T08:45:00.000Z',
+    transcript: [{ role: 'user', content: 'NEUKLÁDAT: citlivý příběh klientky' }],
+    debrief: 'NEUKLÁDAT: celý rozbor sezení a citace',
+    achievement: {
+      rows: [{
+        label: 'Kontrakt a zakázka',
+        status: 'proven',
+        competencyId: 'contract',
+        evidence: 'NEUKLÁDAT: důkazní citace',
+        quote: 'NEUKLÁDAT: doslovná slova studentky',
+      }],
+      criticalFailures: [{ code: 'example', quote: 'NEUKLÁDAT: citace chyby' }],
+      allProven: true,
+    },
+    unexpected: 'NEUKLÁDAT: cizí pole',
+  }];
+
+  const safe = sanitizeTrainingPortfolio(source);
+  const serialized = JSON.stringify(safe);
+
+  assert.equal(safe.length, 1);
+  assert.equal(safe[0].schemaVersion, 2);
+  assert.equal(safe[0].achievement.proven, 1);
+  assert.equal(safe[0].achievement.criticalFailureCount, 1);
+  assert.equal(safe[0].achievement.allProven, false);
+  assert.deepEqual(safe[0].achievement.rows, [{
+    label: 'Kontrakt a zakázka',
+    status: 'proven',
+    competencyId: 'contract',
+  }]);
+  assert.doesNotMatch(serialized, /NEUKLÁDAT/u);
+  assert.equal('transcript' in safe[0], false);
+  assert.equal('debrief' in safe[0], false);
+  assert.equal('criticalFailures' in safe[0].achievement, false);
+  assert.deepEqual(sanitizeTrainingPortfolio(safe), safe, 'Sanitizace musí být idempotentní, aby nespouštěla nekonečný cloud sync.');
+});
+
+test('achievement sanitizer recomputes counts instead of trusting client fields', () => {
+  const safe = sanitizeTrainingAchievement({
+    rows: [
+      { label: 'Naslouchání', status: 'proven', evidence: 'citlivý důkaz' },
+      { label: 'Otázky', status: 'forged', quote: 'citlivá citace' },
+    ],
+    proven: 999,
+    allProven: true,
+    hasCriticalFailure: false,
+  });
+
+  assert.equal(safe.proven, 1);
+  assert.equal(safe.missing, 1);
+  assert.equal(safe.total, 2);
+  assert.equal(safe.allProven, false);
+  assert.doesNotMatch(JSON.stringify(safe), /citliv/u);
+});
+
+test('cloud account serialization cannot re-upload legacy raw training transcripts', () => {
+  const userId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const storage = new MemoryStorage();
+  const key = accountStorageKey(userId, ACCOUNT_STATE_KEYS.training_portfolio);
+  storage.setItem(key, JSON.stringify([{
+    id: 'legacy-attempt',
+    courseId: 'course-a',
+    itemId: 'item-a',
+    transcript: [{ role: 'user', content: 'TAJNÝ PŘEPIS' }],
+    debrief: 'TAJNÝ DEBRIEF',
+  }]));
+
+  const outgoing = readAccountState(storage, userId);
+  assert.equal(outgoing.training_portfolio.length, 1);
+  assert.doesNotMatch(JSON.stringify(outgoing.training_portfolio), /TAJNÝ/u);
+
+  replaceAccountState(storage, userId, {
+    training_portfolio: [{
+      id: 'cloud-attempt', courseId: 'course-a', itemId: 'item-a',
+      transcript: [{ role: 'user', content: 'CLOUD TAJNÝ PŘEPIS' }],
+      debrief: 'CLOUD TAJNÝ DEBRIEF',
+    }],
+  });
+  assert.doesNotMatch(storage.getItem(key), /TAJNÝ/u);
 });
 
 test('legacy scoped outcome state migrates once without overwriting v1 data', () => {
@@ -153,6 +262,37 @@ test('browser lifecycle hydrates scoped storage and purges active state on logou
   assert.match(cloud, /if \(current\.user\.id !== loadedAccountId\) return false/);
   assert.doesNotMatch(app, /localStorage\.getItem\('elitea\.(?:memory|course|worksheet|training|content|outcomes)/);
   assert.doesNotMatch(app, /sessionStorage\.(?:getItem|setItem)\('elitea\./);
+});
+
+test('Academy stores raw training messages only in session state and migrates legacy portfolio data', async () => {
+  const app = await readFile(new URL('../src/browser-app.js', import.meta.url), 'utf8');
+  const cloud = await readFile(new URL('../src/browser-cloud.js', import.meta.url), 'utf8');
+  const portfolioSave = app.slice(
+    app.indexOf('function saveTrainingPortfolioEntry'),
+    app.indexOf('function removeTrainingPortfolioEntry'),
+  );
+  const portfolioLoad = app.slice(
+    app.indexOf('function loadTrainingPortfolio'),
+    app.indexOf('function persistLastMethods'),
+  );
+  const sessionSave = app.slice(
+    app.indexOf('function persistTrainingSession'),
+    app.indexOf('function saveTrainingPortfolioEntry'),
+  );
+  const restore = app.slice(
+    app.indexOf('async function restoreCloudAccount'),
+    app.indexOf('async function ensureCloudLoaded'),
+  );
+
+  assert.match(sessionSave, /state\.trainingSession\.messages = \(state\.trainingSession\.messages \|\| \[\]\)\.slice\(-200\)/u);
+  assert.match(sessionSave, /accountSessionStorage\.setItem\('elitea\.trainingSessions'/u);
+  assert.doesNotMatch(portfolioSave, /session\.messages|\bdebrief\b/u);
+  assert.match(portfolioSave, /sanitizeTrainingPortfolioEntry/u);
+  assert.match(portfolioLoad, /sanitizeTrainingPortfolio\(parsed\)/u);
+  assert.match(portfolioLoad, /trainingPortfolioMigrationPending = true/u);
+  assert.match(restore, /cloud\.needsStateSync\?\.\(\)/u);
+  assert.match(restore, /syncCloudState\(\)/u);
+  assert.match(cloud, /column === 'training_portfolio' \? sanitizeTrainingPortfolio/u);
 });
 
 test('member requests abort when another tab changes the authenticated account', async () => {

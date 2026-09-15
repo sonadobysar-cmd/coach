@@ -35,6 +35,10 @@ const LEGACY_LOCAL_KEYS = Object.freeze([
   LEGACY_OUTCOME_STORAGE_KEY,
 ]);
 
+const TRAINING_PORTFOLIO_SCHEMA_VERSION = 2;
+const TRAINING_PORTFOLIO_LIMIT = 1200;
+const TRAINING_ACHIEVEMENT_STATUSES = new Set(['proven', 'partial', 'not_proven', 'missing']);
+
 export function accountStorageKey(userId, key) {
   const safeUserId = String(userId || '').trim();
   const safeKey = String(key || '').trim();
@@ -46,7 +50,8 @@ export function replaceAccountState(storage, userId, row = null) {
   if (!storage || !String(userId || '').trim()) return;
   for (const [column, key] of Object.entries(ACCOUNT_STATE_KEYS)) {
     const fallback = stateFallback(column);
-    const value = row && Object.hasOwn(row, column) && row[column] != null ? row[column] : fallback;
+    const storedValue = row && Object.hasOwn(row, column) && row[column] != null ? row[column] : fallback;
+    const value = column === 'training_portfolio' ? sanitizeTrainingPortfolio(storedValue) : storedValue;
     storage.setItem(accountStorageKey(userId, key), JSON.stringify(value));
   }
   storage.removeItem(accountStorageKey(userId, LEGACY_OUTCOME_STORAGE_KEY));
@@ -57,12 +62,84 @@ export function readAccountState(storage, userId) {
   for (const [column, key] of Object.entries(ACCOUNT_STATE_KEYS)) {
     const fallback = stateFallback(column);
     try {
-      row[column] = JSON.parse(storage?.getItem(accountStorageKey(userId, key)) || JSON.stringify(fallback));
+      const storedValue = JSON.parse(storage?.getItem(accountStorageKey(userId, key)) || JSON.stringify(fallback));
+      row[column] = column === 'training_portfolio' ? sanitizeTrainingPortfolio(storedValue) : storedValue;
     } catch {
       row[column] = fallback;
     }
   }
   return row;
+}
+
+/**
+ * Dlouhodobé portfolio je pouze index dokončených nácviků. Syrový přepis,
+ * celý debrief a důkazní citace zůstávají jen v aktuální session nebo v
+ * serverovém profesním pasu, který ukládá pouze hash a strukturované výsledky.
+ */
+export function sanitizeTrainingPortfolio(input) {
+  return (Array.isArray(input) ? input : [])
+    .map(sanitizeTrainingPortfolioEntry)
+    .filter(Boolean)
+    .slice(0, TRAINING_PORTFOLIO_LIMIT);
+}
+
+export function sanitizeTrainingPortfolioEntry(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const id = trainingPortfolioText(input.id, 200);
+  const courseId = trainingPortfolioText(input.courseId, 200);
+  const itemId = trainingPortfolioText(input.itemId, 200);
+  if (!id || !courseId || !itemId) return null;
+
+  return {
+    schemaVersion: TRAINING_PORTFOLIO_SCHEMA_VERSION,
+    id,
+    courseId,
+    courseSlug: trainingPortfolioText(input.courseSlug, 240),
+    courseTitle: trainingPortfolioText(input.courseTitle, 300),
+    itemId,
+    itemTitle: trainingPortfolioText(input.itemTitle, 300),
+    scenarioId: trainingPortfolioNullableText(input.scenarioId, 240),
+    scenarioTitle: trainingPortfolioNullableText(input.scenarioTitle, 300),
+    difficulty: trainingPortfolioText(input.difficulty, 40) || 'standard',
+    startedAt: trainingPortfolioTimestamp(input.startedAt),
+    completedAt: trainingPortfolioTimestamp(input.completedAt),
+    achievement: sanitizeTrainingAchievement(input.achievement),
+  };
+}
+
+export function sanitizeTrainingAchievement(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const rows = (Array.isArray(input.rows) ? input.rows : []).slice(0, 80).map(row => {
+    const label = trainingPortfolioText(row?.label, 500);
+    if (!label) return null;
+    return {
+      label,
+      status: TRAINING_ACHIEVEMENT_STATUSES.has(row?.status) ? row.status : 'missing',
+      competencyId: trainingPortfolioNullableText(row?.competencyId, 120),
+    };
+  }).filter(Boolean);
+  if (!rows.length) return null;
+
+  const criticalFailureCount = Number.isInteger(input.criticalFailureCount)
+    ? clampTrainingCount(input.criticalFailureCount, 0, 80)
+    : Array.isArray(input.criticalFailures)
+      ? Math.min(input.criticalFailures.length, 80)
+      : input.hasCriticalFailure === true ? 1 : 0;
+  const proven = rows.filter(row => row.status === 'proven').length;
+  const partial = rows.filter(row => row.status === 'partial').length;
+  const notProven = rows.filter(row => row.status === 'not_proven').length;
+  const missing = rows.filter(row => row.status === 'missing').length;
+  return {
+    rows,
+    proven,
+    partial,
+    notProven,
+    missing,
+    total: rows.length,
+    criticalFailureCount,
+    hasCriticalFailure: criticalFailureCount > 0,
+    allProven: criticalFailureCount === 0 && rows.every(row => row.status === 'proven'),
+  };
 }
 
 export function migrateLegacyOutcomeState(storage, userId, { verifiedCloudValue } = {}) {
@@ -134,6 +211,24 @@ function parseStoredJson(value) {
   catch { return { ok: false, value: null }; }
 }
 
+function trainingPortfolioText(value, maxLength) {
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
+  return String(value).replace(/\s+/gu, ' ').trim().slice(0, maxLength);
+}
+
+function trainingPortfolioNullableText(value, maxLength) {
+  return trainingPortfolioText(value, maxLength) || null;
+}
+
+function trainingPortfolioTimestamp(value) {
+  const text = trainingPortfolioText(value, 60);
+  return text && Number.isFinite(new Date(text).getTime()) ? text : null;
+}
+
+function clampTrainingCount(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function clearAccountPartition(storage, userId) {
   const prefix = `${ACCOUNT_STORAGE_PREFIX}.${encodeURIComponent(String(userId || '').trim())}.`;
   if (!storage || !String(userId || '').trim()) return;
@@ -153,6 +248,7 @@ export function createEliteaCloud(config) {
   if (!config?.authUrl || !config?.dataApiUrl) return null;
   let jwtToken = '';
   let loadedAccountId = '';
+  let pendingStateSanitization = false;
   const captureTokenFetch = async (input, init = {}) => {
     const headers = new Headers(init.headers || {});
     const authorization = headers.get('authorization') || '';
@@ -189,6 +285,13 @@ export function createEliteaCloud(config) {
         : { ok: false };
       if (migratedValue.ok) accountRow = { ...row, outcome_store: migratedValue.value };
     }
+    const storedPortfolio = accountRow && Object.hasOwn(accountRow, 'training_portfolio')
+      ? accountRow.training_portfolio
+      : [];
+    const safePortfolio = sanitizeTrainingPortfolio(storedPortfolio);
+    pendingStateSanitization = Boolean(row)
+      && canonicalJson(storedPortfolio) !== canonicalJson(safePortfolio);
+    if (accountRow) accountRow = { ...accountRow, training_portfolio: safePortfolio };
     replaceAccountState(localStorage, current.user.id, accountRow || null);
     clearLegacyAccountState(localStorage, sessionStorage);
     loadedAccountId = current.user.id;
@@ -203,11 +306,13 @@ export function createEliteaCloud(config) {
     const row = { user_id: current.user.id, updated_at: new Date().toISOString(), ...readAccountState(localStorage, current.user.id) };
     const { error } = await client.from('member_app_state').upsert(row, { onConflict: 'user_id' });
     if (error) throw error;
+    pendingStateSanitization = false;
     return true;
   }
 
   return {
     session, loadState, saveState,
+    needsStateSync: () => pendingStateSanitization,
     authorization: async ({ forceRefresh = true } = {}) => {
       let current;
       try {

@@ -1,11 +1,13 @@
 {
-  "standardVersion": 1,
-  "verifiedAt": "2026-08-31T19:03:23.681Z",
-  "baseUrl": "http://127.0.0.1:4173",
+  "standardVersion": 2,
+  "verifiedAt": null,
+  "baseUrl": null,
   "courseCount": 27,
-  "caseCount": 81,
-  "passedCases": 81,
+  "caseCount": 0,
+  "passedCases": 0,
   "failedCases": 0,
-  "passRate": 100,
-  "complete": true
+  "passRate": 0,
+  "complete": false,
+  "status": "requires-one-fresh-provenance-bound-81-case-run",
+  "provenance": null
 }

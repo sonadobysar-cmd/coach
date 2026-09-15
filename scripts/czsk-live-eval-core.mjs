@@ -149,7 +149,9 @@ export function mapGoldScenarioToRequest(scenario, { trainingFixture } = {}) {
         finalExam: false,
         role: 'coaching_trainer',
         memory: evaluationMemory(scenario),
-        messages: adaptGoldTrainerTranscript(scenario),
+        messages: adaptGoldTrainerTranscript(scenario).filter(message => message.role === 'user'),
+        openingLine: liveScenario.openingLine,
+        attemptToken: liveScenario.attemptToken || null,
       },
     };
   }
@@ -217,9 +219,11 @@ export function buildTrainingFixture(course, verifiedScenarios = []) {
     }
   }
   if (verifiedScenarios.length) {
-    const verifiedIds = new Set(verifiedScenarios.map(entry => entry?.id));
-    for (const entry of scenariosByNumber.values()) {
-      if (!verifiedIds.has(entry.id)) throw new Error(`Scénář ${entry.id} nebyl živým API ověřen.`);
+    const verifiedById = new Map(verifiedScenarios.map(entry => [entry?.id, entry]));
+    for (const [number, entry] of scenariosByNumber) {
+      const verified = verifiedById.get(entry.id);
+      if (!verified) throw new Error(`Scénář ${entry.id} nebyl živým API ověřen.`);
+      scenariosByNumber.set(number, { ...entry, ...verified });
     }
   }
   return Object.freeze({ courseSlug, scenariosByNumber });

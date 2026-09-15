@@ -160,6 +160,10 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     transcript_hash text NOT NULL,
     completed_at timestamptz NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE academy_exam_attempts ADD COLUMN IF NOT EXISTS training_attempt_id uuid`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS academy_exam_attempts_training_attempt_idx
+    ON academy_exam_attempts (user_id, course_id, training_attempt_id)
+    WHERE training_attempt_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS academy_exam_attempts_lookup_idx
     ON academy_exam_attempts (user_id, course_id, completed_at DESC)`,
   `CREATE TABLE IF NOT EXISTS academy_coach_debrief_attempts (
@@ -179,6 +183,10 @@ const RUNTIME_SCHEMA_STATEMENTS = [
     completed_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (user_id, course_id, transcript_hash)
   )`,
+  `ALTER TABLE academy_coach_debrief_attempts ADD COLUMN IF NOT EXISTS training_attempt_id uuid`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS academy_coach_debrief_training_attempt_idx
+    ON academy_coach_debrief_attempts (user_id, course_id, training_attempt_id)
+    WHERE training_attempt_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS academy_coach_debrief_attempts_lookup_idx
     ON academy_coach_debrief_attempts (user_id, course_id, completed_at ASC)`,
   `CREATE TABLE IF NOT EXISTS academy_quiz_attempts (
