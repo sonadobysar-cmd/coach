@@ -115,6 +115,8 @@ test('konec workshopů se nezamění za ukončení rozhovoru', () => {
   assert.equal(classifyStopIntent('Nechci tu techniku.'), 'technique_stop');
   assert.equal(classifyStopIntent('Zastav tuto techniku.'), 'technique_stop');
   assert.equal(classifyStopIntent('Je mi po tom hůř.'), 'none');
+  assert.equal(classifyStopIntent('Workshopy už dělat nechci, ale s tebou pokračovat chci.'), 'external_stop');
+  assert.equal(classifyStopIntent('Konzultace vést nechci.'), 'external_stop');
 
   const turn = createTechniqueTurn({
     atlas: [practicalCard], candidates: [practicalCard], previous: active,
@@ -163,6 +165,8 @@ test('oprava klientky techniku pozastaví bez skrytého posunu nebo ztráty stav
     'Zase se opakuješ.',
     'Vždyť jsem ti to popsala — ten workshop!',
     'Psala jsem ti už, že ne.',
+    'Můžeš mi dát jednu krátkou otázku?',
+    'Prosím, jen jednu krátkou otázku.',
   ]) {
     assert.equal(isConversationRepairRequest(latestText), true);
     const turn = createTechniqueTurn({

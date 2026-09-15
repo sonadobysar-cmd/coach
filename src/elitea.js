@@ -22,6 +22,8 @@ import {
   assessCoachingResponse,
   buildQualityRepairInstruction,
   extractSessionEvidence,
+  requestsFactsOnly,
+  requestsOneShortQuestion,
 } from './coaching-quality.js';
 import {
   listBusinessAcademyFacultyCourses,
@@ -343,7 +345,7 @@ export function createElitea({
         latestText: latest.content,
         messages: safeMessages,
       });
-      return shapedModes.has(responseMode)
+      const shapedText = shapedModes.has(responseMode)
         ? shapeCoachingResponse(techniqueCheckedText, memory, {
           closingRequested,
           requireQuestion,
@@ -351,6 +353,7 @@ export function createElitea({
           fallbackQuestion: techniqueFallbackQuestion(techniqueTurn, latest.content),
         })
         : techniqueCheckedText;
+      return enforceConversationRepairResponse(shapedText, repairContext);
     };
     let finalText = finalizeText(result.text);
     let quality = assessCoachingResponse(finalText, {
@@ -531,12 +534,38 @@ export function guardedQualityFallback(latestText, { requireQuestion = true, clo
 }
 
 export function guardedConversationRepairFallback(repairContext = {}) {
+  const groundingEvidence = String(repairContext.groundingStatement || '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 260);
   const latestEvidence = String(repairContext.priorUserStatements?.at(-1) || '')
     .replace(/\s+/gu, ' ')
     .trim()
     .slice(0, 260);
+  if (repairContext.shortQuestionRequested) {
+    const shortGrounding = conciseRepairGrounding(groundingEvidence);
+    return shortGrounding
+      ? `Když říkáš „${shortGrounding}“, co je na tom teď nejtěžší?`
+      : 'Co je pro tebe v té situaci teď nejtěžší?';
+  }
   if (repairContext.kind === 'external_stop') {
+    if (repairContext.externalStopStatement && repairContext.explicitConversationContinuation) {
+      return `Beru — ${repairContext.externalStopStatement}. V našem rozhovoru pokračujeme. Co chceš řešit jako další krok místo toho?`;
+    }
     return 'Beru — nechceš pokračovat v činnosti nebo způsobu, který jsi právě pojmenovala. Nezaměním to za konec našeho rozhovoru. Co potřebuješ vyřešit místo toho?';
+  }
+  if (repairContext.kind === 'fact_recap') {
+    const statements = (repairContext.substantiveGroundingStatements || [])
+      .slice(-3)
+      .map(value => String(value || '').replace(/\s+/gu, ' ').trim())
+      .filter(Boolean);
+    if (!statements.length) {
+      return 'Zatím nemáme žádné další údaje, ze kterých by šlo dělat poctivé hodnocení.';
+    }
+    const quotedStatements = statements
+      .map(statement => `„${statement.replace(/[.!?]+$/u, '')}“`)
+      .join(' a dále ');
+    return `Zatím jsi uvedla: ${quotedStatements}. Na další hodnocení zatím nemáme dost dat.`;
   }
   if (repairContext.kind === 'clarify_stop') {
     return 'Nechci hádat, co chceš zastavit. Myslíš tím náš rozhovor, právě použitý postup, nebo věc, o které mluvíš?';
@@ -549,6 +578,69 @@ export function guardedConversationRepairFallback(repairContext = {}) {
   return latestEvidence
     ? `Máš pravdu — předchozí odpověď nenavázala správně. Vrátím se k tomu, co jsi skutečně uvedla: „${latestEvidence}“. Co z toho potřebuješ řešit právě teď?`
     : 'Máš pravdu — předchozí odpověď nenavázala správně. Nebudu doplňovat žádné další okolnosti. Co přesně mám opravit nebo znovu uchopit?';
+}
+
+export function enforceConversationRepairResponse(value, repairContext = {}) {
+  const output = String(value || '').replace(/\s+/gu, ' ').trim();
+  if (!repairContext?.active) return output;
+
+  // Když členka výslovně žádá jedinou krátkou otázku, neposíláme před ni
+  // omluvu, vysvětlení ani další otázku. Generativní model tuto jednoduchou
+  // instrukci občas poruší, proto je zde deterministická výstupní brána.
+  if (repairContext.shortQuestionRequested) {
+    return guardedConversationRepairFallback(repairContext);
+  }
+
+  // Rekapitulace „jen z faktů“ je bezpečnější jako deterministický výpis
+  // doslovných sdělení členky. Model by jinak mohl spojit správné číslo se
+  // špatnou událostí nebo k faktům nenápadně přidat kauzální závěr.
+  if (repairContext.kind === 'fact_recap') {
+    return guardedConversationRepairFallback(repairContext);
+  }
+
+  // Jasné „končím s X, ale s tebou pokračuji“ nesmí být znovu vyloženo jako
+  // konec rozhovoru. Dobrou modelovou odpověď zachováme; zasahujeme pouze,
+  // když nepotvrdila pojmenovaný rozsah nebo plynule nepokračuje otázkou.
+  if (repairContext.kind === 'external_stop' && repairContext.explicitConversationContinuation) {
+    const confirmsScope = responseConfirmsExternalStopScope(output, repairContext.externalStopScope);
+    const continuesWithOneQuestion = (output.match(/\?/gu) || []).length === 1
+      && !/(?:chceš|máš)\s+(?:tedy\s+)?(?:ukončit|zastavit|uzavřít)\s+(?:náš\s+|tento\s+|tenhle\s+)?(?:rozhovor|sezení)|dnešek\s+uzavřeme/iu.test(output);
+    if (!confirmsScope || !continuesWithOneQuestion) {
+      return guardedConversationRepairFallback(repairContext);
+    }
+  }
+
+  return output;
+}
+
+function conciseRepairGrounding(value) {
+  const firstClause = String(value || '')
+    .replace(/[„“"]/gu, '')
+    .split(/[.!?;,]/u)[0]
+    .replace(/\s+/gu, ' ')
+    .trim();
+  if (!firstClause) return '';
+  return firstClause.split(/\s+/u).slice(0, 12).join(' ');
+}
+
+function responseConfirmsExternalStopScope(value, scope = '') {
+  const output = normalizeDialogueText(value);
+  const scopeTokens = normalizeDialogueText(scope)
+    .split(/[^a-z0-9]+/u)
+    .filter(token => token.length >= 5 && !['nechci', 'pokracovat', 'skoncit', 'ukoncit', 'tehle', 'tomhle'].includes(token));
+  const words = output.split(/[^a-z0-9]+/u);
+  const mentionsScope = scopeTokens.length
+    ? scopeTokens.some(token => words.some(word => (
+    word.startsWith(token.slice(0, Math.min(token.length, 5)))
+    )))
+    : /\b(?:cinnost|zpusob|tema|projekt|praci)\b/u.test(output);
+  if (!mentionsScope) return false;
+
+  // Pouhá zmínka stejného podstatného jména nestačí. Odpověď musí skutečně
+  // respektovat ukončení a nesmí současně nabádat k pokračování v téže věci.
+  const contradictsStop = /\b(?:pokracuj|pokracovat\s+(?:muzes|muzeš)|muzes\s+(?:v\s+tom\s+)?pokracovat|chces\s+dal\s+(?:rozvijet|delat|pokracovat)|nechces\s+(?:to\s+)?(?:opustit|ukoncit|skoncit))\b/u.test(output);
+  if (contradictsStop) return false;
+  return /\b(?:nechces\s+pokracovat|chces\s+(?:s\s+\S+\s+)?skoncit|koncis|skoncis|ukoncujes|ukoncime|nebudes|nebudeme|nemusis|respektuji\w*\s+(?:ze\s+)?(?:koncis|nechces)|dal\s+[^.!?]{0,35}\b(?:netlac|nedel|nerozvij))\w*\b/u.test(output);
 }
 
 function specificMentoringFallback(latestText, { messages = [] } = {}) {
@@ -1055,18 +1147,30 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
   const safe = Array.isArray(messages) ? messages : [];
   const latest = String(latestText || '').replace(/\s+/gu, ' ').trim();
   const normalizedLatest = normalizeDialogueText(latest);
-  const stopIntent = classifyStopIntent(latest);
+  const classifiedStopIntent = classifyStopIntent(latest);
   const repairRequested = isConversationRepairRequest(latest);
   const asksToRephrase = /\b(?:nerozumim|nechapu|co\s+tim\s+myslis)\b|\b(?:vysvetl|preformul|rekni)\w*\b[^.!?]{0,45}\b(?:lip|lepe|jednodus|normaln)\w*\b/u
     .test(normalizedLatest);
+  const factRecapRequested = requestsFactsOnly(latest);
+  const shortQuestionRequested = requestsOneShortQuestion(latest);
+  const explicitConversationContinuation = /\b(?:v\s+)?(?:tomhle|tomto|nasem)?\s*rozhovor\w*\s+(?:ale\s+)?pokracovat\s+chci\b|\b(?:s\s+tebou|tady)\s+(?:ale\s+)?(?:chci\s+)?pokracovat\b|\b(?:chci|potrebuji)\s+(?:ale\s+|dal\s+)?(?:pokracovat|mluvit)\s+(?:dal\s+)?(?:s\s+tebou|tady|v\s+(?:tomto|tomhle|nasem)\s+rozhovoru)\b|\b(?:ne|nikoli)\s+(?:s\s+tebou|s\s+(?:timto|tomhle)\s+rozhovorem|v\s+(?:tomto|tomhle)\s+rozhovoru)\b/u
+    .test(normalizedLatest);
+  const externalStop = extractExternalStopScope(latest);
+  const stopIntent = explicitConversationContinuation && externalStop.scope
+    ? 'external_stop'
+    : classifiedStopIntent;
   const kind = stopIntent === 'external_stop'
     ? 'external_stop'
     : stopIntent === 'external_or_ambiguous'
       ? 'clarify_stop'
-    : repairRequested && asksToRephrase
-      ? 'rephrase'
-      : repairRequested
-        ? 'repair'
+    : factRecapRequested
+      ? 'fact_recap'
+      : repairRequested && asksToRephrase
+        ? 'rephrase'
+        : shortQuestionRequested
+          ? 'short_question'
+        : repairRequested
+          ? 'repair'
         : 'none';
   const latestIndex = safe.map(message => message?.role).lastIndexOf('user');
   const priorUserStatements = safe
@@ -1075,6 +1179,21 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
     .filter(Boolean)
     .slice(-5)
     .map(value => value.slice(0, 600));
+  const groundingStatement = [...priorUserStatements]
+    .reverse()
+    .find(isUsableRepairGrounding) || '';
+  const latestFactRecapStatements = factRecapRequested
+    ? extractLatestFactRecapStatements(latest)
+    : [];
+  const priorFactRecapStatements = priorUserStatements.filter(isFactRecapStatement);
+  const correctsPreviousStatement = latestFactRecapStatements.length > 0
+    && (/(?:^|[.!?;]\s*)(?:oprava|upresneni|spravne|ve skutecnosti|ne\s*[,;:—-])/u.test(normalizedLatest)
+      || /\b(?:ne|nikoli|misto)\s+(?:\d+|nula|jeden|jedna|jedno|dva|dve|tri|ctyri|pet|sest|sedm|osm|devet|deset)\b/u.test(normalizedLatest));
+  const substantiveGroundingStatements = [
+    ...(correctsPreviousStatement ? priorFactRecapStatements.slice(0, -1) : priorFactRecapStatements),
+    ...latestFactRecapStatements,
+  ]
+    .slice(-3);
   const previousAssistantText = previousAssistantMessage(safe)
     .replace(/\s+/gu, ' ')
     .trim()
@@ -1087,7 +1206,118 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
     latestText: latest.slice(0, 600),
     previousAssistantText,
     priorUserStatements,
+    groundingStatement: groundingStatement.slice(0, 600),
+    substantiveGroundingStatements,
+    factRecapRequested,
+    shortQuestionRequested,
+    explicitConversationContinuation,
+    externalStopScope: externalStop.scope,
+    externalStopStatement: externalStop.statement,
   };
+}
+
+function extractExternalStopScope(value) {
+  const latest = String(value || '').replace(/\s+/gu, ' ').trim();
+  const continuingMatch = latest.match(/\b(nechci|nemůžu|nemuzu)\s+pokračovat\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  if (continuingMatch) {
+    const scope = trimConversationContinuation(continuingMatch[2]);
+    return {
+      scope,
+      statement: scope ? `nechceš pokračovat ${scope}` : '',
+    };
+  }
+  const endingMatch = latest.match(/\bchci\s+(?:to\s+)?(skončit|skoncit|ukončit|ukoncit)\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  if (endingMatch) {
+    const scope = trimConversationContinuation(endingMatch[2]);
+    return {
+      scope,
+      statement: scope ? `chceš skončit ${scope}` : '',
+    };
+  }
+  const finiteEndingMatch = latest.match(/\b(?:končím|koncim|skončím|skoncim|ukončuji|ukoncuji)\s+((?:s|se|v|ve|na)\s+[^.!?,;]+)/iu);
+  if (finiteEndingMatch) {
+    const scope = normalizeExternalStopScope(trimConversationContinuation(finiteEndingMatch[1]));
+    return {
+      scope,
+      statement: scope ? `chceš skončit ${scope}` : '',
+    };
+  }
+  const invertedEndingMatch = latest.match(/\b((?:s|se|v|ve|na)\s+[^.!?,;]{1,120}?)\s+(?:končím|koncim|skončím|skoncim|už\s+(?:dál\s+)?nepokračuji|uz\s+(?:dal\s+)?nepokracuji)\b/iu);
+  if (invertedEndingMatch) {
+    const scope = normalizeExternalStopScope(trimConversationContinuation(invertedEndingMatch[1]));
+    return {
+      scope,
+      statement: scope ? `chceš skončit ${scope}` : '',
+    };
+  }
+  const stopsDoingMatch = latest.match(/\b(?:nechci|nebudu)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:dělat|delat|pořádat|poradat|vést|vest|rozvíjet|rozvijet)\s+([^.!?,;]{1,120})/iu);
+  if (stopsDoingMatch) {
+    const activity = trimConversationContinuation(stopsDoingMatch[1]);
+    return {
+      scope: activity,
+      statement: activity ? `nechceš dál dělat ${activity}` : '',
+    };
+  }
+  const invertedStopsDoingMatch = latest.match(/(?:^|[.!?;]\s*)([^.!?,;]{1,120}?)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:dělat|delat|pořádat|poradat|vést|vest|rozvíjet|rozvijet)\s+(?:už\s+|uz\s+|dál\s+|dal\s+)*(?:nechci|nebudu)\b/iu);
+  if (invertedStopsDoingMatch) {
+    const activity = normalizeExternalStopScope(trimConversationContinuation(invertedStopsDoingMatch[1]));
+    return {
+      scope: activity,
+      statement: activity ? `nechceš dál dělat ${activity}` : '',
+    };
+  }
+  return { scope: '', statement: '' };
+}
+
+function normalizeExternalStopScope(value) {
+  const scope = String(value || '').trim();
+  return scope ? `${scope.charAt(0).toLocaleLowerCase('cs-CZ')}${scope.slice(1)}` : '';
+}
+
+function isUsableRepairGrounding(value) {
+  const clean = String(value || '').replace(/\s+/gu, ' ').trim();
+  if (!clean || isConversationRepairRequest(clean)) return false;
+  const normalized = normalizeDialogueText(clean).replace(/[.!?,;:]+$/gu, '').trim();
+  return !/^(?:ano|jo|jasne|dobre|ok|souhlasim|muzeme|zkusme|nevim|netusim|asi|mozna)$/u.test(normalized);
+}
+
+function isFactRecapStatement(value) {
+  const clean = String(value || '').replace(/\s+/gu, ' ').trim();
+  if (!isUsableRepairGrounding(clean) || clean.length < 10 || /\?/u.test(clean)) return false;
+  const normalized = normalizeDialogueText(clean);
+  return !/^(?:porad|rekni|vysvetli|pomoz|navrhni|zeptej|poloz)\w*\b/u.test(normalized);
+}
+
+function extractLatestFactRecapStatements(value) {
+  const original = String(value || '').trim();
+  const normalized = normalizeDialogueText(original);
+  const recapCues = [
+    /\b(?:tak\s+)?co\s+(?:tedy\s+|tak\s+)?(?:opravdu\s+|skutecne\s+)?(?:vime|vim)\b/u,
+    /\b(?:shrn|vypis)\w*\b[^.!?\n]{0,35}\b(?:jen\s+)?fakta\b/u,
+    /\b(?:drz\s+se|rekni|shrn|vypis)\w*\b[^.!?\n]{0,55}\b(?:jen|pouze)\s+(?:toho,?\s+)?(?:co\s+(?:opravdu\s+)?vime|faktu|overenych\s+skutecnosti)\b/u,
+  ];
+  const cueIndexes = recapCues
+    .map(pattern => normalized.search(pattern))
+    .filter(index => index >= 0);
+  const factualPrefix = cueIndexes.length
+    ? original.slice(0, Math.min(...cueIndexes)).replace(/[\s,;:—-]+$/u, '').trim()
+    : original;
+
+  return factualPrefix
+    .split(/(?<=[.!?;])\s+|\n+/u)
+    .map(part => part
+      .replace(/^(?:oprava|upřesnění|upresneni|správně|spravne|ve skutečnosti|ve skutecnosti)\s*[:—-]?\s*/iu, '')
+      .replace(/^ne\s*[,;:]\s*/iu, '')
+      .trim())
+    .filter(part => part && !requestsFactsOnly(part) && isFactRecapStatement(part))
+    .slice(-3);
+}
+
+function trimConversationContinuation(value) {
+  return String(value || '')
+    .replace(/\s+(?:ale\s+)?(?:v\s+(?:tomhle|tomto|našem|nasem)\s+rozhovoru|s\s+tebou|tady)\b.*$/iu, '')
+    .replace(/\s+(?:ne|nikoli)\s+(?:s\s+tebou|s\s+(?:tímto|timto|tomhle)\s+rozhovorem)\b.*$/iu, '')
+    .trim();
 }
 
 export function formatConversationRepairContext(context = null) {
@@ -1113,6 +1343,12 @@ export function formatConversationRepairContext(context = null) {
       : '',
     context.kind === 'repair'
       ? 'Pokud opravuje téma nebo fakt, zopakuj pouze opravený význam, neobhajuj se a plynule na něj navaž. Neopakuj otázku, proti které se vymezila.'
+      : '',
+    context.kind === 'fact_recap'
+      ? 'Členka chce pouze rekapitulaci známých údajů bez domýšlení. Uveď nejvýše tři její doslovná věcná sdělení, nepřidávej emoci, příčinu ani závěr a řekni, že pro další hodnocení zatím chybí data. Otázku nepřidávej.'
+      : '',
+    context.kind === 'short_question'
+      ? 'Členka chce jedinou krátkou otázku. Polož přesně jednu konkrétní otázku ukotvenou v jejím posledním věcném sdělení, bez vysvětlování a dalšího úkolu.'
       : '',
   ].filter(Boolean).join('\n');
 }

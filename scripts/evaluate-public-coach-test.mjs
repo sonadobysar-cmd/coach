@@ -29,7 +29,7 @@ export const scenarios = [
         input: 'Nechci pokračovat s workshopem. V tomhle rozhovoru pokračovat chci.',
         require: {
           workshopIntentUnderstood: /workshop|pořádán|s workshopy|další akci/i,
-          conversationContinues: /rozhovor|řešit|podív|pojď|co (?:bude|chceš|potřebuješ) dál|místo (?:něj|nich|workshopů)/i,
+          conversationContinues: /rozhovor|řešit|podív|pojď|prozkoum|zaměř|otevř|co (?:bude|chceš|potřebuješ) dál|místo (?:něj|nich|workshopů)/i,
         },
         forbid: {
           noFalseConversationStop: /chceš (?:pokračovat (?:jen )?rozhovorem|dnešní téma uzavřít)|dnešek uzavřeme|zastavíme (?:to|tady)|uzavřít (?:dnešní téma|tento rozhovor)/i,
@@ -207,7 +207,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.37.0',
+      'user-agent': 'Elitea-Production-QA/0.37.1',
     },
     body: JSON.stringify(body),
   });

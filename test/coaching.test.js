@@ -18,6 +18,7 @@ import {
   selectConversationWindow,
   buildRoutingText,
   expertRoleForMode,
+  enforceConversationRepairResponse,
   formatConversationRepairContext,
   guardedConversationRepairFallback,
   inferMode,
@@ -125,10 +126,39 @@ test('jasné ukončení externí činnosti nevyvolá znovu otázku co chce klien
   const fallback = guardedConversationRepairFallback(context);
 
   assert.equal(context.kind, 'external_stop');
-  assert.match(fallback, /nechceš pokračovat v činnosti nebo způsobu/i);
-  assert.match(fallback, /Nezaměním to za konec našeho rozhovoru/i);
+  assert.equal(context.explicitConversationContinuation, true);
+  assert.equal(context.externalStopScope, 's konzultacemi');
+  assert.match(fallback, /nechceš pokračovat s konzultacemi/i);
+  assert.match(fallback, /V našem rozhovoru pokračujeme/i);
   assert.doesNotMatch(fallback, /co chceš zastavit/i);
   assert.doesNotMatch(fallback, /workshop|účastnic|klient|odešla/i);
+});
+
+test('dobrá odpověď na ukončení vnější činnosti zůstane zachovaná', () => {
+  const messages = [
+    { role: 'user', content: 'Projekt mě vyčerpává.' },
+    { role: 'assistant', content: 'Chceš skončit i s naším rozhovorem?' },
+    { role: 'user', content: 'Nechci pokračovat s projektem. V našem rozhovoru pokračovat chci.' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const modelAnswer = 'Projekt už dál tlačit nemusíš. Co chceš teď prozkoumat místo něj?';
+
+  assert.equal(enforceConversationRepairResponse(modelAnswer, context), modelAnswer);
+});
+
+test('nepochopený rozsah ukončení opraví pojmenovanou činností a jednou navazující otázkou', () => {
+  const messages = [
+    { role: 'user', content: 'Moje nabídka nefunguje.' },
+    { role: 'assistant', content: 'Chceš v tom pokračovat?' },
+    { role: 'user', content: 'Nechci pokračovat v téhle nabídce, ale s tebou pokračovat chci.' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const repaired = enforceConversationRepairResponse('Dobře, dnešek uzavřeme.', context);
+
+  assert.match(repaired, /nechceš pokračovat v téhle nabídce/i);
+  assert.match(repaired, /v našem rozhovoru pokračujeme/i);
+  assert.equal((repaired.match(/\?/g) || []).length, 1);
+  assert.match(repaired, /co chceš řešit jako další krok místo toho\?/i);
 });
 
 test('nejasné nechci pokračovat zachová pouze doslovná data klientky', () => {
@@ -157,6 +187,114 @@ test('žádost o jednodušší vysvětlení zachová poslední otázku a známá
   assert.match(context.previousAssistantText, /Kdybys důvod nikdy nezjistila/i);
   assert.deepEqual(context.priorUserStatements, ['Na workshop přišly tři ženy; proč jedna odešla, nevím.']);
   assert.match(formatConversationRepairContext(context), /zachovej význam předchozí otázky/i);
+});
+
+test('výslovná žádost o jednu krátkou otázku vrátí přesně jednu ukotvenou otázku bez meta vysvětlení', () => {
+  const messages = [
+    { role: 'user', content: 'Mám problém s prodejem své služby, stydím se o ní mluvit a nevím, kde začít.' },
+    { role: 'assistant', content: 'Jaké rozhodnutí potřebuješ udělat jako první?' },
+    { role: 'user', content: 'Můžeš se mnou mluvit jako člověk? Nerozumím té otázce.' },
+    { role: 'assistant', content: 'Ptám se, kterou část prodejního procesu chceš nejprve diagnostikovat.' },
+    { role: 'user', content: 'Pořád tomu nerozumím. Zeptej se mě jednou krátkou otázkou.' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const repaired = enforceConversationRepairResponse(
+    'Promiň, vysvětlím svůj postup. Co přesně nechápeš? A kde chceš začít?',
+    context,
+  );
+
+  assert.equal(context.kind, 'rephrase');
+  assert.equal(context.shortQuestionRequested, true);
+  assert.match(context.groundingStatement, /prodejem své služby/i);
+  assert.equal(repaired, 'Když říkáš „Mám problém s prodejem své služby“, co je na tom teď nejtěžší?');
+  assert.equal((repaired.match(/\?/g) || []).length, 1);
+  assert.ok(repaired.split(/\s+/u).length <= 20);
+  assert.doesNotMatch(repaired, /promiň|vysvětlím|postup|nerozumíš|nechápeš/i);
+});
+
+test('běžná věta mám jednu krátkou otázku neaktivuje konverzační repair', () => {
+  const messages = [
+    { role: 'user', content: 'Mám jednu krátkou otázku: kolik stojí členství?' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+
+  assert.equal(context.shortQuestionRequested, false);
+  assert.equal(context.active, false);
+  assert.equal(
+    enforceConversationRepairResponse('Členství stojí 990 Kč měsíčně.', context),
+    'Členství stojí 990 Kč měsíčně.',
+  );
+});
+
+test('žádost o fakta má obecný fail-closed souhrn nejvýše tří doslovných sdělení bez nové domněnky', () => {
+  const messages = [
+    { role: 'user', content: 'Můj první placený seminář dopadl podle mě špatně.' },
+    { role: 'assistant', content: 'Kolik lidí přišlo?' },
+    { role: 'user', content: 'Počet lidí jsem zatím neuvedla.' },
+    { role: 'assistant', content: 'Určitě odešli kvůli obsahu.' },
+    { role: 'user', content: 'Co tedy opravdu víme bez domýšlení?' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const fallback = guardedConversationRepairFallback(context);
+
+  assert.equal(context.kind, 'fact_recap');
+  assert.deepEqual(context.substantiveGroundingStatements, [
+    'Můj první placený seminář dopadl podle mě špatně.',
+    'Počet lidí jsem zatím neuvedla.',
+  ]);
+  assert.match(fallback, /„Můj první placený seminář dopadl podle mě špatně“/i);
+  assert.match(fallback, /„Počet lidí jsem zatím neuvedla“/i);
+  assert.match(fallback, /na další hodnocení zatím nemáme dost dat/i);
+  assert.doesNotMatch(fallback, /odešli kvůli obsahu|důvodem|znamená to/i);
+  assert.equal((fallback.match(/\?/g) || []).length, 0);
+});
+
+test('fact recap zahrne opravu z aktuálního tahu a nevypíše opravený starší údaj', () => {
+  for (const correction of [
+    'Oprava: byly tam dvě ženy. Co tedy opravdu víme bez domýšlení?',
+    'Ne, byly tam dvě ženy, co tedy opravdu víme bez domýšlení?',
+    'Byly tam dvě, ne tři. Co tedy opravdu víme bez domýšlení?',
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Na workshop přišly tři ženy.' },
+      { role: 'assistant', content: 'Dobře.' },
+      { role: 'user', content: correction },
+    ];
+    const context = buildConversationRepairContext(messages, messages.at(-1).content);
+    const fallback = guardedConversationRepairFallback(context);
+
+    assert.equal(context.kind, 'fact_recap', correction);
+    assert.match(fallback, /dvě/i, correction);
+    assert.doesNotMatch(fallback, /na workshop přišly tři ženy/i, correction);
+  }
+});
+
+test('bez domýšlení v zadání marketingového výstupu neaktivuje fact recap', () => {
+  const latest = 'Napiš mi reklamní text jen z ověřených faktů, bez domýšlení.';
+  const context = buildConversationRepairContext([{ role: 'user', content: latest }], latest);
+
+  assert.equal(context.kind, 'none');
+  assert.equal(context.active, false);
+});
+
+test('samostatná zdvořilá žádost o jednu krátkou otázku aktivuje deterministickou krátkou odpověď', () => {
+  for (const latest of [
+    'Můžeš mi dát jednu krátkou otázku?',
+    'Prosím, jen jednu krátkou otázku.',
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Bojím se říct cenu své služby.' },
+      { role: 'assistant', content: 'Položila jsem to příliš složitě.' },
+      { role: 'user', content: latest },
+    ];
+    const context = buildConversationRepairContext(messages, latest);
+    const fallback = guardedConversationRepairFallback(context);
+
+    assert.equal(context.kind, 'short_question', latest);
+    assert.equal(context.active, true, latest);
+    assert.equal((fallback.match(/\?/gu) || []).length, 1, latest);
+    assert.match(fallback, /bojím se říct cenu/i, latest);
+  }
 });
 
 test('historická stížnost na opakování nespouští další techniku ani nevyrábí výsledek', () => {
@@ -618,4 +756,116 @@ test('S003 automatický router drží koučku u srovnávání, dokud klientka ne
     ),
     'mentoring',
   );
+});
+
+test('přirozené formulace konce externí činnosti zachovají pokračování rozhovoru', () => {
+  for (const latest of [
+    'Nechci pokračovat s workshopem, ale chci pokračovat s tebou.',
+    'S workshopy končím, ale s tebou chci pokračovat.',
+    'Končím s podnikáním, ne s tebou.',
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Výsledek mě zklamal.' },
+      { role: 'assistant', content: 'Chceš skončit?' },
+      { role: 'user', content: latest },
+    ];
+    const repair = buildConversationRepairContext(messages, latest);
+    const result = enforceConversationRepairResponse('Dobře, dnešní rozhovor uzavřeme.', repair);
+
+    assert.equal(repair.kind, 'external_stop', latest);
+    assert.equal(repair.explicitConversationContinuation, true, latest);
+    assert.match(result, /v našem rozhovoru pokračujeme/i, latest);
+    assert.doesNotMatch(result, /dnešní rozhovor uzavřeme/i, latest);
+  }
+});
+
+test('předmět před slovesem je stále jasný konec externí činnosti', () => {
+  for (const latest of [
+    'Workshopy už dělat nechci, ale s tebou pokračovat chci.',
+    'Konzultace vést nechci.',
+  ]) {
+    const messages = [{ role: 'user', content: latest }];
+    const repair = buildConversationRepairContext(messages, latest);
+
+    assert.equal(repair.kind, 'external_stop', latest);
+    assert.match(repair.externalStopScope, /workshopy|konzultace/i, latest);
+    assert.doesNotMatch(guardedConversationRepairFallback(repair), /co chceš zastavit/i, latest);
+  }
+});
+
+test('pouhá zmínka externího tématu nepropustí odpověď odporující ukončení', () => {
+  const latest = 'Nechci pokračovat v podnikání, ale s tebou pokračovat chci.';
+  const messages = [
+    { role: 'user', content: 'Podnikání mě vyčerpává.' },
+    { role: 'assistant', content: 'Chceš skončit?' },
+    { role: 'user', content: latest },
+  ];
+  const repair = buildConversationRepairContext(messages, latest);
+
+  for (const contradictory of [
+    'V podnikání pokračuj, jen zkus menší krok. Co uděláš jako první?',
+    'Podnikání tedy nechceš opustit a můžeš v něm pokračovat. Co v něm uděláš?',
+  ]) {
+    const result = enforceConversationRepairResponse(contradictory, repair);
+    assert.notEqual(result, contradictory);
+    assert.match(result, /nechceš pokračovat v podnikání/i);
+  }
+});
+
+test('facts-only odpověď deterministicky nespojí číslo se špatnou událostí ani nepřidá závěr', () => {
+  const latest = 'Co tedy opravdu víme bez domýšlení?';
+  const messages = [
+    { role: 'user', content: 'V minulém kurzu byly tři ženy.' },
+    { role: 'assistant', content: 'A co nový workshop?' },
+    { role: 'user', content: 'U nového workshopu jsem počet zatím neuvedla.' },
+    { role: 'assistant', content: 'Možná to potvrzuje slabý zájem.' },
+    { role: 'user', content: latest },
+  ];
+  const repair = buildConversationRepairContext(messages, latest);
+  const unsafe = 'Víme, že na novém workshopu byly tři ženy. To potvrzuje, že nabídka nefungovala.';
+  const result = enforceConversationRepairResponse(unsafe, repair);
+
+  assert.equal(repair.kind, 'fact_recap');
+  assert.notEqual(result, unsafe);
+  assert.match(result, /v minulém kurzu byly tři ženy/i);
+  assert.match(result, /u nového workshopu jsem počet zatím neuvedla/i);
+  assert.doesNotMatch(result, /na novém workshopu byly tři|potvrzuje|nabídka nefungovala/i);
+});
+
+test('krátká opravná otázka přeskočí ano, nevím i dobře a vrátí se k věcnému tématu', () => {
+  for (const acknowledgement of ['Ano.', 'Nevím.', 'Dobře.']) {
+    const latest = 'Pořád tomu nerozumím. Zeptej se mě jednou krátkou otázkou.';
+    const messages = [
+      { role: 'user', content: 'Bojím se prodat svůj kurz.' },
+      { role: 'assistant', content: 'Chceš si projít další krok?' },
+      { role: 'user', content: acknowledgement },
+      { role: 'assistant', content: 'Teď provedeme komplexní diagnostiku rozhodovacího rámce.' },
+      { role: 'user', content: latest },
+    ];
+    const repair = buildConversationRepairContext(messages, latest);
+    const result = guardedConversationRepairFallback(repair);
+
+    assert.match(repair.groundingStatement, /prodat svůj kurz/i);
+    assert.match(result, /problém|bojím se prodat svůj kurz/i);
+    assert.doesNotMatch(result, /když říkáš „(?:ano|nevím|dobře)/i);
+    assert.equal((result.match(/\?/gu) || []).length, 1);
+  }
+});
+
+test('facts-only fallback nikdy nepřevádí otázky klientky na známá tvrzení', () => {
+  const latest = 'Co tedy opravdu víme bez domýšlení?';
+  const messages = [
+    { role: 'user', content: 'Myslíš, že přišly tři ženy?' },
+    { role: 'assistant', content: 'Ano, určitě.' },
+    { role: 'user', content: 'A znamená to, že workshop selhal?' },
+    { role: 'assistant', content: 'Ano.' },
+    { role: 'user', content: latest },
+  ];
+  const repair = buildConversationRepairContext(messages, latest);
+  const result = guardedConversationRepairFallback(repair);
+
+  assert.equal(repair.kind, 'fact_recap');
+  assert.deepEqual(repair.substantiveGroundingStatements, []);
+  assert.doesNotMatch(result, /přišly tři ženy|workshop selhal/i);
+  assert.match(result, /nemáme žádné další údaje/i);
 });

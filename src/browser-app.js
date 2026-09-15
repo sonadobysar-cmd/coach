@@ -11,7 +11,7 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.37.0';
+const APP_VERSION = '0.37.1';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
@@ -582,7 +582,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.37.0';
+  const cloudModuleUrl = '/cloud.js?v=0.37.1';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {

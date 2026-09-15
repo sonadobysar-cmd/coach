@@ -49,6 +49,18 @@ test('QA odhalí záměnu ukončení workshopů za ukončení rozhovoru', () => 
   assert.equal(checks.workshopIntentUnderstood, false);
 });
 
+test('QA uzná užitečné pokračování, i když koučka použije přirozené slovo prozkoumat', () => {
+  const checks = evaluateAnswer({
+    scenario: scenarios[0],
+    turnIndex: 3,
+    answer: 'Workshop dál tlačit nebudeme. Chceš teď prozkoumat jinou cestu v podnikání?',
+    payload: coachPayload,
+  });
+  assert.equal(checks.workshopIntentUnderstood, true);
+  assert.equal(checks.conversationContinues, true);
+  assert.equal(checks.noFalseConversationStop, true);
+});
+
 test('QA odhalí generický reset po žádosti o vysvětlení', () => {
   const checks = evaluateAnswer({
     scenario: scenarios[0],

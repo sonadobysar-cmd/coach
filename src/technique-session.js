@@ -1,3 +1,5 @@
+import { requestsOneShortQuestion } from './conversation-repair-intent.js';
+
 const PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration', 'completed', 'stopped']);
 const ACTIVE_PHASES = new Set(['assessment', 'consent', 'application', 'evaluation', 'integration']);
 const CONSENT_FAMILIES = new Set([
@@ -546,11 +548,14 @@ export function classifyStopIntent(value) {
   if (/\b(?:nechci|odmitam)\s+(?:tuhle|tuto|tu|dalsi)?\s*technik\w*\b|\b(?:zastav|ukonci|vynechme)\s+(?:tuhle|tuto|tu)?\s*technik\w*\b|\bnechci\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*technik\w*\b/iu.test(normalized)) {
     return 'technique_stop';
   }
-  const explicitlyKeepsConversation = /\b(?:ne|nikoli)\s+(?:s\s+tebou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|techniku)\b/iu.test(normalized);
-  const namesExternalTarget = /\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized);
+  const explicitlyKeepsConversation = /\b(?:ne|nikoli)\s+(?:s\s+tebou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|techniku)\b|\b(?:s\s+tebou|tady)\s+(?:ale\s+)?(?:chci\s+)?pokracovat\b|\bpokracovat\s+chci\s+(?:s\s+tebou|tady)\b/iu.test(normalized);
+  const invertedExternalTarget = /(?:^|[.!?;]\s*)(?!to\b|toto\b|tohle\b|takhle\b)[^.!?,;]{3,120}?\s+(?:uz\s+|dal\s+)*(?:delat|poradat|vest|rozvijet)\s+(?:uz\s+|dal\s+)*(?:nechci|nebudu)\b/iu.test(normalized);
+  const namesExternalTarget = /\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)
+    || invertedExternalTarget;
   if (explicitlyKeepsConversation && namesExternalTarget) {
     return 'external_stop';
   }
+  if (invertedExternalTarget) return 'external_stop';
   if (/\b(?:stop|zastav(?:me|it)?|prestan)\b/iu.test(normalized)
     && /\btechnik\w*\b/iu.test(normalized)) {
     return 'technique_stop';
@@ -585,7 +590,10 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|to jsem (?:vubec )?nerekla|nevymyslej si|to neni pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b|^(?:resime|bavime se o|mluvim o|tema je|vrat se k)\b/iu.test(normalizeCzech(value).trim());
+  const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
+  const ordinaryRepair = /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|to jsem (?:vubec )?nerekla|nevymyslej si|to neni pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b|^(?:resime|bavime se o|mluvim o|tema je|vrat se k)\b/iu.test(normalized);
+  const shortQuestionRepair = requestsOneShortQuestion(normalized);
+  return ordinaryRepair || shortQuestionRepair;
 }
 
 function reportsStepAttempt(value) {

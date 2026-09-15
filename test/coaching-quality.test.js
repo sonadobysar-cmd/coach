@@ -7,6 +7,8 @@ import {
   assessCoachingResponse,
   buildQualityRepairInstruction,
   extractSessionEvidence,
+  requestsFactsOnly,
+  requestsOneShortQuestion,
 } from '../src/coaching-quality.js';
 import { guardedBrandFallback, guardedMentoringFallback, guardedQualityFallback } from '../src/elitea.js';
 import { buildConversationContext, buildProfessionalCaseContext } from '../src/elitea.js';
@@ -828,4 +830,417 @@ test('S003 brána odmítne znovu žádat souhlas, který klientka právě dala',
   assert.ok(assessment.issues.some(issue => issue.code === 'redundant_consent_request'));
   assert.equal(assessment.shouldRepair, true);
   assert.match(buildQualityRepairInstruction(assessment, context(messages)), /už souhlasila/i);
+});
+
+test('brána vyžaduje výslovnou nejistotu, když jiný člověk odešel bez známého důvodu', () => {
+  const messages = [
+    { role: 'user', content: 'Na skupinové setkání přišli čtyři lidé a jedna účastnice po dvaceti minutách odešla.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jedna účastnice odešla po dvaceti minutách. Co bys příště změnila?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+  assert.equal(assessment.pass, false);
+  assert.equal(assessment.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(assessment, context(messages)), /důvod neznáme/i);
+
+  const repaired = assessCoachingResponse(
+    'Víme, že jedna účastnice odešla po dvaceti minutách; proč odešla, zatím nevíme. Co udělali zbývající lidé?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.equal(repaired.issues.some(issue => issue.code === 'departure_uncertainty_missing'), false);
+  assert.equal(repaired.pass, true, JSON.stringify(repaired.issues));
+});
+
+test('brána nevyžaduje nejistotu, když důvod odchodu uvedla sama členka', () => {
+  const messages = [
+    { role: 'user', content: 'Jedna účastnice odešla dřív, protože musela vyzvednout dítě.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Její dřívější odchod měl podle jejího vysvětlení praktický důvod. Jak reagovali ostatní?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.equal(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'), false);
+  assert.equal(assessment.pass, true, JSON.stringify(assessment.issues));
+});
+
+test('neznámý odchod se povinně neopakuje po přesunu klientky k dalšímu tématu', () => {
+  const messages = [
+    { role: 'user', content: 'Jedna účastnice ze setkání odešla a nevím proč.' },
+    { role: 'assistant', content: 'Důvod jejího odchodu neznáme. Co teď potřebuješ rozhodnout?' },
+    { role: 'user', content: 'Chci vymyslet jiný formát své nabídky.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jiný formát může oddělit tvoji službu od jednorázové skupinové akce. Komu má nová nabídka pomáhat?',
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace' },
+  );
+  assert.equal(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'), false);
+});
+
+test('výslovná žádost o fakta odmítne nový vnitřní stav a opravenou faktickou odpověď propustí', () => {
+  const messages = [
+    { role: 'user', content: 'Můj první placený seminář podle mě dopadl špatně a stydím se za něj.' },
+    { role: 'assistant', content: 'Kolik lidí přišlo a jak reagovali?' },
+    { role: 'user', content: 'To jsem ti zatím neřekla.' },
+    { role: 'assistant', content: 'Dobře, tyto údaje tedy nemáme.' },
+    { role: 'user', content: 'Co tedy opravdu víme bez domýšlení?' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Víme, že jsi zklamaná a pochybuješ, zda má tvoje práce hodnotu.',
+    {
+      messages,
+      conversationContext: context(messages, 'mentoringova_konzultace'),
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'fact_only_unsupported_claim'));
+  assert.equal(assessment.pass, false);
+  assert.match(
+    buildQualityRepairInstruction(assessment, context(messages, 'mentoringova_konzultace'), { responseMode: 'mentoringova_konzultace' }),
+    /pouze její doložená fakta/i,
+  );
+
+  const repaired = assessCoachingResponse(
+    'Víme, že šlo o tvůj první placený seminář, podle tebe dopadl špatně a stydíš se za něj. Počet lidí ani jejich reakce zatím neznáme.',
+    {
+      messages,
+      conversationContext: context(messages, 'mentoringova_konzultace'),
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    },
+  );
+  assert.equal(repaired.issues.some(issue => issue.code === 'fact_only_unsupported_claim'), false);
+  assert.equal(repaired.pass, true, JSON.stringify(repaired.issues));
+});
+
+test('žádost o jedinou krátkou otázku vynutí počet i stručnost také u mentorky', () => {
+  const messages = [
+    { role: 'user', content: 'Při prodeji své služby se stydím mluvit o ceně.' },
+    { role: 'assistant', content: 'Potřebuji odlišit různé fáze prodeje.' },
+    { role: 'user', content: 'Pořád tomu nerozumím. Zeptej se mě jednou krátkou otázkou.' },
+  ];
+  for (const output of [
+    'Nejdřív si vyjasníme, jak přesně celý proces prodeje probíhá, potom společně oddělíme jednotlivé situace a nakonec vybereme tu nejdůležitější. Ve které chvíli začneš cítit stud?',
+    'Stydíš se víc při vyslovení ceny? Nebo až když má klientka odpovědět?',
+  ]) {
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: context(messages, 'mentoringova_konzultace'),
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'explicit_short_question_violated'), output);
+    assert.equal(assessment.pass, false, output);
+  }
+
+  const repaired = assessCoachingResponse('Ve které chvíli se při prodeji své služby stydíš nejvíc?', {
+    messages,
+    conversationContext: context(messages, 'mentoringova_konzultace'),
+    responseMode: 'mentoringova_konzultace',
+    requireQuestion: false,
+  });
+  assert.equal(repaired.issues.some(issue => issue.code === 'explicit_short_question_violated'), false);
+  assert.equal(repaired.pass, true, JSON.stringify(repaired.issues));
+});
+
+test('věta mám jednu krátkou otázku není pokyn, aby Elitea položila protiotázku', () => {
+  const messages = [
+    { role: 'user', content: 'Mám jednu krátkou otázku: kolik stojí členství?' },
+  ];
+  const assessment = assessCoachingResponse('Členství stojí 990 Kč měsíčně.', {
+    messages,
+    conversationContext: context(messages, 'mentoringova_konzultace'),
+    responseMode: 'mentoringova_konzultace',
+    requireQuestion: false,
+  });
+
+  assert.equal(assessment.issues.some(issue => issue.code === 'explicit_short_question_violated'), false);
+  assert.equal(assessment.pass, true, JSON.stringify(assessment.issues));
+});
+
+test('zdvořilé přímé žádosti aktivují jednu krátkou otázku, ale tvorba otázky do formuláře ne', () => {
+  for (const input of [
+    'Můžeš mi dát jednu krátkou otázku?',
+    'Prosím, jen jednu krátkou otázku.',
+    'Jednu krátkou otázku, prosím.',
+  ]) {
+    assert.equal(requestsOneShortQuestion(input), true, input);
+  }
+  assert.equal(
+    requestsOneShortQuestion('Napiš mi jednu krátkou otázku do registračního formuláře.'),
+    false,
+  );
+});
+
+test('požadavek vytvořit pravdivý obsah bez domýšlení není žádost o rekapitulaci sezení', () => {
+  assert.equal(
+    requestsFactsOnly('Napiš mi reklamní text jen z ověřených faktů, bez domýšlení.'),
+    false,
+  );
+  assert.equal(
+    requestsFactsOnly('Co víme bez domýšlení vlož do závěrečného reportu.'),
+    false,
+  );
+  assert.equal(requestsFactsOnly('Co tedy opravdu víme bez domýšlení?'), true);
+});
+
+test('jediná nevyžádaná otázka na zdraví či fungování v normálním riziku spustí opravu', () => {
+  const messages = [
+    { role: 'user', content: 'Po prezentaci mám strach, že jsem působila nudně.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jak se příprava a průběh prezentace promítly do tvého běžného fungování?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'));
+  assert.equal(assessment.pass, false);
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('běžná koučovací práce s energií jako kapacitou není zdravotní screening', () => {
+  const cases = [
+    {
+      input: 'Nevím, co mě v práci vlastně baví.',
+      output: 'Která činnost ti v posledním týdnu dodala nejvíc energie?',
+    },
+    {
+      input: 'Mám rozdělané tři projekty a nevím, kterému dát prioritu.',
+      output: 'Na který projekt máš tento měsíc reálně nejvíc energie?',
+    },
+    {
+      input: 'Přemýšlím o novém názvu projektu.',
+      output: 'Jak by změna názvu ovlivnila energii projektu?',
+    },
+    {
+      input: 'Nevím, jestli mám značku přejmenovat.',
+      output: 'Jak se změna názvu promítne do energie značky?',
+    },
+  ];
+
+  for (const example of cases) {
+    const messages = [{ role: 'user', content: example.input }];
+    const assessment = assessCoachingResponse(example.output, {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+      responseMode: 'koucovaci_hodina',
+      requireQuestion: false,
+    });
+    assert.equal(
+      assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'),
+      false,
+      JSON.stringify(assessment.issues),
+    );
+  }
+});
+
+test('běžná otázka co klientku na práci unavuje není zdravotní screening', () => {
+  const messages = [{ role: 'user', content: 'Marketing mě poslední dobou nebaví.' }];
+  const assessment = assessCoachingResponse('Co tě na marketingu nejvíc unavuje?', {
+    messages,
+    conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+    responseMode: 'koucovaci_hodina',
+    requireQuestion: false,
+  });
+
+  assert.equal(
+    assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'),
+    false,
+    JSON.stringify(assessment.issues),
+  );
+  assert.equal(assessment.pass, true, JSON.stringify(assessment.issues));
+});
+
+test('jedna otázka na osobní energii rámovaná jako dopad zůstává zdravotním screeningem', () => {
+  const messages = [
+    { role: 'user', content: 'Po prezentaci mám strach, že jsem působila nudně.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Jak se ten strach promítl do tvé energie?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), riskLevel: 'normal' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+
+  assert.ok(assessment.issues.some(issue => issue.code === 'unsolicited_health_screening'));
+  assert.equal(assessment.pass, false);
+});
+
+test('odchod třetí osoby nekontaminuje nesouvisející praktický úkol ani další nabídku', () => {
+  const cases = [
+    {
+      input: 'Kolegyně odešla z firmy. Potřebuji sepsat inzerát na její pozici.',
+      output: 'Začni výsledkem role, třemi odpovědnostmi a podmínkami spolupráce. Jakou pozici obsazuješ?',
+      mode: 'mentoringova_konzultace',
+    },
+    {
+      input: 'Klientka odešla spokojená a potom si koupila navazující kurz. Co jí mám nabídnout dál?',
+      output: 'Další nabídku navaž na výsledek z kurzu. Jaký konkrétní posun teď klientka potřebuje?',
+      mode: 'mentoringova_konzultace',
+    },
+  ];
+
+  for (const example of cases) {
+    const messages = [{ role: 'user', content: example.input }];
+    const assessment = assessCoachingResponse(example.output, {
+      messages,
+      conversationContext: context(messages, example.mode),
+      responseMode: example.mode,
+      requireQuestion: false,
+    });
+    assert.equal(
+      assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'),
+      false,
+      JSON.stringify(assessment.issues),
+    );
+  }
+});
+
+test('brána odmítne hodnotit počet jako slabý výkon bez cíle nebo benchmarku', () => {
+  const messages = [
+    { role: 'user', content: 'Na otevřenou ukázku se přihlásilo pět lidí.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Pět lidí je slabý výsledek. Co uděláš pro vyšší účast?',
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'unsupported_performance_verdict'));
+  assert.equal(assessment.pass, false);
+  assert.equal(assessment.shouldRepair, true);
+
+  const conditional = assessCoachingResponse(
+    'Pět lidí může být slabý i silný výsledek podle cíle a kapacity. Kolik míst jsi chtěla zaplnit?',
+    { messages, conversationContext: context(messages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.equal(conditional.issues.some(issue => issue.code === 'unsupported_performance_verdict'), false);
+  assert.equal(conditional.pass, true, JSON.stringify(conditional.issues));
+
+  const benchmarkedMessages = [
+    { role: 'user', content: 'Cílem bylo dvacet registrací, ale přihlásilo se pět lidí.' },
+  ];
+  const benchmarked = assessCoachingResponse(
+    'Pět registrací z cílových dvaceti je proti tvému cíli slabý výsledek. Kde se nábor zastavil?',
+    { messages: benchmarkedMessages, conversationContext: context(benchmarkedMessages, 'mentoringova_konzultace'), responseMode: 'mentoringova_konzultace', requireQuestion: false },
+  );
+  assert.equal(benchmarked.issues.some(issue => issue.code === 'unsupported_performance_verdict'), false);
+  assert.equal(benchmarked.pass, true, JSON.stringify(benchmarked.issues));
+});
+
+test('známý důvod staršího odchodu se nepřenese na novou osobu a výslovná neznalost má přednost', () => {
+  const cases = [
+    [
+      { role: 'user', content: 'Minule Anna odešla, protože musela vyzvednout dítě.' },
+      { role: 'assistant', content: 'Dobře.' },
+      { role: 'user', content: 'Dnes Lucie odešla po půl hodině a nevím proč.' },
+    ],
+    [
+      { role: 'user', content: 'Jedna účastnice odešla; důvod není znám.' },
+    ],
+  ];
+  for (const messages of cases) {
+    const assessment = assessCoachingResponse(
+      'Odešla, protože ji workshop nebavil. Co změníš?',
+      {
+        messages,
+        conversationContext: context(messages, 'koucovaci_hodina'),
+        responseMode: 'koucovaci_hodina',
+        requireQuestion: false,
+      },
+    );
+    assert.ok(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+    assert.equal(assessment.pass, false);
+  }
+});
+
+test('známý důvod odchodu Anny se nepřenese na nový nevysvětlený odchod Lucie', () => {
+  const messages = [
+    { role: 'user', content: 'Minule Anna odešla, protože musela vyzvednout dítě.' },
+    { role: 'assistant', content: 'U Anny tedy důvod známe.' },
+    { role: 'user', content: 'Dnes Lucie odešla po půl hodině.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Lucie odešla kvůli tomu, že ji workshop nebavil. Co změníš?',
+    {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+      requireQuestion: false,
+    },
+  );
+
+  assert.ok(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+  assert.equal(assessment.pass, false);
+});
+
+test('známý důvod Anny se ve stejném tahu nepřenese na nevysvětlený odchod Lucie', () => {
+  const messages = [
+    { role: 'user', content: 'Anna odešla kvůli dítěti, ale Lucie odešla po půl hodině.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Lucie odešla, protože ji workshop nebavil. Co mám změnit?',
+    {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+      requireQuestion: false,
+    },
+  );
+
+  assert.ok(assessment.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+  assert.equal(assessment.pass, false);
+});
+
+test('nesouvisející slovo plán, cíl ani kapacita není benchmark konkrétní účasti', () => {
+  for (const olderStatement of [
+    'Plán kampaně zatím nemám.',
+    'Mým cílem je časem podnikat naplno.',
+    'Kapacitu dalšího běhu zatím neznám.',
+  ]) {
+    const messages = [
+      { role: 'user', content: olderStatement },
+      { role: 'assistant', content: 'Dobře.' },
+      { role: 'user', content: 'Na workshop přišlo pět lidí.' },
+    ];
+    const assessment = assessCoachingResponse(
+      'Pět lidí je slabý výsledek. Co uděláš pro vyšší účast?',
+      {
+        messages,
+        conversationContext: context(messages, 'mentoringova_konzultace'),
+        responseMode: 'mentoringova_konzultace',
+        requireQuestion: false,
+      },
+    );
+    assert.ok(assessment.issues.some(issue => issue.code === 'unsupported_performance_verdict'), olderStatement);
+    assert.equal(assessment.pass, false, olderStatement);
+  }
+});
+
+test('facts-only brána odmítne nový kauzální či hodnotící závěr i při překryvu slov', () => {
+  const messages = [
+    { role: 'user', content: 'Můj první placený seminář dopadl podle mě špatně.' },
+    { role: 'assistant', content: 'Kolik lidí přišlo?' },
+    { role: 'user', content: 'Počet lidí jsem zatím neuvedla.' },
+    { role: 'assistant', content: 'Dobře.' },
+    { role: 'user', content: 'Co tedy opravdu víme bez domýšlení?' },
+  ];
+  for (const output of [
+    'Víme, že první seminář podle tebe dopadl špatně. To potvrzuje, že jsi zvolila nevhodný obsah.',
+    'Víme, že seminář dopadl špatně, protože lidé nezískali hodnotu.',
+  ]) {
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: context(messages, 'mentoringova_konzultace'),
+      responseMode: 'mentoringova_konzultace',
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'fact_only_unsupported_claim'), output);
+    assert.equal(assessment.pass, false, output);
+  }
 });
