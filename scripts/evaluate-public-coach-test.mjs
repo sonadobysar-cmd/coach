@@ -55,7 +55,10 @@ export const scenarios = [
       },
       {
         input: 'Ne, tímhle směrem pokračovat nechci.',
-        require: { refusalRespected: /rozumím|beru|respekt|dobře|nemusíš|nebudeme|nepůjdeme|půjdeme jinak|změn|jiný směr/i },
+        require: {
+          refusalAcknowledged: /beru|respekt|tímhle směrem (?:už )?(?:pokračovat )?nebudeme|v tomhle (?:už )?nebudeme pokračovat/i,
+          alternativeDirection: /jin|alternativ|místo|způsob|možnost|cest|směr/i,
+        },
         forbid: {
           noConsentLoop: /chceš tímto krokem pokračovat|než přidáme cokoli dalšího|popiš mi poslední konkrétní situaci|co bylo těsně předtím/i,
         },
@@ -214,7 +217,7 @@ async function defaultPost(path, body) {
     headers: {
       'content-type': 'application/json',
       origin,
-      'user-agent': 'Elitea-Production-QA/0.38.0',
+      'user-agent': 'Elitea-Production-QA/0.38.1',
     },
     body: JSON.stringify(body),
   });

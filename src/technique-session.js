@@ -52,7 +52,7 @@ export function createTechniqueTurn({
   // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
   // jako další krok techniky. Stav ale nezahazujeme: je pouze pozastavený,
   // aby oprava porozumění nemohla techniku skrytě posunout ani restartovat.
-  if (explicitRepair || ambiguousOrExternalStop) {
+  if (explicitRepair || (ambiguousOrExternalStop && !consentDeclined)) {
     const card = safePrevious ? byId.get(safePrevious.techniqueId) : null;
     return {
       card,
@@ -548,6 +548,8 @@ export function classifyStopIntent(value) {
   if (/\b(?:nechci|nechcem|odmitam|odmietam)\s+(?:tuhle|tohle|toto|tuto|tu|dalsi|dalsiu)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:tuhle|tohle|toto|tuto|tu)\s+(?:technik|cvicen|postup|krok)\w*\s+(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:zastav|ukonci|vynechme|vynechajme)\s+(?:tuhle|tuto|tu|toto)?\s*(?:technik|cvicen|postup|krok)\w*\b|\b(?:nechci|nechcem)\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*(?:technik|cvicen|postup)\w*\b/iu.test(normalized)) {
     return 'technique_stop';
   }
+  const declinesCurrentDirection = /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,90}\b(?:nechci|nechcem|odmitam|odmietam)\b|\b(?:nechci|nechcem|odmitam|odmietam)\b[^.!?\n]{0,90}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/iu.test(normalized);
+  if (declinesCurrentDirection) return 'external_stop';
   const explicitlyKeepsConversation = /\b(?:ne|nie|nikoli)\s+(?:s\s+tebou|so\s+mnou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|sedenie|techniku)\b|\b(?:s\s+tebou|tady|tu)\s+(?:ale\s+)?(?:(?:chci|chcem)\s+)?pokracovat\b|\bpokracovat\s+(?:chci|chcem)\s+(?:s\s+tebou|tady|tu)\b/iu.test(normalized);
   const invertedExternalTarget = /(?:^|[.!?;]\s*)(?!to\b|toto\b|tohle\b|takhle\b)[^.!?,;]{3,120}?\s+(?:uz\s+|dal\s+)*(?:delat|robit|poradat|organizovat|vest|viest|rozvijet)\s+(?:uz\s+|dal\s+)*(?:nechci|nechcem|nebudu)\b/iu.test(normalized);
   const namesExternalTarget = /\b(?:nechci|nechcem|nemuzu|nemozem)\s+pokracovat\s+(?:s|v|na)\s+\S+|\b(?:chci|chcem)\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)

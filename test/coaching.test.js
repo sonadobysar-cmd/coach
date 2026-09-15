@@ -116,6 +116,27 @@ test('historická oprava významu aktivuje generický repair bez domýšlení fa
   assert.doesNotMatch(prompt, /tři ženy|jedna odešla|dvě zůstaly|získala klienta/i);
 });
 
+test('odmítnutí aktuálního směru zachová rozhovor, pozastaví postup a vynutí jinou cestu', () => {
+  for (const [latest, expected] of [
+    ['Ne, tímhle směrem pokračovat nechci.', /Beru.+tímhle směrem pokračovat nebudeme/i],
+    ['Nie, týmto smerom pokračovať nechcem.', /Beriem.+týmto smerom pokračovať nebudeme/i],
+  ]) {
+    const messages = [
+      { role: 'user', content: 'Zveřejnění nabídky odkládám.' },
+      { role: 'assistant', content: 'Co si představíš, že se po zveřejnění stane?' },
+      { role: 'user', content: latest },
+    ];
+    const repair = buildConversationRepairContext(messages, latest);
+    const result = enforceConversationRepairResponse('Co teď cítíš?', repair);
+
+    assert.equal(repair.kind, 'external_stop', latest);
+    assert.match(repair.externalStopScope, /sm[eě]rem|smerom/i, latest);
+    assert.match(result, expected, latest);
+    assert.match(result, /místo toho|namiesto toho/i, latest);
+    assert.equal((result.match(/\?/gu) || []).length, 1, latest);
+  }
+});
+
 test('jasné ukončení externí činnosti nevyvolá znovu otázku co chce klientka zastavit', () => {
   const messages = [
     { role: 'user', content: 'Nechci dál nabízet konzultace.' },

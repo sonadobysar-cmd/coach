@@ -773,6 +773,55 @@ test('R4 brána odmítne opakovat souhlas po výslovném ne', () => {
   assert.equal(assessment.shouldRepair, true);
 });
 
+test('brána vyžaduje konkrétní uznání odmítnutého směru a skutečný pivot', () => {
+  const messages = [
+    { role: 'user', content: 'Když mám zveřejnit nabídku, dál upravuji web.' },
+    { role: 'assistant', content: 'Co si představíš, že se stane po zveřejnění?' },
+    { role: 'user', content: 'Ne, tímhle směrem pokračovat nechci.' },
+  ];
+  const missed = assessCoachingResponse(
+    'Co by pro tebe bylo užitečnější řešit?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(missed.issues.some(issue => issue.code === 'direction_refusal_acknowledgement_missing'));
+  assert.equal(missed.shouldRepair, true);
+  assert.match(buildQualityRepairInstruction(missed, context(messages)), /hranici konkrétně uznej/i);
+
+  const respected = assessCoachingResponse(
+    'Beru — tímhle směrem pokračovat nebudeme. Co by pro tebe bylo užitečnější řešit místo toho?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.equal(respected.issues.some(issue => issue.code === 'direction_refusal_acknowledgement_missing'), false);
+  assert.equal(respected.pass, true, JSON.stringify(respected.issues));
+});
+
+test('slovenská brána respektuje odmítnutí směru stejně jako česká', () => {
+  const messages = [
+    { role: 'user', content: 'Keď mám zverejniť ponuku, ďalej upravujem web.' },
+    { role: 'assistant', content: 'Čo si predstavíš, že sa stane po zverejnení?' },
+    { role: 'user', content: 'Nie, týmto smerom pokračovať nechcem.' },
+  ];
+  const missed = assessCoachingResponse(
+    'Aký spôsob by ti pomohol viac?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), responseLanguage: 'sk' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  assert.ok(missed.issues.some(issue => issue.code === 'direction_refusal_acknowledgement_missing'));
+
+  const respected = assessCoachingResponse(
+    'Beriem — týmto smerom pokračovať nebudeme. Čo by bolo pre teba užitočnejšie riešiť namiesto toho?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), responseLanguage: 'sk' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  assert.equal(respected.pass, true, JSON.stringify(respected.issues));
+});
+
 test('R5 brána odmítne generický restart po žádosti o přeformulování otázky', () => {
   const messages = [
     { role: 'user', content: 'Workshopu se účastnily tři ženy.' },
@@ -913,6 +962,43 @@ test('brána vyžaduje výslovnou nejistotu, když jiný člověk odešel bez zn
   );
   assert.equal(repaired.issues.some(issue => issue.code === 'departure_uncertainty_missing'), false);
   assert.equal(repaired.pass, true, JSON.stringify(repaired.issues));
+});
+
+test('holý report nevysvětleného odchodu nelze obejít generickou odpovědí', () => {
+  const messages = [
+    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla.' },
+  ];
+  const generic = assessCoachingResponse(
+    'Co se dělo se zbývajícími dvěma?',
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.ok(generic.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+
+  const fallback = guardedQualityFallback(messages[0].content, { messages });
+  assert.match(fallback, /důvod.+neznáme/i);
+  const checkedFallback = assessCoachingResponse(
+    fallback,
+    { messages, conversationContext: context(messages, 'koucovaci_hodina'), responseMode: 'koucovaci_hodina' },
+  );
+  assert.equal(checkedFallback.pass, true, JSON.stringify(checkedFallback.issues));
+});
+
+test('slovenský nevysvětlený odchod zachová nejistotu v bráně i fallbacku', () => {
+  const messages = [
+    { role: 'user', content: 'Prišli tri ženy a jedna po polhodine odišla.' },
+  ];
+  const generic = assessCoachingResponse(
+    'Ako reagovali ostatné?',
+    {
+      messages,
+      conversationContext: { ...context(messages, 'koucovaci_hodina'), responseLanguage: 'sk' },
+      responseMode: 'koucovaci_hodina',
+    },
+  );
+  assert.ok(generic.issues.some(issue => issue.code === 'departure_uncertainty_missing'));
+
+  const fallback = guardedQualityFallback(messages[0].content, { messages, responseLanguage: 'sk' });
+  assert.match(fallback, /dôvod.+nepoznáme/i);
 });
 
 test('brána nevyžaduje nejistotu, když důvod odchodu uvedla sama členka', () => {

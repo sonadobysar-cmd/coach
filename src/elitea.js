@@ -521,6 +521,19 @@ export function guardedQualityFallback(latestText, {
     return 'Zachytily jsme to podstatné. To, co zatím nevíme jistě, necháme otevřené a nebudeme z toho dělat hotový závěr.';
   }
 
+  const declinedDirection = /\b(?:timhle|timto|takhle|tudy|touto cestou|v tomhle smeru)\b[^.!?]{0,90}\b(?:nechci|odmitam)\b|\b(?:nechci|odmitam)\b[^.!?]{0,90}\b(?:timhle|timto|takhle|tudy|touto cestou|v tomhle smeru)\b/u.test(normalized);
+  if (declinedDirection) {
+    return 'Beru — tímhle směrem pokračovat nebudeme. Co by pro tebe bylo užitečnější řešit místo toho?';
+  }
+
+  const unexplainedThirdPartyDeparture = /\b(?:odesel|odesla|odesli|odchod\w*|opustil\w*)\b/u.test(normalized)
+    && !/\b(?:jsem)\b[^.!?]{0,35}\b(?:odesel|odesla|opustil\w*)\b|\b(?:odesel|odesla|opustil\w*)\s+jsem\b/u.test(normalized)
+    && !/\b(?:protoze|jelikoz|kvuli|z duvodu)\b/u.test(normalized)
+    && !/\b(?:potrebuji|chci|pomoz|napis|sestav|vytvor|priprav|nabidnout|co dal|jak mam)\b|\?/u.test(normalized);
+  if (unexplainedThirdPartyDeparture) {
+    return 'Důvod jejího odchodu zatím neznáme, takže z něj ještě nejde vyvodit, co na workshopu fungovalo a co ne. Jak reagovali ostatní?';
+  }
+
   const publicInfluenceGoal = /\b(influencer\w*|tvurc\w*|verejn\w*.{0,20}osobnost|osobni znack\w*)\b/u.test(normalized);
   const desiredLifeGap = /\b(neziju|nemam)\b[^.!?]{0,45}\bzivot\b|\bzivot\b[^.!?]{0,45}\b(chci|chtela|predstavuji)\b/u.test(normalized);
   if (publicInfluenceGoal && desiredLifeGap) {
@@ -561,6 +574,17 @@ function guardedSlovakQualityFallback(latestText, { closingRequested = false, me
   }
   if (closingRequested) {
     return 'Zachytili sme to podstatné. To, čo zatiaľ nevieme, necháme otvorené a neurobíme z toho hotový záver.';
+  }
+  const declinedDirection = /\b(?:tymto|takto|tadialto|touto cestou|v tomto smere)\b[^.!?]{0,90}\b(?:nechcem|odmietam)\b|\b(?:nechcem|odmietam)\b[^.!?]{0,90}\b(?:tymto|takto|tadialto|touto cestou|v tomto smere)\b/u.test(normalized);
+  if (declinedDirection) {
+    return 'Beriem — týmto smerom pokračovať nebudeme. Čo by bolo pre teba užitočnejšie riešiť namiesto toho?';
+  }
+  const unexplainedThirdPartyDeparture = /\b(?:odisiel|odisla|odisli|odchod\w*|opustil\w*)\b/u.test(normalized)
+    && !/\b(?:som)\b[^.!?]{0,35}\b(?:odisiel|odisla|opustil\w*)\b|\b(?:odisiel|odisla|opustil\w*)\s+som\b/u.test(normalized)
+    && !/\b(?:pretoze|kedze|lebo|kvoli|z dovodu)\b/u.test(normalized)
+    && !/\b(?:potrebujem|chcem|pomoz|napis|zostav|vytvor|priprav|ponuknut|co dalej|ako mam)\b|\?/u.test(normalized);
+  if (unexplainedThirdPartyDeparture) {
+    return 'Dôvod jej odchodu zatiaľ nepoznáme, takže z neho ešte nemožno vyvodiť, čo na workshope fungovalo a čo nie. Ako reagovali ostatní?';
   }
   if (/\b(som|pripadam si)\b[^.!?]{0,30}\b(neschopn\w*|na nic|zla|hlupa|marna)\b/u.test(normalized)) {
     return 'Jedna ťažká situácia ešte nie je dôkaz o celej tebe. Ktorá konkrétna udalosť ťa teraz vedie k takému tvrdému záveru?';
@@ -604,6 +628,12 @@ export function guardedConversationRepairFallback(repairContext = {}) {
   if (repairContext.kind === 'external_stop') {
     const scope = String(repairContext.externalStopScope || '').trim();
     if (scope) {
+      const directionalScope = /\b(?:timhle|timto|takhle|tudy|tymto|takto|smer)\w*\b/u.test(normalizeDialogueText(scope));
+      if (directionalScope) {
+        return slovak
+          ? 'Beriem — týmto smerom pokračovať nebudeme. Čo by bolo pre teba užitočnejšie riešiť namiesto toho?'
+          : 'Beru — tímhle směrem pokračovat nebudeme. Co by pro tebe bylo užitečnější řešit místo toho?';
+      }
       return slovak
         ? `Rozumiem — nechceš pokračovať ${scope}. Čo chceš riešiť namiesto toho?`
         : `Dobře — nechceš pokračovat ${scope}. Co chceš řešit místo toho?`;
@@ -1360,6 +1390,14 @@ export function buildConversationRepairContext(messages = [], latestText = '') {
 function extractExternalStopScope(value) {
   const latest = String(value || '').replace(/\s+/gu, ' ').trim();
   const language = detectConversationLanguage(latest);
+  const directionMatch = latest.match(/\b((?:tímhle|timhle|tímto|timto|takhle|tudy|týmto|tymto|takto|touto cestou|v tomhle směru|v tomhle smeru|v tomto smere)(?:\s+(?:směrem|smerem|smerom|postupem|postupom))?)\b[^.!?\n]{0,90}\b(?:nechci|nechcem|odmítám|odmitam|odmietam)\b|\b(?:nechci|nechcem|odmítám|odmitam|odmietam)\b[^.!?\n]{0,90}\b((?:tímhle|timhle|tímto|timto|takhle|tudy|týmto|tymto|takto|touto cestou|v tomhle směru|v tomhle smeru|v tomto smere)(?:\s+(?:směrem|smerem|smerom|postupem|postupom))?)/iu);
+  if (directionMatch) {
+    const scope = String(directionMatch[1] || directionMatch[2] || '').trim();
+    return {
+      scope,
+      statement: language === 'sk' ? `nechceš pokračovať ${scope}` : `nechceš pokračovat ${scope}`,
+    };
+  }
   const continuingMatch = latest.match(/\b(nechci|nechcem|nemůžu|nemuzu|nemôžem|nemozem)\s+(?:pokračovat|pokračovať|pokracovat)\s+((?:s|se|so|v|ve|vo|na)\s+[^.!?,;]+)/iu);
   if (continuingMatch) {
     const scope = trimConversationContinuation(continuingMatch[2]);

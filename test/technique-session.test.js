@@ -117,6 +117,7 @@ test('konec workshopů se nezamění za ukončení rozhovoru', () => {
   assert.equal(classifyStopIntent('Je mi po tom hůř.'), 'none');
   assert.equal(classifyStopIntent('Workshopy už dělat nechci, ale s tebou pokračovat chci.'), 'external_stop');
   assert.equal(classifyStopIntent('Konzultace vést nechci.'), 'external_stop');
+  assert.equal(classifyStopIntent('Ne, tímhle směrem pokračovat nechci.'), 'external_stop');
 
   const turn = createTechniqueTurn({
     atlas: [practicalCard], candidates: [practicalCard], previous: active,
@@ -852,6 +853,7 @@ test('neplatný klientský stav se zahodí a interní protokol obsahuje jedinou 
 test('slovenské odmítnutí a oprava mají stejné tvrdé hranice jako české', () => {
   assert.equal(classifyStopIntent('Nie, toto cvičenie nechcem.'), 'technique_stop');
   assert.equal(classifyStopIntent('Nechcem pokračovať s konzultáciami.'), 'external_stop');
+  assert.equal(classifyStopIntent('Nie, týmto smerom pokračovať nechcem.'), 'external_stop');
   assert.equal(classifyStopIntent('Už nechcem pokračovať.'), 'external_or_ambiguous');
   assert.equal(isConversationRepairRequest('Zasa sa opakuješ.'), true);
   assert.equal(isConversationRepairRequest('Nerozumiem ti, povedz to jednoduchšie.'), true);

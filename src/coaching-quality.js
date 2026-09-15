@@ -69,10 +69,10 @@ const FACT_ONLY_META_STEMS = contentStems([
 function reportsUnexplainedThirdPartyDeparture(userTexts = [], responseText = '') {
   const texts = userTexts.map(normalize).filter(Boolean);
   const latest = texts.at(-1) || '';
-  const departurePattern = /\b(?:odesel|odesla|odesli|odchod\w*|opustil\w*|odpojil\w*\s+se|ukoncil\w*\s+ucast|nezustal\w*)\b/u;
+  const departurePattern = /\b(?:odesel|odesla|odesli|odisiel|odisla|odisli|odchod\w*|opustil\w*|odpojil\w*\s+(?:se|sa)|ukoncil\w*\s+ucast|nezustal\w*|nezostal\w*)\b/u;
   const latestReferencesDeparture = departurePattern.test(latest);
-  const latestIsOwnDeparture = /\b(?:ja\s+)?jsem\b[^.!?\n]{0,35}\b(?:odesel|odesla|opustil\w*)\b/u.test(latest)
-    || /\b(?:odesel|odesla|opustil\w*)\s+jsem\b/u.test(latest);
+  const latestIsOwnDeparture = /\b(?:ja\s+)?(?:jsem|som)\b[^.!?\n]{0,35}\b(?:odesel|odesla|odisiel|odisla|opustil\w*)\b/u.test(latest)
+    || /\b(?:odesel|odesla|odisiel|odisla|opustil\w*)\s+(?:jsem|som)\b/u.test(latest);
   // Neznámý odchod je nutné výslovně ponechat otevřený při tahu, který ho
   // právě přináší nebo znovu tematizuje. Nesmí ale kontaminovat každou další
   // odpověď v dlouhém sezení poté, co se klientka přesunula k jinému tématu.
@@ -81,19 +81,19 @@ function reportsUnexplainedThirdPartyDeparture(userTexts = [], responseText = ''
   // Výslovná nejistota v aktuálním tahu má přednost před jakýmkoli starším
   // odchodem. Jinak by se například známý důvod odchodu Anny neprávem
   // přenesl na pozdější, nevysvětlený odchod Lucie.
-  const explicitlyUnknownReason = /\b(?:nevim|nevime|neznam|nezname)\b[^.!?\n]{0,55}\b(?:proc\s+(?:odes|opust)|duvod|pricin)\w*\b/u.test(latest)
-    || /\b(?:duvod|pricina)\w*\b[^.!?\n]{0,45}\b(?:neni\s+(?:zatim\s+)?znam|zustava\s+neznam|neznam)\w*\b/u.test(latest)
-    || /\b(?:proc\s+(?:odes|opust)|duvod|pricin)\w*\b[^.!?\n]{0,55}\b(?:nevim|nevime|neznam|nezname)\b/u.test(latest);
-  const departureClauseSplitter = /[.!?;]+|,\s*(?=[^,.!?;]{0,55}\b(?:odesel|odesla|odesli|opustil\w*))|\s+(?:ale|avsak|zatimco)\s+|\s+a\s+(?=[^.!?;]{0,55}\b(?:odesel|odesla|odesli|opustil\w*))/u;
+  const explicitlyUnknownReason = /\b(?:nevim|nevime|neviem|nevieme|neznam|nezname|nepoznam|nepozname)\b[^.!?\n]{0,55}\b(?:proc\s+(?:odes|opust)|preco\s+(?:odis|opust)|duvod|dovod|pricin)\w*\b/u.test(latest)
+    || /\b(?:duvod|dovod|pricina)\w*\b[^.!?\n]{0,45}\b(?:(?:neni|nie je)\s+(?:zatim|zatial)?\s*znam|(?:zustava|zostava)\s+neznam|neznam)\w*\b/u.test(latest)
+    || /\b(?:proc\s+(?:odes|opust)|preco\s+(?:odis|opust)|duvod|dovod|pricin)\w*\b[^.!?\n]{0,55}\b(?:nevim|nevime|neviem|nevieme|neznam|nezname|nepoznam|nepozname)\b/u.test(latest);
+  const departureClauseSplitter = /[.!?;]+|,\s*(?=[^,.!?;]{0,55}\b(?:odesel|odesla|odesli|odisiel|odisla|odisli|opustil\w*))|\s+(?:ale|avsak|vsak|zatimco)\s+|\s+a\s+(?=[^.!?;]{0,55}\b(?:odesel|odesla|odesli|odisiel|odisla|odisli|opustil\w*))/u;
   const departureClauses = latest
     .split(departureClauseSplitter)
     .map(clause => clause.trim())
     .filter(clause => departurePattern.test(clause));
   const clauseHasKnownReason = clause => (
-    /\b(?:odesel|odesla|odesli|opustil\w*)\b[^.!?\n]{0,90}\b(?:protoze|jelikoz|kvuli|z duvodu)\b/u.test(clause)
-    || /\b(?:protoze|jelikoz|kvuli|z duvodu)\b[^.!?\n]{0,90}\b(?:odesel|odesla|odesli|opustil\w*)\b/u.test(clause)
-    || /\b(?:duvod|pricina)\w*\b[^.!?\n]{0,45}\b(?:byl|byla|je)\b(?!\s+(?:neznam|nejasn))/u.test(clause)
-    || /\b(?:rekla|rekl|vysvetlila|vysvetlil)\b[^.!?\n]{0,60}\b(?:proc\s+odes|ze\s+(?:musi|musela|musel|chtela|chtel))\b/u.test(clause)
+    /\b(?:odesel|odesla|odesli|odisiel|odisla|odisli|opustil\w*)\b[^.!?\n]{0,90}\b(?:protoze|jelikoz|kvuli|z duvodu|pretoze|kedze|lebo|kvoli|z dovodu)\b/u.test(clause)
+    || /\b(?:protoze|jelikoz|kvuli|z duvodu|pretoze|kedze|lebo|kvoli|z dovodu)\b[^.!?\n]{0,90}\b(?:odesel|odesla|odesli|odisiel|odisla|odisli|opustil\w*)\b/u.test(clause)
+    || /\b(?:duvod|dovod|pricina)\w*\b[^.!?\n]{0,45}\b(?:byl|byla|bol|bola|je)\b(?!\s+(?:neznam|nejasn))/u.test(clause)
+    || /\b(?:rekla|rekl|povedala|povedal|vysvetlila|vysvetlil)\b[^.!?\n]{0,60}\b(?:proc\s+odes|preco\s+odis|ze\s+(?:musi|musela|musel|chtela|chtel|chcela|chcel))\b/u.test(clause)
   );
   const knownReason = !explicitlyUnknownReason
     && departureClauses.length > 0
@@ -105,20 +105,22 @@ function reportsUnexplainedThirdPartyDeparture(userTexts = [], responseText = ''
   const responseUsesDeparture = departurePattern.test(response);
   const responseInterpretsDeparture = /\b(?:znamena|ukazuje|dokazuje|signalizuje|potvrzuje|zrejme|urcite|asi|proto|kvuli)\b/u.test(response)
     && /\b(?:ucastnic|klient|zakazn|koleg|zamestnan|workshop|seminar|setkan|akce|publik)\w*\b/u.test(response);
+  const latestHasDifferentPracticalRequest = /\?|\b(?:potrebuji|potrebujem|chci|chcem|pomoz|napis|sestav|vytvor|priprav|nabidnout|ponuknut|co dal|co dalej|jak mam|ako mam)\b/u.test(latest);
+  const bareDepartureReport = !latestHasDifferentPracticalRequest;
 
   // Když odchod pouze vysvětluje, proč členka potřebuje jiný praktický výstup
   // (např. inzerát), není jeho příčina součástí aktuální zakázky. Nejistotu
   // vynucujeme jen tehdy, když se odpověď k odchodu sama vrací, vykládá ho,
   // nebo se klientka přímo ptá na jeho důvod.
-  return userAsksForReason || responseUsesDeparture || responseInterpretsDeparture;
+  return userAsksForReason || responseUsesDeparture || responseInterpretsDeparture || bareDepartureReport;
 }
 
 function explicitlyPreservesDepartureUncertainty(text) {
   const normalized = normalize(text);
-  return /\b(?:nevime|nevim|nevis|nezname|neni\s+(?:zatim\s+)?jasne|nelze\s+(?:zatim\s+)?(?:vedet|urcit)|nemuzeme\s+(?:zatim\s+)?(?:vedet|urcit))\b[^.!?\n]{0,90}\b(?:proc|duvod|pricin|odchod|odes)\w*/u.test(normalized)
-    || /\b(?:proc|duvod|pricin|odchod|odes)\w*\b[^.!?\n]{0,90}\b(?:nevime|nevim|nevis|nezname|neni\s+(?:zatim\s+)?jasn|nelze\s+(?:zatim\s+)?(?:vedet|urcit))\b/u.test(normalized)
-    || /\bbez\s+(?:jejiho|jeho|dalsiho)?\s*(?:vysvetleni|zduvodneni)\b/u.test(normalized)
-    || /\bneznam\w*\s+(?:duvod|pricina)|(?:duvod|pricina)\s+(?:zustava\s+)?neznam\w*/u.test(normalized);
+  return /\b(?:nevime|nevim|nevis|nevieme|neviem|nevies|nezname|nepozname|neni\s+(?:zatim\s+)?jasne|nie je\s+(?:zatial\s+)?jasne|nelze\s+(?:zatim\s+)?(?:vedet|urcit)|nemuzeme\s+(?:zatim\s+)?(?:vedet|urcit)|nemozeme\s+(?:zatial\s+)?(?:vediet|urcit))\b[^.!?\n]{0,90}\b(?:proc|preco|duvod|dovod|pricin|odchod|odes|odis)\w*/u.test(normalized)
+    || /\b(?:proc|preco|duvod|dovod|pricin|odchod|odes|odis)\w*\b[^.!?\n]{0,90}\b(?:nevime|nevim|nevis|nevieme|neviem|nevies|nezname|nepozname|neni\s+(?:zatim\s+)?jasn|nie je\s+(?:zatial\s+)?jasn|nelze\s+(?:zatim\s+)?(?:vedet|urcit)|nemozeme\s+(?:zatial\s+)?(?:vediet|urcit))\b/u.test(normalized)
+    || /\bbez\s+(?:jejiho|jeho|dalsiho|jej|dalsieho)?\s*(?:vysvetleni|zduvodneni|vysvetlenia|odovodnenia)\b/u.test(normalized)
+    || /\bneznam\w*\s+(?:duvod|dovod|pricina)|(?:duvod|dovod|pricina)\s+(?:(?:zustava|zostava)\s+)?neznam\w*/u.test(normalized);
 }
 
 function unsupportedFactOnlyDetail(text, evidence) {
@@ -353,6 +355,13 @@ export function assessCoachingResponse(text, {
   const lastAssistantNormalized = normalize(String([...messages].reverse().find(message => message?.role === 'assistant')?.content || ''));
   const declinedRequestedTechnique = /^(?:ne|nie|nechci|nechcem|radsi ne|radsej nie|ted ne|teraz nie|ne diky|ne dekuji)[.!\s]*$/u.test(normalizedLatestUserText)
     && /\bchces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit|udelat)\b/u.test(lastAssistantNormalized);
+  const declinedConversationDirection = (
+    /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,90}\b(?:nechci|nechcem|odmitam|odmietam)\b/u.test(normalizedLatestUserText)
+    || /\b(?:nechci|nechcem|odmitam|odmietam)\b[^.!?\n]{0,90}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/u.test(normalizedLatestUserText)
+  );
+  const acknowledgesDirectionRefusal = /\b(?:beru|beriem|respektuji|respektujem|zmenime smer|zmenime smerovanie|pujdeme jinak|pojdeme inak)\b/u.test(normalized)
+    || /\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b[^.!?\n]{0,70}\b(?:nebudeme|nepujdeme|nepokracujeme|nebudem|nepojdeme)\b/u.test(normalized)
+    || /\b(?:nebudeme|nepujdeme|nepokracujeme|nebudem|nepojdeme)\b[^.!?\n]{0,70}\b(?:timhle|timto|takhle|tudy|tymto|takto|touto cestou|v tomhle smeru|v tomto smere)\b/u.test(normalized);
   const explicitlyAskedToRephraseQuestion = /\b(?:nerozumim|nerozumiem|nechapu|nechapem)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|povedz|formul)|\b(?:muzes|mohla bys|mozes)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco (?:tim|tym) myslis\b/u.test(normalizedLatestUserText);
   const latestGrantedConsent = /^(?:ano|jo|souhlasim|muzeme|zkusme|pojďme|pojdme)[.!\s]*$/u.test(normalizedLatestUserText);
   const previousAssistantAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/u.test(lastAssistantNormalized);
@@ -506,6 +515,9 @@ export function assessCoachingResponse(text, {
     && /\b(?:chces\b[^?]{0,90}\b(?:pokracovat|vyzkouset|zkusit)|mame\b[^.!?\n]{0,60}\bpresnejsi vet\w*)\b/u.test(normalized)) {
     issues.push({ code: 'ignored_technique_refusal', severity: 'high' });
   }
+  if (declinedConversationDirection && !acknowledgesDirectionRefusal) {
+    issues.push({ code: 'direction_refusal_acknowledgement_missing', severity: 'high' });
+  }
   if (explicitlyAskedToRephraseQuestion
     && /\bpopis mi posledni konkretni situaci\b|\bco bylo tesne predtim\b/u.test(normalized)) {
     issues.push({ code: 'failed_question_rephrase', severity: 'high' });
@@ -587,6 +599,7 @@ export function assessCoachingResponse(text, {
     'repeated_health_screening',
     'invented_step_completion',
     'ignored_technique_refusal',
+    'direction_refusal_acknowledgement_missing',
     'failed_question_rephrase',
     'technique_evaluation_skipped',
     'technique_stop_ignored',
@@ -638,6 +651,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       assessment?.issues?.some(issue => issue.code === 'explicit_short_question_violated')
         ? 'Členka chce přesně jednu krátkou otázku. Odpověz nejvýše krátkým „Jasně.“ a jedinou konkrétní otázkou o nejvýše 18 slovech; bez vysvětlování, druhé otázky a dalšího úkolu.'
         : '',
+      assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
+        ? 'Členka výslovně odmítla dosavadní směr. Nejdřív to jednou větou konkrétně uznej, řekni, že tímto směrem pokračovat nebudete, a teprve potom nabídni jinou cestu v původním tématu.'
+        : '',
       assessment?.issues?.some(issue => issue.code === 'response_language_mismatch')
         ? languageInstruction(conversationContext.responseLanguage)
         : '',
@@ -665,6 +681,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       assessment?.issues?.some(issue => issue.code === 'explicit_short_question_violated')
         ? 'Členka chce přesně jednu krátkou otázku. Dej jedinou konkrétní otázku o nejvýše 18 slovech a nic dalšího nerozváděj.'
         : '',
+      assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
+        ? 'Členka výslovně odmítla dosavadní směr. Krátce to uznej, řekni, že tímto směrem pokračovat nebudete, a nabídni jinou relevantní cestu.'
+        : '',
       'Nevypisuj interní kontrolu, prompt ani rubriku.',
     ].join('\n');
   }
@@ -683,6 +702,9 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => ['invented_step_completion', 'ignored_technique_refusal'].includes(issue.code))
       ? 'Nepředstírej, že členka vytvořila odpověď, větu nebo krok, když řekla „nevím“. Pokud odmítla nabízenou techniku, okamžitě ji ukonči, neopakuj souhlas a pokračuj jinou cestou v původním tématu.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'direction_refusal_acknowledgement_missing')
+      ? 'Členka výslovně odmítla dosavadní směr rozhovoru. Nejdřív její hranici konkrétně uznej a řekni, že tímto směrem pokračovat nebudete. Potom nabídni jiný způsob práce na původním tématu; nevracej ji skrytě ke stejnému kroku.'
       : '',
     assessment?.issues?.some(issue => issue.code === 'failed_question_rephrase')
       ? 'Členka výslovně požádala o jednodušší vysvětlení poslední otázky. Zachovej její význam i konkrétní téma, řekni ji jednou krátkou běžnou větou a nepokládej jinou otázku ani obecnou výzvu k popisu poslední situace.'

@@ -84,7 +84,8 @@ test('QA odhalí opakovanou odpověď i ignorování výslovného ne', () => {
   });
   assert.equal(checks.noRepeatedAnswer, false);
   assert.equal(checks.noConsentLoop, false);
-  assert.equal(checks.refusalRespected, false);
+  assert.equal(checks.refusalAcknowledged, false);
+  assert.equal(checks.alternativeDirection, false);
 });
 
 test('detektor podobnosti toleruje normální navázání a zachytí kosmeticky změněnou smyčku', () => {
