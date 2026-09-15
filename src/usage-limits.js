@@ -25,13 +25,28 @@ export function usagePolicyFor(membership = {}, env = process.env) {
   };
 }
 
-export async function reserveAiTurn(member, membership, { roleCode = 'coach_mentor' } = {}, env = process.env) {
+const NON_BILLABLE_AI_PROVIDERS = new Set([
+  'course-role-router',
+  'demo-no-api-key',
+  'local-training-fallback',
+  'deterministic-training-fallback',
+  'safety-protocol',
+]);
+
+export async function reserveAiTurn(member, membership, { roleCode = 'coach_mentor' } = {}, env = process.env, dependencies = {}) {
   const policy = usagePolicyFor(membership, env);
   if (policy.unlimited || !member?.id || !env.DATABASE_URL) {
-    return { ...policy, usedToday: 0, usedThisMonth: 0, remainingToday: null, remainingThisMonth: null };
+    return {
+      ...policy,
+      usedToday: 0,
+      usedThisMonth: 0,
+      remainingToday: null,
+      remainingThisMonth: null,
+      reservation: null,
+    };
   }
 
-  const sql = neon(env.DATABASE_URL);
+  const sql = dependencies.sql || neon(env.DATABASE_URL);
   const rows = await sql`
     INSERT INTO ai_usage_counters (
       user_id, usage_date, usage_month, daily_messages, monthly_messages, last_role_code, updated_at
@@ -67,7 +82,13 @@ export async function reserveAiTurn(member, membership, { roleCode = 'coach_ment
     throw error;
   }
 
-  return usageSnapshot(policy, rows[0]);
+  return {
+    ...usageSnapshot(policy, rows[0]),
+    reservation: {
+      usageDate: dateKey(rows[0].usage_date),
+      usageMonth: dateKey(rows[0].usage_month),
+    },
+  };
 }
 
 export async function readAiUsage(member, membership, env = process.env) {
@@ -79,6 +100,37 @@ export async function readAiUsage(member, membership, env = process.env) {
   const rows = await sql`SELECT usage_date, usage_month, daily_messages, monthly_messages
     FROM ai_usage_counters WHERE user_id=${member.id}::uuid LIMIT 1`;
   return usageSnapshot(policy, rows[0] || {});
+}
+
+export async function refundAiTurn(member, membership, reservation, env = process.env, dependencies = {}) {
+  const policy = usagePolicyFor(membership, env);
+  const reservationKey = validReservationKey(reservation);
+  if (policy.unlimited || !member?.id || !env.DATABASE_URL || !reservationKey) return false;
+
+  const sql = dependencies.sql || neon(env.DATABASE_URL);
+  const rows = await sql`UPDATE ai_usage_counters SET
+      daily_messages=CASE
+        WHEN usage_date=${reservationKey.usageDate}::date THEN GREATEST(daily_messages - 1, 0)
+        ELSE daily_messages
+      END,
+      monthly_messages=CASE
+        WHEN usage_month=${reservationKey.usageMonth}::date THEN GREATEST(monthly_messages - 1, 0)
+        ELSE monthly_messages
+      END,
+      updated_at=now()
+    WHERE user_id=${member.id}::uuid
+      AND (usage_date=${reservationKey.usageDate}::date OR usage_month=${reservationKey.usageMonth}::date)
+    RETURNING user_id`;
+  return Boolean(rows[0]);
+}
+
+export function isBillableAiResult(result, { training = false } = {}) {
+  const provider = String(result?.provider || '').trim();
+  if (!provider || NON_BILLABLE_AI_PROVIDERS.has(provider)) return false;
+  if (!training) return true;
+  const usage = result?.usage;
+  return [usage?.totalTokens, usage?.inputTokens, usage?.outputTokens]
+    .some(value => Number.isFinite(Number(value)) && Number(value) > 0);
 }
 
 function usageSnapshot(policy, row) {
@@ -99,6 +151,13 @@ function dateKey(value) {
   if (!value) return '';
   if (typeof value === 'string') return value.slice(0, 10);
   return value.toISOString?.().slice(0, 10) || '';
+}
+
+function validReservationKey(reservation) {
+  const usageDate = String(reservation?.usageDate || '');
+  const usageMonth = String(reservation?.usageMonth || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(usageDate) || !/^\d{4}-\d{2}-01$/.test(usageMonth)) return null;
+  return { usageDate, usageMonth };
 }
 
 function positiveLimit(value, fallback) {

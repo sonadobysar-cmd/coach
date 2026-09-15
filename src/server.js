@@ -67,7 +67,7 @@ import {
   submitFoundingFeedback,
   updateFoundingApplication,
 } from './founding.js';
-import { readAiUsage, reserveAiTurn } from './usage-limits.js';
+import { isBillableAiResult, readAiUsage, refundAiTurn, reserveAiTurn } from './usage-limits.js';
 import { reportOperationalError, sanitizeOperationalEvent } from './observability.js';
 import { lifecycleConfigured, runLifecycleEmails } from './lifecycle-email.js';
 import { ensureRuntimeSchema, runtimeSchemaStatus } from './runtime-schema.js';
@@ -88,6 +88,7 @@ import {
   sanitizePublicCoachTestFeedback,
   savePublicCoachTestFeedback,
 } from './public-coach-test-service.js';
+import { previewAccessAllowed } from './access-policy.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -601,10 +602,11 @@ app.post('/api/browser-sessions/:id/actions/:draftId/execute', async (request, r
   }
 });
 
-app.get('/api/client-config', (_request, response) => {
+app.get('/api/client-config', (request, response) => {
   response.set('Cache-Control', 'no-store').json({
     authUrl: process.env.NEON_AUTH_URL || '',
     dataApiUrl: process.env.NEON_DATA_API_URL || '',
+    previewAccess: previewAccessAllowed(request),
   });
 });
 
@@ -715,8 +717,16 @@ app.post('/api/membership/portal', async (request, response) => {
   }
 });
 
-app.get('/api/worksheets', (_request, response) => {
-  response.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300').json(worksheets);
+app.get('/api/worksheets', async (request, response) => {
+  try {
+    await authorizeAiRequest(request);
+    return response.set('Cache-Control', 'private, no-store, max-age=0').json(worksheets);
+  } catch (error) {
+    return response.status(error?.statusCode || 401).set('Cache-Control', 'no-store').json({
+      error: error?.message || 'Pro otevření pracovních listů se přihlas.',
+      code: error?.code,
+    });
+  }
 });
 
 app.get('/api/content', (_request, response) => {
@@ -1000,11 +1010,19 @@ app.post('/api/chat', async (request, response) => {
     requestId,
   }));
 
+  let member = null;
+  let usageReserved = false;
+  let usageReservation = null;
+  let generationCompleted = false;
   try {
-    const member = await authorizeAiRequest(request);
-    if (member) await reserveAiTurn(member, member.membership, {
-      roleCode: sanitizeConsultationMode(request.body?.consultationMode) === 'brand_growth' ? 'brand_marketing' : 'coach_mentor',
-    });
+    member = await authorizeAiRequest(request);
+    if (member) {
+      const reservedUsage = await reserveAiTurn(member, member.membership, {
+        roleCode: sanitizeConsultationMode(request.body?.consultationMode) === 'brand_growth' ? 'brand_marketing' : 'coach_mentor',
+      });
+      usageReservation = reservedUsage.reservation;
+      usageReserved = Boolean(usageReservation);
+    }
     const memory = sanitizeMemory(request.body?.memory);
     const consultationMode = sanitizeConsultationMode(request.body?.consultationMode);
     const brandWorkMode = sanitizeBrandWorkMode(request.body?.brandWorkMode);
@@ -1016,7 +1034,13 @@ app.post('/api/chat', async (request, response) => {
       techniqueSession: request.body?.techniqueSession,
       specialistSession: request.body?.specialistSession,
     });
-    if (member) {
+    generationCompleted = true;
+    const billableResult = isBillableAiResult(result);
+    if (member && usageReserved && !billableResult) {
+      await refundAiTurn(member, member.membership, usageReservation).catch(() => {});
+      usageReserved = false;
+    }
+    if (member && billableResult) {
       await recordAiUsage(member, {
         roleCode: result.mode === 'brand_growth_agent' ? 'brand_marketing' : 'coach_mentor',
         modelId: result.provider,
@@ -1044,6 +1068,9 @@ app.post('/api/chat', async (request, response) => {
     }));
     response.set('Cache-Control', 'no-store').json(result);
   } catch (error) {
+    if (member && usageReserved && !generationCompleted) {
+      await refundAiTurn(member, member.membership, usageReservation).catch(() => {});
+    }
     console.error(JSON.stringify({
       level: 'error',
       message: 'chat_failed',
@@ -1170,13 +1197,21 @@ app.post('/api/training', async (request, response) => {
     && String(request.body?.scenarioId || '') === String(context.course?.mastery?.finalExam?.scenarioId || '');
   console.log(JSON.stringify({ level: 'info', message: 'training_started', requestId, activity, phase, autoTransition, counterpartHint }));
 
+  let member = null;
+  let usageReserved = false;
+  let usageReservation = null;
+  let generationCompleted = false;
   try {
-    const member = await authorizeAiRequest(request);
-    if (member) await reserveAiTurn(member, member.membership, {
-      roleCode: activity === 'simulation' && context.course.categoryId === 'coaching-mental-health'
-        ? 'coaching_trainer'
-        : 'study_trainer',
-    });
+    member = await authorizeAiRequest(request);
+    if (member) {
+      const reservedUsage = await reserveAiTurn(member, member.membership, {
+        roleCode: activity === 'simulation' && context.course.categoryId === 'coaching-mental-health'
+          ? 'coaching_trainer'
+          : 'study_trainer',
+      });
+      usageReservation = reservedUsage.reservation;
+      usageReserved = Boolean(usageReservation);
+    }
     const result = await answerTraining({
       messages: request.body?.messages,
       memory: sanitizeMemory(request.body?.memory),
@@ -1190,6 +1225,12 @@ app.post('/api/training', async (request, response) => {
       autoTransition,
       finalExam,
     });
+    generationCompleted = true;
+    const billableResult = isBillableAiResult(result, { training: true });
+    if (member && usageReserved && !billableResult) {
+      await refundAiTurn(member, member.membership, usageReservation).catch(() => {});
+      usageReserved = false;
+    }
     if (member && finalExam && phase === 'debrief') {
       await recordCertificateExamAttempt({
         member,
@@ -1202,7 +1243,7 @@ app.post('/api/training', async (request, response) => {
         await reportOperationalError({ area: 'academy_certificate', code: error?.code || 'EXAM_RECORD_FAILED', path: request.path, summary: error });
       });
     }
-    if (member) {
+    if (member && billableResult) {
       const coachingTrainer = activity === 'simulation' && context.course.categoryId === 'coaching-mental-health';
       await recordAiUsage(member, {
         roleCode: coachingTrainer ? 'coaching_trainer' : 'study_trainer',
@@ -1226,6 +1267,9 @@ app.post('/api/training', async (request, response) => {
     }));
     return response.set('Cache-Control', 'no-store').json(result);
   } catch (error) {
+    if (member && usageReserved && !generationCompleted) {
+      await refundAiTurn(member, member.membership, usageReservation).catch(() => {});
+    }
     console.error(JSON.stringify({
       level: 'error',
       message: 'training_failed',
@@ -1272,9 +1316,21 @@ function findCourseTrainingContext(courseSlug, itemId) {
 
 async function authorizeAiRequest(request) {
   const authConfigured = Boolean(process.env.NEON_AUTH_JWKS_URL || process.env.NEON_AUTH_URL);
-  if (!authConfigured) return null;
+  if (!authConfigured) {
+    if (previewAccessAllowed(request)) return null;
+    throw Object.assign(new Error('Přihlášení není v tomto prostředí správně připojené.'), {
+      statusCode: 503,
+      code: 'AUTH_NOT_CONFIGURED',
+    });
+  }
   const member = await verifyMemberAuthorization(request.get('authorization'));
-  if (!paymentsConfigured()) return { ...member, membership: { status: 'preview', plan_code: 'elitea-preview' } };
+  if (!paymentsConfigured()) {
+    if (previewAccessAllowed(request)) return { ...member, membership: { status: 'preview', plan_code: 'elitea-preview' } };
+    throw Object.assign(new Error('Ověření členství není v tomto prostředí správně připojené.'), {
+      statusCode: 503,
+      code: 'PAYMENTS_NOT_CONFIGURED',
+    });
+  }
   const membership = await membershipFor(member);
   if (!['owner', 'trialing', 'active'].includes(membership.status)) {
     throw Object.assign(new Error('Pro použití Elitey je potřeba aktivní zkušební období nebo členství.'), { statusCode: 403 });

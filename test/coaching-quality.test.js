@@ -724,6 +724,69 @@ test('R5 brána odmítne generický restart po žádosti o přeformulování ot�
   assert.match(buildQualityRepairInstruction(assessment, context(messages, 'koucovaci_hodina')), /Zachovej její význam/i);
 });
 
+test('pozastavený repair tah nemá výjimku z kontroly ukotvení jen kvůli uložené evaluation fázi', () => {
+  const messages = [
+    { role: 'user', content: 'Po aktualizaci se keramický rezervační formulář neodesílá.' },
+    { role: 'assistant', content: 'Co se teď změnilo — stejné, lepší, nebo horší?' },
+    { role: 'user', content: 'Neopakuj se, řešíme formulář.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Kterou vzpomínku z dětství si teď vybavíš?',
+    {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+      techniqueTurn: {
+        suspended: true,
+        suspensionReason: 'conversation_repair',
+        session: { phase: 'evaluation' },
+      },
+    },
+  );
+
+  assert.ok(assessment.issues.some(issue => issue.code === 'not_grounded_in_client_words'));
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('quality gate odmítne přeskočit měření účinku a spustit další cvičení', () => {
+  const messages = [
+    { role: 'user', content: 'Zkusila jsem ten domluvený krok.' },
+  ];
+  const assessment = assessCoachingResponse(
+    'Zkusíme ještě další cvik. Zavři oči a třikrát se nadechni.',
+    {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+      techniqueTurn: { session: { phase: 'evaluation' } },
+      requireQuestion: false,
+    },
+  );
+  assert.ok(assessment.issues.some(issue => issue.code === 'technique_evaluation_skipped'));
+  assert.equal(assessment.pass, false);
+  assert.equal(assessment.shouldRepair, true);
+});
+
+test('quality gate odmítne pokračovat po zastavení techniky', () => {
+  const messages = [{ role: 'user', content: 'Nechci tu techniku, zastav ji.' }];
+  for (const output of [
+    'Zkus si tedy představit jiný výsledek.',
+    'Pojďme pokračovat jinou technikou.',
+    'Teď se soustřeď na dech.',
+  ]) {
+    const assessment = assessCoachingResponse(output, {
+      messages,
+      conversationContext: context(messages, 'koucovaci_hodina'),
+      responseMode: 'koucovaci_hodina',
+      techniqueTurn: { session: { phase: 'stopped' } },
+      requireQuestion: false,
+    });
+    assert.ok(assessment.issues.some(issue => issue.code === 'technique_stop_ignored'), output);
+    assert.equal(assessment.pass, false, output);
+    assert.equal(assessment.shouldRepair, true, output);
+  }
+});
+
 test('brána odmítne doslovně zopakovat starší dlouhou odpověď', () => {
   const repeated = 'Nemusíš tu přesnější větu vymýšlet sama. Pracovní verze může znít: jedna účastnice odešla a dvě zůstaly. Co na té větě nesedí?';
   const messages = [

@@ -44,15 +44,25 @@ test('chráněné požadavky obnoví Neon session a nikdy neukážou syrovou JWT
   assert.match(app, /\(\?:claim\|jwt\|token\|timestamp/);
   assert.match(app, /Přihlášení vypršelo\. Přihlas se prosím znovu\./);
   assert.match(cloud, /try \{[\s\S]*current = await session\(\{ forceFetch: forceRefresh \}\)[\s\S]*catch \{[\s\S]*jwtToken = ''[\s\S]*return ''/);
-  assert.match(app, /async function freshAuthorization\(\)[\s\S]*promptExpiredSession\(\)/);
+  assert.match(app, /async function freshAuthorization\(expectedAccountId = activeAccountId\)[\s\S]*promptExpiredSession\(\)/);
   assert.match(app, /setAuthMode\('signin'\)[\s\S]*authDialog\.showModal\(\)/);
 });
 
-test('AI odpověď rezervuje fair-use zprávu ještě před voláním modelu', () => {
+test('AI odpověď rezervuje fair-use zprávu a při selhání generování ji vrátí', () => {
   const chatRoute = server.match(/app\.post\('\/api\/chat'[\s\S]*?\n}\);/)?.[0] || '';
   const trainingRoute = server.match(/app\.post\('\/api\/training'[\s\S]*?\n}\);/)?.[0] || '';
   assert.match(chatRoute, /await reserveAiTurn/);
   assert.match(trainingRoute, /await reserveAiTurn/);
+  assert.match(chatRoute, /usageReservation = reservedUsage\.reservation/);
+  assert.match(trainingRoute, /usageReservation = reservedUsage\.reservation/);
+  assert.match(chatRoute, /usageReserved && !generationCompleted/);
+  assert.match(chatRoute, /await refundAiTurn\(member, member\.membership, usageReservation\)/);
+  assert.match(trainingRoute, /usageReserved && !generationCompleted/);
+  assert.match(trainingRoute, /await refundAiTurn\(member, member\.membership, usageReservation\)/);
+  assert.match(chatRoute, /const billableResult = isBillableAiResult\(result\)/);
+  assert.match(trainingRoute, /const billableResult = isBillableAiResult\(result, \{ training: true \}\)/);
+  assert.match(chatRoute, /if \(member && billableResult\)[\s\S]*?recordAiUsage/);
+  assert.match(trainingRoute, /if \(member && billableResult\)[\s\S]*?recordAiUsage/);
   assert.match(server, /app\.get\('\/api\/ai-usage'/);
 });
 
@@ -87,6 +97,22 @@ test('plný kurz i tréninkový scénář vyžadují autorizované členství', 
   assert.match(courseRoute, /publicCourseDetail\(course\)/);
   assert.match(scenarioRoute, /await authorizeAiRequest\(request\)/);
   assert.match(scenarioRoute, /publicTrainingScenario\(scenario\)/);
+});
+
+test('pracovní listy vyžadují autorizované členství a nejsou veřejně cacheované', () => {
+  const worksheetRoute = server.match(/app\.get\('\/api\/worksheets'[\s\S]*?\n}\);/)?.[0] || '';
+  assert.match(worksheetRoute, /await authorizeAiRequest\(request\)/);
+  assert.match(worksheetRoute, /private, no-store/);
+  assert.doesNotMatch(worksheetRoute, /public, max-age/);
+});
+
+test('chybějící auth nebo platby nejsou implicitní preview přístup', () => {
+  const authorization = server.match(/async function authorizeAiRequest\(request\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(authorization, /previewAccessAllowed\(request\)/);
+  assert.match(authorization, /AUTH_NOT_CONFIGURED/);
+  assert.match(authorization, /PAYMENTS_NOT_CONFIGURED/);
+  assert.doesNotMatch(authorization, /if \(!authConfigured\) return null/);
+  assert.doesNotMatch(authorization, /if \(!paymentsConfigured\(\)\) return \{/);
 });
 
 test('bodování kurzového testu je serverové, přihlášené a chráněné původem', () => {

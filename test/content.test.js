@@ -174,7 +174,7 @@ test('každý typ konzultace má oddělený přepis a vědomé navázání', () 
   assert.match(client, /const previousConversation = state\.conversations\[nextMode\]/);
   assert.match(client, /delete state\.conversations\[mode\]/);
   assert.match(client, /summarizeConversation\(mode, messages\)/);
-  assert.match(client, /sessionStorage\.setItem\('elitea\.conversations'/);
+  assert.match(client, /accountSessionStorage\.setItem\('elitea\.conversations'/);
 });
 
 test('členka může bezpečně začít nové sezení bez smazání profilu a dlouhodobé paměti', () => {

@@ -2,6 +2,46 @@ import { neon } from '@neondatabase/serverless';
 
 const RUNTIME_SCHEMA_STATEMENTS = [
   `SELECT pg_advisory_xact_lock(1162624051)`,
+  `ALTER TABLE memberships ADD COLUMN IF NOT EXISTS trial_consumed_at timestamptz`,
+  `ALTER TABLE memberships ADD COLUMN IF NOT EXISTS provider_event_created_at bigint`,
+  `UPDATE memberships SET trial_consumed_at=COALESCE(updated_at, now())
+    WHERE trial_consumed_at IS NULL AND provider_subscription_id IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+    event_id text PRIMARY KEY,
+    event_type text NOT NULL,
+    event_created bigint NOT NULL DEFAULT 0,
+    status text NOT NULL CHECK (status IN ('processing', 'processed')),
+    received_at timestamptz NOT NULL DEFAULT now(),
+    processed_at timestamptz
+  )`,
+  `CREATE INDEX IF NOT EXISTS stripe_webhook_events_received_idx
+    ON stripe_webhook_events (received_at DESC)`,
+  `ALTER TABLE stripe_webhook_events ENABLE ROW LEVEL SECURITY`,
+  `CREATE TABLE IF NOT EXISTS membership_checkout_intents (
+    user_id uuid PRIMARY KEY REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    intent_id uuid NOT NULL UNIQUE,
+    plan_code text NOT NULL CHECK (plan_code IN ('standard', 'founding30')),
+    checkout_email text NOT NULL DEFAULT '' CHECK (char_length(checkout_email) <= 254),
+    status text NOT NULL CHECK (status IN ('creating', 'open', 'completed', 'failed')),
+    stripe_session_id text UNIQUE,
+    checkout_url text,
+    expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS membership_checkout_intents_expiry_idx
+    ON membership_checkout_intents (expires_at)`,
+  `ALTER TABLE membership_checkout_intents ENABLE ROW LEVEL SECURITY`,
+  `UPDATE browser_operator_sessions SET status='ended', ended_at=COALESCE(ended_at, now())
+    WHERE status='running' AND expires_at IS NOT NULL AND expires_at <= now()`,
+  `WITH ranked AS (
+      SELECT id, row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS rn
+      FROM browser_operator_sessions WHERE status='running'
+    )
+    UPDATE browser_operator_sessions SET status='ended', ended_at=COALESCE(ended_at, now())
+    WHERE id IN (SELECT id FROM ranked WHERE rn > 1)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS browser_operator_one_active_per_user_idx
+    ON browser_operator_sessions (user_id) WHERE status='running'`,
   `CREATE TABLE IF NOT EXISTS ai_usage_counters (
     user_id uuid PRIMARY KEY REFERENCES member_profiles(user_id) ON DELETE CASCADE,
     usage_date date NOT NULL DEFAULT current_date,

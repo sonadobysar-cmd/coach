@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCourses } from '../src/courses.js';
@@ -231,6 +232,72 @@ test('automatický přechod otevře komunikační scénář a nevede další kou
   assert.equal(result.scenario.counterpartHint, 'client');
   assert.match(result.scenario.studentRole, /komunikátorka/i);
   assert.doesNotMatch(result.text, /co tě vede|jak se cítíš|co potřebuješ pro sebe/i);
+});
+
+test('výpadek providera nikdy nevydává generickou trenérku za úspěšný nácvik', async () => {
+  const item = communicationCourse.modules[0].items[0];
+  const answerTraining = createCourseTrainer();
+  const result = await answerTraining({
+    course: communicationCourse,
+    item,
+    activity: 'simulation',
+    phase: 'roleplay',
+    difficulty: 'standard',
+    messages: [{ role: 'user', content: 'Zkouším reakci z lekce.' }],
+  });
+  assert.equal(result.qualityGate.pass, false);
+  assert.deepEqual(result.qualityGate.issueCodes, ['provider_unavailable_unverified_roleplay']);
+  assert.match(result.text, /dočasně nedostupná|nezapočítá/i);
+  assert.doesNotMatch(result.text, /část mě chce, abys rozhodla za mě/i);
+});
+
+test('studijní fallback po výpadku opravy neprojde kontrolou u žádného kurzu ani části', async () => {
+  const courseFiles = (await readdir(join(ROOT, 'data')))
+    .filter(file => /^course-.*\.md$/u.test(file) && !/-audio-scripts\.md$/u.test(file))
+    .sort()
+    .map(file => join(ROOT, 'data', file));
+  const allCourses = await loadCourses(courseFiles);
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  let checked = 0;
+
+  try {
+    for (const course of allCourses) {
+      for (const item of course.modules.flatMap(module => module.items)) {
+        let callCount = 0;
+        const answerTraining = createCourseTrainer({
+          generate: async () => {
+            callCount += 1;
+            if (callCount === 1) {
+              return {
+                text: 'Teď tě budu koučovat a pojďme zpracovat tvé trauma. Co cítíš v těle?',
+                usage: null,
+              };
+            }
+            throw new Error('simulated repair outage');
+          },
+        });
+        const result = await answerTraining({
+          course,
+          item,
+          activity: 'study',
+          phase: 'study',
+          messages: [{ role: 'user', content: 'Vysvětli mi tuto část kurzu.' }],
+        });
+
+        assert.equal(result.provider, 'deterministic-training-fallback', `${course.id}/${item.id}`);
+        assert.equal(result.qualityGate.pass, false, `${course.id}/${item.id}`);
+        assert.deepEqual(result.qualityGate.issueCodes, ['unverified_study_fallback'], `${course.id}/${item.id}`);
+        assert.ok(result.qualityGate.attemptIssueCodes.includes('study_role_drift'), `${course.id}/${item.id}`);
+        checked += 1;
+      }
+    }
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+
+  assert.ok(checked > 0);
 });
 
 test('neplatný klientský stav se bezpečně normalizuje', () => {
@@ -524,6 +591,13 @@ test('studijní trenérka zůstává u učiva a brána odmítá osobní koučink
   );
   assert.equal(drift.pass, false);
   assert.ok(drift.issues.includes('study_role_drift'));
+
+  const titleOnlyContradiction = assessStudyResponse(
+    'Aktivní naslouchání je zbytečné a není potřeba ověřovat porozumění. Správně je vždy začít radou bez otázek, protože tím studentka rychleji převezme odpovědnost za výsledek rozhovoru.',
+    { messages, course, item },
+  );
+  assert.equal(titleOnlyContradiction.pass, false);
+  assert.ok(titleOnlyContradiction.issues.includes('contradicts_lesson_or_safe_practice'));
 });
 
 test('opravný pokyn pro studium vrací trenérku k lekci, ne do koučinku', () => {

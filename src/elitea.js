@@ -13,7 +13,6 @@ import {
   createTechniqueTurn,
   classifyStopIntent,
   enforceTechniqueResponse,
-  fixedTechniqueResponse,
   formatTechniqueExecution,
   isConversationRepairRequest,
   techniqueFallbackQuestion,
@@ -155,6 +154,7 @@ export function createElitea({
       roleTransition,
       riskLevel: safety.level,
     };
+    const repairContext = buildConversationRepairContext(safeMessages, latest.content);
     // The current request chooses the working method. Older context remains in
     // the prompt for continuity, but must not drag a newly mentoring turn back
     // into a coaching technique (or vice versa).
@@ -258,6 +258,7 @@ export function createElitea({
       brandWorkMode,
       businessAcademyFaculty,
       specialistRoute,
+      repairContext,
     );
 
     if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
@@ -274,6 +275,9 @@ export function createElitea({
       );
       return {
         ...demo,
+        text: repairContext.active
+          ? guardedConversationRepairFallback(repairContext)
+          : demo.text,
         specialistRouting: specialistRouteSummary(specialistRoute),
         specialistSession: specialistRoute,
       };
@@ -300,37 +304,25 @@ export function createElitea({
       'rychle_reseni',
       'mentoringova_konzultace',
     ]);
-    const groundedResponse = fixedGroundingResponse({
-      messages: safeMessages,
-      memory,
-      latestText: latest.content,
-      routingText,
-      responseMode,
-      conversationContext,
-      techniqueTurn,
+    let result = await generateText({
+      model: modelId,
+      instructions,
+      messages: selectConversationWindow(safeMessages, 18),
+      maxOutputTokens: dialogueModes.has(responseMode)
+        ? 900
+        : responseMode === 'podporna_stabilizace'
+          ? 800
+          : responseMode === 'mentoringova_konzultace'
+            ? 1400
+            : 1600,
+      reasoning: resolveReasoningEffort(modelId),
     });
-    const fixedResponse = groundedResponse || fixedTechniqueResponse(techniqueTurn);
-    let result = fixedResponse
-      ? { text: fixedResponse }
-      : await generateText({
-        model: modelId,
-        instructions,
-        messages: selectConversationWindow(safeMessages, 18),
-        maxOutputTokens: dialogueModes.has(responseMode)
-          ? 900
-          : responseMode === 'podporna_stabilizace'
-            ? 800
-            : responseMode === 'mentoringova_konzultace'
-              ? 1400
-              : 1600,
-        reasoning: resolveReasoningEffort(modelId),
-      });
     let totalUsage = mergeUsage(null, result.usage);
 
     // Reasoning models can occasionally spend the whole budget before emitting
     // visible text. One bounded retry is safer than showing a generic fallback
     // that looks like a real coaching intervention.
-    if (!fixedResponse && !result.text?.trim()) {
+    if (!result.text?.trim()) {
       const retryResult = await generateText({
         model: modelId,
         instructions: `${instructions}\n\nNyní odpověz přímo člence. Nevypisuj interní úvahu a nezačínej nadpisem.`,
@@ -350,7 +342,6 @@ export function createElitea({
       const techniqueCheckedText = enforceTechniqueResponse(value, techniqueTurn, {
         latestText: latest.content,
         messages: safeMessages,
-        authoritativeGrounding: Boolean(groundedResponse),
       });
       return shapedModes.has(responseMode)
         ? shapeCoachingResponse(techniqueCheckedText, memory, {
@@ -376,7 +367,7 @@ export function createElitea({
     // A second model pass is deliberately exceptional. It catches the failure
     // modes that most damage a real coaching alliance: invented facts about the
     // client, premature advice, generic form answers and unsupported labels.
-    if (!fixedResponse && quality.shouldRepair) {
+    if (quality.shouldRepair) {
       try {
         const repairModelId = responseMode === 'koucovaci_hodina'
           ? String(process.env.ELITEA_COACH_MODEL || DEFAULT_COACH_MODEL).trim()
@@ -415,7 +406,9 @@ export function createElitea({
     // alianční chybu, pošleme raději stručný tah ukotvený doslova ve zprávě
     // členky. Tím se nepropíše vadná domněnka jen proto, že měla hezký styl.
     if (!quality.pass && quality.issues.some(issue => ['critical', 'high'].includes(issue.severity))) {
-      const guardedText = isBrandGrowth
+      const guardedText = repairContext.active
+        ? guardedConversationRepairFallback(repairContext)
+        : isBrandGrowth
         ? guardedBrandFallback(latest.content)
         : isBusinessMentoring
           ? guardedMentoringFallback(latest.content, { messages: safeMessages })
@@ -535,6 +528,27 @@ export function guardedQualityFallback(latestText, { requireQuestion = true, clo
     return 'Nechci z odkládání rovnou dělat lenost ani sebesabotáž. Co přesně se stalo naposledy v okamžiku, kdy ses do toho chtěla pustit a pak jsi udělala něco jiného?';
   }
   return 'Nechci ti hned podsouvat vysvětlení. Popiš mi poslední konkrétní situaci, kdy se to stalo — co bylo těsně předtím?';
+}
+
+export function guardedConversationRepairFallback(repairContext = {}) {
+  const latestEvidence = String(repairContext.priorUserStatements?.at(-1) || '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 260);
+  if (repairContext.kind === 'external_stop') {
+    return 'Beru — nechceš pokračovat v činnosti nebo způsobu, který jsi právě pojmenovala. Nezaměním to za konec našeho rozhovoru. Co potřebuješ vyřešit místo toho?';
+  }
+  if (repairContext.kind === 'clarify_stop') {
+    return 'Nechci hádat, co chceš zastavit. Myslíš tím náš rozhovor, právě použitý postup, nebo věc, o které mluvíš?';
+  }
+  if (repairContext.kind === 'rephrase') {
+    return latestEvidence
+      ? `Položila jsem to nejasně. Poslední otázku teď odložím a zůstanu u toho, co jsi skutečně uvedla: „${latestEvidence}“. Kterou část potřebuješ říct nebo vysvětlit jednodušeji?`
+      : 'Položila jsem to nejasně. Nechci nahrazovat jednu nesrozumitelnou otázku jinou. Napiš mi prosím, které části nerozumíš, a vysvětlím jen tu.';
+  }
+  return latestEvidence
+    ? `Máš pravdu — předchozí odpověď nenavázala správně. Vrátím se k tomu, co jsi skutečně uvedla: „${latestEvidence}“. Co z toho potřebuješ řešit právě teď?`
+    : 'Máš pravdu — předchozí odpověď nenavázala správně. Nebudu doplňovat žádné další okolnosti. Co přesně mám opravit nebo znovu uchopit?';
 }
 
 function specificMentoringFallback(latestText, { messages = [] } = {}) {
@@ -665,6 +679,7 @@ function buildInstructions(
   brandWorkMode,
   businessAcademyFaculty = [],
   specialistRoute = null,
+  repairContext = null,
 ) {
   const brandRole = responseMode === 'brand_growth_agent';
   const mentoringRole = ['mentoring', 'mentoringova_konzultace'].includes(responseMode);
@@ -729,6 +744,8 @@ function buildInstructions(
     formatWellbeingProtocol(selectedWellbeingProtocol),
     '\n\n# MASTER TECHNIQUE ATLAS — NEJVHODNĚJŠÍ KARTY PRO TENTO VSTUP',
     formatTechniqueCards(selectedTechniqueCards),
+    '\n\n# OPRAVA POROZUMĚNÍ A UKOTVENÍ V PŘEPISU',
+    formatConversationRepairContext(repairContext),
     '\n\n# POVINNÝ PROTOKOL PRECIZNÍHO PROVEDENÍ TECHNIKY',
     formatTechniqueExecution(techniqueTurn),
     '\n\n# REŽIM TÉTO ODPOVĚDI',
@@ -1034,240 +1051,70 @@ export function buildRoutingText(messages, memory = {}) {
     .slice(-8000);
 }
 
-export function fixedGroundingResponse({
-  messages = [],
-  memory = {},
-  latestText = '',
-  routingText = '',
-  responseMode = 'diagnostika',
-  conversationContext = {},
-  techniqueTurn = null,
-} = {}) {
-  const latest = String(latestText || '').trim();
-  const userFacts = (Array.isArray(messages) ? messages : [])
-    .filter(message => message?.role === 'user')
-    .map(message => String(message.content || '').trim())
-    .filter(Boolean)
-    .join('\n');
+export function buildConversationRepairContext(messages = [], latestText = '') {
+  const safe = Array.isArray(messages) ? messages : [];
+  const latest = String(latestText || '').replace(/\s+/gu, ' ').trim();
   const normalizedLatest = normalizeDialogueText(latest);
-  const normalizedFacts = normalizeDialogueText(userFacts);
-  const previousAssistantText = previousAssistantMessage(messages);
-  const normalizedPreviousAssistant = normalizeDialogueText(previousAssistantText);
-  const workshopContext = /\bworkshop\w*\b/u.test(normalizedFacts);
-  const comparisonContext = /\b(?:konkurent|srovnav|porovnav|bezvyznam)\w*\b|\bprofil\w*\b[^.!?\n]{0,80}\b(?:kontrol|otevir)\w*\b/u.test(normalizedFacts);
-  const workshopFactQuestion = /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedFacts);
-  const asksToRephraseQuestion = /\b(?:nerozumim|nechapu)\b[^.!?\n]{0,90}\b(?:otaz|vysvetl|rekni|formul)|\b(?:muzes|mohla\s+bys)\b[^.!?\n]{0,70}\b(?:vysvetlit|vysvetli|preformulovat|rikat)\b[^.!?\n]{0,35}\b(?:lip|lepe|jednodus)|\bco\s+tim\s+myslis\b/u.test(normalizedLatest);
+  const stopIntent = classifyStopIntent(latest);
+  const repairRequested = isConversationRepairRequest(latest);
+  const asksToRephrase = /\b(?:nerozumim|nechapu|co\s+tim\s+myslis)\b|\b(?:vysvetl|preformul|rekni)\w*\b[^.!?]{0,45}\b(?:lip|lepe|jednodus|normaln)\w*\b/u
+    .test(normalizedLatest);
+  const kind = stopIntent === 'external_stop'
+    ? 'external_stop'
+    : stopIntent === 'external_or_ambiguous'
+      ? 'clarify_stop'
+    : repairRequested && asksToRephrase
+      ? 'rephrase'
+      : repairRequested
+        ? 'repair'
+        : 'none';
+  const latestIndex = safe.map(message => message?.role).lastIndexOf('user');
+  const priorUserStatements = safe
+    .filter((message, index) => message?.role === 'user' && index !== latestIndex)
+    .map(message => String(message.content || '').replace(/\s+/gu, ' ').trim())
+    .filter(Boolean)
+    .slice(-5)
+    .map(value => value.slice(0, 600));
+  const previousAssistantText = previousAssistantMessage(safe)
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 800);
 
-  if (workshopContext && asksToRephraseQuestion
-    && /\b(?:kdybys\s+nikdy\s+nezjistila|proc\s+odesla|prokazatelne\s+stalo|chtela\s+bys\s+skoncit)\b/u.test(normalizedPreviousAssistant)) {
-    return 'Ptám se jednoduše: potřebuješ znát důvod odchodu jedné ženy, abys mohla pokračovat, nebo ti stačí, že dvě zůstaly a jedné workshop pomohl získat klienta?';
+  return {
+    active: kind !== 'none',
+    kind,
+    stopIntent,
+    latestText: latest.slice(0, 600),
+    previousAssistantText,
+    priorUserStatements,
+  };
+}
+
+export function formatConversationRepairContext(context = null) {
+  if (!context?.active) {
+    return 'Členka v tomto tahu neopravuje porozumění ani nevyjadřuje nejasný záměr něco ukončit.';
   }
-
-  if (/\bworkshop\w*\b/u.test(normalizedLatest)
-    && /\b(?:dopadl|dopadlo|nepovedl|nepovedlo)\w*\s+(?:spatne|hrozne)|\bnemam\s+na\s+podnikani\b/u.test(normalizedLatest)) {
-    return 'Jeden workshop může ukázat skutečný problém, ale sám ještě nerozhoduje o tom, zda máš na podnikání. Nechci ho ani zlehčit, ani z něj udělat rozsudek o tobě. Co přesně znamená „dopadl špatně“ — kolik žen přišlo, co se během něj dělo a jakou zpětnou vazbu jsi dostala?';
-  }
-
-  if (workshopContext
-    && /\b(?:prihlasil|prisly|dorazil)\w*\b[^.!?\n]{0,45}\btri\s+zen\w*\b[^.!?\n]{0,100}\bjedna\b[^.!?\n]{0,50}\bodesl/u.test(normalizedLatest)) {
-    return 'To jsou zatím dvě konkrétní informace: účast byla tři ženy a jedna odešla dřív. Odchod je důležitý signál, ale bez jejího vysvětlení ještě nevíme, zda souvisel s obsahem, očekáváním, tempem, nebo něčím mimo workshop. Co udělaly zbývající dvě — zůstaly, zapojily se nebo ti daly nějakou zpětnou vazbu?';
-  }
-
-  if (workshopContext
-    && /\bdve\s+zbyvajici\s+zen\w*\b[^.!?\n]{0,80}\bzustal\w*\b[^.!?\n]{0,120}\bpomohl\w*\s+cvicen/u.test(normalizedLatest)) {
-    return 'To je podstatný pozitivní výsledek, ne poznámka pod čarou: dvě ze tří žen zůstaly do konce a jedna ze tří ti výslovně potvrdila, že jí cvičení pomohlo. Vedle jednoho nevysvětleného odchodu tedy máš i přímý důkaz užitku. Poctivý závěr není „workshop selhal“, ale „výsledek byl smíšený a potřebuju zjistit, co zachovat a co upravit“. Co přesně jí na tom cvičení pomohlo?';
-  }
-
-  if (workshopContext
-    && /\b(?:ziskal|ziskala)\w*\s+prvniho\s+klient/u.test(normalizedLatest)) {
-    return 'Takže workshop nepřinesl jen příjemný dojem: jedna žena podle tvého postupu získala prvního klienta. To je konkrétní důkaz, že tvoje vedení může vytvořit hodnotu; zároveň stále nevíme, proč jiná žena odešla. Jeden neznámý důvod proto nemůže poctivě přebít doložený výsledek. Když si přesto řekneš „jsem nudná“, čeho se podle té věty bojíš u dalšího workshopu?';
-  }
-
-  if (workshopContext
-    && /^(?:ze\s+)?(?:je\s+)?to\s+pravda[.!\s]*$/u.test(normalizedLatest)
-    && /\b(?:nudn|nemam\s+na\s+podnikani|co\s+by\s+to\s+dokazovalo)\b/u.test(normalizedPreviousAssistant)) {
-    return 'Pak by názor jedné ženy dostal větší váhu než všechna ostatní data — včetně toho, že jiná díky tvému cvičení získala klienta. To je důležité pravidlo, ne ověřený závěr. Kdyby stejné výsledky měla jiná lektorka, považovala bys ji za neschopnou a nudnou?';
-  }
-
-  if (workshopContext
-    && /\bzhrout\w*\b[^.!?\n]{0,35}\b(?:svet|vsechno)\b/u.test(normalizedLatest)) {
-    return 'To zní velmi silně a nechci si domýšlet, co tím myslíš. Znamená „zhroutil by se mi svět“, že bys vzdala svůj podnikatelský sen, nebo že bys přestala zvládat běžný den?';
-  }
-
-  if (workshopContext
-    && /\b(?:spadl|padl|skoncil|rozpadl)\w*\b[^.!?\n]{0,35}\bsen\b|\bsen\b[^.!?\n]{0,35}\b(?:spadl|padl|skoncil|rozpadl)\w*\b/u.test(normalizedLatest)) {
-    return 'Takže v ohrožení pro tebe není jen jeden workshop, ale sen, který sis s podnikáním spojila. Jeden formát však není celý sen. Kdyby workshopy nakonec nebyly správná cesta, která část toho snu musí zůstat zachovaná?';
-  }
-
-  if (workshopContext
-    && /\b(?:stale|porad)\b[^.!?\n]{0,35}\b(?:stah|schov|vyhn)\w*\b/u.test(normalizedLatest)) {
-    return 'Přesnější věta tedy trochu snížila tlak, ale chuť stáhnout se zůstala. Nechci ti proto hned radit, abys účastnicím psala. Čeho se bojíš, že by jejich odpověď potvrdila o tobě?';
-  }
-
-  if (workshopContext
-    && /\b(?:neschopn|nudn)\w*\b/u.test(normalizedLatest)
-    && /\b(?:odpoved|potvrd|zpetn|stahnout|ucastnic)\w*\b/u.test(normalizedPreviousAssistant)) {
-    return 'Tady je jádro: zpětná vazba k jednomu výkonu by se změnila v rozsudek o celé tobě. Otestujme to na stejných datech bez dvojího metru: kdyby jiná lektorka vedla workshop pro tři ženy, dvě zůstaly a jedna díky jejímu cvičení získala klienta, označila bys ji za neschopnou a nudnou?';
-  }
-
-  if (workshopContext
-    && /\bzhrout\w*\b/u.test(normalizedLatest)
-    && /\b(?:nechtel|nechtela|nechci)\w*\b[^.!?\n]{0,55}\b(?:delat|pokracovat|workshop)\w*\b/u.test(normalizedLatest)) {
-    return 'To je důležitá informace: její odpověď by pro tebe nebyla jen zpětná vazba k workshopu, ale mohla by rozhodnout, jestli budeš pokračovat. Nechci za tebe rozhodnout, zda jí máš napsat. Kdyby odpověděla „nebavilo mě to“, co by sis z toho automaticky vyvodila o sobě?';
-  }
-
-  if (workshopContext
-    && /\b(?:co\s+by\s+to\s+s\s+tebou\s+udelalo|kdyby\s+neodpovedela|workshop\s+nebavil)\b/u.test(normalizedPreviousAssistant)
-    && /\b(?:uz\s+bych|pak\s+bych|nechtel|nechtela)\w*\b[^.!?\n]{0,65}\b(?:pokracovat|delat|workshop)\w*\b/u.test(normalizedLatest)) {
-    return 'Rozumím: negativní odpověď by ti vzala chuť dělat další workshop. Zároveň už víš, že dvě ženy zůstaly a jedné cvičení pomohlo získat klienta. Kdybys důvod odchodu té třetí nikdy nezjistila, stačí ti tyto dva výsledky k tomu, abys zkusila ještě jeden workshop?';
-  }
-
-  if (workshopContext
-    && /\b(?:nevim\s*,?\s*)?(?:mam\s+)?(?:proste\s+)?strach\b/u.test(normalizedLatest)
-    && !/\b(?:odstranit|zbavit|zmensit|zeslabit)\b/u.test(normalizedLatest)
-    && !/\b(?:spank|nesp|nejim|jid|energ|fung|zdrav|telo|ubliz|zivot)\w*\b/u.test(normalizedLatest)) {
-    return 'Ten strach se objevil navzdory tomu, že jedna žena podle tvého postupu získala klienta. Zatím tedy nevypadá jako vyhodnocení celého workshopu, ale jako předpověď spuštěná jedním nevysvětleným odchodem. Je ta předpověď spíš „znovu někdo odejde, protože jsem nudná“, nebo se bojíš ještě něčeho jiného?';
-  }
-
-  if (workshopContext
-    && /\b(?:da|lze|jde)\s+(?:se\s+)?(?:ten|to)?\s*strach\w*\s+(?:odstranit|zbavit|zmensit|zeslabit)\b/u.test(normalizedLatest)) {
-    return 'Úplné vynulování strachu ti poctivě slíbit nemůžu, ale můžeme výrazně oslabit jeho moc. Tady jsou dvě páky: opravit závěr „jedna odešla = jsem nudná“ podle skutečných dat a připravit další workshop tak, aby ti dal jasnější zpětnou vazbu. Začala bych první: kdybys směla použít jen to, co o tom workshopu opravdu víš, jak by zněla přesnější věta místo „jsem nudná“?';
-  }
-
-  if (workshopContext
-    && /^(?:je\s+to\s+)?unosn\w*[.!\s]*$/u.test(normalizedLatest)) {
-    return 'Dobře, tím máme míru strachu zodpovězenou a nebudeme ji dál prověřovat. Teď pojďme k tomu, co strach skutečně živí: jeden odchod sis vyložila jako důkaz, že jsi nudná, přestože jiná žena díky tvému postupu získala klienta. Nakolik teď věříš větě „jsem nudná“ na škále od nuly do deseti?';
-  }
-
-  if (workshopContext
-    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)
-    && /\b(?:jaky|jake|navrh|kontakt|zprav)\w*\b[^?\n]{0,120}\b(?:ucastnic|zen|poctiv|dalsi)\w*\b|\b(?:ucastnic|zen)\w*\b[^?\n]{0,120}\b(?:kontakt|zprav)\w*\b/u.test(normalizedPreviousAssistant)) {
-    return 'Můžu nabídnout pracovní verzi: „Děkuju, že jste na workshopu zůstaly. Chci, aby pro vás měl skutečný přínos — co vám pomohlo a co byste ode mě potřebovaly doplnit nebo vysvětlit?“ Je to poctivý kontakt bez obhajování a bez slibu, že musíš splnit každé přání. Co bys v té zprávě potřebovala změnit, aby byla opravdu tvoje?';
-  }
-
-  if (workshopContext
-    && /^(?:(?:to|ja)\s+)?(?:nevim|netusim|nedokazu\s+(?:to\s+)?rict)[.!\s]*$/u.test(normalizedLatest)
-    && /\b(?:presnejsi\s+vet|jak\s+by\w*\s+(?:tu|ta|tahle)?\s*vet|jak\s+by\s+znela)\b/u.test(normalizedPreviousAssistant)) {
-    return 'Nemusíš tu přesnější větu vymýšlet sama. Pracovní verze může znít: „Jedna účastnice odešla a nevím proč; dvě zůstaly, takže zatím nemám dost dat na rozsudek o sobě ani o podnikání.“ Co na té větě nesedí nebo v ní chybí?';
-  }
-
-  if (workshopContext
-    && /\bto\s+uz\s+jsme\s+si\s+(?:rikal|rekli|probiral)|\btohle\s+uz\s+mame\s+(?:uzavrene|hotove)\b/u.test(normalizedLatest)) {
-    return 'Máš pravdu, tenhle krok už máme a nebudu ho znovu otevírat. Teď řešíme další kontakt se dvěma ženami, které zůstaly. Můžu ti rovnou navrhnout krátkou zprávu, která zjistí jejich zkušenost, aniž by ses obhajovala nebo slibovala víc, než chceš?';
-  }
-
-  if (workshopContext
-    && /\b(?:resime|bavime\s+se\s+o|vrat\w*\s+se\s+k)\b[^.!?\n]{0,60}\bworkshop/u.test(normalizedLatest)) {
-    return 'Držím se workshopu. Zatím víme, že se přihlásily tři ženy, jedna odešla bez známého důvodu a dvě zůstaly; další závěr by byl předčasný. Co během workshopu dělaly nebo jak reagovaly ty dvě, které zůstaly?';
-  }
-
-  if (workshopContext
-    && /\bjak\s+poznam\s+rozdil\b[^?\n]{0,140}\bskutecne\s+nepovedl\w*\b[^?\n]{0,100}\bdomysl/u.test(normalizedLatest)) {
-    return 'Použij jednoduché pravidlo: fakt můžeš doložit záznamem, číslem nebo přímou zprávou; domněnka doplňuje význam, který ti nikdo nepotvrdil. Fakta jsou, že přišly tři ženy, jedna odešla, dvě zůstaly a jedna napsala, že jí cvičení pomohlo. Nevíme, proč první žena odešla ani co si účastnice myslely; věty „workshop byl špatný“ a „nemám na podnikání“ proto nejsou fakta, ale tvoje výklady.';
-  }
-
-  if (workshopContext
-    && /\bto\s+co\s+jsi\s+(?:ted\s+)?napsal\w*\b/u.test(normalizedLatest)
-    && /\b(?:udrzen\w*\s+pozornost|rec\w*\s+tela|zapoj\w*|zapis\w*)\b/u.test(normalizedFacts)) {
-    return 'Pak už máš první pozorovatelná kritéria úspěchu: účastnice drží pozornost, reagují, zapisují si nebo se zapojují do cvičení. To je užitečnější měřítko než pokus číst z výrazu, zda se jim všechno líbí. Po workshopu k tomu přidej jednu přímou otázku na užitek a jednu na to, co upravit; tím oddělíš pozorování od dojmů.';
-  }
-
-  if (isConversationRepairRequest(latest) && workshopContext) {
-    if (/\bproc\s+se\s+me\b[^.!?\n]{0,70}\bptas\b[^.!?\n]{0,100}\bzmenil/u.test(normalizedLatest)) {
-      return 'Ptala jsem se na změnu příliš často, protože jsem tvoje odpovědi chybně vyhodnotila jako provedené cvičení. Nebylo to správně a už to nebudu opakovat. Tvoje dosavadní kritéria povedeného workshopu jsou pozornost, zapojení, reakce při cvičení a přímá zpětná vazba; to je konkrétní výsledek této části rozhovoru.';
-    }
-    if (workshopFactQuestion && /\b(?:nerozumim|nechapu)\b/u.test(normalizedLatest)) {
-      return 'Řekla jsem to složitě. Fakt je něco, co můžeš ukázat nebo doložit: tři účastnice, jeden odchod, dvě ženy do konce a jedna zpráva, že cvičení pomohlo. Domněnka je význam bez důkazu, například „odešla kvůli mně“ nebo „nemám na podnikání“. Z dostupných faktů tedy vychází smíšený první pokus, ne důkaz, že jsi selhala.';
-    }
-    if (/\bvzdyt\s+jsem\s+ti\s+to\b[^.!?\n]{0,35}\b(?:psal|popsal)/u.test(normalizedLatest)) {
-      return 'Máš pravdu — situaci už jsi popsala. Jeden nevysvětlený odchod v tobě spustil větu „jsem nudná“, zatímco dvě ženy zůstaly a jedna podle tvého postupu získala klienta. Nebudu se ptát znovu na událost; pojďme o vrstvu hlouběji: co by pro tebe znamenalo, kdyby se při dalším workshopu někdo opravdu nudil?';
-    }
-    if (/\b(?:psala|rikala)\s+jsem\b[^.!?\n]{0,35}\bne\b|\buz\s+jsem\b[^.!?\n]{0,35}\bodpoved/u.test(normalizedLatest)) {
-      return 'Máš pravdu — už jsi odpověděla a já se k tomu neměla vracet. Téma zdraví a fungování tím uzavírám. Vrátím se k tvé skutečné zakázce: jeden nevysvětlený odchod se ti změnil ve větu „jsem nudná“, i když jedna žena díky tvému postupu získala klienta. Chceš teď oslabit tuhle větu, nebo rovnou připravit další workshop tak, aby ti dal jasnější data?';
-    }
-    if (/\b(?:nepochopil|nepochopila|co na tom nechapes|workshop)\b/u.test(normalizedLatest)) {
-      return 'Máš pravdu — mluvíš o tom, že uvažuješ skončit s pořádáním workshopů, ne o ukončení tohoto rozhovoru. Nechci ti to rozhodnutí ani vymlouvat, ani ho udělat za tebe. Potřebujeme rozlišit, zda nechceš tento formát vůbec dělat, nebo zda tě po prvním výsledku zastavil strach z dalšího neúspěchu. Co z toho je blíž?';
-    }
-    return 'Máš pravdu — ztratila jsem téma a začala reagovat na interní postup místo na tebe. Vrátím se k workshopu: zvažuješ, že s nimi skončíš, a nevíš, jestli je to tvoje skutečné rozhodnutí, nebo reakce na první nepovedený pokus. Co tě na představě dalšího workshopu děsí nejvíc?';
-  }
-
-  if (classifyStopIntent(latest) === 'external_or_ambiguous') {
-    return workshopContext
-      ? 'Nechci hádat, co chceš zastavit. Myslíš, že už nechceš pořádat další workshopy, nebo že teď nechceš pokračovat v našem rozhovoru?'
-      : 'Nechci hádat, co chceš zastavit. Myslíš tím činnost nebo rozhodnutí, které řešíme, anebo dnešní rozhovor?';
-  }
-
-  if (['mentoring', 'mentoringova_konzultace'].includes(responseMode)
-    && Number(conversationContext.userTurns || 0) === 1
-    && latest.length <= 420) {
-    const directMentoringResponse = specificMentoringFallback(latest, { messages });
-    if (directMentoringResponse) return directMentoringResponse;
-  }
-
-  if (!['mentoring', 'mentoringova_konzultace', 'brand_growth_agent'].includes(responseMode)
-    && comparisonContext
-    && isGlobalSelfJudgment(latest)) {
-    const judgment = latest.replace(/[.!?]+$/u, '').trim();
-    return 'Věta „' + judgment + '“ je rozsudek o celé tobě, zatímco známá fakta zatím popisují rozdíl ve sledujících a prodejích. Konkrétní spouštěč už známe, takže se na něj nebudu ptát znovu. Co uděláš bezprostředně potom, co si při pohledu na její profil tuhle větu řekneš?';
-  }
-
-  if (!['mentoring', 'mentoringova_konzultace', 'brand_growth_agent'].includes(responseMode) && isGlobalSelfJudgment(latest)) {
-    const judgment = latest.replace(/[.!?]+$/u, '').trim();
-    return 'Věta „' + judgment + '“ mění jednu nebo několik těžkých zkušeností ve verdikt o celé tobě. Nechci ji přebít prázdným povzbuzením; potřebujeme zjistit, co přesně ten verdikt spustilo, a pak oddělit skutečný problém od útoku na sebe. Která konkrétní situace tě k té větě přivedla právě teď?';
-  }
-
-  if (comparisonContext
-    && /\b(?:nemam|nemáme|nemame)\b/u.test(normalizedLatest)
-    && /\b(?:pristup|event|znack)\w*\b/u.test(normalizedPreviousAssistant)
-    && /(?:nejsem(?:\s+si)?\s+jista|nevim)[^.!?\n]{0,70}\bbeauty\b/u.test(normalizedLatest)) {
-    return 'Pak Beauty není rozhodnutý směr, ale zatím jen obraz viditelnosti a statusu. Kvůli němu nemusíš vyrábět video o světě, ke kterému nemáš přístup. Vraťme se k původnímu problému: její profil kontroluješ několikrát denně a čekáš na neúspěch, který by na chvíli utišil srovnávání. Na příštích 48 hodin bych zavedla jedno plánované desetiminutové okno pro vědomý průzkum; mimo něj profil neotvírat. V okně si vezmi jediný přenositelný princip, zavři profil a použij ho na vlastním tématu. Je pro tebe reálnější profil dočasně skrýt, nebo si nastavit právě toto jedno okno?';
-  }
-
-  if (rejectsUnsupportedAssumption(latest)) {
-    return 'Máš pravdu — tohle jsem nevěděla a neměla jsem ti to připsat. Vezměme místo domněnky jeden konkrétní nedokončený úkol. Co se stalo v okamžiku, kdy ses od něj odpojila?';
-  }
-
-  const asksForHumanLanguage = /\b(mluv|rekni|vysvetli)\b[^.!?]{0,45}\b(clovek|lidsk|normaln|jednodus)|\b(nerozumim|nechapu|moc slozit|co tim myslis)\b/u
-    .test(normalizeDialogueText(latest));
-  if (['koucovaci_podpora', 'koucovaci_hodina'].includes(responseMode)
-    && asksForHumanLanguage
-    && previousSubstantiveUserMessage(messages, latest)) {
-    return guardedQualityFallback(latest, { requireQuestion: true, messages });
-  }
-
-  const businessContext = `${routingText}\n${memory?.business_context?.primary_offer || ''}\n${memory?.current_goal || ''}`;
-  const isValidationDecision = /valid(?:ac|ov)|ověř(?:it|en|ov)|over(?:it|en|ov)|průzkum trhu|pruzkum trhu|placen[ýy] pilot|appk|aplikac|spuštěn|spusten|uveden[ií] na trh|product.market|kupn[ií] zájem|kupni zajem/i.test(businessContext);
-  const hasDistributionFacts = /(?:nem[aá]m|m[aá]m|bez|jen|pouze|žádn\w*|zadn\w*)[^\n.!?]{0,60}(?:publik|s[ií]ť kontakt|sit kontakt|koho oslovit|sleduj[ií]c|komunit|datab[aá]z|klient|z[aá]kazn)|(?:placen\w*|meta|facebook|instagram|google)[^\n.!?]{0,35}reklam|reklam[^\n.!?]{0,35}(?:rozpočet|rozpocet|pojedu|použiju|pouziju)/i.test(userFacts);
-  const isCapacityAnswer = /\b\d+(?:\s*[–-]\s*\d+)?\s*(?:h|hod|hodin)\b|denn[eě]|t[ýy]dn[eě]/i.test(latest);
-
-  if (!['brand_growth_agent'].includes(responseMode) && isValidationDecision && isCapacityAnswer && !hasDistributionFacts) {
-    return 'Kapacitu už vím. Než zvolím způsob validace, potřebuji znát distribuční realitu, protože bez ní bych si plán vymýšlela. Máš vlastní publikum, síť kontaktů nebo stávající klientky, které můžeš oslovit, anebo počítáš jen s placenou reklamou?';
-  }
-
-  const asksForConcreteAction = /\b(co mam|co mám|jak mam|jak mám|konkretne|konkrétně|prvni krok|první krok|co udelat|co udělat|jak zacit|jak začít)\b/iu.test(latest);
-  const influencerContext = /\b(influencer\w*|vzhliz\w*|vzhlíž\w*|stredem pozornosti|středem pozornosti|spoluprac\w*|verejn\w* rol|veřejn\w* rol)\b/iu.test(userFacts);
-  if (['koucovaci_podpora', 'koucovaci_hodina'].includes(responseMode)
-    && Number(conversationContext.userTurns || 0) >= 4
-    && asksForConcreteAction
-    && influencerContext) {
-    return 'První krok není vymyslet celou značku ani čekat, až se budeš cítit jako influencerka. Do 24 hodin natoč a zveřejni jedno krátké video na téma, které jsi sama pojmenovala: sebevědomí a život podle sebe. Použij tři věty: „Dlouho jsem čekala, až budu působit jako člověk, kterým chci být. Dnes zkouším udělat první krok dřív, než se budu cítit připravená. Jestli to máš podobně, napiš mi, co odkládáš ty.“ Úspěch tohoto experimentu neměř počtem lajků, ale tím, zda jsi video zveřejnila a zda přišla alespoň jedna skutečná odpověď. Chceš ho dát veřejně, nebo nejdřív do stories pro užší okruh?';
-  }
-
-  if (techniqueTurn?.card?.id === 'accurate_self_talk_edit'
-    && techniqueTurn?.session?.phase === 'assessment'
-    && Number(conversationContext.userTurns || 0) > 1) {
-    const normalizedLatest = normalizeDialogueText(latest);
-    const comparisonContext = /\b(vzhliz|vzhlíž|stredem pozornosti|středem pozornosti|nejlepsi|nejlepší|mela byt ja|měla být já|vliv|moc)\b/iu.test(userFacts);
-    if (comparisonContext && /\b(neschopn\w*|nemam nic|k nicemu)\b/u.test(normalizedLatest)) {
-      return 'Věta „jsem neschopná a nemám nic“ se objevila ve chvíli, kdy ses porovnala s lidmi, jejichž pozici chceš mít. To je důležitý rozdíl: mezera mezi tím, kde jsi a kde chceš být, se ti v tu chvíli změní ve verdikt o celé tobě. Nechci ho přebít prázdným povzbuzením. Která konkrétní fakta dnes podporují „nemám nic“ a která už ukazují, že nezačínáš úplně z nuly?';
-    }
-    if (/\b(ukol|úkol|web|nedokonc\w*|nedokonč\w*|odklad\w*|utek\w*|uteč\w*)\b/iu.test(userFacts)) {
-      return 'V tom, co popisuješ, jsou zatím pohromadě dvě různé věci: konkrétní nedokončený úkol a závěr o celé tobě. Nechci ten závěr ani vyvracet, ani potvrdit, dokud nepochopíme mechanismus. Co se děje těsně před okamžikem, kdy úkol přestaneš dělat nebo od něj odejdeš?';
-    }
-    return 'Teď se z jedné konkrétní mezery mezi tím, co chceš, a tím, co zatím máš, stal závěr o celé tobě. Nechci ho ani potvrdit, ani přebít prázdným povzbuzením; nejdřív ho oddělíme od faktů. Co přesně se stalo nebo chybí, že sis v té chvíli řekla právě tuto větu?';
-  }
-
-  return null;
+  return [
+    `Typ opravy: ${context.kind}`,
+    `Poslední zpráva členky: ${JSON.stringify(context.latestText || '')}`,
+    `Předchozí odpověď Elitey: ${JSON.stringify(context.previousAssistantText || '')}`,
+    `Doslovná předchozí sdělení členky: ${JSON.stringify(context.priorUserStatements || [])}`,
+    'TENTO TAH JE OPRAVA SPOLEČNÉHO POROZUMĚNÍ. Neprováděj ani nevyhodnocuj koučovací techniku a nezačínej sezení znovu.',
+    'Krátce uznej konkrétní chybu nebo nejasnost. Potom odpověz na skutečný význam poslední zprávy a použij jen údaje obsažené v doslovných sděleních výše.',
+    'Neodvozuj počty, osoby, výsledky, pocity, příčiny ani záměr z tématu samotného. Co v přepisu není, označ za neznámé nebo se na to neptej, pokud to pro opravu není nezbytné.',
+    context.kind === 'rephrase'
+      ? 'Členka žádá jednodušší vysvětlení. Zachovej význam předchozí otázky nebo rady, přeformuluj ji běžnou češtinou a nepokládej místo ní jinou diagnostickou otázku.'
+      : '',
+    context.kind === 'clarify_stop'
+      ? 'Nehádej, co chce ukončit. Jednou krátkou otázkou rozliš rozhovor, právě použitý postup a věc, o které mluví; konkrétní činnost pojmenuj pouze tehdy, pokud ji členka sama uvedla.'
+      : '',
+    context.kind === 'external_stop'
+      ? 'Členka jasně pojmenovala činnost nebo způsob, ve kterém nechce pokračovat. Respektuj to bez dalšího ověřování, nezaměňuj to za konec rozhovoru a navazuj otázkou, co chce řešit místo toho nebo jaké další rozhodnutí potřebuje udělat.'
+      : '',
+    context.kind === 'repair'
+      ? 'Pokud opravuje téma nebo fakt, zopakuj pouze opravený význam, neobhajuj se a plynule na něj navaž. Neopakuj otázku, proti které se vymezila.'
+      : '',
+  ].filter(Boolean).join('\n');
 }
 
 function demoAnswer(

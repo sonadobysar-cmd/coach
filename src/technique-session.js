@@ -39,7 +39,8 @@ export function createTechniqueTurn({
   const safePrevious = sanitizeTechniqueSession(previous, byId);
   const stopIntent = classifyStopIntent(latestText);
   const explicitStop = stopIntent === 'conversation_stop';
-  const ambiguousOrExternalStop = stopIntent === 'external_or_ambiguous';
+  const explicitTechniqueStop = stopIntent === 'technique_stop';
+  const ambiguousOrExternalStop = ['external_or_ambiguous', 'external_stop'].includes(stopIntent);
   const explicitNoEffect = reportsNoEffect(latestText);
   const explicitRepair = isConversationRepairRequest(latestText);
   const explicitRestart = wantsAnotherTechnique(latestText);
@@ -47,9 +48,41 @@ export function createTechniqueTurn({
   const noEffectFeedback = explicitNoEffect && safePrevious
     && ['application', 'evaluation'].includes(safePrevious.phase);
   // Meta-komunikace a nejasné „nechci pokračovat“ nesmějí být vyloženy
-  // jako další krok techniky. Nejprve se musí obnovit společné porozumění.
+  // jako další krok techniky. Stav ale nezahazujeme: je pouze pozastavený,
+  // aby oprava porozumění nemohla techniku skrytě posunout ani restartovat.
   if (explicitRepair || ambiguousOrExternalStop) {
-    return { card: null, session: null, steps: [] };
+    const card = safePrevious ? byId.get(safePrevious.techniqueId) : null;
+    return {
+      card,
+      session: safePrevious,
+      steps: deriveTechniqueSteps(card),
+      suspended: true,
+      suspensionReason: stopIntent === 'external_stop'
+        ? 'external_stop'
+        : explicitRepair
+          ? 'conversation_repair'
+          : 'ambiguous_stop',
+    };
+  }
+
+  if (explicitStop && !safePrevious) {
+    return {
+      card: null,
+      session: null,
+      steps: [],
+      suspended: true,
+      suspensionReason: 'conversation_stop',
+    };
+  }
+
+  if (explicitTechniqueStop && !safePrevious) {
+    return {
+      card: null,
+      session: null,
+      steps: [],
+      suspended: true,
+      suspensionReason: 'technique_stop',
+    };
   }
 
   if (consentDeclined) {
@@ -72,17 +105,26 @@ export function createTechniqueTurn({
     return { card: null, session: null, steps: [] };
   }
 
-  // Pokud členka neodpověděla na měření účinku, pevnou otázku neopakujeme.
-  // Techniku uvolníme a necháme rozhovor opravit význam nebo směr.
+  // Pokud členka neodpověděla na měření účinku, otázku neopakujeme a stav
+  // nemažeme. Viditelný tah se věnuje jejímu sdělení; technika může navázat
+  // teprve po obnovení společného směru.
   if (safePrevious?.phase === 'evaluation'
+    && !explicitTechniqueStop
     && !explicitNoEffect
     && !reportsEffect(latestText)
     && !reportsWorse(latestText)) {
-    return { card: null, session: null, steps: [] };
+    const card = byId.get(safePrevious.techniqueId);
+    return {
+      card,
+      session: safePrevious,
+      steps: deriveTechniqueSteps(card),
+      suspended: true,
+      suspensionReason: 'evaluation_not_answered',
+    };
   }
 
   if (safePrevious && ACTIVE_PHASES.has(safePrevious.phase)
-    && !explicitStop && !noEffectFeedback && !explicitRestart) {
+    && !explicitStop && !explicitTechniqueStop && !noEffectFeedback && !explicitRestart) {
     const card = byId.get(safePrevious.techniqueId);
     const session = advanceSession(safePrevious, card, latestText, conversationContext, previousAssistantText);
     return { card, session, steps: deriveTechniqueSteps(card) };
@@ -98,6 +140,21 @@ export function createTechniqueTurn({
         phase: 'stopped',
         status: 'stopped',
         stopReason: 'user_stop',
+        turns: safePrevious.turns + 1,
+      },
+    };
+  }
+
+  if (explicitTechniqueStop && safePrevious) {
+    const card = byId.get(safePrevious.techniqueId);
+    return {
+      card,
+      steps: deriveTechniqueSteps(card),
+      session: {
+        ...safePrevious,
+        phase: 'stopped',
+        status: 'stopped',
+        stopReason: 'technique_stop',
         turns: safePrevious.turns + 1,
       },
     };
@@ -173,14 +230,33 @@ function expandParallelImperativeList(sentence) {
   return parts.map(part => `${instruction} ${part}`);
 }
 
-export function fixedTechniqueResponse(turn) {
-  const phase = turn?.session?.phase;
-  return ['consent', 'evaluation', 'stopped'].includes(phase)
-    ? enforceTechniqueResponse('', turn)
-    : null;
-}
-
 export function formatTechniqueExecution(turn) {
+  if (turn?.suspended) {
+    const reason = {
+      conversation_repair: 'Členka opravuje porozumění, upozorňuje na opakování nebo žádá jednodušší vysvětlení.',
+      ambiguous_stop: 'Není jasné, zda chce ukončit rozhovor, techniku, nebo činnost, o které mluví.',
+      external_stop: 'Členka jasně pojmenovala činnost nebo způsob, ve kterém nechce pokračovat; nejde o ukončení tohoto rozhovoru.',
+      conversation_stop: 'Členka výslovně ukončuje rozhovor nebo postup.',
+      technique_stop: 'Členka výslovně odmítla nebo zastavila techniku.',
+      evaluation_not_answered: 'Členka neodpověděla na otázku po účinku a otevřela jiný význam, který je třeba nejprve zachytit.',
+    }[turn.suspensionReason] || 'Nejdřív je nutné obnovit společné porozumění.';
+    return [
+      'TECHNIKA JE PRO TENTO VIDITELNÝ TAH POZASTAVENA.',
+      reason,
+      'V tomto tahu techniku neprováděj, neposouvej, nevyhodnocuj její účinek a netvrď, že členka dokončila krok.',
+      'Krátce oprav porozumění a odpověz na skutečný význam poslední zprávy. Opři se pouze o konkrétní údaje, které členka skutečně uvedla v přepisu.',
+      turn.suspensionReason === 'ambiguous_stop'
+        ? 'Polož jedinou krátkou otázku, která rozliší, co přesně chce zastavit. Možnosti pojmenuj jen tehdy, pokud jsou výslovně přítomné v přepisu; jinak se zeptej obecně.'
+        : '',
+      turn.suspensionReason === 'external_stop'
+        ? 'Respektuj doslovně pojmenovaný předmět zastavení. Nežádej znovu o jeho upřesnění a nezaměňuj jej za konec rozhovoru; navazuj tím, co chce řešit místo něj nebo jaké rozhodnutí potřebuje udělat.'
+        : '',
+      turn.suspensionReason === 'conversation_repair'
+        ? 'Pokud žádá přeformulování, zachovej význam poslední otázky a pouze ji řekni jednodušeji. Pokud opravuje fakt nebo téma, uznej konkrétní chybu a navazuj na její poslední věcný obsah; nezačínej sezení znovu.'
+        : '',
+      'Skrytý stav techniky zůstává beze změny. K případnému pokračování se vrať až v následujícím tahu podle odpovědi členky.',
+    ].filter(Boolean).join('\n');
+  }
   if (!turn?.card || !turn?.session) {
     return 'Pro tento tah není aktivní zamčená technika. Použij vlastní odborný úsudek a dej člence nejlepší užitečnou odpověď z dostupného kontextu; nemusíš čekat ani pokládat otázku, pokud lze rovnou pomoci.';
   }
@@ -243,52 +319,39 @@ export function formatTechniqueExecution(turn) {
 }
 
 export function enforceTechniqueResponse(text, turn, context = {}) {
-  if (context.authoritativeGrounding === true && String(text || '').trim()) {
-    return String(text).trim();
-  }
-  if (!turn?.card || !turn?.session) return String(text || '').trim();
+  const output = String(text || '').trim();
+  if (turn?.suspended || !turn?.card || !turn?.session) return output;
   const { card, session } = turn;
 
   if (session.phase === 'consent') {
-    if (card.id === 'accurate_self_talk_edit' && session.stepIndex >= 3) {
-      return 'Máme přesnější větu. Můžeme ji teď krátce spojit s nejbližší konkrétní situací a jedním činem, který ji podpoří; kdykoli to můžeš zastavit nebo upravit. Chceš tímto krokem pokračovat?';
+    const normalized = normalizeCzech(output);
+    const invitesChoice = /\b(chces|souhlasis|muzu ti nabidnout|muzeme|zkusime)\b/iu.test(normalized)
+      && /\?/u.test(output);
+    const preservesExit = /\b(odmitnout|zastavit|vynechat|nemusis|jinak|jiny zpusob)\b/iu.test(normalized);
+    const startsSensitivePractice = /\b(zavri oci|nadechni se|vybav si|predstav si|soustred se na telo|vsimni si v tele)\b/iu.test(normalized);
+    if (output && invitesChoice && preservesExit && !startsSensitivePractice) {
+      return output;
     }
-    return 'Můžu ti nabídnout krátký vedený postup přesně pro tuto situaci. Půjdeme po jednom kroku a můžeš ho kdykoli odmítnout, změnit nebo zastavit. Chceš ho teď vyzkoušet?';
-  }
-  if (session.phase === 'evaluation') {
-    return 'Než přidáme cokoli dalšího, potřebuji zůstat u účinku právě provedeného kroku. Co se teď změnilo — je to stejné, o trochu lepší, nebo horší?';
+    const step = turn.steps?.[session.stepIndex] || card.core_move || card.name;
+    const cleanStep = String(step).replace(/\s+/gu, ' ').replace(/[.!?]+$/u, '').trim();
+    return `Navrhuju teď krátce vyzkoušet tento krok: ${cleanStep.charAt(0).toLowerCase()}${cleanStep.slice(1)}. Nemusíš do něj jít a můžeš ho kdykoli zastavit nebo zvolit jiný způsob. Chceš ho vyzkoušet?`;
   }
   if (session.phase === 'stopped') {
-    const userContext = (Array.isArray(context.messages) ? context.messages : [])
-      .filter(message => message?.role === 'user')
-      .map(message => String(message.content || ''))
-      .join(' ');
-    if (/workshop/iu.test(userContext)) {
-      return 'Dobře, tenhle postup dělat nebudeme. Vrátím se k workshopu: zatím víme, že se přihlásily tři ženy a jedna odešla, ale nevíme proč. Co udělaly zbývající dvě — zůstaly, zapojily se nebo ti daly nějakou zpětnou vazbu?';
+    if (session.stopReason === 'user_stop') {
+      return 'Rozumím. Tady končíme. Nebudu pokračovat ani přidávat další krok.';
     }
-    return 'Dobře, tenhle postup dělat nebudeme. Zůstaneme u tvého tématu a zvolíme jinou cestu. Potřebuješ teď spíš porozumět tomu, co se děje, nebo najít konkrétní další krok?';
+    return `Dobře, postup „${card.name}“ tady zastavíme. Nebudu ho obhajovat ani v něm pokračovat. V původním tématu můžeme pokračovat čistě rozhovorem, nebo ho pro dnešek nechat být.`;
   }
-  if (session.phase === 'application' && card.id === 'customer_discovery' && session.stepIndex === 0) {
-    return 'Teď nebudeme plánovat oslovení ani reklamu naslepo. Nejdřív ukotvíme, koho a jaký skutečný problém potřebujeme zkoumat. Kterou konkrétní skupinu žen má Elitea oslovit a v jaké situaci by jim měla pomáhat?';
-  }
-  if (session.phase === 'application' && card.id === 'accurate_self_talk_edit' && session.stepIndex === 2) {
-    const latest = normalizeCzech(context.latestText || '');
-    const identityWord = /neschopn/.test(latest) ? '„neschopná“' : 'hodnocení celé sebe';
-    return `${identityWord} jsme oddělily od konkrétního faktu. Teď nejde o pozitivní slogan, ale o přesnější větu, která uzná, co se stalo, a současně z jedné situace neudělá tvoji identitu. Jak bys ji řekla tak, aby byla pravdivá a vracela ti možnost další volby?`;
-  }
-  if (session.phase === 'application' && card.id === 'accurate_self_talk_edit' && session.stepIndex >= 3) {
-    return 'Vrať se teď k nejbližšímu okamžiku, kdy se objeví stejný vzorec. Řekni si svou přesnější větu vlastními slovy a zvol jediný malý čin, který ji potvrdí. Pokud je možné ho udělat hned, udělej ho; jinak si přesně představ jeho první vteřiny. Co se potom změnilo v tvém jednání nebo pocitu?';
-  }
-  if (session.phase === 'integration' && card.id === 'accurate_self_talk_edit' && reportsEffect(context.latestText)) {
-    return 'To, co právě popisuješ, je malý, ale pozorovatelný rozdíl v jednání i prožívání. Neznamená to, že je celý vzorec vyřešený; znamená to, že původní tvrdá věta o celé tobě nepopisuje celý proces. Co bylo v okamžiku tohoto rozdílu rozhodující?';
-  }
-  if (session.phase === 'integration' && session.transitionReason === 'no_effect' && card.id === 'accurate_self_talk_edit') {
-    return 'To, že samotná přesnější věta nic nezměnila, je důležitá informace: problém možná neleží hlavně v tom, jak se označuješ, ale v okamžiku tlaku a nejasného začátku. Tuhle techniku nemusíme opakovat; plynule se vrátíme k mechanismu. Když web otevřeš, které první konkrétní rozhodnutí po tobě situace chce a není ti jasné?';
+  if (session.phase === 'evaluation') {
+    if (output && isTechniqueEffectCheck(output) && !startsTechniqueIntervention(output)) {
+      return output;
+    }
+    return 'Než navážeme: co je teď oproti chvíli před tímto krokem jiné, stejné nebo horší?';
   }
   if (!String(text || '').trim() && session.phase === 'application' && session.transitionReason) {
     return 'Předchozí krok necháme být. Zkusme teď jinou cestu: co by ti v této chvíli pomohlo pohnout se o jediný konkrétní krok?';
   }
-  return String(text || '').trim();
+  return output;
 }
 
 export function techniqueFallbackQuestion(turn, latestText = '') {
@@ -301,6 +364,15 @@ export function techniqueFallbackQuestion(turn, latestText = '') {
     integration: 'Co z toho chceš převést do dalšího konkrétního kroku?',
     stopped: 'Chceš pokračovat jen rozhovorem, nebo dnešní téma uzavřít?',
   }[phase] || 'Co je teď pro další postup nejdůležitější?';
+}
+
+export function isTechniqueEffectCheck(value) {
+  const normalized = normalizeCzech(value);
+  return /\b(?:co se (?:ted |po tom |oproti [^.!?]{0,45})?(?:zmenilo|zmenilo se)|zmenilo se neco|co (?:je|zustalo) (?:ted )?(?:jinak|stejne)|je to (?:ted )?(?:stejne|lepsi|horsi)|ceho sis (?:ted |po (?:tom )?(?:kroku )?)?vsimla|jak(?:y|a)? (?:to melo|to ma|byl|je) (?:ucinek|dopad)|co to (?:s tebou )?udelalo|jak se (?:ted |po tom )?(?:citis|mas)|co je ted oproti [^.!?]{0,45}(?:jine|stejne|horsi)|vnimas (?:ted )?(?:nejakou )?zmenu|co (?:ted )?pozorujes|jak(?:y)? (?:je|vnimas) rozdil|jak to na tebe (?:ted )?pusobi)\b/iu.test(normalized);
+}
+
+export function startsTechniqueIntervention(value) {
+  return /\b(?:zkus(?:me| si| ted)?|pojďme|pojdme|zavri|otevri|nadechni|vydechni|vybav si|predstav si|soustred se|proved|udelej|napis si|rekni si|dame dalsi|udelame dalsi|pokracuj(?:me)? (?:jinou|dalsi)|ted (?:si )?vsimni)\b/iu.test(normalizeCzech(value));
 }
 
 function contextualAssessmentQuestion(latestText) {
@@ -371,6 +443,7 @@ function advanceSession(previous, card, latestText, conversationContext, previou
     if (reportsWorse(latestText)) {
       next.phase = 'stopped';
       next.status = 'stopped';
+      next.stopReason = 'adverse_effect';
     } else if (stepAdvancesWithoutEvaluation(card, previous.stepIndex)
       && isSubstantiveTechniqueAnswer(latestText)) {
       advanceAfterEvaluation(next, steps, card);
@@ -390,6 +463,7 @@ function advanceSession(previous, card, latestText, conversationContext, previou
     if (reportsWorse(latestText)) {
       next.phase = 'stopped';
       next.status = 'stopped';
+      next.stopReason = 'adverse_effect';
       return next;
     }
     if (!reportsEffect(latestText)) return next;
@@ -455,7 +529,10 @@ function hasConsent(value) {
 
 function declinesConsent(value) {
   const normalized = normalizeCzech(value).replace(/[.!?,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
-  return /^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji|tohle nechci)$/u.test(normalized);
+  if (/^(?:ne|nechci|radsi ne|ted ne|ne diky|ne dekuji|tohle nechci)$/u.test(normalized)) return true;
+  return /^(?:ne\s+)?(?:tohle|toto|timhle|tudy|tento krok|tenhle krok)?\s*(?:nechci|odmitam|vynechme|nedelme|nebudu)\b/u.test(normalized)
+    || /^(?:radsi|radeji)\s+(?:to\s+)?(?:vynechme|ne|jinak)\b/u.test(normalized)
+    || /\b(?:pokracovat|zkouset|udelat|delat)\s+nechci\b/u.test(normalized);
 }
 
 function isSubstantiveTechniqueAnswer(value) {
@@ -466,13 +543,35 @@ function isSubstantiveTechniqueAnswer(value) {
 
 export function classifyStopIntent(value) {
   const normalized = normalizeCzech(value).replace(/\s+/gu, ' ').trim();
-  if (/\b(stop|zastav(?:me|it)?|prestan|nechci tu techniku|je mi hur)\b/iu.test(normalized)) {
+  if (/\b(?:nechci|odmitam)\s+(?:tuhle|tuto|tu|dalsi)?\s*technik\w*\b|\b(?:zastav|ukonci|vynechme)\s+(?:tuhle|tuto|tu)?\s*technik\w*\b|\bnechci\s+pokracovat\s+(?:s|v)\s+(?:touhle|touto|tuto|tou)?\s*technik\w*\b/iu.test(normalized)) {
+    return 'technique_stop';
+  }
+  const explicitlyKeepsConversation = /\b(?:ne|nikoli)\s+(?:s\s+tebou|(?:ten|tento|nas)\s+rozhovor|rozhovor|sezeni|techniku)\b/iu.test(normalized);
+  const namesExternalTarget = /\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized);
+  if (explicitlyKeepsConversation && namesExternalTarget) {
+    return 'external_stop';
+  }
+  if (/\b(?:stop|zastav(?:me|it)?|prestan)\b/iu.test(normalized)
+    && /\btechnik\w*\b/iu.test(normalized)) {
+    return 'technique_stop';
+  }
+  if (/\b(?:stop|zastav(?:me|it)?|prestan)\b/iu.test(normalized)
+    && /\b(?:sezen\w*|rozhovor\w*|tady|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)) {
     return 'conversation_stop';
   }
+  if (/^(?:stop|zastav(?:me)?|prestan)[.!?,;:\s]*$/iu.test(normalized)) return 'conversation_stop';
+  if (/\b(?:stop|zastav(?:me|it)?|prestan)\b/iu.test(normalized)) {
+    if (/\bprestan\s+mi\s+\w+/iu.test(normalized)) return 'external_stop';
+    return 'external_or_ambiguous';
+  }
   if (/\b(?:nechci|nemuzu)\s+pokracovat\b|\bchci\s+(?:to\s+)?ukoncit\b|\bchci\s+skoncit\b/iu.test(normalized)) {
-    return /\b(sezen|rozhovor|technik|tady|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)
-      ? 'conversation_stop'
-      : 'external_or_ambiguous';
+    if (/\b(?:sezen\w*|rozhovor\w*|technik\w*|tady|s tebou|v tomhle postupu|v tomto postupu)\b/iu.test(normalized)) {
+      return 'conversation_stop';
+    }
+    if (/\b(?:nechci|nemuzu)\s+pokracovat\s+(?:s|v|na)\s+\S+|\bchci\s+skoncit\s+(?:s|v|na)\s+\S+/iu.test(normalized)) {
+      return 'external_stop';
+    }
+    return 'external_or_ambiguous';
   }
   return 'none';
 }
@@ -486,7 +585,7 @@ function reportsNoEffect(value) {
 }
 
 export function isConversationRepairRequest(value) {
-  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|resime\b[^.!?\n]{0,60}\bworkshop|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b/iu.test(normalizeCzech(value));
+  return /\b(halo|slysis me|ctes me|zase se opakujes|opakujes (?:jednu|to)|neopakuj se|odpovez mi|nerozumim|nechapu|nepochopil|nepochopila|co na tom nechapes|vzdyt jsem ti to (?:uz )?(?:psala|popsala)|psala jsem\b[^.!?\n]{0,30}\bne|uz jsem (?:ti )?odpovedela|to uz jsme si (?:rikali|rekli|probirali)|tohle uz mame (?:uzavrene|hotove)|to jsem (?:vubec )?nerekla|nevymyslej si|to neni pravda|proc se me (?:zase|porad|kazdou chvilku)?\s*ptas|meles nesmysly|r[ei]kas nesmysly|jak jsme se (?:sem )?dostal\w*|ztratila jsi tema|vrat se k tematu|seres me)\b|^(?:resime|bavime se o|mluvim o|tema je|vrat se k)\b/iu.test(normalizeCzech(value).trim());
 }
 
 function reportsStepAttempt(value) {

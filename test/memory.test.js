@@ -127,6 +127,7 @@ test('koučovací a marketingová kontinuita zůstávají oddělené', () => {
 
 test('syrový chat je uložen jen v sessionStorage, ne v dlouhodobém localStorage', async () => {
   const client = await readFile(join(ROOT, 'src', 'browser-app.js'), 'utf8');
-  assert.match(client, /sessionStorage\.setItem\('elitea\.messages'/);
+  assert.match(client, /accountSessionStorage\.setItem\('elitea\.messages'/);
   assert.doesNotMatch(client, /localStorage\.setItem\('elitea\.messages'/);
+  assert.doesNotMatch(client, /accountLocalStorage\.setItem\('elitea\.messages'/);
 });

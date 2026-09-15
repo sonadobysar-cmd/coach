@@ -5,6 +5,7 @@ import {
   browserOperatorConfigured,
   browserOperatorTargets,
   classifyBrowserAction,
+  assertBrowserOperatorQuota,
   publicBrowserActionDraft,
 } from '../src/browser-operator.js';
 
@@ -60,4 +61,25 @@ test('klientský náhled nikdy neodhalí selektor ani argumenty serverové akce'
   assert.equal('selector' in view, false);
   assert.equal('arguments' in view, false);
   assert.equal('action' in view, false);
+});
+
+test('fair-use brána dovolí nejvýše jednu aktivní relaci a hlídá denní i měsíční náklad', async () => {
+  const userId = '11111111-1111-4111-8111-111111111111';
+  const makeSql = counts => {
+    let index = 0;
+    return () => Promise.resolve(index++ === 0 ? [] : [{ count: counts[index - 2] || 0 }]);
+  };
+  await assert.doesNotReject(() => assertBrowserOperatorQuota(makeSql([0, 1, 3, 4]), userId, {}));
+  await assert.rejects(
+    () => assertBrowserOperatorQuota(makeSql([1, 1, 3, 4]), userId, {}),
+    error => error.code === 'BROWSER_SESSION_ALREADY_ACTIVE' && error.statusCode === 409,
+  );
+  await assert.rejects(
+    () => assertBrowserOperatorQuota(makeSql([0, 2, 3, 4]), userId, {}),
+    error => error.code === 'BROWSER_DAILY_LIMIT' && error.statusCode === 429,
+  );
+  await assert.rejects(
+    () => assertBrowserOperatorQuota(makeSql([0, 1, 8, 4]), userId, {}),
+    error => error.code === 'BROWSER_MONTHLY_LIMIT' && error.statusCode === 429,
+  );
 });

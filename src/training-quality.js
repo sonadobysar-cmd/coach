@@ -247,24 +247,24 @@ export function assessStudyResponse(text, { messages = [], course = {}, item = {
     issues.push('internal_instruction_leak');
   }
 
+  // Only the authored lesson may ground an explanation. The student's prompt
+  // is a question, not an authority, and a repeated course/lesson title is not
+  // evidence that the answer teaches the actual material.
   const sourceText = [
     course?.title,
     course?.subtitle,
     item?.title,
     String(item?.markdown || '').slice(0, 6000),
-    ...(Array.isArray(messages) ? messages : [])
-      .filter(message => message?.role === 'user')
-      .slice(-3)
-      .map(message => message.content),
   ].filter(Boolean).join(' ');
-  const exactAnchors = [course?.title, item?.title]
-    .map(normalizeStudyText)
-    .filter(anchor => anchor.length >= 5);
+  const lessonBody = [course?.subtitle, String(item?.markdown || '').slice(0, 6000)]
+    .filter(Boolean).join(' ');
   const sourceStems = studyStems(sourceText);
+  const lessonBodyStems = studyStems(lessonBody);
   const outputStems = studyStems(output);
   const overlap = [...sourceStems].filter(value => outputStems.has(value)).length;
-  const hasExactAnchor = exactAnchors.some(anchor => normalized.includes(anchor));
-  if (output.length >= 80 && !hasExactAnchor && overlap < 2) issues.push('not_grounded_in_lesson');
+  const bodyOverlap = [...lessonBodyStems].filter(value => outputStems.has(value)).length;
+  if (output.length >= 80 && (overlap < 3 || bodyOverlap < 2)) issues.push('not_grounded_in_lesson');
+  if (contradictsStudySafety(output, sourceText)) issues.push('contradicts_lesson_or_safe_practice');
   const latestUser = [...(Array.isArray(messages) ? messages : [])]
     .reverse()
     .find(message => message?.role === 'user')?.content || '';
@@ -277,6 +277,15 @@ export function assessStudyResponse(text, { messages = [], course = {}, item = {
     issues,
     shouldRepair: issues.length > 0,
   };
+}
+
+function contradictsStudySafety(output, sourceText) {
+  const normalizedOutput = normalizeStudyText(output);
+  const normalizedSource = normalizeStudyText(sourceText);
+  const protectedPractice = /naslouch|souhlas|overen|zpetn vazb|bezpec|hranic|fakt|dukaz|kontext/u.test(normalizedSource);
+  if (!protectedPractice) return false;
+  return /(?:naslouch|souhlas|overen|zpetn vazb|bezpec|hranic|fakt|dukaz|kontext)[a-z ]{0,35}(?:je zbytec|neni potreba|muze se vynechat|ignoruj)/u.test(normalizedOutput)
+    || /(?:nejlepsi|spravne je|vzdy|nikdy)[a-z ]{0,45}(?:zacit radou|rozhodnout za|presvedcit druhou|bez otaz|bez souhlasu|bez overeni)/u.test(normalizedOutput);
 }
 
 export function sanitizeStudyQuestionCount(text, { messages = [] } = {}) {

@@ -17,6 +17,19 @@ CREATE TABLE IF NOT EXISTS browser_operator_sessions (
 CREATE INDEX IF NOT EXISTS browser_operator_sessions_user_idx
   ON browser_operator_sessions (user_id, created_at DESC);
 
+UPDATE browser_operator_sessions SET status='ended', ended_at=COALESCE(ended_at, now())
+WHERE status='running' AND expires_at IS NOT NULL AND expires_at <= now();
+
+WITH ranked AS (
+  SELECT id, row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS rn
+  FROM browser_operator_sessions WHERE status='running'
+)
+UPDATE browser_operator_sessions SET status='ended', ended_at=COALESCE(ended_at, now())
+WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+
+CREATE UNIQUE INDEX IF NOT EXISTS browser_operator_one_active_per_user_idx
+  ON browser_operator_sessions (user_id) WHERE status = 'running';
+
 ALTER TABLE browser_operator_sessions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY browser_operator_sessions_read_own ON browser_operator_sessions

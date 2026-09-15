@@ -63,10 +63,12 @@ export function publicBrowserActionDraft(draft) {
   };
 }
 
-export async function startBrowserOperatorSession(member, { target } = {}, env = process.env, fetchImpl = fetch) {
+export async function startBrowserOperatorSession(member, { target } = {}, env = process.env, fetchImpl = fetch, dependencies = {}) {
   if (!browserOperatorConfigured(env)) throw serviceUnavailable('Pracovní prohlížeč zatím není připojený.');
   const targetConfig = TARGETS[target];
   if (!targetConfig) throw badRequest('Nepodporovaný cíl pracovního prohlížeče.');
+  const sql = (dependencies.sqlFactory || neon)(env.DATABASE_URL);
+  await assertBrowserOperatorQuota(sql, member.id, env);
 
   const localId = randomUUID();
   const memberHash = createHash('sha256').update(member.id).digest('hex').slice(0, 24);
@@ -83,7 +85,6 @@ export async function startBrowserOperatorSession(member, { target } = {}, env =
     }, env, fetchImpl);
     await navigateBrowserSession(providerSession.connectUrl, targetConfig.startUrl);
     const live = await browserbaseRequest(`/sessions/${encodeURIComponent(providerSession.id)}/debug`, {}, env, fetchImpl);
-    const sql = neon(env.DATABASE_URL);
     await sql`INSERT INTO browser_operator_sessions
       (id, user_id, provider, provider_session_id, target, start_url, status, expires_at)
       VALUES (${localId}::uuid, ${member.id}::uuid, 'browserbase', ${providerSession.id}, ${target}, ${targetConfig.startUrl}, 'running', ${providerSession.expiresAt}::timestamptz)`;
@@ -100,6 +101,41 @@ export async function startBrowserOperatorSession(member, { target } = {}, env =
     if (providerSession?.id) await releaseProviderSession(providerSession.id, env, fetchImpl).catch(() => {});
     throw error;
   }
+}
+
+export async function assertBrowserOperatorQuota(sql, userId, env = process.env) {
+  const dailyLimit = boundedLimit(env.BROWSER_OPERATOR_DAILY_SESSION_LIMIT, 2, 1, 12);
+  const monthlyLimit = boundedLimit(env.BROWSER_OPERATOR_MONTHLY_SESSION_LIMIT, 8, 1, 100);
+  const globalConcurrentLimit = boundedLimit(env.BROWSER_OPERATOR_GLOBAL_CONCURRENCY, 20, 1, 100);
+  await sql`UPDATE browser_operator_sessions SET status='ended', ended_at=COALESCE(ended_at, now())
+    WHERE status='running' AND expires_at IS NOT NULL AND expires_at <= now()`;
+  const [activeRows, dailyRows, monthlyRows, globalRows] = await Promise.all([
+    sql`SELECT count(*)::int AS count FROM browser_operator_sessions
+      WHERE user_id=${userId}::uuid AND status='running'`,
+    sql`SELECT count(*)::int AS count FROM browser_operator_sessions
+      WHERE user_id=${userId}::uuid AND created_at >= date_trunc('day', now())`,
+    sql`SELECT count(*)::int AS count FROM browser_operator_sessions
+      WHERE user_id=${userId}::uuid AND created_at >= date_trunc('month', now())`,
+    sql`SELECT count(*)::int AS count FROM browser_operator_sessions WHERE status='running'`,
+  ]);
+  if (Number(activeRows[0]?.count || 0) >= 1) {
+    throw Object.assign(new Error('Už máš otevřený pracovní prohlížeč. Nejdřív ho ukonči.'), { statusCode: 409, code: 'BROWSER_SESSION_ALREADY_ACTIVE' });
+  }
+  if (Number(dailyRows[0]?.count || 0) >= dailyLimit) {
+    throw Object.assign(new Error(`Dnešní limit pracovního prohlížeče (${dailyLimit} relace) je vyčerpaný.`), { statusCode: 429, code: 'BROWSER_DAILY_LIMIT' });
+  }
+  if (Number(monthlyRows[0]?.count || 0) >= monthlyLimit) {
+    throw Object.assign(new Error(`Měsíční fair-use limit pracovního prohlížeče (${monthlyLimit} relací) je vyčerpaný.`), { statusCode: 429, code: 'BROWSER_MONTHLY_LIMIT' });
+  }
+  if (Number(globalRows[0]?.count || 0) >= globalConcurrentLimit) {
+    throw Object.assign(new Error('Pracovní prohlížeč je právě plně vytížený. Zkus to prosím později.'), { statusCode: 503, code: 'BROWSER_GLOBAL_LIMIT' });
+  }
+  return { dailyLimit, monthlyLimit, globalConcurrentLimit };
+}
+
+function boundedLimit(value, fallback, min, max) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
 }
 
 export async function getBrowserOperatorSession(member, localId, env = process.env, fetchImpl = fetch) {

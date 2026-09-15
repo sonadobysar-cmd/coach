@@ -11,7 +11,12 @@ import {
   saveOutcomeStore,
 } from '../public/outcomes.js';
 
-const APP_VERSION = '0.36.12';
+const APP_VERSION = '0.37.0';
+const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
+let activeAccountId = '';
+let cloudSyncTimer = null;
+const accountLocalStorage = createAccountStorage(localStorage);
+const accountSessionStorage = createAccountStorage(sessionStorage);
 
 const ACADEMY_CATEGORIES = [
   { id: 'coach-mentor', label: 'Kouč & Mentor', courseCategories: ['coaching-mental-health'], description: 'Výcviky pro koučovací praxi, sebedůvěru, práci s myšlením a chováním i bezpečnou neklinickou podporu klientek.' },
@@ -21,12 +26,12 @@ const ACADEMY_CATEGORIES = [
 const CONSULTATION_MODES = ['auto', 'coaching_session', 'business_mentoring', 'nlp_reframing', 'behavioral_change', 'somatic_regulation', 'brand_growth'];
 const TRAINING_ROLES = new Set(['coach_training', 'brand_training']);
 const storedTrainingSessions = loadTrainingSessionStore();
-const requestedAssistantRole = sessionStorage.getItem('elitea.assistantRole');
+const requestedAssistantRole = accountSessionStorage.getItem('elitea.assistantRole');
 const initialAssistantRole = ['coach', 'coach_training', 'brand', 'brand_training'].includes(requestedAssistantRole)
   && (!TRAINING_ROLES.has(requestedAssistantRole) || storedTrainingSessions[requestedAssistantRole])
   ? requestedAssistantRole
   : 'coach';
-const storedInitialMode = normalizeConsultationMode(sessionStorage.getItem('elitea.consultationMode'));
+const storedInitialMode = normalizeConsultationMode(accountSessionStorage.getItem('elitea.consultationMode'));
 const initialConsultationMode = initialAssistantRole === 'brand' ? 'brand_growth' : storedInitialMode === 'brand_growth' ? 'auto' : storedInitialMode;
 const storedConversations = loadConversationStore();
 const legacyMessages = loadLegacyMessages();
@@ -60,7 +65,7 @@ const state = {
   categories: [],
   contentFilter: 'all',
   contentSearch: '',
-  favorites: new Set(JSON.parse(localStorage.getItem('elitea.contentFavorites') || '[]')),
+  favorites: new Set(JSON.parse(accountLocalStorage.getItem('elitea.contentFavorites') || '[]')),
   handoffDraft: '',
   bookingWithDocument: false,
   bookingRequestId: '',
@@ -78,16 +83,16 @@ const state = {
   lessonAudio: { chunks: [], index: 0, active: false, paused: false },
   masteryTab: 'journey',
   masteryProgress: loadCourseMasteryProgress(),
-  courseProgress: new Set(JSON.parse(localStorage.getItem('elitea.courseProgress') || '[]')),
+  courseProgress: new Set(JSON.parse(accountLocalStorage.getItem('elitea.courseProgress') || '[]')),
   courseNotes: loadCourseNotes(),
   assistantRole: initialAssistantRole,
-  coachConsultationMode: normalizeCoachConsultationMode(sessionStorage.getItem('elitea.coachConsultationMode') || initialConsultationMode),
-  brandWorkMode: sessionStorage.getItem('elitea.brandWorkMode') === 'execute' ? 'execute' : 'collaborate',
+  coachConsultationMode: normalizeCoachConsultationMode(accountSessionStorage.getItem('elitea.coachConsultationMode') || initialConsultationMode),
+  brandWorkMode: accountSessionStorage.getItem('elitea.brandWorkMode') === 'execute' ? 'execute' : 'collaborate',
   trainingSessions: storedTrainingSessions,
   trainingSession: storedTrainingSessions[initialAssistantRole] || null,
   trainingPortfolio: loadTrainingPortfolio(),
   certificateStatuses: {},
-  outcomes: loadOutcomeStore(),
+  outcomes: loadOutcomeStore(accountLocalStorage),
   outcomeDialogStep: 'start',
   selectedOutcomeId: null,
   pendingOutcomeClosure: false,
@@ -95,6 +100,7 @@ const state = {
   qualityReportTarget: null,
   currentView: 'member',
   cloudConfig: null,
+  previewAccess: false,
   cloudLoading: null,
   systemStatus: null,
   cloud: null,
@@ -439,26 +445,161 @@ function shouldLoadMemberCloud() {
     || params.get('checkout') === 'success';
 }
 
+function createAccountStorage(storage) {
+  return {
+    getItem(key) {
+      const scopedKey = accountStorageKey(activeAccountId, key);
+      return scopedKey ? storage.getItem(scopedKey) : null;
+    },
+    setItem(key, value) {
+      const scopedKey = accountStorageKey(activeAccountId, key);
+      if (scopedKey) storage.setItem(scopedKey, value);
+    },
+    removeItem(key) {
+      const scopedKey = accountStorageKey(activeAccountId, key);
+      if (scopedKey) storage.removeItem(scopedKey);
+    },
+  };
+}
+
+function accountStorageKey(userId, key) {
+  const safeUserId = String(userId || '').trim();
+  return safeUserId ? `${ACCOUNT_STORAGE_PREFIX}.${encodeURIComponent(safeUserId)}.${key}` : '';
+}
+
+function removeAccountPartition(storage, userId) {
+  const prefix = `${ACCOUNT_STORAGE_PREFIX}.${encodeURIComponent(String(userId || '').trim())}.`;
+  if (!storage || prefix === `${ACCOUNT_STORAGE_PREFIX}..`) return;
+  const keys = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key?.startsWith(prefix)) keys.push(key);
+  }
+  for (const key of keys) storage.removeItem(key);
+}
+
+function removeOtherAccountPartitions(storage, userId) {
+  const currentPrefix = `${ACCOUNT_STORAGE_PREFIX}.${encodeURIComponent(String(userId || '').trim())}.`;
+  const allAccountsPrefix = `${ACCOUNT_STORAGE_PREFIX}.`;
+  const keys = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key?.startsWith(allAccountsPrefix) && !key.startsWith(currentPrefix)) keys.push(key);
+  }
+  for (const key of keys) storage.removeItem(key);
+}
+
+function resetAccountClientState() {
+  state.messages = [];
+  state.conversations = {};
+  state.memory = normalizeMemory();
+  state.consultationMode = 'auto';
+  state.pendingModeSwitch = null;
+  state.lastMethods = {};
+  state.lastMethod = null;
+  state.techniqueSessions = {};
+  state.specialistSessions = {};
+  state.onboardingStep = 0;
+  state.onboardingPrompted = false;
+  state.favorites = new Set();
+  state.worksheetEntries = {};
+  state.activeWorksheet = null;
+  state.activeCourse = null;
+  state.activeItemIndex = 0;
+  state.lessonAudio = { chunks: [], index: 0, active: false, paused: false };
+  state.masteryProgress = {};
+  state.courseProgress = new Set();
+  state.courseNotes = {};
+  state.assistantRole = 'coach';
+  state.coachConsultationMode = 'auto';
+  state.brandWorkMode = 'collaborate';
+  state.trainingSessions = {};
+  state.trainingSession = null;
+  state.trainingPortfolio = [];
+  state.certificateStatuses = {};
+  state.outcomes = normalizeOutcomeStore(null);
+  state.outcomeDialogStep = 'start';
+  state.selectedOutcomeId = null;
+  state.pendingOutcomeClosure = false;
+  state.lastCoachTurnMeta = null;
+  state.qualityReportTarget = null;
+  state.marketingOperator = null;
+  state.browserSession = null;
+  state.browserActionDraft = null;
+  state.founding.me = null;
+  state.coachTestAdmin = { feedback: [], summary: null, filter: 'all' };
+}
+
+function activateAccountIdentity(userId) {
+  const nextId = String(userId || '').trim();
+  if (!nextId) return deactivateAccountIdentity();
+  const previousId = activeAccountId;
+  if (previousId && previousId !== nextId) {
+    cancelPendingCloudSync();
+    removeAccountPartition(localStorage, previousId);
+    removeAccountPartition(sessionStorage, previousId);
+  }
+  removeOtherAccountPartitions(localStorage, nextId);
+  removeOtherAccountPartitions(sessionStorage, nextId);
+  if (activeAccountId !== nextId) resetAccountClientState();
+  activeAccountId = nextId;
+  return true;
+}
+
+function deactivateAccountIdentity({ purge = true } = {}) {
+  cancelPendingCloudSync();
+  if (activeAccountId && purge) {
+    removeAccountPartition(localStorage, activeAccountId);
+    removeAccountPartition(sessionStorage, activeAccountId);
+  }
+  activeAccountId = '';
+  resetAccountClientState();
+  return false;
+}
+
+async function restoreCloudAccount(cloud, currentSession = null) {
+  const current = currentSession || await cloud.session();
+  if (!current?.user?.id) {
+    state.cloudSession = null;
+    deactivateAccountIdentity({ purge: false });
+    return null;
+  }
+  activateAccountIdentity(current.user.id);
+  const loaded = await cloud.loadState();
+  if (!loaded?.user?.id) {
+    state.cloudSession = null;
+    deactivateAccountIdentity({ purge: false });
+    return null;
+  }
+  if (loaded.user.id !== activeAccountId) activateAccountIdentity(loaded.user.id);
+  state.cloudSession = loaded;
+  hydrateAccountStateFromStorage();
+  return loaded;
+}
+
 async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloud) return state.cloud;
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.36.12';
+  const cloudModuleUrl = '/cloud.js?v=0.37.0';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
       state.cloud = cloud;
       if (!cloud || !restoreSession) return cloud;
       try {
-        state.cloudSession = await cloud.session();
-        if (state.cloudSession) {
-          await cloud.loadState();
-          hydrateStudyStateFromLocalStorage();
+        const currentSession = await cloud.session();
+        if (currentSession) {
+          await restoreCloudAccount(cloud, currentSession);
           await refreshFoundingStatus();
+        } else {
+          state.cloudSession = null;
+          deactivateAccountIdentity();
         }
       } catch (error) {
         state.cloudSession = null;
+        deactivateAccountIdentity({ purge: false });
         console.warn('Elitea auth session could not be restored.', error?.message || error);
       }
       return cloud;
@@ -476,10 +617,15 @@ async function initializeCloud({ eager = false } = {}) {
   try {
     const config = await request('/api/client-config');
     state.cloudConfig = config;
+    state.previewAccess = config?.previewAccess === true;
     state.authRequired = Boolean(config?.authUrl && config?.dataApiUrl);
+    if (!state.authRequired && state.previewAccess) {
+      activateAccountIdentity('preview-local');
+      hydrateAccountStateFromStorage();
+    }
     if (eager) await ensureCloudLoaded();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') state.cloud?.saveState().catch(() => {});
+      if (document.visibilityState === 'hidden') flushCloudStateSync().catch(() => {});
     });
   } catch (error) {
     state.cloud = null;
@@ -487,15 +633,53 @@ async function initializeCloud({ eager = false } = {}) {
   }
 }
 
-function hydrateStudyStateFromLocalStorage() {
+function hydrateAccountStateFromStorage() {
+  const trainingSessions = loadTrainingSessionStore();
+  const requestedRole = accountSessionStorage.getItem('elitea.assistantRole');
+  const assistantRole = ['coach', 'coach_training', 'brand', 'brand_training'].includes(requestedRole)
+    && (!TRAINING_ROLES.has(requestedRole) || trainingSessions[requestedRole])
+    ? requestedRole
+    : 'coach';
+  const storedMode = normalizeConsultationMode(accountSessionStorage.getItem('elitea.consultationMode'));
+  const consultationMode = assistantRole === 'brand' ? 'brand_growth' : storedMode === 'brand_growth' ? 'auto' : storedMode;
+  const conversations = loadConversationStore();
+  const legacyMessages = loadLegacyMessages();
+  if (!conversations[consultationMode]?.length && legacyMessages.length) conversations[consultationMode] = legacyMessages;
+  const lastMethods = loadLastMethodStore();
+  const legacyLastMethod = loadLegacyLastMethod();
+  if (!lastMethods[consultationMode] && legacyLastMethod) lastMethods[consultationMode] = legacyLastMethod;
+
+  state.trainingSessions = trainingSessions;
+  state.trainingSession = trainingSessions[assistantRole] || null;
+  state.assistantRole = assistantRole;
+  state.consultationMode = consultationMode;
+  state.coachConsultationMode = normalizeCoachConsultationMode(accountSessionStorage.getItem('elitea.coachConsultationMode') || consultationMode);
+  state.brandWorkMode = accountSessionStorage.getItem('elitea.brandWorkMode') === 'execute' ? 'execute' : 'collaborate';
+  state.conversations = conversations;
+  state.messages = TRAINING_ROLES.has(assistantRole)
+    ? [...(trainingSessions[assistantRole]?.messages || [])]
+    : [...(conversations[consultationMode] || [])];
+  state.lastMethods = lastMethods;
+  state.lastMethod = lastMethods[consultationMode] || null;
+  state.techniqueSessions = loadTechniqueSessionStore();
+  state.specialistSessions = loadSpecialistSessionStore();
   state.memory = loadLocalMemory();
-  state.favorites = new Set(JSON.parse(localStorage.getItem('elitea.contentFavorites') || '[]'));
+  state.favorites = new Set(readStoredArray(accountLocalStorage, 'elitea.contentFavorites'));
   state.worksheetEntries = loadWorksheetEntries();
   state.masteryProgress = loadCourseMasteryProgress();
-  state.courseProgress = new Set(JSON.parse(localStorage.getItem('elitea.courseProgress') || '[]'));
+  state.courseProgress = new Set(readStoredArray(accountLocalStorage, 'elitea.courseProgress'));
   state.courseNotes = loadCourseNotes();
   state.trainingPortfolio = loadTrainingPortfolio();
-  state.outcomes = loadOutcomeStore();
+  state.outcomes = loadOutcomeStore(accountLocalStorage);
+}
+
+function readStoredArray(storage, key) {
+  try {
+    const value = JSON.parse(storage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 
 function bindEvents() {
@@ -816,7 +1000,7 @@ function bindEvents() {
     if (!button) return;
     const id = button.dataset.favorite;
     state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
-    localStorage.setItem('elitea.contentFavorites', JSON.stringify([...state.favorites]));
+    accountLocalStorage.setItem('elitea.contentFavorites', JSON.stringify([...state.favorites]));
     syncCloudState();
     renderContent();
   });
@@ -885,8 +1069,7 @@ async function submitFoundingApplicationForm(event) {
 async function refreshFoundingStatus() {
   if (!state.cloudSession || !state.cloud) return null;
   try {
-    const authorization = await state.cloud.authorization();
-    state.founding.me = await request('/api/founding/me', { headers: { Authorization: authorization } });
+    state.founding.me = await authenticatedRequest('/api/founding/me');
     if (elements.foundingAdminButton) elements.foundingAdminButton.hidden = !state.founding.me?.admin;
     if (elements.coachTestAdminButton) elements.coachTestAdminButton.hidden = !state.founding.me?.owner;
     renderFoundingAccount();
@@ -929,10 +1112,8 @@ async function submitFoundingFeedbackForm(event) {
   elements.foundingFeedbackError.hidden = true;
   elements.foundingFeedbackSuccess.hidden = true;
   try {
-    const authorization = await state.cloud.authorization();
-    await request('/api/founding/feedback', {
+    await authenticatedRequest('/api/founding/feedback', {
       method: 'POST',
-      headers: { Authorization: authorization },
       body: JSON.stringify({
         roleUsed: data.get('roleUsed'), usefulness: Number(data.get('usefulness')),
         resultSummary: data.get('resultSummary'), frictionSummary: data.get('frictionSummary'),
@@ -953,8 +1134,7 @@ async function openFoundingAdmin() {
   elements.foundingAdminSummary.textContent = 'Načítám přihlášky…';
   elements.foundingAdminList.innerHTML = '';
   try {
-    const authorization = await state.cloud.authorization();
-    const data = await request('/api/founding/admin/applications', { headers: { Authorization: authorization } });
+    const data = await authenticatedRequest('/api/founding/admin/applications');
     renderFoundingAdmin(data);
   } catch (error) {
     elements.foundingAdminSummary.textContent = error.message || 'Přihlášky se nepodařilo načíst.';
@@ -966,8 +1146,7 @@ async function openCoachTestAdmin() {
   elements.coachTestAdminSummary.textContent = 'Načítám testy…';
   elements.coachTestAdminList.innerHTML = '';
   try {
-    const authorization = await state.cloud.authorization();
-    const data = await request('/api/public-coach-test/admin/feedback', { headers: { Authorization: authorization } });
+    const data = await authenticatedRequest('/api/public-coach-test/admin/feedback');
     state.coachTestAdmin.feedback = data.feedback || [];
     state.coachTestAdmin.summary = data.summary || null;
     renderCoachTestAdmin();
@@ -1019,9 +1198,8 @@ async function handleFoundingAdminAction(event) {
   if (!button) return;
   button.disabled = true;
   try {
-    const authorization = await state.cloud.authorization();
-    await request(`/api/founding/admin/applications/${encodeURIComponent(button.dataset.foundingId)}`, {
-      method: 'PATCH', headers: { Authorization: authorization }, body: JSON.stringify({ action: button.dataset.foundingAction }),
+    await authenticatedRequest(`/api/founding/admin/applications/${encodeURIComponent(button.dataset.foundingId)}`, {
+      method: 'PATCH', body: JSON.stringify({ action: button.dataset.foundingAction }),
     });
     await openFoundingAdmin();
   } catch (error) {
@@ -1036,7 +1214,10 @@ function foundingPlanCode() {
 
 async function requestMembershipEntry(view = 'member') {
   state.pendingEntryView = view;
-  if (!state.authRequired) return enterMembership(view);
+  if (!state.authRequired) {
+    if (state.previewAccess) return enterMembership(view);
+    return showMembershipUnavailable('Přihlášení není v tomto prostředí správně připojené. Zkus to prosím později.');
+  }
   await ensureCloudLoaded();
   if (state.cloudSession) {
     if (await hasMembershipAccess()) return enterMembership(view);
@@ -1115,10 +1296,9 @@ async function submitAuth(event) {
       ? await state.cloud.signUp(elements.authName.value.trim(), elements.authEmail.value.trim(), elements.authPassword.value)
       : await state.cloud.signIn(elements.authEmail.value.trim(), elements.authPassword.value);
     if (result?.error) throw new Error(result.error.message || 'Přihlášení se nepodařilo.');
-    state.cloudSession = await state.cloud.loadState();
-    hydrateStudyStateFromLocalStorage();
-    if (state.authMode === 'signup') await state.cloud.saveState();
+    state.cloudSession = await restoreCloudAccount(state.cloud);
     if (!state.cloudSession) throw new Error('Potvrď prosím svůj e-mail a potom se přihlas.');
+    if (state.authMode === 'signup') await saveAuthenticatedCloudState(activeAccountId);
     await refreshFoundingStatus();
     if (!(await hasMembershipAccess())) return startMembershipCheckout(elements.authEmail.value.trim(), foundingPlanCode());
     elements.authDialog.close();
@@ -1160,7 +1340,7 @@ async function fetchMembership() {
 }
 
 async function hasMembershipAccess() {
-  if (!state.systemStatus?.paymentsConnected) return true;
+  if (!state.systemStatus?.paymentsConnected) return state.previewAccess;
   try {
     const membership = await fetchMembership();
     return ['owner', 'trialing', 'active'].includes(membership.status);
@@ -1170,15 +1350,25 @@ async function hasMembershipAccess() {
 }
 
 async function startMembershipCheckout(email = '', planCode = foundingPlanCode()) {
-  if (!state.systemStatus?.paymentsConnected) return enterMembership(state.pendingEntryView);
-  const authorization = await state.cloud.authorization();
-  const checkout = await request('/api/membership/checkout', {
+  if (!state.systemStatus?.paymentsConnected) {
+    if (state.previewAccess) return enterMembership(state.pendingEntryView);
+    return showMembershipUnavailable('Ověření členství je teď krátce nedostupné. Zkus to prosím později.');
+  }
+  const checkout = await authenticatedRequest('/api/membership/checkout', {
     method: 'POST',
-    headers: { Authorization: authorization },
     body: JSON.stringify({ email: email || state.cloudSession?.user?.email || '', planCode }),
   });
   if (!checkout.url) throw new Error('Platební brána nevrátila bezpečný odkaz.');
   window.location.assign(checkout.url);
+}
+
+function showMembershipUnavailable(message) {
+  setAuthMode('signin');
+  elements.authError.textContent = message;
+  elements.authError.hidden = false;
+  elements.authSubmit.disabled = true;
+  if (!elements.authDialog.open) elements.authDialog.showModal();
+  return null;
 }
 
 async function openAccount() {
@@ -1223,8 +1413,7 @@ async function openBillingPortal() {
   try {
     if (state.membership?.status === 'owner') return;
     if (['inactive', 'cancelled'].includes(state.membership?.status)) return startMembershipCheckout();
-    const authorization = await state.cloud.authorization();
-    const portal = await request('/api/membership/portal', { method: 'POST', headers: { Authorization: authorization } });
+    const portal = await authenticatedRequest('/api/membership/portal', { method: 'POST' });
     if (!portal.url) throw new Error('Správa členství nevrátila bezpečný odkaz.');
     window.location.assign(portal.url);
   } catch (error) {
@@ -1237,11 +1426,19 @@ async function openBillingPortal() {
 async function signOutMember() {
   elements.accountLogout.disabled = true;
   try {
-    await state.cloud?.saveState();
+    const expectedAccountId = activeAccountId;
+    try {
+      await flushCloudStateSync(expectedAccountId);
+    } catch (error) {
+      if (error?.code === 'ACCOUNT_IDENTITY_CHANGED') throw error;
+      console.warn('Elitea account state could not be synced before sign-out.', error?.message || error);
+    }
+    await freshAuthorization(expectedAccountId);
     const result = await state.cloud?.signOut();
     if (result?.error) throw new Error(result.error.message);
     state.cloudSession = null;
     state.membership = null;
+    deactivateAccountIdentity();
     elements.accountDialog.close();
     showPublicSite();
   } catch (error) {
@@ -1296,6 +1493,7 @@ function enterMembership(view = 'member') {
   document.body.classList.remove('public-mode');
   document.body.classList.add('member-mode');
   switchView(view);
+  loadWorksheets().catch(() => {});
   window.location.hash = `app-${view}`;
   window.scrollTo({ top: 0, behavior: 'instant' });
   if (!state.memory?.coaching_profile?.onboarding_complete && !state.onboardingPrompted) {
@@ -1348,7 +1546,7 @@ function switchView(view) {
 
 async function loadWorksheets() {
   try {
-    const payload = await request('/api/worksheets');
+    const payload = await authenticatedRequest('/api/worksheets');
     state.worksheets = Array.isArray(payload.items) ? payload.items : [];
     state.worksheetCategories = Array.isArray(payload.categories) ? payload.categories : [];
   } catch {
@@ -1424,7 +1622,7 @@ function saveWorksheet(event) {
   const formData = new FormData(elements.worksheetForm);
   const values = Object.fromEntries(state.activeWorksheet.prompts.map(prompt => [prompt.id, String(formData.get(prompt.id) || '').trim()]));
   state.worksheetEntries[state.activeWorksheet.id] = { values, savedAt: new Date().toISOString() };
-  localStorage.setItem('elitea.worksheetEntries', JSON.stringify(state.worksheetEntries));
+  accountLocalStorage.setItem('elitea.worksheetEntries', JSON.stringify(state.worksheetEntries));
   syncCloudState();
   elements.worksheetSaveStatus.textContent = 'Uloženo bezpečně v tomto prohlížeči.';
   renderWorksheetLibrary();
@@ -1467,7 +1665,7 @@ function discussWorksheet() {
 
 function loadWorksheetEntries() {
   try {
-    const parsed = JSON.parse(localStorage.getItem('elitea.worksheetEntries') || '{}');
+    const parsed = JSON.parse(accountLocalStorage.getItem('elitea.worksheetEntries') || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
@@ -1476,7 +1674,7 @@ function loadWorksheetEntries() {
 
 function loadCourseNotes() {
   try {
-    const parsed = JSON.parse(localStorage.getItem('elitea.courseNotes') || '{}');
+    const parsed = JSON.parse(accountLocalStorage.getItem('elitea.courseNotes') || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
@@ -1753,7 +1951,7 @@ function renderCourseQuiz(item) {
     <div class="lesson-quiz-result ${attempt.passed ? 'passed' : 'retry'}" role="status">
       <span>${attempt.passed ? 'TEST SPLNĚN' : 'JEŠTĚ JEDEN POKUS'}</span>
       <strong>${attempt.scorePercent} % · ${attempt.correctCount} z ${attempt.questionCount} správně</strong>
-      <p>${attempt.passed ? 'Výsledek je serverově ověřený a tato část se započítala do dokončení kurzu.' : `Pro splnění potřebuješ alespoň ${attempt.passPercent} %. Odpovědi si projdi a test bez sankce zopakuj.`}</p>
+      <p>${attempt.passed ? 'Výsledek je serverově ověřený a tato část se započítala do dokončení kurzu.' : `Pro splnění potřebuješ alespoň ${attempt.passPercent} %. Vrať se k lekci a potom test zkus znovu; správné odpovědi před splněním neodhalujeme.`}</p>
     </div>` : '';
   elements.lessonQuiz.innerHTML = `
     <header><div><span>INTERAKTIVNÍ TEST MODULU</span><h3>Ověř si porozumění bez nápovědy</h3><p>${escapeHtml(quiz.instructions)}</p></div><strong>${quiz.questionCount} ${czechCountLabel(quiz.questionCount, 'otázka', 'otázky', 'otázek')}</strong></header>
@@ -1774,7 +1972,7 @@ function renderCourseQuiz(item) {
           ${result ? `<small>${result.correct ? 'Správně.' : `Správná odpověď: ${escapeHtml(result.explanation)}`}</small>` : ''}
         </fieldset>`;
       }).join('')}
-      <div class="lesson-quiz-submit"><p id="course-quiz-status">${attempt ? `Pokus č. ${attempt.attemptNumber} · odpovědi můžeš upravit a zkusit znovu.` : 'Správné odpovědi se ukážou až po serverovém vyhodnocení.'}</p><button type="submit">${attempt ? 'Odevzdat nový pokus' : 'Odevzdat a vyhodnotit'}</button></div>
+      <div class="lesson-quiz-submit"><p id="course-quiz-status">${attempt ? `Pokus č. ${attempt.attemptNumber} · odpovědi můžeš po zopakování látky upravit.` : 'Správné odpovědi a vysvětlení se ukážou až po úspěšném splnění.'}</p><button type="submit">${attempt ? 'Odevzdat nový pokus' : 'Odevzdat a vyhodnotit'}</button></div>
     </form>`;
 }
 
@@ -1806,7 +2004,7 @@ async function submitCurrentCourseQuiz(event) {
     progress.updatedAt = new Date().toISOString();
     const key = progressKey(course, item);
     result.passed ? state.courseProgress.add(key) : state.courseProgress.delete(key);
-    localStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));
+    accountLocalStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));
     persistCourseMasteryProgress();
     openCourseItem(state.activeItemIndex);
     renderMemberDashboard();
@@ -2115,7 +2313,7 @@ function masteryStateForCourse() {
 }
 
 function persistCourseMasteryProgress() {
-  localStorage.setItem('elitea.courseMastery', JSON.stringify(state.masteryProgress));
+  accountLocalStorage.setItem('elitea.courseMastery', JSON.stringify(state.masteryProgress));
   syncCloudState();
 }
 
@@ -2195,7 +2393,7 @@ async function downloadCurrentCertificate(course = state.activeCourse) {
 
 function loadCourseMasteryProgress() {
   try {
-    const parsed = JSON.parse(localStorage.getItem('elitea.courseMastery') || '{}');
+    const parsed = JSON.parse(accountLocalStorage.getItem('elitea.courseMastery') || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
@@ -2211,7 +2409,7 @@ function toggleCourseItemComplete() {
   }
   const key = progressKey(state.activeCourse, item);
   state.courseProgress.has(key) ? state.courseProgress.delete(key) : state.courseProgress.add(key);
-  localStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));
+  accountLocalStorage.setItem('elitea.courseProgress', JSON.stringify([...state.courseProgress]));
   syncCloudState();
   openCourseItem(state.activeItemIndex);
   renderMemberDashboard();
@@ -2299,7 +2497,7 @@ function beginTrainingSession({ activity, phase, course, item, messages, difficu
   state.assistantRole = role;
   state.messages = state.trainingSession.messages;
   persistTrainingSession();
-  sessionStorage.setItem('elitea.assistantRole', role);
+  accountSessionStorage.setItem('elitea.assistantRole', role);
   renderAssistantRole();
   renderMessages();
 }
@@ -2324,21 +2522,21 @@ function setAssistantRole(role) {
     else persistMessages();
     if (state.consultationMode !== 'brand_growth') {
       state.coachConsultationMode = normalizeCoachConsultationMode(state.consultationMode);
-      sessionStorage.setItem('elitea.coachConsultationMode', state.coachConsultationMode);
+      accountSessionStorage.setItem('elitea.coachConsultationMode', state.coachConsultationMode);
     }
     state.assistantRole = 'brand';
     state.consultationMode = 'brand_growth';
     state.messages = [...(state.conversations.brand_growth || [])];
-    sessionStorage.setItem('elitea.consultationMode', 'brand_growth');
+    accountSessionStorage.setItem('elitea.consultationMode', 'brand_growth');
   } else {
     if (isTrainingRole()) persistTrainingSession();
     else persistMessages();
     state.assistantRole = 'coach';
     state.consultationMode = normalizeCoachConsultationMode(state.coachConsultationMode);
     state.messages = [...(state.conversations[state.consultationMode] || [])];
-    sessionStorage.setItem('elitea.consultationMode', state.consultationMode);
+    accountSessionStorage.setItem('elitea.consultationMode', state.consultationMode);
   }
-  sessionStorage.setItem('elitea.assistantRole', state.assistantRole);
+  accountSessionStorage.setItem('elitea.assistantRole', state.assistantRole);
   switchView('chat');
   renderAssistantRole();
   renderMessages();
@@ -2412,7 +2610,7 @@ function renderAssistantRole() {
 function setBrandWorkMode(mode) {
   if (state.pending || state.assistantRole !== 'brand') return;
   state.brandWorkMode = mode === 'execute' ? 'execute' : 'collaborate';
-  sessionStorage.setItem('elitea.brandWorkMode', state.brandWorkMode);
+  accountSessionStorage.setItem('elitea.brandWorkMode', state.brandWorkMode);
   renderBrandWorkMode();
   elements.chatInput.focus();
 }
@@ -2464,10 +2662,8 @@ async function startBrowserOperator(target) {
   buttons.forEach(button => { button.disabled = true; });
   elements.browserOperatorStatus.textContent = `Spouštím izolovanou pracovní relaci ${target === 'canva' ? 'Canva' : 'Meta Ads'}…`;
   try {
-    const authorization = await state.cloud.authorization();
-    const session = await request('/api/browser-sessions', {
+    const session = await authenticatedRequest('/api/browser-sessions', {
       method: 'POST',
-      headers: { Authorization: authorization },
       body: JSON.stringify({ target }),
     });
     state.browserSession = session;
@@ -2501,10 +2697,8 @@ async function closeBrowserOperator() {
   if (session?.id && state.cloudSession) {
     elements.browserOperatorStatus.textContent = 'Ukončuji pracovní relaci…';
     try {
-      const authorization = await state.cloud.authorization();
-      await request(`/api/browser-sessions/${encodeURIComponent(session.id)}`, {
+      await authenticatedRequest(`/api/browser-sessions/${encodeURIComponent(session.id)}`, {
         method: 'DELETE',
-        headers: { Authorization: authorization },
       });
     } catch {}
   }
@@ -2522,10 +2716,8 @@ async function previewBrowserAction(event) {
   elements.browserAgentPreviewButton.disabled = true;
   elements.browserOperatorStatus.textContent = 'Elitea kontroluje aktuální stránku a hledá jeden bezpečný krok…';
   try {
-    const authorization = await state.cloud.authorization();
-    const draft = await request(`/api/browser-sessions/${encodeURIComponent(session.id)}/actions/preview`, {
+    const draft = await authenticatedRequest(`/api/browser-sessions/${encodeURIComponent(session.id)}/actions/preview`, {
       method: 'POST',
-      headers: { Authorization: authorization },
       body: JSON.stringify({ instruction }),
     });
     state.browserActionDraft = draft;
@@ -2553,10 +2745,8 @@ async function executeBrowserActionDraft() {
   elements.browserAgentPreviewButton.disabled = true;
   elements.browserOperatorStatus.textContent = 'Provádím právě jeden potvrzený krok…';
   try {
-    const authorization = await state.cloud.authorization();
-    const result = await request(`/api/browser-sessions/${encodeURIComponent(session.id)}/actions/${encodeURIComponent(draft.id)}/execute`, {
+    const result = await authenticatedRequest(`/api/browser-sessions/${encodeURIComponent(session.id)}/actions/${encodeURIComponent(draft.id)}/execute`, {
       method: 'POST',
-      headers: { Authorization: authorization },
       body: '{}',
     });
     elements.browserOperatorStatus.textContent = result.message || 'Krok je hotový. Zkontroluj živý náhled.';
@@ -2684,7 +2874,7 @@ function saveCurrentCourseNote() {
   const key = progressKey(state.activeCourse, item);
   const value = elements.lessonNotes.value.slice(0, 12000);
   state.courseNotes[key] = { value, savedAt: new Date().toISOString() };
-  localStorage.setItem('elitea.courseNotes', JSON.stringify(state.courseNotes));
+  accountLocalStorage.setItem('elitea.courseNotes', JSON.stringify(state.courseNotes));
   syncCloudState();
   elements.lessonNotesStatus.textContent = 'Uloženo v tomto prohlížeči.';
 }
@@ -3064,7 +3254,7 @@ function submitOutcomeForm(event) {
     });
   }
 
-  state.outcomes = saveOutcomeStore(state.outcomes);
+  state.outcomes = saveOutcomeStore(state.outcomes, accountLocalStorage);
   syncCloudState();
   renderOutcomeCard();
   closeOutcomeDialog();
@@ -3188,10 +3378,8 @@ async function requestCoachReply() {
   let openOutcomeAfterReply = false;
 
   try {
-    const authorization = state.cloudSession ? await state.cloud?.authorization() : '';
-    const result = await request('/api/chat', {
+    const result = await authenticatedRequest('/api/chat', {
       method: 'POST',
-      headers: authorization ? { Authorization: authorization } : {},
       body: JSON.stringify({
         messages: state.messages,
         memory: state.memory,
@@ -3254,7 +3442,9 @@ async function requestCoachReply() {
       openOutcomeAfterReply = state.pendingOutcomeClosure;
     }
   } catch (error) {
-    state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba spojení' });
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') {
+      state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba spojení' });
+    }
   } finally {
     state.pending = false;
     persistMessages();
@@ -3281,10 +3471,8 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
     completedAt: session.completedAt || null,
   };
   try {
-    const authorization = state.cloudSession ? await state.cloud?.authorization() : '';
-    const result = await request('/api/training', {
+    const result = await authenticatedRequest('/api/training', {
       method: 'POST',
-      headers: authorization ? { Authorization: authorization } : {},
       body: JSON.stringify({
         messages: state.messages,
         memory: state.memory,
@@ -3331,8 +3519,10 @@ async function submitTrainingMessage(content, requestedPhase = null, { appendUse
       }
     }
   } catch (error) {
-    state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba studijního režimu' });
-    session.messages = state.messages;
+    if (error?.code !== 'ACCOUNT_IDENTITY_CHANGED') {
+      state.messages.push({ role: 'assistant', content: error.message, meta: 'Chyba studijního režimu' });
+      session.messages = state.messages;
+    }
   } finally {
     state.pending = false;
     persistTrainingSession();
@@ -3410,7 +3600,7 @@ async function submitQualityReport(event) {
   submit.disabled = true;
   elements.qualityReportStatus.textContent = 'Odesílám anonymní hlášení…';
   try {
-    await request('/api/quality-report', {
+    await authenticatedRequest('/api/quality-report', {
       method: 'POST',
       body: JSON.stringify({
         reportId: crypto.randomUUID(),
@@ -3998,15 +4188,15 @@ function deleteMemory() {
   state.trainingSessions = {};
   state.trainingSession = null;
   state.assistantRole = 'coach';
-  sessionStorage.removeItem('elitea.messages');
-  sessionStorage.removeItem('elitea.conversations');
-  sessionStorage.removeItem('elitea.lastMethods');
-  sessionStorage.removeItem('elitea.lastMethod');
-  sessionStorage.removeItem('elitea.techniqueSessions');
-  sessionStorage.removeItem('elitea.specialistSessions');
-  sessionStorage.removeItem('elitea.trainingSession');
-  sessionStorage.removeItem('elitea.trainingSessions');
-  sessionStorage.setItem('elitea.assistantRole', 'coach');
+  accountSessionStorage.removeItem('elitea.messages');
+  accountSessionStorage.removeItem('elitea.conversations');
+  accountSessionStorage.removeItem('elitea.lastMethods');
+  accountSessionStorage.removeItem('elitea.lastMethod');
+  accountSessionStorage.removeItem('elitea.techniqueSessions');
+  accountSessionStorage.removeItem('elitea.specialistSessions');
+  accountSessionStorage.removeItem('elitea.trainingSession');
+  accountSessionStorage.removeItem('elitea.trainingSessions');
+  accountSessionStorage.setItem('elitea.assistantRole', 'coach');
   persistMemory();
   renderAssistantRole();
   renderMemory();
@@ -4053,8 +4243,8 @@ function activateConsultationMode(mode, messages) {
   state.messages = Array.isArray(messages) ? [...messages] : [];
   state.lastMethod = state.lastMethods[state.consultationMode] || null;
   state.pendingModeSwitch = null;
-  sessionStorage.setItem('elitea.consultationMode', state.consultationMode);
-  sessionStorage.setItem('elitea.messages', JSON.stringify(state.messages.slice(-200)));
+  accountSessionStorage.setItem('elitea.consultationMode', state.consultationMode);
+  accountSessionStorage.setItem('elitea.messages', JSON.stringify(state.messages.slice(-200)));
   persistLastMethods();
   renderConsultationMode();
   renderMessages();
@@ -4086,7 +4276,7 @@ function startFreshModeSession() {
   delete state.lastMethods[mode];
   delete state.techniqueSessions[mode];
   delete state.specialistSessions[mode];
-  sessionStorage.setItem('elitea.conversations', JSON.stringify(state.conversations));
+  accountSessionStorage.setItem('elitea.conversations', JSON.stringify(state.conversations));
   persistLastMethods();
   persistTechniqueSessions();
   persistSpecialistSessions();
@@ -4138,7 +4328,7 @@ function startNewSession() {
   persistLastMethods();
   persistTechniqueSessions();
   persistSpecialistSessions();
-  sessionStorage.removeItem('elitea.lastMethod');
+  accountSessionStorage.removeItem('elitea.lastMethod');
   renderMessages();
   renderMemory();
   renderOutcomeCard();
@@ -4220,8 +4410,8 @@ function persistMessages() {
     return;
   }
   state.conversations[state.consultationMode] = messages;
-  sessionStorage.setItem('elitea.conversations', JSON.stringify(state.conversations));
-  sessionStorage.setItem('elitea.messages', JSON.stringify(messages));
+  accountSessionStorage.setItem('elitea.conversations', JSON.stringify(state.conversations));
+  accountSessionStorage.setItem('elitea.messages', JSON.stringify(messages));
 }
 
 function persistTrainingSession() {
@@ -4229,8 +4419,8 @@ function persistTrainingSession() {
     state.trainingSession.messages = (state.trainingSession.messages || []).slice(-200);
     state.trainingSessions[state.assistantRole] = state.trainingSession;
   }
-  sessionStorage.setItem('elitea.trainingSessions', JSON.stringify(state.trainingSessions));
-  sessionStorage.removeItem('elitea.trainingSession');
+  accountSessionStorage.setItem('elitea.trainingSessions', JSON.stringify(state.trainingSessions));
+  accountSessionStorage.removeItem('elitea.trainingSession');
 }
 
 function saveTrainingPortfolioEntry(session, debrief, achievement = null) {
@@ -4254,14 +4444,14 @@ function saveTrainingPortfolioEntry(session, debrief, achievement = null) {
   if (existingIndex >= 0) state.trainingPortfolio[existingIndex] = entry;
   else state.trainingPortfolio.unshift(entry);
   state.trainingPortfolio = state.trainingPortfolio.slice(0, 1200);
-  localStorage.setItem('elitea.trainingPortfolio', JSON.stringify(state.trainingPortfolio));
+  accountLocalStorage.setItem('elitea.trainingPortfolio', JSON.stringify(state.trainingPortfolio));
   syncCloudState();
 }
 
 function removeTrainingPortfolioEntry(sessionId) {
   if (!sessionId) return;
   state.trainingPortfolio = state.trainingPortfolio.filter(entry => entry.id !== sessionId);
-  localStorage.setItem('elitea.trainingPortfolio', JSON.stringify(state.trainingPortfolio));
+  accountLocalStorage.setItem('elitea.trainingPortfolio', JSON.stringify(state.trainingPortfolio));
   syncCloudState();
 }
 
@@ -4272,9 +4462,9 @@ function cloneSerializable(value) {
 
 function loadTrainingSessionStore() {
   try {
-    const parsed = JSON.parse(sessionStorage.getItem('elitea.trainingSessions') || 'null');
+    const parsed = JSON.parse(accountSessionStorage.getItem('elitea.trainingSessions') || 'null');
     const sessions = parsed && typeof parsed === 'object' ? parsed : {};
-    const legacy = JSON.parse(sessionStorage.getItem('elitea.trainingSession') || 'null');
+    const legacy = JSON.parse(accountSessionStorage.getItem('elitea.trainingSession') || 'null');
     const previousSessions = [sessions.study, sessions.practice, legacy]
       .filter(session => session && typeof session === 'object')
       .sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
@@ -4290,15 +4480,15 @@ function loadTrainingSessionStore() {
     }
     return sessions;
   } catch {
-    sessionStorage.removeItem('elitea.trainingSession');
-    sessionStorage.removeItem('elitea.trainingSessions');
+    accountSessionStorage.removeItem('elitea.trainingSession');
+    accountSessionStorage.removeItem('elitea.trainingSessions');
     return {};
   }
 }
 
 function loadTrainingPortfolio() {
   try {
-    const parsed = JSON.parse(localStorage.getItem('elitea.trainingPortfolio') || '[]');
+    const parsed = JSON.parse(accountLocalStorage.getItem('elitea.trainingPortfolio') || '[]');
     return Array.isArray(parsed) ? parsed.filter(item => item && item.id && item.courseId && item.itemId).slice(0, 1200) : [];
   } catch {
     return [];
@@ -4306,14 +4496,14 @@ function loadTrainingPortfolio() {
 }
 
 function persistLastMethods() {
-  sessionStorage.setItem('elitea.lastMethods', JSON.stringify(state.lastMethods));
-  if (state.lastMethod) sessionStorage.setItem('elitea.lastMethod', JSON.stringify(state.lastMethod));
-  else sessionStorage.removeItem('elitea.lastMethod');
+  accountSessionStorage.setItem('elitea.lastMethods', JSON.stringify(state.lastMethods));
+  if (state.lastMethod) accountSessionStorage.setItem('elitea.lastMethod', JSON.stringify(state.lastMethod));
+  else accountSessionStorage.removeItem('elitea.lastMethod');
 }
 
 function loadLastMethodStore() {
   try {
-    const input = JSON.parse(sessionStorage.getItem('elitea.lastMethods') || '{}');
+    const input = JSON.parse(accountSessionStorage.getItem('elitea.lastMethods') || '{}');
     if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
     return Object.fromEntries(
       Object.entries(input).filter(([mode, method]) => CONSULTATION_MODES.includes(mode) && method && typeof method === 'object')
@@ -4325,7 +4515,7 @@ function loadLastMethodStore() {
 
 function loadLegacyLastMethod() {
   try {
-    const method = JSON.parse(sessionStorage.getItem('elitea.lastMethod') || 'null');
+    const method = JSON.parse(accountSessionStorage.getItem('elitea.lastMethod') || 'null');
     return method && typeof method === 'object' ? method : null;
   } catch {
     return null;
@@ -4333,12 +4523,12 @@ function loadLegacyLastMethod() {
 }
 
 function persistTechniqueSessions() {
-  sessionStorage.setItem('elitea.techniqueSessions', JSON.stringify(state.techniqueSessions));
+  accountSessionStorage.setItem('elitea.techniqueSessions', JSON.stringify(state.techniqueSessions));
 }
 
 function loadTechniqueSessionStore() {
   try {
-    const input = JSON.parse(sessionStorage.getItem('elitea.techniqueSessions') || '{}');
+    const input = JSON.parse(accountSessionStorage.getItem('elitea.techniqueSessions') || '{}');
     if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
     return Object.fromEntries(
       Object.entries(input).filter(([mode, session]) => (
@@ -4354,12 +4544,12 @@ function loadTechniqueSessionStore() {
 }
 
 function persistSpecialistSessions() {
-  sessionStorage.setItem('elitea.specialistSessions', JSON.stringify(state.specialistSessions));
+  accountSessionStorage.setItem('elitea.specialistSessions', JSON.stringify(state.specialistSessions));
 }
 
 function loadSpecialistSessionStore() {
   try {
-    const input = JSON.parse(sessionStorage.getItem('elitea.specialistSessions') || '{}');
+    const input = JSON.parse(accountSessionStorage.getItem('elitea.specialistSessions') || '{}');
     if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
     return Object.fromEntries(
       Object.entries(input).filter(([mode, session]) => (
@@ -4376,7 +4566,7 @@ function loadSpecialistSessionStore() {
 
 function loadConversationStore() {
   try {
-    const input = JSON.parse(sessionStorage.getItem('elitea.conversations') || '{}');
+    const input = JSON.parse(accountSessionStorage.getItem('elitea.conversations') || '{}');
     if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
     return Object.fromEntries(
       Object.entries(input)
@@ -4390,7 +4580,7 @@ function loadConversationStore() {
 
 function loadLegacyMessages() {
   try {
-    const messages = JSON.parse(sessionStorage.getItem('elitea.messages') || '[]');
+    const messages = JSON.parse(accountSessionStorage.getItem('elitea.messages') || '[]');
     return Array.isArray(messages) ? messages.slice(-200) : [];
   } catch {
     return [];
@@ -4441,7 +4631,7 @@ function truncateSummary(value, maxLength) {
 
 function loadLocalMemory() {
   try {
-    return normalizeMemory(JSON.parse(localStorage.getItem('elitea.memory') || '{}'));
+    return normalizeMemory(JSON.parse(accountLocalStorage.getItem('elitea.memory') || '{}'));
   } catch {
     return normalizeMemory();
   }
@@ -4449,12 +4639,35 @@ function loadLocalMemory() {
 
 function persistMemory() {
   state.memory.updated_at = new Date().toISOString();
-  localStorage.setItem('elitea.memory', JSON.stringify(state.memory));
+  accountLocalStorage.setItem('elitea.memory', JSON.stringify(state.memory));
   syncCloudState();
 }
 
+function cancelPendingCloudSync() {
+  if (cloudSyncTimer !== null) window.clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = null;
+}
+
+async function saveAuthenticatedCloudState(expectedAccountId = activeAccountId) {
+  if (!state.cloud || !state.cloudSession || !expectedAccountId) return false;
+  await freshAuthorization(expectedAccountId);
+  if (activeAccountId !== expectedAccountId) throw accountIdentityChangedError();
+  return state.cloud.saveState();
+}
+
+async function flushCloudStateSync(expectedAccountId = activeAccountId) {
+  cancelPendingCloudSync();
+  return saveAuthenticatedCloudState(expectedAccountId);
+}
+
 function syncCloudState() {
-  state.cloud?.saveState().catch(() => {});
+  const expectedAccountId = activeAccountId;
+  if (!state.cloud || !state.cloudSession || !expectedAccountId) return;
+  cancelPendingCloudSync();
+  cloudSyncTimer = window.setTimeout(() => {
+    cloudSyncTimer = null;
+    saveAuthenticatedCloudState(expectedAccountId).catch(() => {});
+  }, 250);
 }
 
 function normalizeMemory(input = {}) {
@@ -4611,6 +4824,7 @@ async function request(path, options = {}) {
 function promptExpiredSession() {
   const message = 'Přihlášení vypršelo. Přihlas se prosím znovu.';
   state.cloudSession = null;
+  deactivateAccountIdentity({ purge: false });
   if (state.authRequired && state.cloud) {
     setAuthMode('signin');
     elements.authError.textContent = message;
@@ -4620,11 +4834,57 @@ function promptExpiredSession() {
   return null;
 }
 
-async function freshAuthorization() {
+function accountIdentityChangedError() {
+  const error = new Error('Přihlášený účet se mezitím změnil. Kvůli ochraně soukromých dat jsem akci neodeslala; zkus ji prosím znovu v aktuálním účtu.');
+  error.code = 'ACCOUNT_IDENTITY_CHANGED';
+  return error;
+}
+
+function authorizationSubject(authorization) {
   try {
-    const authorization = await state.cloud?.authorization({ forceRefresh: true });
-    if (authorization) return authorization;
+    const token = String(authorization || '').replace(/^Bearer\s+/i, '');
+    const payload = token.split('.')[1];
+    if (!payload) return '';
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')));
+    return typeof claims?.sub === 'string' ? claims.sub : '';
   } catch {
+    return '';
+  }
+}
+
+async function freshAuthorization(expectedAccountId = activeAccountId) {
+  try {
+    const current = await state.cloud?.session({ forceFetch: true });
+    if (!current?.user?.id) throw new Error('Missing current session.');
+    if (expectedAccountId && current.user.id !== expectedAccountId) {
+      await restoreCloudAccount(state.cloud, current);
+      throw accountIdentityChangedError();
+    }
+    if (current.user.id !== activeAccountId || current.user.id !== state.cloudSession?.user?.id) {
+      await restoreCloudAccount(state.cloud, current);
+    }
+    const authorization = await state.cloud?.authorization({ forceRefresh: true });
+    if (!authorization) throw new Error('Missing current authorization.');
+    const authorizedAccountId = authorizationSubject(authorization);
+
+    // The auth cookie is shared by browser tabs and can change while a request is
+    // being prepared. Confirm the identity once more after obtaining the token;
+    // never pair state captured for account A with a bearer issued for account B.
+    const confirmed = await state.cloud?.session({ forceFetch: true });
+    if (!confirmed?.user?.id) throw new Error('Missing confirmed session.');
+    if (!authorizedAccountId
+      || authorizedAccountId !== current.user.id
+      || confirmed.user.id !== current.user.id
+      || (expectedAccountId && confirmed.user.id !== expectedAccountId)) {
+      if (confirmed.user.id !== activeAccountId || confirmed.user.id !== state.cloudSession?.user?.id) {
+        await restoreCloudAccount(state.cloud, confirmed);
+      }
+      throw accountIdentityChangedError();
+    }
+    return authorization;
+  } catch (error) {
+    if (error?.code === 'ACCOUNT_IDENTITY_CHANGED') throw error;
     // Authentication SDK errors are intentionally converted to one useful UI state.
   }
   promptExpiredSession();
@@ -4634,7 +4894,8 @@ async function freshAuthorization() {
 async function authenticatedRequest(path, options = {}) {
   if (!state.authRequired) return request(path, options);
   if (!state.cloudSession || !state.cloud) throw new Error('Pro tuto část Elitey se nejprve přihlas.');
-  let authorization = await freshAuthorization();
+  const expectedAccountId = activeAccountId;
+  let authorization = await freshAuthorization(expectedAccountId);
   const run = () => request(path, {
       ...options,
       headers: { ...(options.headers || {}), Authorization: authorization },
@@ -4643,7 +4904,7 @@ async function authenticatedRequest(path, options = {}) {
     return await run();
   } catch (error) {
     if (error?.status !== 401) throw error;
-    authorization = await freshAuthorization();
+    authorization = await freshAuthorization(expectedAccountId);
     try {
       return await run();
     } catch (retryError) {
@@ -4658,11 +4919,12 @@ async function authenticatedRequest(path, options = {}) {
 
 async function authenticatedBlobRequest(path) {
   if (!state.cloudSession || !state.cloud) throw new Error('Pro stažení certifikátu se nejprve přihlas.');
-  let authorization = await freshAuthorization();
+  const expectedAccountId = activeAccountId;
+  let authorization = await freshAuthorization(expectedAccountId);
   const download = () => fetch(path, { headers: { Authorization: authorization } });
   let response = await download();
   if (response.status === 401) {
-    authorization = await freshAuthorization();
+    authorization = await freshAuthorization(expectedAccountId);
     response = await download();
   }
   if (!response.ok) {

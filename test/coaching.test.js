@@ -13,10 +13,13 @@ import {
 } from '../src/coaching.js';
 import {
   buildConversationContext,
+  buildConversationRepairContext,
+  createElitea,
   selectConversationWindow,
   buildRoutingText,
-  fixedGroundingResponse,
   expertRoleForMode,
+  formatConversationRepairContext,
+  guardedConversationRepairFallback,
   inferMode,
   resolveConversationMode,
   shapeCoachingResponse,
@@ -86,210 +89,151 @@ test('globální sebeodsudek spouští koučovací podporu místo obecné diagno
   assert.equal(inferMode('Jsem neschopná.'), 'koucovaci_podpora');
 });
 
-test('sebeodsudek nedovolí vymyslet schopnosti a nejdřív ukotví práci v konkrétní situaci', () => {
-  const response = fixedGroundingResponse({
-    messages: [{ role: 'user', content: 'Jsem neschopná.' }],
-    latestText: 'Jsem neschopná.',
-    routingText: 'Jsem neschopná.',
-    responseMode: 'koucovaci_podpora',
-  });
-  assert.match(response, /verdikt o celé tobě|oddělit skutečný problém/i);
-  assert.match(response, /Která konkrétní situace/i);
-  assert.doesNotMatch(response, /umíš dokončit|komunikovat s klienty|potřeby trhu/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
+test('běžné téma nemá předem napsanou grounding odpověď ani repair režim', () => {
+  const messages = [{ role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' }];
+  const context = buildConversationRepairContext(messages, messages[0].content);
+
+  assert.equal(context.active, false);
+  assert.equal(context.kind, 'none');
+  assert.deepEqual(context.priorUserStatements, []);
 });
 
-test('po upozornění na domněnku ji Elitea přizná a vrátí se k pozorovatelnému okamžiku', () => {
-  const latestText = 'Jak můžeš vědět, že umím dokončit úkoly? Protože to zrovna fakt neumím.';
-  const response = fixedGroundingResponse({
-    messages: [
-      { role: 'user', content: 'Jsem neschopná.' },
-      { role: 'assistant', content: 'Umíš například dokončit úkoly.' },
-      { role: 'user', content: latestText },
-    ],
-    latestText,
-    routingText: `Jsem neschopná.\n${latestText}`,
-    responseMode: 'koucovaci_podpora',
-  });
-  assert.match(response, /neměla jsem ti to připsat/i);
-  assert.match(response, /konkrétní nedokončený úkol/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('první koučovací odpověď není nahrazena povinnou diagnostickou šablonou', () => {
-  const procrastination = fixedGroundingResponse({
-    messages: [{ role: 'user', content: 'Pořád odkládám web a nemůžu začít.' }],
-    latestText: 'Pořád odkládám web a nemůžu začít.',
-    responseMode: 'koucovaci_hodina',
-    conversationContext: { userTurns: 1 },
-  });
-  assert.equal(procrastination, null);
-
-  const boundary = fixedGroundingResponse({
-    messages: [{ role: 'user', content: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.' }],
-    latestText: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.',
-    responseMode: 'koucovaci_hodina',
-    conversationContext: { userTurns: 1 },
-  });
-  assert.equal(boundary, null);
-});
-
-test('žádost o lidskou řeč se vrátí k důkazům bez vymyšleného partnera', () => {
-  const response = fixedGroundingResponse({
-    latestText: 'Nerozumím ti, řekni to normálně.',
-    messages: [
-      { role: 'user', content: 'Ve vztahu neumím říct ne a pak se na sebe zlobím.' },
-      { role: 'assistant', content: 'Předchozí složitá odpověď.' },
-      { role: 'user', content: 'Nerozumím ti, řekni to normálně.' },
-    ],
-    responseMode: 'koucovaci_hodina',
-    conversationContext: { userTurns: 2 },
-  });
-
-  assert.match(response, /^Jasně\. Řeknu to normálně\./);
-  assert.match(response, /poslední takové situaci|těsně před/i);
-  assert.doesNotMatch(response, /partner|přítel|manžel/i);
-});
-
-test('workshopový neúspěch se otevře fakty místo otázky na spánek a fungování', () => {
-  const latestText = 'První workshop dopadl špatně. Asi na podnikání prostě nemám.';
-  const response = fixedGroundingResponse({
-    messages: [{ role: 'user', content: latestText }],
-    latestText,
-    routingText: latestText,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: { userTurns: 1 },
-  });
-  assert.match(response, /co přesně znamená.*dopadl špatně/i);
-  assert.match(response, /kolik žen přišlo|zpětnou vazbu/i);
-  assert.doesNotMatch(response, /spán|energ|normálně fungovat/i);
-});
-
-test('nejasné nechci pokračovat u workshopu vyžádá rozlišení cíle zastavení', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání prostě nemám.' },
-    { role: 'assistant', content: 'Co přesně se na workshopu stalo?' },
-    { role: 'user', content: 'Už nechci pokračovat, bojím se.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /další workshopy/i);
-  assert.match(response, /našem rozhovoru/i);
-  assert.doesNotMatch(response, /Zastavíme to/i);
-});
-
-test('oprava významu workshopu obnoví zakázku místo zastavení techniky', () => {
+test('historická oprava významu aktivuje generický repair bez domýšlení faktů', () => {
   const messages = [
     { role: 'user', content: 'První workshop dopadl špatně.' },
-    { role: 'assistant', content: 'Chceš dnešek uzavřít?' },
+    { role: 'assistant', content: 'Chceš ukončit dnešní rozhovor?' },
     { role: 'user', content: 'Nechci pokračovat s workshopem, to jsi nepochopila.' },
   ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /skončit s pořádáním workshopů/i);
-  assert.match(response, /ne o ukončení tohoto rozhovoru/i);
-  assert.doesNotMatch(response, /účinku právě provedeného kroku/i);
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const prompt = formatConversationRepairContext(context);
+
+  assert.equal(context.active, true);
+  assert.equal(context.kind, 'external_stop');
+  assert.deepEqual(context.priorUserStatements, ['První workshop dopadl špatně.']);
+  assert.match(prompt, /jasně pojmenovala činnost nebo způsob/i);
+  assert.match(prompt, /nezaměňuj to za konec rozhovoru/i);
+  assert.doesNotMatch(prompt, /tři ženy|jedna odešla|dvě zůstaly|získala klienta/i);
 });
 
-test('R2 workshopová data dostanou věcný význam místo zdravotního screeningu', () => {
-  const opening = 'První workshop dopadl špatně. Asi na podnikání prostě nemám.';
-  const latestText = 'Přihlásily se tři ženy a jedna po půl hodině odešla.';
+test('jasné ukončení externí činnosti nevyvolá znovu otázku co chce klientka zastavit', () => {
   const messages = [
-    { role: 'user', content: opening },
-    { role: 'assistant', content: 'Co přesně znamená, že dopadl špatně?' },
-    { role: 'user', content: latestText },
+    { role: 'user', content: 'Nechci dál nabízet konzultace.' },
+    { role: 'assistant', content: 'Chceš ukončit náš rozhovor?' },
+    { role: 'user', content: 'Nechci pokračovat s konzultacemi, ne s tebou.' },
   ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /tři ženy a jedna odešla|účast byla tři ženy/i);
-  assert.match(response, /zbývající dvě/i);
-  assert.doesNotMatch(response, /spán|jídlo|běžn.*fungov|energ/i);
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const fallback = guardedConversationRepairFallback(context);
+
+  assert.equal(context.kind, 'external_stop');
+  assert.match(fallback, /nechceš pokračovat v činnosti nebo způsobu/i);
+  assert.match(fallback, /Nezaměním to za konec našeho rozhovoru/i);
+  assert.doesNotMatch(fallback, /co chceš zastavit/i);
+  assert.doesNotMatch(fallback, /workshop|účastnic|klient|odešla/i);
 });
 
-test('R2 pozitivní důkaz workshopu se vyzdvihne a nespustí falešné měření účinku', () => {
-  const latestText = 'Dvě zbývající ženy zůstaly do konce a jedna mi napsala, že jí pomohlo cvičení.';
+test('nejasné nechci pokračovat zachová pouze doslovná data klientky', () => {
   const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně.' },
+    { role: 'user', content: 'Mám strach z dalšího workshopu.' },
     { role: 'assistant', content: 'Co se stalo?' },
-    { role: 'user', content: 'Přišly tři ženy a jedna odešla.' },
-    { role: 'assistant', content: 'Co zbývající dvě?' },
-    { role: 'user', content: latestText },
+    { role: 'user', content: 'Už nechci pokračovat, bojím se.' },
   ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /podstatný pozitivní výsledek/i);
-  assert.match(response, /jedna ze tří.*pomohlo/i);
-  assert.doesNotMatch(response, /účinku právě provedeného kroku|co se teď změnilo/i);
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const fallback = guardedConversationRepairFallback(context);
+
+  assert.equal(context.kind, 'clarify_stop');
+  assert.match(fallback, /Nechci hádat, co chceš zastavit/i);
+  assert.doesNotMatch(fallback, /workshop|účastnic|klient|odešla/i);
 });
 
-test('R2 otázka fakt versus domněnka dostane přímou odpověď a oprava ji zjednoduší', () => {
-  const question = 'Jak poznám rozdíl mezi tím, co se skutečně nepovedlo, a tím, co si jen domýšlím?';
+test('žádost o jednodušší vysvětlení zachová poslední otázku a známá sdělení', () => {
   const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně.' },
-    { role: 'assistant', content: 'Co se stalo?' },
-    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedné pomohlo cvičení.' },
-    { role: 'user', content: question },
+    { role: 'user', content: 'Na workshop přišly tři ženy; proč jedna odešla, nevím.' },
+    { role: 'assistant', content: 'Kdybys důvod nikdy nezjistila, jak bys rozhodovala podle doložených výsledků?' },
+    { role: 'user', content: 'Nerozumím té otázce, můžeš ji vysvětlit líp?' },
   ];
-  const direct = fixedGroundingResponse({
-    messages,
-    latestText: question,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(direct, /fakt můžeš doložit/i);
-  assert.match(direct, /domněnka/i);
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
 
-  const repairMessages = [...messages, { role: 'assistant', content: direct }, { role: 'user', content: 'Nerozumím ti teď.' }];
-  const repair = fixedGroundingResponse({
-    messages: repairMessages,
-    latestText: repairMessages.at(-1).content,
-    routingText: buildRoutingText(repairMessages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(repairMessages, 'koucovaci_hodina'),
-  });
-  assert.match(repair, /Řekla jsem to složitě/i);
-  assert.match(repair, /Fakt je něco/i);
-  assert.doesNotMatch(repair, /co tě.*děsí|účinku právě provedeného kroku/i);
+  assert.equal(context.kind, 'rephrase');
+  assert.match(context.previousAssistantText, /Kdybys důvod nikdy nezjistila/i);
+  assert.deepEqual(context.priorUserStatements, ['Na workshop přišly tři ženy; proč jedna odešla, nevím.']);
+  assert.match(formatConversationRepairContext(context), /zachovej význam předchozí otázky/i);
 });
 
-test('R2 stížnost na opakované měření dostane konkrétní opravu bez další otázky', () => {
-  const latestText = 'Nerozumím, řeším něco jiného. Proč se mě každou chvilku ptáš na to, co se změnilo?';
+test('historická stížnost na opakování nespouští další techniku ani nevyrábí výsledek', () => {
+  const messages = [
+    { role: 'user', content: 'Řeším nepovedený workshop.' },
+    { role: 'assistant', content: 'Co se teď změnilo — stejné, lepší, nebo horší?' },
+    { role: 'user', content: 'Jak jsme se dostaly k tomu, že opakuješ jednu větu dokola?' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const prompt = formatConversationRepairContext(context);
+
+  assert.equal(context.kind, 'repair');
+  assert.match(prompt, /neprováděj ani nevyhodnocuj koučovací techniku/i);
+  assert.doesNotMatch(prompt, /dvě ženy|první klient|pozitivní výsledek/i);
+});
+
+test('celý chatový tok při opravě zachová skrytý stav techniky a nepoužije workshopový scénář', async () => {
+  const card = {
+    id: 'generic_decision_work',
+    name: 'Práce s rozhodnutím',
+    family: 'core_coaching',
+    access_level: 'ai_coaching',
+    keywords: ['rozhodnutí'],
+    use_when: ['členka se rozhoduje'],
+    core_move: 'Odděl fakta od obav a potom ověř další možnost.',
+    avoid: ['chybí zakázka'],
+    never_claim: ['že metoda rozhodne za členku'],
+    origin_or_standard: 'Testovací metodika',
+  };
+  const techniqueSession = {
+    techniqueId: card.id,
+    mode: 'koucovaci_hodina',
+    phase: 'evaluation',
+    stepIndex: 0,
+    status: 'active',
+    turns: 3,
+    requiresConsent: false,
+  };
   const messages = [
     { role: 'user', content: 'První workshop dopadl špatně.' },
-    { role: 'assistant', content: 'Co se teď změnilo?' },
-    { role: 'user', content: latestText },
+    { role: 'assistant', content: 'Co se teď změnilo — stejné, lepší, nebo horší?' },
+    { role: 'user', content: 'Vždyť jsem ti to popsala — ten workshop!' },
   ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
+  const answer = createElitea({
+    systemPrompt,
+    knowledgeRecords: [],
+    coachingMethods: methods,
+    expertSources: sources,
+    techniqueAtlas: [card],
   });
-  assert.match(response, /chybně vyhodnotila/i);
-  assert.match(response, /už to nebudu opakovat/i);
-  assert.equal((response.match(/\?/g) || []).length, 0);
+  const result = await answer({
+    messages,
+    memory: {},
+    consultationMode: 'coaching_session',
+    techniqueSession,
+  });
+
+  assert.equal(result.techniqueSession.phase, 'evaluation');
+  assert.equal(result.techniqueSession.stepIndex, 0);
+  assert.equal(result.techniqueSession.turns, 3);
+  assert.match(result.text, /První workshop dopadl špatně/i);
+  assert.doesNotMatch(result.text, /tři ženy|jedna odešla|dvě zůstaly|získala klienta/i);
+});
+
+test('generický repair funguje i pro neznámý scénář bez tématické šablony', () => {
+  const messages = [
+    { role: 'user', content: 'Po aktualizaci se můj keramický rezervační formulář přestal odesílat.' },
+    { role: 'assistant', content: 'Kolik objednávek jsi ztratila a kdo formulář programoval?' },
+    { role: 'user', content: 'To jsem vůbec neřekla. Nevymýšlej si a vrať se k tomu formuláři.' },
+  ];
+  const context = buildConversationRepairContext(messages, messages.at(-1).content);
+  const prompt = formatConversationRepairContext(context);
+
+  assert.equal(context.kind, 'repair');
+  assert.deepEqual(context.priorUserStatements, ['Po aktualizaci se můj keramický rezervační formulář přestal odesílat.']);
+  assert.doesNotMatch(context.priorUserStatements.join(' '), /objednávk|programoval|vývojář|agentura|wordpress/i);
+  assert.match(prompt, /Neodvozuj počty, osoby, výsledky, pocity, příčiny ani záměr/i);
 });
 
 test('zahlcení volí nejmenší krok', () => {
@@ -482,19 +426,6 @@ test('konverzační kontext odlišuje otevření od navazující práce', () => 
   ]).stage, 'průzkumná fáze');
 });
 
-test('první kontakt s influencer cílem není nahrazen předem napsaným výslechem', () => {
-  const messages = [{ role: 'user', content: 'Ahoj, chci být influencerka ale nevím jak na to. Mám pocit, že nežiju život, jaký chci.' }];
-  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages[0].content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext,
-  });
-  assert.equal(response, null);
-});
-
 test('po odpovědi na otázku o vnitřní větě je sezení připravené k cílené práci', () => {
   const context = buildConversationContext([
     { role: 'user', content: 'Chci být influencerka a mít vliv.' },
@@ -572,77 +503,6 @@ test('krátký souhlas po zjištění mechanismu nevrátí sezení zpět na zač
   assert.equal(context.depthStage, 'pripraveno_k_cilene_praci');
 });
 
-test('při mapování sebeodsudku Elitea zůstane u mechanismu a nedá předčasný úkol', () => {
-  const messages = [
-    { role: 'user', content: 'Jsem neschopná.' },
-    { role: 'assistant', content: 'Která konkrétní situace tě k tomu vede?' },
-    { role: 'user', content: 'Nedokončila jsem web, který potřebuji spustit.' },
-  ];
-  const conversationContext = buildConversationContext(messages, 'koucovaci_podpora');
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_podpora',
-    conversationContext,
-    techniqueTurn: {
-      card: { id: 'accurate_self_talk_edit' },
-      session: { phase: 'assessment' },
-    },
-  });
-  assert.match(response, /nedokončený úkol a závěr o celé tobě/i);
-  assert.match(response, /těsně před okamžikem/i);
-  assert.doesNotMatch(response, /udělej|plán|zkus si/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('self-talk u influencer cíle nevymyslí nedokončený úkol a vrátí odborné rozlišení', () => {
-  const messages = [
-    { role: 'user', content: 'Chci být influencerka, chci vliv a aby ke mně lidé vzhlíželi.' },
-    { role: 'assistant', content: 'Jaká přesná věta ti proběhne hlavou, když vidíš někoho s takovým vlivem?' },
-    { role: 'user', content: 'Tohle bych měla být já, ale jsem neschopná a nemám nic.' },
-  ];
-  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext,
-    techniqueTurn: { card: { id: 'accurate_self_talk_edit' }, session: { phase: 'assessment' } },
-  });
-  assert.match(response, /porovnala s lidmi/i);
-  assert.match(response, /mezera mezi tím, kde jsi a kde chceš být/i);
-  assert.doesNotMatch(response, /nedokončený úkol|úkol přestaneš dělat/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('po přímé žádosti o první krok se influencer sezení neposune zpět do diagnostiky', () => {
-  const messages = [
-    { role: 'user', content: 'Chci být influencerka a mluvit o sebevědomí a životě podle sebe.' },
-    { role: 'assistant', content: 'Co tě na tom přitahuje?' },
-    { role: 'user', content: 'Chci vliv a aby ke mně lidé vzhlíželi.' },
-    { role: 'assistant', content: 'Co by pro tebe znamenal skutečný dopad?' },
-    { role: 'user', content: 'Tohle bych měla být já, ale jsem neschopná a nemám nic.' },
-    { role: 'assistant', content: 'Mezera se ti mění ve verdikt o celé tobě.' },
-    { role: 'user', content: 'Dobře. Co mám tedy konkrétně udělat jako první, abych jen nepřemýšlela?' },
-  ];
-  const conversationContext = buildConversationContext(messages, 'koucovaci_hodina');
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    routingText: buildRoutingText(messages),
-    responseMode: 'koucovaci_hodina',
-    conversationContext,
-    techniqueTurn: { card: { id: 'accurate_self_talk_edit' }, session: { phase: 'assessment' } },
-  });
-  assert.match(response, /do 24 hodin/i);
-  assert.match(response, /natoč a zveřejni/i);
-  assert.match(response, /neměř počtem lajků/i);
-  assert.doesNotMatch(response, /co přesně se stalo|nejdřív ho oddělíme od faktů/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
 test('router drží poslední byznysové téma i při krátké navazující odpovědi o kapacitě', () => {
   const text = buildRoutingText([
     { role: 'user', content: 'Potřebuji validovat aplikaci před spuštěním.' },
@@ -669,40 +529,6 @@ test('zhoršení při meditaci má přednost před automatickým vedením medita
 test('rozhodnutí o produktu a zásadní investici se routuje do mentoringu', () => {
   assert.equal(inferMode('Deset lidí můj nápad nechce. Mám ho zahodit?'), 'mentoring');
   assert.equal(inferMode('Chci investovat skoro všechny úspory do spuštění.'), 'mentoring');
-});
-
-test('validace bez znalosti distribučních možností nedostane vymyšlený plán oslovení', () => {
-  const messages = [
-    { role: 'user', content: 'Potřebuji validovat aplikaci před spuštěním.' },
-    { role: 'assistant', content: 'Kolik na to máš času?' },
-    { role: 'user', content: 'Třeba 4–5 h denně.' },
-  ];
-  const routingText = buildRoutingText(messages);
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: 'Třeba 4–5 h denně.',
-    routingText,
-    responseMode: 'mentoring',
-  });
-  assert.match(response, /distribuční realitu/i);
-  assert.match(response, /vlastní publikum/i);
-  assert.doesNotMatch(response, /50|100|20 placených|7–10 dní/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('známý fakt, že členka nemá publikum a použije reklamu, se znovu nezjišťuje', () => {
-  const messages = [
-    { role: 'user', content: 'Potřebuji validovat aplikaci před spuštěním.' },
-    { role: 'user', content: 'Nemám koho oslovit, nemám vlastní publikum a pojedu placenou reklamu.' },
-    { role: 'user', content: 'Mám na to 4–5 h denně.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: 'Mám na to 4–5 h denně.',
-    routingText: buildRoutingText(messages),
-    responseMode: 'mentoring',
-  });
-  assert.equal(response, null);
 });
 
 test('hlas Elitea zakazuje typické chatbotové návyky', () => {
@@ -769,296 +595,6 @@ test('běžná zmínka úzkosti nebo prodělané deprese nespouští preventivn�
   assert.match(systemPrompt, /začni rovnou kvalitně koučovat to, co členka skutečně řeší/i);
 });
 
-test('S002 R3 po slově strach pokračuje v případu workshopu místo zdravotního screeningu', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání prostě nemám.' },
-    { role: 'assistant', content: 'Co přesně znamená, že dopadl špatně?' },
-    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla. Řekla jsem si, že jsem nudná.' },
-    { role: 'assistant', content: 'Co udělaly zbývající dvě?' },
-    { role: 'user', content: 'Dvě zůstaly do konce a jedna napsala, že jí pomohlo cvičení.' },
-    { role: 'assistant', content: 'Co přesně jí pomohlo?' },
-    { role: 'user', content: 'Udělala moje kroky a získala prvního klienta.' },
-    { role: 'assistant', content: 'To je konkrétní důkaz hodnoty.' },
-    { role: 'user', content: 'Já nevím, mám prostě strach.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /jedna žena podle tvého postupu získala klienta/i);
-  assert.match(response, /znovu někdo odejde, protože jsem nudná/i);
-  assert.doesNotMatch(response, /spán|energ|fungov|poslední konkrétní situaci/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('S002 R3 oprava popsala vrací rozhovor o vrstvu hlouběji bez opakování události', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
-    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedna díky mému postupu získala klienta.' },
-    { role: 'assistant', content: 'Popiš poslední konkrétní situaci, kdy se to stalo.' },
-    { role: 'user', content: 'Vždyť jsem ti to popsala... ten workshop!' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /situaci už jsi popsala/i);
-  assert.match(response, /co by pro tebe znamenalo/i);
-  assert.doesNotMatch(response, /spán|energ|fungov|popiš.*situaci/i);
-});
-
-test('S002 R3 odpověď únosné uzavře měření a začne skutečnou práci se strachem', () => {
-  const messages = [
-    { role: 'user', content: 'Po workshopu mám strach, že jsem nudná.' },
-    { role: 'assistant', content: 'Je strach únosný, nebo ti bere spánek a energii?' },
-    { role: 'user', content: 'Únosné.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /míru strachu zodpovězenou/i);
-  assert.match(response, /Nakolik teď věříš větě/i);
-  assert.doesNotMatch(response, /zhorš|spánek|energii|fungování/i);
-});
-
-test('S002 R3 na otázku o odstranění strachu začne intervenci místo dalšího screeningu', () => {
-  const messages = [
-    { role: 'user', content: 'Po workshopu, kde jedna žena odešla a jiná získala klienta, mám strach, že jsem nudná.' },
-    { role: 'user', content: 'Nevím, ale dá se ten strach odstranit?' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Úplné vynulování strachu/i);
-  assert.match(response, /jedna odešla = jsem nudná/i);
-  assert.match(response, /přesnější věta/i);
-  assert.doesNotMatch(response, /spán|energ|fungov|zdravot/i);
-});
-
-test('S002 R3 respektuje psala jsem že ne a zdravotní otázku už neopakuje', () => {
-  const messages = [
-    { role: 'user', content: 'Po workshopu mám strach, že jsem nudná, i když jedna žena získala klienta.' },
-    { role: 'assistant', content: 'Bere ti strach spánek, energii nebo běžné fungování?' },
-    { role: 'user', content: 'Ne.' },
-    { role: 'assistant', content: 'Zasahuje ti další workshop do spánku nebo fungování?' },
-    { role: 'user', content: 'Psala jsem, že ne.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /už jsi odpověděla/i);
-  assert.match(response, /skutečné zakázce/i);
-  assert.doesNotMatch(response, /zhoršuje|bere ti|zasahuje/i);
-});
-
-test('S002 R4 po nevím nabídne pracovní větu a nepředstírá její dokončení', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
-    { role: 'assistant', content: 'Kolik žen přišlo?' },
-    { role: 'user', content: 'Přihlásily se tři ženy a jedna po půl hodině odešla.' },
-    { role: 'assistant', content: 'Jak by zněla přesnější věta?' },
-    { role: 'user', content: 'To nevím.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Nemusíš tu přesnější větu vymýšlet sama/i);
-  assert.match(response, /Jedna účastnice odešla a nevím proč/i);
-  assert.doesNotMatch(response, /Máme přesnější větu|Chceš tímto krokem pokračovat/i);
-});
-
-test('S002 R4 připomenutí workshopu dostane přímou návratovou odpověď', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně.' },
-    { role: 'assistant', content: 'Popiš poslední situaci.' },
-    { role: 'user', content: 'Řešíme nepovedený workshop.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Držím se workshopu/i);
-  assert.match(response, /další závěr by byl předčasný/i);
-  assert.doesNotMatch(response, /Popiš mi poslední konkrétní situaci/i);
-});
-
-test('S002 R5 žádost o vysvětlení zachová význam poslední otázky a workshop', () => {
-  const messages = [
-    { role: 'user', content: 'První workshop dopadl špatně. Asi na podnikání nemám.' },
-    { role: 'user', content: 'Přišly tři ženy, jedna odešla, dvě zůstaly a jedna díky cvičení získala klienta.' },
-    { role: 'assistant', content: 'Kdybys nikdy nezjistila, proč odešla, chtěla bys skončit i podle toho, co se prokazatelně stalo?' },
-    { role: 'user', content: 'Nerozumím té otázce, můžeš to vysvětlit líp?' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Ptám se jednoduše/i);
-  assert.match(response, /potřebuješ znát důvod odchodu jedné ženy/i);
-  assert.match(response, /dvě zůstaly.*získat klienta/i);
-  assert.doesNotMatch(response, /poslední konkrétní situaci|co bylo těsně předtím/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('S002 R5 hypotetická kritika nevede k rozhodnutí za klientku', () => {
-  const messages = [
-    { role: 'user', content: 'Workshopu se účastnily tři ženy. Jedna odešla, dvě zůstaly a jedna získala klienta.' },
-    { role: 'assistant', content: 'Co by to s tebou udělalo, kdyby neodpověděla nebo napsala, že ji workshop nebavil?' },
-    { role: 'user', content: 'No už bych s tím nechtěla pokračovat.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /negativní odpověď by ti vzala chuť/i);
-  assert.match(response, /důvod odchodu té třetí nikdy nezjistila/i);
-  assert.doesNotMatch(response, /dopad není|zatím jí nepišme/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('S002 R6 po potvrzení sebeverdiktu porovná stejná data bez zdravotního odklonu', () => {
-  const messages = [
-    { role: 'user', content: 'Na workshop přišly tři ženy, dvě zůstaly a jedna díky cvičení získala klienta.' },
-    { role: 'assistant', content: 'Kdyby ti někdo skutečně řekl, že jsi nudná, co by to dokazovalo o tobě?' },
-    { role: 'user', content: 'Že je to pravda.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /názor jedné ženy dostal větší váhu/i);
-  assert.match(response, /jiná díky tvému cvičení získala klienta/i);
-  assert.doesNotMatch(response, /energ|fungov|spán|jíd/i);
-});
-
-test('S002 R6 metaforu pádu světa vyjasní jednou otázkou bez vícerozměrného screeningu', () => {
-  const messages = [
-    { role: 'user', content: 'Workshop byl pro mě důležitý.' },
-    { role: 'assistant', content: 'Co by kritika znamenala?' },
-    { role: 'user', content: 'Zhroutí se mi svět.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /vzdala svůj podnikatelský sen/i);
-  assert.match(response, /zvládat běžný den/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-});
-
-test('S002 R6 pád snu oddělí celý sen od jediného formátu', () => {
-  const messages = [
-    { role: 'user', content: 'Po workshopu mám strach.' },
-    { role: 'assistant', content: 'Myslíš konec podnikání, nebo běžného fungování?' },
-    { role: 'user', content: 'Prostě by mi spadl sen.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Jeden formát však není celý sen/i);
-  assert.match(response, /která část toho snu musí zůstat zachovaná/i);
-  assert.doesNotMatch(response, /psychick|energ|fungov|spán|jíd/i);
-});
-
-test('S002 R6 přetrvávající stažení míří přímo k obávanému sebeverdiktu', () => {
-  const messages = [
-    { role: 'user', content: 'Řešíme workshop a zpětnou vazbu.' },
-    { role: 'assistant', content: 'Bylo by snazší požádat účastnice o zpětnou vazbu?' },
-    { role: 'user', content: 'Stále bych se spíše stáhla.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Nechci ti proto hned radit, abys účastnicím psala/i);
-  assert.match(response, /jejich odpověď potvrdila o tobě/i);
-});
-
-test('S002 pokračování po nevím naváže návrhem kontaktu místo opakování uzavřené věty', () => {
-  const messages = [
-    { role: 'user', content: 'Na workshop přišly tři ženy, dvě zůstaly a jedna získala klienta.' },
-    { role: 'assistant', content: 'Jaký další kontakt by byl vůči účastnicím poctivý a nedělal z tebe někoho, kdo musí zachránit celý výsledek?' },
-    { role: 'user', content: 'Nevím.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /Můžu nabídnout pracovní verzi/i);
-  assert.match(response, /Děkuju, že jste na workshopu zůstaly/i);
-  assert.doesNotMatch(response, /Jedna účastnice odešla a nevím proč/i);
-});
-
-test('S002 oprava už jsme si říkali neotevře uzavřenou techniku', () => {
-  const messages = [
-    { role: 'user', content: 'Řešíme workshop a zprávu účastnicím.' },
-    { role: 'assistant', content: 'Jedna účastnice odešla a dvě zůstaly. Co na té větě nesedí?' },
-    { role: 'user', content: 'To už jsme si říkaly, že to zní dobře.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_hodina',
-    conversationContext: buildConversationContext(messages, 'koucovaci_hodina'),
-  });
-  assert.match(response, /tenhle krok už máme/i);
-  assert.match(response, /další kontakt se dvěma ženami/i);
-  assert.doesNotMatch(response, /Co na té větě nesedí/i);
-});
-
-test('S003 zachová přesnou větu klientky a neptá se znovu na známý spouštěč', () => {
-  const messages = [
-    { role: 'user', content: 'Když vidím jednu konkurentku, připadám si vedle ní úplně bezvýznamná.' },
-    { role: 'assistant', content: 'Co přesně vedle ní porovnáváš?' },
-    { role: 'user', content: 'Ona má osmdesát tisíc sledujících a prodeje, já 430 a zatím nic.' },
-    { role: 'assistant', content: 'Jak přesně zní věta, kterou si o sobě řekneš?' },
-    { role: 'user', content: 'Jsem k ničemu.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_podpora',
-    conversationContext: buildConversationContext(messages, 'koucovaci_podpora'),
-  });
-  assert.match(response, /Věta „Jsem k ničemu“/);
-  assert.doesNotMatch(response, /Věta „jsem neschopná“/i);
-  assert.match(response, /Konkrétní spouštěč už známe/i);
-  assert.match(response, /Co uděláš bezprostředně potom/i);
-});
-
 test('S003 automatický router drží koučku u srovnávání, dokud klientka nežádá odborný výstup', () => {
   const conversationText = [
     'Když vidím konkurentku, připadám si bezvýznamná.',
@@ -1082,22 +618,4 @@ test('S003 automatický router drží koučku u srovnávání, dokud klientka ne
     ),
     'mentoring',
   );
-});
-
-test('S003 nejistota o Beauty vrátí sezení k porovnávacímu cyklu a proveditelnému experimentu', () => {
-  const messages = [
-    { role: 'user', content: 'Konkurentku kontroluju několikrát denně a čekám na její neúspěch.' },
-    { role: 'assistant', content: 'Máš reálný přístup k eventům, beauty značkám nebo produktům?' },
-    { role: 'user', content: 'Nemám bohužel. A pořád si nejsem jistá, zda je Beauty můj směr.' },
-  ];
-  const response = fixedGroundingResponse({
-    messages,
-    latestText: messages.at(-1).content,
-    responseMode: 'koucovaci_podpora',
-    conversationContext: buildConversationContext(messages, 'koucovaci_podpora'),
-  });
-  assert.match(response, /Beauty není rozhodnutý směr/i);
-  assert.match(response, /původnímu problému/i);
-  assert.match(response, /jedno plánované desetiminutové okno/i);
-  assert.doesNotMatch(response, /Natoč si dnes krátké video/i);
 });

@@ -80,6 +80,24 @@ test('pokus se uloží serverově a klient nediktuje skóre', async () => {
   assert.match(queries[2].text, /INSERT INTO academy_quiz_attempts/);
 });
 
+test('nesplněný pokus nikdy nevrátí klíč ani správnost jednotlivých odpovědí', async () => {
+  const { course, item } = quizItems[0];
+  const wrong = Object.fromEntries(item.quiz.questions.map(question => [
+    question.id,
+    question.options.find(option => option.id !== item._quizAnswerKey[question.id].correctOptionId).id,
+  ]));
+  const responses = [[], [{ count: 0 }], []];
+  const sql = () => Promise.resolve(responses.shift() || []);
+  const result = await submitCourseQuizAttempt(
+    { id: '11111111-1111-4111-8111-111111111111' }, course, item, wrong,
+    { DATABASE_URL: 'postgres://test' }, { sqlFactory: () => sql },
+  );
+  assert.equal(result.passed, false);
+  assert.equal(result.attemptNumber, 1);
+  assert.equal('results' in result, false);
+  assert.doesNotMatch(JSON.stringify(result), /correctOptionId|explanation|selectedOptionId/);
+});
+
 function assertResults(results) {
   assert.ok(results.every(result => result.correct === false));
   return results;

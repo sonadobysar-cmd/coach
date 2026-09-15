@@ -25,7 +25,27 @@ export async function submitCourseQuizAttempt(member, course, item, answers, env
       ${result.correctCount}, ${result.questionCount}, ${result.scorePercent}, ${result.passPercent}, ${result.passed},
       ${JSON.stringify(selectedAnswers)}::jsonb, now()
     )`;
-  return { ...result, attemptNumber };
+  return publicAttemptResult(result, attemptNumber);
+}
+
+/**
+ * A failed formative attempt must not double as an answer-key endpoint.
+ * The server stores the full grading result, but the client only receives the
+ * aggregate until the member has genuinely passed the test. Once passed, the
+ * explanations can be used as learning feedback without making the next
+ * certificate attempt trivial.
+ */
+export function publicAttemptResult(result, attemptNumber) {
+  const summary = {
+    scorePercent: result.scorePercent,
+    correctCount: result.correctCount,
+    questionCount: result.questionCount,
+    passPercent: result.passPercent,
+    passed: result.passed,
+    attemptNumber,
+  };
+  if (!result.passed) return summary;
+  return { ...summary, results: result.results };
 }
 
 export async function passedCourseQuizItemIds(sql, userId, courseId) {

@@ -1,3 +1,8 @@
+import {
+  isTechniqueEffectCheck,
+  startsTechniqueIntervention,
+} from './technique-session.js';
+
 const ACKNOWLEDGEMENT = /^(?:ano|jo|jasně|jasne|dobře|dobre|ok|souhlasím|souhlasim|můžeme|muzeme|zkusme|nevím|nevim)[.!\s]*$/iu;
 const STOPWORDS = new Set([
   'aby', 'ale', 'ani', 'ano', 'asi', 'bez', 'bude', 'byla', 'bylo', 'bych', 'bys', 'co', 'coz',
@@ -120,7 +125,9 @@ export function assessCoachingResponse(text, {
   const inventedRelationshipRole = relationshipRoles.find(({ pattern }) => (
     pattern.test(assistantAssertions) && !pattern.test(userEvidenceText)
   ));
-  const proceduralPhase = ['consent', 'evaluation', 'stopped'].includes(techniqueTurn?.session?.phase);
+  const proceduralPhase = techniqueTurn?.suspended !== true
+    && ['consent', 'evaluation', 'stopped'].includes(techniqueTurn?.session?.phase);
+  const techniquePhase = techniqueTurn?.suspended === true ? null : techniqueTurn?.session?.phase;
   const normalizedLastQuestion = normalize(evidence.lastAssistantQuestion || '').replace(/[^a-z0-9]+/g, ' ').trim();
   const currentQuestion = String(output).match(/[^?\n]{3,}\?/gu)?.at(-1) || '';
   const normalizedCurrentQuestion = normalize(currentQuestion).replace(/[^a-z0-9]+/g, ' ').trim();
@@ -154,6 +161,16 @@ export function assessCoachingResponse(text, {
   const previousAssistantAskedConsent = /\bchces\b[^?]{0,120}\b(?:zkusit|vyzkouset|predstavit|projit|udelat)\b|\b(?:zkusit|vyzkouset|predstavit)\b[^?]{0,120}\bse\s+mnou\b/u.test(lastAssistantNormalized);
 
   if (!output) issues.push({ code: 'empty', severity: 'critical' });
+  if (techniquePhase === 'evaluation'
+    && (!isTechniqueEffectCheck(output) || startsTechniqueIntervention(output))) {
+    issues.push({ code: 'technique_evaluation_skipped', severity: 'high' });
+  }
+  if (techniquePhase === 'stopped') {
+    const acknowledgesStop = /\b(?:zastav\w*|ukonc\w*|vynech\w*|koncime|nebudu\s+[^.!?]{0,70}\bpokracovat)\b/u.test(normalized);
+    if (!acknowledgesStop || startsTechniqueIntervention(output)) {
+      issues.push({ code: 'technique_stop_ignored', severity: 'critical' });
+    }
+  }
   if (!closingRequested && requireQuestion && questionCount !== 1) {
     issues.push({ code: 'question_count', severity: 'high', detail: questionCount });
   }
@@ -327,6 +344,8 @@ export function assessCoachingResponse(text, {
     'invented_step_completion',
     'ignored_technique_refusal',
     'failed_question_rephrase',
+    'technique_evaluation_skipped',
+    'technique_stop_ignored',
   ]);
   const shouldRepair = issues.some(issue => repairCodes.has(issue.code))
     || issues.filter(issue => issue.severity === 'high').length >= 2;
@@ -405,6 +424,12 @@ export function buildQualityRepairInstruction(assessment, conversationContext = 
       : '',
     assessment?.issues?.some(issue => issue.code === 'redundant_consent_request')
       ? 'Členka už souhlasila s konkrétně popsaným krokem. Nežádej stejný souhlas znovu; rovnou proveď první malou část dohodnutého postupu.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'technique_evaluation_skipped')
+      ? 'Právě probíhá fáze vyhodnocení. Nepřidávej další cvičení, radu ani krok; polož jedinou přirozenou otázku na skutečný účinek právě provedeného kroku — co je jiné, stejné nebo horší.'
+      : '',
+    assessment?.issues?.some(issue => issue.code === 'technique_stop_ignored')
+      ? 'Technika nebo rozhovor byly zastaveny. Výslovně to respektuj, techniku neobhajuj a nepřidávej žádnou další instrukci, dech, imaginaci ani jiný postup.'
       : '',
     'Nevypisuj tuto kontrolu, diagnózu, rubriku, nadpis ani seznam.',
   ].join('\n');

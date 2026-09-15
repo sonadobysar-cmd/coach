@@ -5,7 +5,6 @@ import {
   createTechniqueTurn,
   deriveTechniqueSteps,
   enforceTechniqueResponse,
-  fixedTechniqueResponse,
   formatTechniqueExecution,
   isConversationRepairRequest,
   sanitizeTechniqueSession,
@@ -111,19 +110,48 @@ test('konec workshopů se nezamění za ukončení rozhovoru', () => {
     status: 'active', turns: 2, requiresConsent: false,
   };
   assert.equal(classifyStopIntent('Už nechci pokračovat, bojím se.'), 'external_or_ambiguous');
-  assert.equal(classifyStopIntent('Nechci pokračovat s workshopem.'), 'external_or_ambiguous');
+  assert.equal(classifyStopIntent('Nechci pokračovat s workshopem.'), 'external_stop');
   assert.equal(classifyStopIntent('Přestaň, chci ukončit sezení.'), 'conversation_stop');
+  assert.equal(classifyStopIntent('Nechci tu techniku.'), 'technique_stop');
+  assert.equal(classifyStopIntent('Zastav tuto techniku.'), 'technique_stop');
+  assert.equal(classifyStopIntent('Je mi po tom hůř.'), 'none');
 
   const turn = createTechniqueTurn({
     atlas: [practicalCard], candidates: [practicalCard], previous: active,
     mode: 'koucovaci_hodina', latestText: 'Nechci pokračovat s workshopem.',
     conversationContext: { userTurns: 2 },
   });
-  assert.equal(turn.card, null);
-  assert.equal(turn.session, null);
+  assert.equal(turn.card.id, practicalCard.id);
+  assert.equal(turn.session.phase, active.phase);
+  assert.equal(turn.session.stepIndex, active.stepIndex);
+  assert.equal(turn.session.turns, active.turns);
+  assert.equal(turn.suspended, true);
+  assert.equal(turn.suspensionReason, 'external_stop');
+  assert.match(formatTechniqueExecution(turn), /nezaměňuj jej za konec rozhovoru/i);
 });
 
-test('oprava klientky okamžitě uvolní techniku místo dalšího vynuceného kroku', () => {
+test('přestaň s konkrétním chováním není automaticky konec rozhovoru', () => {
+  assert.equal(classifyStopIntent('Přestaň mi radit a jen mi vysvětli otázku.'), 'external_stop');
+  assert.equal(classifyStopIntent('Přestaň, chci pokračovat jinak.'), 'external_or_ambiguous');
+  assert.equal(classifyStopIntent('Přestaň.'), 'conversation_stop');
+  assert.equal(classifyStopIntent('Chci ukončit dnešní rozhovor.'), 'conversation_stop');
+});
+
+test('odmítnutí techniky bez uloženého stavu nesmí spustit novou techniku', () => {
+  const turn = createTechniqueTurn({
+    atlas: [practicalCard],
+    candidates: [practicalCard],
+    mode: 'koucovaci_hodina',
+    latestText: 'Nechci tu techniku.',
+    conversationContext: { userTurns: 1 },
+  });
+  assert.equal(turn.card, null);
+  assert.equal(turn.session, null);
+  assert.equal(turn.suspended, true);
+  assert.equal(turn.suspensionReason, 'technique_stop');
+});
+
+test('oprava klientky techniku pozastaví bez skrytého posunu nebo ztráty stavu', () => {
   const evaluation = {
     techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
     status: 'active', turns: 3, requiresConsent: false,
@@ -141,8 +169,12 @@ test('oprava klientky okamžitě uvolní techniku místo dalšího vynuceného k
       atlas: [practicalCard], candidates: [practicalCard], previous: evaluation,
       mode: 'koucovaci_hodina', latestText, conversationContext: { userTurns: 4 },
     });
-    assert.equal(turn.card, null);
-    assert.equal(turn.session, null);
+    assert.equal(turn.card.id, practicalCard.id);
+    assert.equal(turn.session.phase, evaluation.phase);
+    assert.equal(turn.session.stepIndex, evaluation.stepIndex);
+    assert.equal(turn.session.turns, evaluation.turns);
+    assert.equal(turn.suspended, true);
+    assert.equal(turn.suspensionReason, 'conversation_repair');
   }
 });
 
@@ -163,6 +195,23 @@ test('účinek se neměří bez důkazu že členka krok skutečně provedla', (
   });
   assert.equal(noAction.session.phase, 'application');
   assert.equal(action.session.phase, 'evaluation');
+});
+
+test('odpověď mimo otázku po účinku zachová evaluaci, ale v aktuálním tahu ji neopakuje', () => {
+  const evaluation = {
+    techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
+    status: 'active', turns: 3, requiresConsent: false,
+  };
+  const turn = createTechniqueTurn({
+    atlas: [practicalCard], candidates: [], previous: evaluation, mode: 'koucovaci_hodina',
+    latestText: 'Tomu nerozumím, mluvím o rozhodnutí.', conversationContext: { userTurns: 4 },
+  });
+
+  assert.equal(turn.session.phase, 'evaluation');
+  assert.equal(turn.session.stepIndex, 0);
+  assert.equal(turn.session.turns, 3);
+  assert.equal(turn.suspended, true);
+  assert.match(formatTechniqueExecution(turn), /techniku neprováděj, neposouvej, nevyhodnocuj/i);
 });
 
 test('sloveso o jiné osobě ani citace asistentky nepředstírá provedený krok klientky', () => {
@@ -218,7 +267,6 @@ test('souhlas s již popsaným krokem nepřidá druhou žádost o stejný souhla
   });
   assert.equal(accepted.session.phase, 'application');
   assert.equal(accepted.session.consentGranted, true);
-  assert.doesNotMatch(fixedTechniqueResponse(accepted) || '', /Chceš ho teď vyzkoušet/i);
 });
 
 test('po provedení musí následovat kontrola účinku a zhoršení techniku zastaví', () => {
@@ -262,7 +310,6 @@ test('přirozené české vyjádření úlevy je účinek, ne důvod opakovat ho
     latestText: 'Je mi o trochu lehčeji.', conversationContext: { userTurns: 5 },
   });
   assert.equal(next.session.phase, 'integration');
-  assert.notEqual(fixedTechniqueResponse(next), 'Než přidáme cokoli dalšího, potřebuji zůstat u účinku právě provedeného kroku. Co se teď změnilo — je to stejné, o trochu lepší, nebo horší?');
 });
 
 test('sběr podkladů uvnitř techniky nepředstírá provedení ani předčasně neměří účinek', () => {
@@ -355,7 +402,7 @@ test('běžné slovo viditelný nespouští souhlas určený pro tělesné nebo 
   assert.equal(turn.session.requiresConsent, false);
 });
 
-test('upozornění na zaseknutí nejprve uvolní techniku a obnoví kontakt', () => {
+test('upozornění na zaseknutí pozastaví techniku a obnoví kontakt bez ztráty stavu', () => {
   const evaluation = {
     techniqueId: practicalCard.id, mode: 'koucovaci_hodina', phase: 'evaluation', stepIndex: 0,
     status: 'active', turns: 5, requiresConsent: false,
@@ -364,8 +411,12 @@ test('upozornění na zaseknutí nejprve uvolní techniku a obnoví kontakt', ()
     atlas: [practicalCard], candidates: [], previous: evaluation, mode: 'koucovaci_hodina',
     latestText: 'Haló, slyšíš mě?', conversationContext: { userTurns: 6 },
   });
-  assert.equal(repair.card, null);
-  assert.equal(repair.session, null);
+  assert.equal(repair.card.id, practicalCard.id);
+  assert.equal(repair.session.phase, evaluation.phase);
+  assert.equal(repair.session.stepIndex, evaluation.stepIndex);
+  assert.equal(repair.session.turns, evaluation.turns);
+  assert.equal(repair.suspended, true);
+  assert.match(formatTechniqueExecution(repair), /stav techniky zůstává beze změny/i);
 });
 
 test('nulový účinek posledního kroku vede k intuitivní adaptaci, nikoli k falešnému úspěchu', () => {
@@ -386,7 +437,7 @@ test('nulový účinek posledního kroku vede k intuitivní adaptaci, nikoli k f
   assert.match(protocol, /přejít k jiné vhodné metodě/i);
 });
 
-test('minulý čas „nic to neudělalo“ je nulový účinek a self-talk plynule přejde k mechanismu', () => {
+test('minulý čas „nic to neudělalo“ vede k adaptaci bez zadrátovaného tématu', () => {
   const selfTalkCard = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
@@ -403,16 +454,19 @@ test('minulý čas „nic to neudělalo“ je nulový účinek a self-talk plynu
     latestText: 'Zkusila jsem to, ale nic to neudělalo.',
     conversationContext: { userTurns: 7 },
   });
-  const response = enforceTechniqueResponse('', turn, { latestText: 'Zkusila jsem to, ale nic to neudělalo.' });
+  const protocol = formatTechniqueExecution(turn);
+  const generated = 'Samotná změna věty tentokrát nezabrala. Pojďme proto zjistit, co se děje těsně před odkladem.';
+  const response = enforceTechniqueResponse(generated, turn, { latestText: 'Zkusila jsem to, ale nic to neudělalo.' });
 
   assert.equal(turn.session.phase, 'integration');
   assert.equal(turn.session.transitionReason, 'no_effect');
-  assert.match(response, /nemusíme opakovat|nemusime opakovat/i);
-  assert.match(response, /mechanismu/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
+  assert.match(protocol, /předchozí krok nepřinesl účinek/i);
+  assert.match(protocol, /neuzavírej automaticky celý proces/i);
+  assert.equal(response, generated);
+  assert.doesNotMatch(response, /web|workshop|účastnic/i);
 });
 
-test('souhlas a kontrola účinku mají serverově vynucenou odpověď', () => {
+test('citlivý souhlas a vyhodnocení účinku mají pevné fázové pojistky', () => {
   const consentTurn = {
     card: sensitiveCard,
     steps: deriveTechniqueSteps(sensitiveCard),
@@ -422,19 +476,70 @@ test('souhlas a kontrola účinku mají serverově vynucenou odpověď', () => {
     },
   };
   const consent = enforceTechniqueResponse('Zavři oči a třikrát se nadechni.', consentTurn);
-  assert.match(consent, /můžeš ho kdykoli odmítnout, změnit nebo zastavit/i);
+  assert.match(consent, /Nemusíš do něj jít/i);
+  assert.match(consent, /kdykoli zastavit nebo zvolit jiný způsob/i);
   assert.doesNotMatch(consent, /zavři oči|nadechni/i);
 
   const evaluation = enforceTechniqueResponse('Zkusíme ještě další cvik.', {
     ...consentTurn,
     session: { ...consentTurn.session, phase: 'evaluation' },
   });
-  assert.match(evaluation, /stejné, o trochu lepší, nebo horší/i);
-  assert.doesNotMatch(evaluation, /další cvik/i);
-  assert.equal(fixedTechniqueResponse(consentTurn), consent);
+  assert.match(evaluation, /co je teď.*jiné, stejné nebo horší/i);
+  assert.doesNotMatch(evaluation, /další cvik|zavři|nadechni/i);
+
+  const validEvaluation = 'Čeho sis po tom kroku všimla — je něco jiné, stejné, nebo horší?';
+  assert.equal(enforceTechniqueResponse(validEvaluation, {
+    ...consentTurn,
+    session: { ...consentTurn.session, phase: 'evaluation' },
+  }), validEvaluation);
 });
 
-test('zákaznický výzkum po zjištění kanálu nezačne generickým plánem, ale vymezí cílovku a problém', () => {
+test('po zastavení techniky neprojde žádná další intervence ani skryté přepnutí metody', () => {
+  const turn = {
+    card: sensitiveCard,
+    steps: deriveTechniqueSteps(sensitiveCard),
+    session: {
+      techniqueId: sensitiveCard.id,
+      mode: 'somaticka_konzultace',
+      phase: 'stopped',
+      stepIndex: 0,
+      status: 'stopped',
+      turns: 3,
+      stopReason: 'technique_stop',
+    },
+  };
+  for (const generated of [
+    'Zkus si tedy představit jiný výsledek.',
+    'Pojďme pokračovat jinou technikou.',
+    'Teď se soustřeď na dech.',
+    'Dobře.',
+  ]) {
+    const response = enforceTechniqueResponse(generated, turn);
+    assert.match(response, /postup „Tělesná orientace Nii“ tady zastavíme/i);
+    assert.doesNotMatch(response, /představit jiný|jinou technikou|soustřeď na dech/i);
+  }
+});
+
+test('výslovný konec rozhovoru už nenabízí další pokračování', () => {
+  const turn = {
+    card: practicalCard,
+    steps: deriveTechniqueSteps(practicalCard),
+    session: {
+      techniqueId: practicalCard.id,
+      mode: 'koucovaci_hodina',
+      phase: 'stopped',
+      stepIndex: 0,
+      status: 'stopped',
+      turns: 4,
+      stopReason: 'user_stop',
+    },
+  };
+  const response = enforceTechniqueResponse('Pojďme pokračovat jinou technikou.', turn);
+  assert.match(response, /Tady končíme/i);
+  assert.doesNotMatch(response, /můžeme|pokračovat jinou technikou/i);
+});
+
+test('zákaznický výzkum řídí atlasový krok a nevkládá do odpovědi Eliteu ani ženy', () => {
   const card = {
     ...practicalCard,
     id: 'customer_discovery',
@@ -445,7 +550,7 @@ test('zákaznický výzkum po zjištění kanálu nezačne generickým plánem, 
     ],
     step_kinds: ['elicitation', 'elicitation'],
   };
-  const response = enforceTechniqueResponse('Připrav web a oslov sto lidí.', {
+  const turn = {
     card,
     steps: card.steps,
     session: {
@@ -457,11 +562,15 @@ test('zákaznický výzkum po zjištění kanálu nezačne generickým plánem, 
       turns: 2,
       requiresConsent: false,
     },
-  });
-  assert.match(response, /koho a jaký skutečný problém/i);
-  assert.match(response, /Kterou konkrétní skupinu žen/i);
-  assert.doesNotMatch(response, /sto lidí|připrav web/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
+  };
+  const generated = 'Nejdřív potřebuji přesně vymezit zákazníka a problém, který má výzkum ověřit. Koho se tvoje nabídka týká?';
+  const response = enforceTechniqueResponse(generated, turn);
+  const protocol = formatTechniqueExecution(turn);
+
+  assert.match(protocol, /Vyjasni přesnou skupinu žen a konkrétní problémovou hypotézu/i);
+  assert.match(protocol, /Proveď pouze tento aktuální krok/i);
+  assert.equal(response, generated);
+  assert.doesNotMatch(response, /Elitea/i);
 });
 
 test('hluboké sezení nezůstává v povinné čekárně a citlivý krok si ponechá souhlas', () => {
@@ -514,7 +623,7 @@ test('hluboké sezení nezůstává v povinné čekárně a citlivý krok si pon
   assert.equal(consent.session.stepIndex, 3);
 });
 
-test('editace self-talku nechá členku vytvořit vlastní větu a souhlas váže na konkrétní další krok', () => {
+test('editace self-talku používá atlasový krok a souhlas váže na konkrétní další krok', () => {
   const card = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
@@ -529,20 +638,21 @@ test('editace self-talku nechá členku vytvořit vlastní větu a souhlas váž
       status: 'active', turns: 4, requiresConsent: true, consentGranted: false,
     },
   };
-  const response = enforceTechniqueResponse('Skvělé. Vyber si jednu ze dvou vět.', applicationTurn, {
+  const generated = 'Tohle je rozdíl mezi faktem a hodnocením celé sebe. Jak by zněla tvoje vlastní přesnější věta?';
+  const response = enforceTechniqueResponse(generated, applicationTurn, {
     latestText: 'Neschopná je hodnocení, ne fakt.',
   });
+  const protocol = formatTechniqueExecution(applicationTurn);
   const consent = enforceTechniqueResponse('', {
     ...applicationTurn,
     session: { ...applicationTurn.session, phase: 'consent', stepIndex: 3 },
   });
 
-  assert.match(response, /nejde o pozitivní slogan/i);
-  assert.match(response, /Jak bys ji řekla/i);
-  assert.doesNotMatch(response, /vyber|dvou vět|Skvělé/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
-  assert.match(consent, /nejbližší konkrétní situací a jedním činem/i);
-  assert.match(consent, /Chceš tímto krokem pokračovat\?/i);
+  assert.equal(response, generated);
+  assert.match(protocol, /Proveď pouze tento aktuální krok: Vytvoř přesnější větu/i);
+  assert.match(protocol, /Nepřeskakuj k dalšímu kroku/i);
+  assert.match(consent, /propoj ji s vizualizací/i);
+  assert.match(consent, /Chceš ho vyzkoušet\?/i);
 });
 
 test('R4 odpověď nevím není vydávána za vytvořenou přesnější větu', () => {
@@ -567,7 +677,6 @@ test('R4 odpověď nevím není vydávána za vytvořenou přesnější větu', 
   });
   assert.equal(turn.session.phase, 'application');
   assert.equal(turn.session.stepIndex, 2);
-  assert.doesNotMatch(fixedTechniqueResponse(turn) || '', /Máme přesnější větu/i);
 });
 
 test('R4 odmítnutí souhlasu zastaví techniku a neopakuje nabídku', () => {
@@ -593,12 +702,40 @@ test('R4 odmítnutí souhlasu zastaví techniku a neopakuje nabídku', () => {
     messages: [{ role: 'user', content: 'Řešíme nepovedený workshop.' }],
   });
   assert.equal(turn.session.phase, 'stopped');
-  assert.match(response, /tenhle postup dělat nebudeme/i);
-  assert.match(response, /vrátím se k workshopu/i);
+  assert.match(response, /postup „Přesná metoda Nii“ tady zastavíme/i);
+  assert.doesNotMatch(response, /tři ženy|jedna odešla|dvě zůstaly/i);
   assert.doesNotMatch(response, /Chceš tímto krokem pokračovat/i);
 });
 
-test('R4 odborně ukotvená odpověď má přednost před pevnou fází techniky', () => {
+test('přirozeně formulované odmítnutí souhlasu se nepovažuje za další krok techniky', () => {
+  const card = {
+    ...practicalCard,
+    id: 'natural_refusal_test',
+    family: 'mindfulness',
+    steps: ['Zachyť situaci.', 'Krátce ji pozoruj.'],
+  };
+  for (const latestText of [
+    'Ne, tohle opravdu dělat nechci.',
+    'Tímhle směrem pokračovat nechci.',
+    'Raději to vynechme.',
+  ]) {
+    const turn = createTechniqueTurn({
+      atlas: [card],
+      candidates: [card],
+      previous: {
+        techniqueId: card.id, mode: 'koucovaci_hodina', phase: 'consent', stepIndex: 1,
+        status: 'active', turns: 2, requiresConsent: true, consentGranted: false,
+      },
+      mode: 'koucovaci_hodina',
+      latestText,
+      conversationContext: { userTurns: 3 },
+    });
+    assert.equal(turn.session.phase, 'stopped', latestText);
+    assert.equal(turn.session.stopReason, 'consent_declined', latestText);
+  }
+});
+
+test('R4 pozastavený repair tah zachová ukotvenou odpověď i stav techniky', () => {
   const card = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
@@ -606,59 +743,71 @@ test('R4 odborně ukotvená odpověď má přednost před pevnou fází techniky
     step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
   };
   const grounded = 'Zatím víme, že přišly tři ženy a jedna odešla; důvod neznáme.';
-  const response = enforceTechniqueResponse(grounded, {
+  const turn = {
     card,
     steps: card.steps,
     session: {
       techniqueId: card.id, mode: 'koucovaci_hodina', phase: 'application', stepIndex: 2,
       status: 'active', turns: 3, requiresConsent: true, consentGranted: false,
     },
-  }, { latestText: 'Přišly tři ženy.', authoritativeGrounding: true });
+    suspended: true,
+    suspensionReason: 'conversation_repair',
+  };
+  const response = enforceTechniqueResponse(grounded, turn, { latestText: 'Přišly tři ženy.' });
   assert.equal(response, grounded);
   assert.doesNotMatch(response, /přesnější větu/i);
 });
 
-test('provedení self-talku po souhlasu zůstane jediným krokem bez nabídky cizích odpovědí', () => {
+test('provedení self-talku po souhlasu je řízeno jediným atlasovým krokem bez scénářové odpovědi', () => {
   const card = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
     steps: ['Zachyť větu.', 'Odděl fakt.', 'Vytvoř přesnější větu.', 'Propoj ji s vizualizací.'],
     step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
   };
-  const response = enforceTechniqueResponse('Můžeš napsat nadpis, upravit fotku nebo otevřít podstránku.', {
+  const turn = {
     card,
     steps: card.steps,
     session: {
       techniqueId: card.id, mode: 'koucovaci_podpora', phase: 'application', stepIndex: 3,
       status: 'active', turns: 6, requiresConsent: true, consentGranted: true,
     },
-  });
-  assert.match(response, /svou přesnější větu vlastními slovy/i);
-  assert.match(response, /jediný malý čin/i);
+  };
+  const generated = 'Řekni si teď svou větu vlastními slovy a propoj ji s jednou konkrétní situací, kterou jsi popsala.';
+  const response = enforceTechniqueResponse(generated, turn);
+  const protocol = formatTechniqueExecution(turn);
+
+  assert.equal(response, generated);
+  assert.match(protocol, /Proveď pouze tento aktuální krok: Propoj ji s vizualizací/i);
+  assert.match(protocol, /Nepřeskakuj k dalšímu kroku/i);
   assert.doesNotMatch(response, /nadpis|fotku|podstránku/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
 });
 
-test('integrace self-talku neudělá z jediného účinku hotové pravidlo ani nevyžádaný domácí úkol', () => {
+test('integrace self-talku je kontextově generovaná a protokol zakazuje vydávat dílčí účinek za hotový výsledek', () => {
   const card = {
     ...practicalCard,
     id: 'accurate_self_talk_edit',
     steps: ['Zachyť větu.', 'Odděl fakt.', 'Vytvoř přesnější větu.', 'Propoj ji s vizualizací.'],
     step_kinds: ['elicitation', 'elicitation', 'elicitation', 'intervention'],
   };
-  const response = enforceTechniqueResponse('Máme fungující pravidlo na další dva dny.', {
+  const turn = {
     card,
     steps: card.steps,
     session: {
       techniqueId: card.id, mode: 'koucovaci_podpora', phase: 'integration', stepIndex: 3,
       status: 'active', turns: 7, requiresConsent: true, consentGranted: true,
     },
-  }, { latestText: 'Udělala jsem první krok a je mi o trochu lehčeji.' });
-  assert.match(response, /pozorovatelný rozdíl/i);
-  assert.match(response, /neznamená to, že je celý vzorec vyřešený/i);
-  assert.match(response, /Co bylo v okamžiku tohoto rozdílu rozhodující\?/i);
-  assert.doesNotMatch(response, /pravidlo|dva dny|domácí úkol/i);
-  assert.equal((response.match(/\?/g) || []).length, 1);
+  };
+  const generated = 'Popsala jsi malou úlevu po prvním kroku. Co z něj bylo pro tuto konkrétní situaci užitečné?';
+  const response = enforceTechniqueResponse(generated, turn, {
+    latestText: 'Udělala jsem první krok a je mi o trochu lehčeji.',
+  });
+  const protocol = formatTechniqueExecution(turn);
+
+  assert.equal(response, generated);
+  assert.match(protocol, /Shrň pouze změnu, kterou členka sama popsala/i);
+  assert.match(protocol, /Bez souhlasu nevytvářej domácí úkol/i);
+  assert.doesNotMatch(response, /fungující pravidlo|dva dny|web|workshop/i);
 });
 
 test('behaviorální režim může začít vratným pracovním krokem bez povinného tříkolového čekání', () => {

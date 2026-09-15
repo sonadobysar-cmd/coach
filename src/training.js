@@ -385,7 +385,7 @@ export function buildDebriefTranscriptMessages(messages = []) {
   }];
 }
 
-export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
+export function createCourseTrainer({ knowledgeRecords = [], generate = generateText } = {}) {
   return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false, finalExam = false }) {
     const safeActivity = sanitizeTrainingActivity(activity);
     const safeDifficulty = sanitizeTrainingDifficulty(difficulty);
@@ -460,7 +460,7 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
     let result;
     let totalUsage = null;
     try {
-      result = await generateText({
+      result = await generate({
         model: modelId,
         instructions,
         messages: modelMessages,
@@ -501,7 +501,7 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
     if (quality.shouldRepair) {
       try {
         const repairModelId = modelId;
-        const repairResult = await generateText({
+        const repairResult = await generate({
           model: repairModelId,
           instructions: `${instructions}\n\n${buildTrainingRepairInstruction({
             phase: safePhase,
@@ -575,11 +575,19 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
 
     if (!quality.pass && safePhase === 'debrief') {
       finalText = buildDemoDebrief(safeMessages, scenario);
-      quality = assessDebriefResponse(finalText, { messages: safeMessages, rubric: scenario.rubric });
+      quality = {
+        pass: false,
+        issues: ['unverified_deterministic_debrief'],
+        shouldRepair: false,
+      };
       finalModelId = 'deterministic-training-fallback';
     } else if (!quality.pass && safeActivity === 'simulation') {
-      finalText = safeRoleplayFallback();
-      quality = assessRoleplayResponse(finalText);
+      finalText = 'Odpověď modelové protistrany neprošla kontrolou role. Tento tah se nehodnotí ani nezapočítá; zkus ho prosím znovu.';
+      quality = {
+        pass: false,
+        issues: ['unverified_roleplay_fallback'],
+        shouldRepair: false,
+      };
       finalModelId = 'deterministic-training-fallback';
     } else if (!quality.pass && safeActivity === 'study') {
       finalText = demoTrainingAnswer({
@@ -590,7 +598,11 @@ export function createCourseTrainer({ knowledgeRecords = [] } = {}) {
         phase: safePhase,
         scenario,
       }).text;
-      quality = assessStudyResponse(finalText, { messages: safeMessages, course, item });
+      quality = {
+        pass: false,
+        issues: ['unverified_study_fallback'],
+        shouldRepair: false,
+      };
       finalModelId = 'deterministic-training-fallback';
     }
 
@@ -627,10 +639,6 @@ function assessTrainingOutput(text, { activity, phase, messages, scenario, cours
     return assessStudyResponse(text, { messages, course, item });
   }
   return { pass: true, issues: [], shouldRepair: false };
-}
-
-function safeRoleplayFallback() {
-  return 'Nejsem si jistá, že jsem ti dobře rozuměla. Potřebuji, abys zůstala u toho, co jsem právě řekla.';
 }
 
 function normalizeIntentText(value) {
@@ -680,13 +688,12 @@ function genericScenario(item, trainerProfile = getCourseTrainerProfile()) {
 }
 
 function demoTrainingAnswer({ safeMessages, course, item, activity, phase, scenario }) {
-  const latest = [...safeMessages].reverse().find(message => message.role === 'user')?.content || '';
   const mode = trainingMode(course, activity);
   if (activity === 'simulation' && phase === 'roleplay') {
     return {
-      text: 'Nevím. Část mě chce, abys rozhodla za mě, protože se bojím, že když si vyberu sama, zase to pokazím.',
+      text: `Modelová protistrana pro kurz „${course.title}“ je teď dočasně nedostupná. Tento pokus se nehodnotí ani nezapočítá; vrať se k němu prosím po obnovení AI služby.`,
       mode, activity, phase, scenario: publicTrainingScenario(scenario), provider: 'demo-no-api-key',
-      qualityGate: { pass: true, issueCodes: [], repaired: false },
+      qualityGate: { pass: false, issueCodes: ['provider_unavailable_unverified_roleplay'], repaired: false },
     };
   }
   if (phase === 'debrief') {
@@ -697,9 +704,9 @@ function demoTrainingAnswer({ safeMessages, course, item, activity, phase, scena
     };
   }
   return {
-    text: `Ve studijním režimu pracujeme přímo s částí „${item.title}“ z kurzu ${course.title}. Z tvé otázky „${latest.slice(0, 160)}“ bych nejdřív oddělila princip, konkrétní situaci a způsob, jak ověříš jeho použití. Kterou větu nebo krok z lekce chceš rozebrat jako první?`,
+    text: `Studijní trenérka pro část „${item.title}“ z kurzu ${course.title} je teď dočasně nedostupná. Nebudu nahrazovat odborný výklad obecnou odpovědí; zkus to prosím znovu po obnovení AI služby.`,
     mode, activity, phase, scenario: publicTrainingScenario(scenario), provider: 'demo-no-api-key',
-    qualityGate: { pass: true, issueCodes: [], repaired: false },
+    qualityGate: { pass: false, issueCodes: ['provider_unavailable_unverified_study'], repaired: false },
   };
 }
 
