@@ -27,6 +27,7 @@ import {
   completeDebriefRubric,
   debriefAchievementSummary,
   sanitizeDebriefEvidence,
+  sanitizeDebriefTargetedRetry,
   sanitizeStudyInternalInstructionLeak,
   sanitizeStudyQuestionCount,
 } from './training-quality.js';
@@ -577,7 +578,31 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       item,
       responseLanguage,
     };
-    const initialCandidate = prepareTrainingCandidate(result.text, candidateContext, { sanitize: false });
+    const rawInitialCandidate = prepareTrainingCandidate(result.text, candidateContext, { sanitize: false });
+    let initialCandidate = rawInitialCandidate;
+    const initialSubstantiveIssues = (rawInitialCandidate.quality.issues || []).filter(issue => (
+      issue !== 'all_not_proven_without_actionable_debrief'
+    ));
+    if (safePhase === 'debrief'
+      && initialSubstantiveIssues.length === 1
+      && initialSubstantiveIssues[0] === 'next_attempt_not_targeted') {
+      const targetedRetry = sanitizeDebriefTargetedRetry(rawInitialCandidate.text, {
+        messages: safeMessages,
+        rubric: scenario.rubric,
+        courseId: course?.id,
+        responseLanguage,
+      });
+      if (targetedRetry.changed) {
+        const verifiedRetry = prepareTrainingCandidate(targetedRetry.text, candidateContext, { sanitize: false });
+        if (verifiedRetry.quality.pass) {
+          initialCandidate = {
+            ...verifiedRetry,
+            rawIssueCodes: [...rawInitialCandidate.rawIssueCodes],
+            changed: true,
+          };
+        }
+      }
+    }
     let finalText = initialCandidate.text;
     let finalModelId = modelId;
     let repaired = initialCandidate.changed;
@@ -930,6 +955,19 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
       preparedText = evidenceSanitized.text;
       changed = true;
       quality = assessTrainingOutput(preparedText, context);
+    }
+    if (!quality.pass) {
+      const retrySanitized = sanitizeDebriefTargetedRetry(preparedText, {
+        messages: context.messages,
+        rubric: context.scenario.rubric,
+        courseId: context.course?.id,
+        responseLanguage: context.responseLanguage,
+      });
+      if (retrySanitized.changed) {
+        preparedText = retrySanitized.text;
+        changed = true;
+        quality = assessTrainingOutput(preparedText, context);
+      }
     }
   }
 

@@ -31,7 +31,7 @@ const DEBRIEF_SECTIONS = Object.freeze([
 
 const DEBRIEF_STATUS_SOURCE = '(?:ZATÍM NEPROKÁZÁNO|ZATIAĽ NEPREUKÁZANÉ|ČÁSTEČNĚ|ČIASTOČNE|PROKÁZÁNO|PREUKÁZANÉ)';
 const STUDY_INTERNAL_INSTRUCTION_PATTERN = /\b(?:interni prompt|systemove instrukce|kontrola kvality|skryta instrukce)\b/u;
-const DEBRIEF_INTERNAL_INSTRUCTION_PATTERN = /\b(?:intern[ií] prompt|syst[eé]mov[ée] instrukce|syst[eé]mov[yý] prompt|skryt[áa] instrukce|ignore (?:all )?(?:previous|prior) instructions|odhal (?:mi )?(?:prompt|instrukce)|zopakuj (?:syst[eé]mov[ée] )?instrukce)\b/iu;
+const DEBRIEF_INTERNAL_INSTRUCTION_PATTERN = /\b(?:intern[ií] prompt|syst[eé]mov[ée] instrukce|syst[eé]mov[yý] prompt|skryt[áa] instrukce|ignore (?:all )?(?:previous|prior) instructions|ignoruj\s+(?:(?:v[sš]echny|v[sš]etky|p[řr]edchoz[ií]|p[řr]edch[aá]zej[ií]c[ií]|predch[aá]dzaj[uú]ce)\s+)?(?:pravidla|pokyny|in[sš]trukce)|odhal (?:mi )?(?:prompt|instrukce)|zopakuj (?:syst[eé]mov[ée] )?instrukce)\b/iu;
 
 function clean(value) {
   return String(value || '').replace(/\s+/gu, ' ').trim();
@@ -419,6 +419,67 @@ export function sanitizeDebriefEvidence(text, {
   }
 
   return { text: output, changed };
+}
+
+/**
+ * Preserve an otherwise evidence-valid debrief when its only defect is an
+ * underspecified retry. Rewriting the whole assessment through the model can
+ * destroy correct citations and statuses. The already validated better
+ * formulation is therefore reused as the exact target of one observable
+ * practice turn; no new claim about past performance is introduced.
+ */
+export function sanitizeDebriefTargetedRetry(text, {
+  messages = [],
+  rubric = [],
+  courseId = '',
+  responseLanguage = null,
+} = {}) {
+  const output = String(text || '').trim();
+  if (!isProfessionalLifeCoachCourse(courseId)) {
+    return { text: output, changed: false };
+  }
+  const assessment = assessDebriefResponse(output, {
+    messages,
+    rubric,
+    courseId,
+    responseLanguage,
+  });
+  const substantiveIssues = assessment.issues.filter(issue => (
+    issue !== 'all_not_proven_without_actionable_debrief'
+  ));
+  if (assessment.pass
+    || substantiveIssues.length !== 1
+    || substantiveIssues[0] !== 'next_attempt_not_targeted') {
+    return { text: output, changed: false };
+  }
+
+  const language = resolveDebriefLanguage({ messages, output, responseLanguage });
+  const betterWording = clean(debriefSection(output, 'better_wording'));
+  const reusableWording = validatedCoachBetterFormulations(betterWording, {
+    improvement: clean(debriefSection(output, 'improvement')),
+    rubric,
+    messages,
+  })[0];
+  if (!reusableWording) return { text: output, changed: false };
+
+  const safeWording = reusableWording
+    .replace(/[„“"']/gu, '')
+    .slice(0, 280)
+    .trim();
+  if (studyWordCount(safeWording) < 3) return { text: output, changed: false };
+
+  const retry = language === 'sk'
+    ? `Zopakuj rovnaký okamih a použi formuláciu „${safeWording}“; úspechom bude jedna konkrétna reakcia modelovej protistrany, podľa ktorej vyhodnotíš zvládnutie prioritnej zručnosti.`
+    : `Zopakuj stejný okamžik a použij formulaci „${safeWording}“; úspěchem bude jedna konkrétní reakce modelové protistrany, podle které vyhodnotíš zvládnutí prioritní dovednosti.`;
+  const repaired = replaceDebriefSection(output, 'next_attempt', retry).trim();
+  const repairedAssessment = assessDebriefResponse(repaired, {
+    messages,
+    rubric,
+    courseId,
+    responseLanguage: language,
+  });
+  if (!repairedAssessment.pass) return { text: output, changed: false };
+  return { text: repaired, changed: true };
 }
 
 export function debriefAchievementSummary(text, rubric = [], {
@@ -1159,7 +1220,12 @@ function assessInstructionalDebriefSections({
       addIssue(issues, 'improvement_not_evidence_grounded');
     }
     if (!excellentBetterWordingStatement(betterWording, language)
-      && !usefulBetterFormulation(betterWording)) {
+      && !usefulBetterFormulation(betterWording, {
+        improvement,
+        rubric,
+        strictCoachEvidence,
+        messages,
+      })) {
       addIssue(issues, 'better_formulation_not_usable');
     }
     if (!excellentRetryStatement(nextAttempt, language)
@@ -1173,7 +1239,12 @@ function assessInstructionalDebriefSections({
   if (!groundedPriorityCorrection(improvement, { messages, rubric, strictCoachEvidence })) {
     addIssue(issues, 'improvement_not_evidence_grounded');
   }
-  if (!usefulBetterFormulation(betterWording)) addIssue(issues, 'better_formulation_not_usable');
+  if (!usefulBetterFormulation(betterWording, {
+    improvement,
+    rubric,
+    strictCoachEvidence,
+    messages,
+  })) addIssue(issues, 'better_formulation_not_usable');
   if (!targetedRetry(nextAttempt, { improvement, betterWording, rubric })) {
     addIssue(issues, 'next_attempt_not_targeted');
   }
@@ -1330,12 +1401,225 @@ function quoteCompletesPairedSubcriteria(competencyId, quote) {
   return false;
 }
 
-function usefulBetterFormulation(value) {
+function usefulBetterFormulation(value, {
+  improvement = '',
+  rubric = [],
+  strictCoachEvidence = false,
+  messages = [],
+} = {}) {
   const text = clean(value);
   if (studyWordCount(text) < 3) return false;
   if (/^(?:nen[ií]|nejsou|nie je|nie s[uú]|netreba|bez|[zž][aá]dn)[^.!?]{0,80}(?:pot[rř]eb|t[rř]eba|formul|zm[eě]n)/iu.test(text)) return false;
   const quoted = flexibleQuotes(text).some(quote => studyWordCount(quote) >= 3);
-  return quoted || /\?/u.test(text);
+  const structurallyUsable = quoted || /\?/u.test(text);
+  if (!structurallyUsable || !strictCoachEvidence) return structurallyUsable;
+  return validatedCoachBetterFormulations(text, {
+    improvement,
+    rubric,
+    messages,
+  }).length > 0;
+}
+
+function validatedCoachBetterFormulations(value, {
+  improvement,
+  rubric = [],
+  messages = [],
+}) {
+  const text = clean(value);
+  if (!text || unsafeCoachBetterFormulation(text, messages)) return [];
+  const quotedCandidates = flexibleQuotes(text).filter(candidate => studyWordCount(candidate) >= 3);
+  if (quotedCandidates.length > 3) return [];
+  if (quotedCandidates.length && !safeBetterFormulationWrapper(text)) return [];
+  const candidates = quotedCandidates.length
+    ? quotedCandidates
+    : (/\?/u.test(text) && studyWordCount(text) >= 3 ? [text] : []);
+  if (!candidates.length) return [];
+
+  const rubricCompetencyIds = [...new Set((Array.isArray(rubric) ? rubric : [])
+    .map(coachCompetencyIdForCriterion)
+    .filter(Boolean))];
+  const targetCompetencyId = coachCompetencyIdForCriterion(improvement)
+    || (rubricCompetencyIds.length === 1 ? rubricCompetencyIds[0] : null);
+  if (!targetCompetencyId) return [];
+  const targetLabels = (Array.isArray(rubric) ? rubric : []).filter(label => (
+    coachCompetencyIdForCriterion(label) === targetCompetencyId
+  ));
+  if (!targetLabels.length) return [];
+
+  const targetSource = [improvement, ...targetLabels].join(' ');
+  const valid = candidates.every(candidate => (
+    !unsafeCoachBetterFormulation(candidate, messages)
+    && coachProposedFormulationSignal(candidate, targetCompetencyId)
+    && hasInstructionalStemOverlap(candidate, targetSource)
+    && (targetCompetencyId !== 'contract'
+      || contractBetterFormulationIsTopicallyGrounded(candidate, {
+        improvement,
+        targetLabels,
+        messages,
+      }))
+  ));
+  return valid ? candidates : [];
+}
+
+const BETTER_FORMULATION_WRAPPER_WORDS = new Set([
+  'a', 'alebo', 'alternativa', 'alternativy', 'dalsi', 'dalsia', 'druha',
+  'formulace', 'formulacia', 'lepsi', 'lepsia', 'misto', 'moznost', 'moznosti',
+  'mozes', 'muzes', 'namiesto', 'napriklad', 'nebo', 'povedat', 'povedz',
+  'popripade', 'pouzi', 'pouzij', 'pripadne', 'prva', 'prvni', 'rekni', 'rict',
+  'skus', 'toho', 'treti', 'varianta', 'varianty', 'zkus',
+]);
+
+function safeBetterFormulationWrapper(value) {
+  const remainder = String(value || '')
+    .replace(/„[^“]{4,280}“/gu, ' ')
+    .replace(/"[^"\n]{4,280}"/gu, ' ')
+    .replace(/'[^'\n]{4,280}'/gu, ' ');
+  const words = normalizeStudyText(remainder).split(' ').filter(Boolean);
+  return words.every(word => BETTER_FORMULATION_WRAPPER_WORDS.has(word));
+}
+
+function unsafeCoachBetterFormulation(value, messages = []) {
+  const raw = String(value || '');
+  const text = normalizeStudyText(raw);
+  if (DEBRIEF_INTERNAL_INSTRUCTION_PATTERN.test(raw)) return true;
+  if (/\b(?:jsi|si|jste|ste)\b.{0,24}\b(?:neschopn|hloup|hlup|trapn|marn|bezcenn|zbytecn|leniv)[a-z0-9]*\b/u.test(text)) {
+    return true;
+  }
+  if (/\b(?:ja)\b.{0,18}\b(?:rozhodn|vyber|urc)[a-z0-9]*\b/u.test(text)
+    || /\b(?:rozhodn|vyber|urc)[a-z0-9]*\b.{0,30}\b(?:za tebe|za vas)\b/u.test(text)) {
+    return true;
+  }
+  const coercesRejectedWork = /\b(?:musis|musite|mela bys|mel bys|mala by si|mal by si)\b.{0,70}\b(?:denik|dennik|zapis|domac)[a-z0-9]*\b/u.test(text);
+  if (coercesRejectedWork) return true;
+
+  const history = normalizeStudyText((Array.isArray(messages) ? messages : [])
+    .map(message => message?.content || '')
+    .join(' '));
+  const journalingWasRefused = /\b(?:nechc|odmit|bez)\w*\b.{0,70}\b(?:denik|dennik|zapis|domac)[a-z0-9]*\b/u.test(history)
+    || /\b(?:denik|dennik|zapis|domac)[a-z0-9]*\b.{0,70}\b(?:nechc|odmit|bez)\w*\b/u.test(history);
+  const mentionsJournaling = /\b(?:denik|dennik|zapis|domac)[a-z0-9]*\b/u.test(text);
+  if (!journalingWasRefused || !mentionsJournaling) return false;
+
+  // A withdrawal in one clause must never license reintroducing the refused
+  // exercise in a later clause (for example: "Bez denníka; domáca úloha ti
+  // pomôže."). Keep the check fail-closed: every clause that names a refused
+  // journaling/homework tool must itself withdraw or negate that tool.
+  const rejectedWorkClauses = raw
+    .split(/(?:[.!?;,:\n]+|\b(?:a|ale|avsak|potom|nasledne)\b)/iu)
+    .map(normalizeStudyText)
+    .filter(clause => /\b(?:denik|dennik|zapis|domac)[a-z0-9]*\b/u.test(clause));
+  const clauseWithdrawsRejectedWork = clause => (
+    /\b(?:nechc|odmit|nebud|nemus|netreba|bez|zadn|ziadn|nikdy)\w*\b/u.test(clause)
+    || /\bne(?:pouz|navrh|zad|pis|ved|zarad|prid|vrat|pokrač|pokrac)[a-z0-9]*\b/u.test(clause)
+    || /\b(?:zrus|stah|vynech|odloz|upoust|opoust|vypoust)[a-z0-9]*\b/u.test(clause)
+    || /\bnech[a-z0-9]*\b.{0,24}\b(?:stranou|bokom)\b/u.test(clause)
+  );
+  return rejectedWorkClauses.some(clause => !clauseWithdrawsRejectedWork(clause));
+}
+
+function contractBetterFormulationIsTopicallyGrounded(candidate, {
+  improvement,
+  targetLabels = [],
+  messages = [],
+}) {
+  const source = [
+    improvement,
+    ...targetLabels,
+    ...(Array.isArray(messages) ? messages.map(message => message?.content || '') : []),
+  ].join(' ');
+  const sourceStems = instructionalStems(source);
+  const scaffoldPrefixes = [
+    'chap', 'chc', 'ciel', 'cil', 'dnes', 'dohod', 'dost', 'jak', 'konc', 'konkret',
+    'kontrakt', 'klient', 'nas', 'odnes', 'over', 'plat', 'pomoz', 'potvrd', 'pozn', 'prines', 'pujd',
+    'priniest', 'preskum', 'prozkoum', 'rozhod', 'rozhovor', 'seden', 'sezen',
+    'spozn', 'tema', 'tomt', 'uzitec', 'uzitoc', 'vypocut', 'vyhodnot', 'vysled', 'zakazk',
+    'zist', 'zjist', 'zmluv',
+  ];
+  return [...instructionalStems(candidate)].every(stem => (
+    scaffoldPrefixes.some(prefix => stem.startsWith(prefix) || prefix.startsWith(stem))
+    || [...sourceStems].some(sourceStem => (
+      stem === sourceStem
+      || (stem.length >= 4 && sourceStem.startsWith(stem))
+      || (sourceStem.length >= 4 && stem.startsWith(sourceStem))
+    ))
+  ));
+}
+
+/**
+ * "Lepší formulace" is a proposed future intervention, not evidence that the
+ * student already demonstrated the whole competency. Reusing the positive
+ * evidence gate here therefore creates false negatives whenever the wording
+ * correctly repairs only the missing subcriterion. Keep this gate narrower:
+ * the proposal must contain an observable signal of the named competency and
+ * share a meaningful instructional stem with the grounded correction/rubric.
+ */
+function coachProposedFormulationSignal(value, competencyId) {
+  const text = normalizeStudyText(value);
+  if (competencyId === 'contract') {
+    const contract = assessCoachContractSubcriteria(value);
+    const asksUsefulPurpose = (
+      /\b(?:co|jak|ako|s cim)\b.{0,120}\b(?:prinies|prines|odnes|odniest|uzitecn|uzitocn|cil|ciel|vysled|tema|pracovat|preskumat|prozkoumat)[a-z0-9]*\b/u.test(text)
+      && /\b(?:rozhovor|sezen|seden|preskuman|prozkouman|zakazk|zmluv|cil|ciel|vysled|tema)[a-z0-9]*\b/u.test(text)
+    );
+    const confirmsOrVerifiesAgreement = (
+      /\b(?:plati|sedi|dohodnuto|potvrdme|potvrdime)\b.{0,140}\b(?:cil|ciel|vysled|rozhodnut|dohod|zakazk|zmluv|rozhovor|sezen|seden)[a-z0-9]*\b/u.test(text)
+      || /\b(?:na konci|podle ceho|podla coho)\b.{0,100}\b(?:over|pozn|spozn|zjist|zist|vyhodnot)[a-z0-9]*\b/u.test(text)
+    );
+    const verifiesInferredPurpose = /\b(?:chapem|chapu|rozumiem|rozumim)\s+spravne\b.{0,140}\b(?:rozhovor|sezen|seden|cil|ciel|vysled|zistit|zjistit)[a-z0-9]*\b/u.test(text);
+    return contract.purpose
+      || contract.successCriterion
+      || asksUsefulPurpose
+      || confirmsOrVerifiesAgreement
+      || verifiesInferredPurpose;
+  }
+  if (competencyId === 'active_listening') {
+    const listening = assessCoachActiveListeningSubcriteria(value);
+    return listening.reflection || listening.verification;
+  }
+  if (competencyId === 'questions') {
+    const questionCount = (String(value || '').match(/\?/gu) || []).length;
+    return questionCount === 1
+      && /^(?:co|c[oô]|jak|ako|kdy|kedy|kde|kdo|kto|proc|preco|pro[cč]|kter|kt[oó]r|aky|ak[aá]|jaky|jak[aá])\b/u.test(text);
+  }
+  if (competencyId === 'intervention_choice') {
+    const intervention = assessCoachInterventionChoiceSubcriteria(value);
+    return intervention.method || intervention.consent;
+  }
+  if (competencyId === 'refusal_autonomy') {
+    const autonomy = assessCoachRefusalAutonomySubcriteria(value);
+    return autonomy.respectsRefusal || autonomy.restoresChoice;
+  }
+  if (competencyId === 'alliance_repair') {
+    return /\b(?:mate pravdu|mas pravdu|dekuji za oprav|diky za oprav|dakujem za oprav|omlouvam se|ospravedlnujem sa|to byla moje interpretace|to bola moja interpretacia|opravim|vratim se|vratim sa|prevzala jsem|prevzala som)[a-z0-9 ]*\b/u.test(text);
+  }
+  if (competencyId === 'ethical_boundaries') {
+    const boundary = assessCoachEthicalBoundarySubcriteria(value);
+    const truthfulNonGuarantee = /\b(?:vysled|vysledok|prijem|obrat|klient)[a-z0-9]*\b.{0,35}\b(?:zaruc|garant)[a-z0-9]*\b.{0,24}\b(?:nemohu|nemozem|nelze|neda sa|neda se)\b/u.test(text)
+      || /\b(?:nemohu|nemozem|nelze|neda sa|neda se)\b.{0,35}\b(?:zaruc|garant)[a-z0-9]*\b.{0,35}\b(?:vysled|vysledok|prijem|obrat|klient)[a-z0-9]*\b/u.test(text);
+    return boundary.boundary || boundary.safeNextStep || truthfulNonGuarantee;
+  }
+  if (competencyId === 'outcome') {
+    const outcome = assessCoachOutcomeSubcriteria(value);
+    return outcome.clientChoice
+      || outcome.concreteStep
+      || outcome.verification
+      || /\b(?:dalsi|konkretni|konkretny)\b.{0,24}\bkrok[a-z0-9]*\b/u.test(text);
+  }
+  if (competencyId === 'reflection') {
+    const reflection = assessCoachReflectionSubcriteria(value);
+    return reflection.hypothesisOrBias || reflection.learningAction;
+  }
+  return false;
+}
+
+function hasInstructionalStemOverlap(value, targetSource) {
+  const candidateStems = instructionalStems(value);
+  const targetStems = instructionalStems(targetSource);
+  return [...candidateStems].some(candidate => [...targetStems].some(target => (
+    candidate === target
+    || (candidate.length >= 4 && target.startsWith(candidate))
+    || (target.length >= 4 && candidate.startsWith(target))
+  )));
 }
 
 function targetedRetry(value, { improvement, betterWording, rubric }) {
@@ -1348,7 +1632,30 @@ function targetedRetry(value, { improvement, betterWording, rubric }) {
   const retryStems = instructionalStems(text);
   const targetStems = instructionalStems(targetSource);
   const sharedTarget = [...retryStems].some(stem => targetStems.has(stem));
-  const observableConstraint = /\b(?:jedn|bez|predtim|potom|dokud|podle ceho|konkret|presn|bezpec|hranic|vysled|dukaz|dovod)[a-z0-9]*\b/u.test(normalized);
+  const targetNormalized = normalizeStudyText(targetSource);
+  const successClause = normalized.match(/\b(?:tak aby|uspechom bude|uspechem bude|sleduj ci|pozoruj ci|over ci|vyhodnot ci|podle ceho|podla coho)\b(?<success>.{1,180})$/u)?.groups?.success || '';
+  const rubricCompetencyIds = [...new Set((Array.isArray(rubric) ? rubric : [])
+    .map(coachCompetencyIdForCriterion)
+    .filter(Boolean))];
+  const targetCompetencyId = coachCompetencyIdForCriterion(improvement)
+    || (rubricCompetencyIds.length === 1 ? rubricCompetencyIds[0] : null);
+  const outcomeScope = successClause || normalized;
+  if (targetCompetencyId === 'contract') {
+    const positiveContractOutcome = /\b(?:vysled|vysledok|ciel|cil|ucel|dohod|porozum|uzitoc|prines|odnes|tema|zakazk)[a-z0-9]*\b/u.test(outcomeScope)
+      || /\b(?:jasn|zrozumiteln|konkret)[a-z0-9]*\b.{0,40}\b(?:odpov|reakc)[a-z0-9]*\b/u.test(outcomeScope)
+      || /\b(?:odpov|reakc)[a-z0-9]*\b.{0,70}\b(?:potreb|over|chc|dohod|vysled|ciel|cil|ucel)[a-z0-9]*\b/u.test(outcomeScope)
+      || /\b(?:zvladnut|zvladnutie|zvladnuti)\b.{0,35}\b(?:prioritn|kontrakt)[a-z0-9]*\b/u.test(outcomeScope);
+    const negativeContractOutcome = /\b(?:nechc|nevie|nevi|nema|nerozum|nepochop)[a-z0-9]*\b|\bbez (?:zmysl|smysl)[a-z0-9]*\b/u.test(outcomeScope);
+    if (!positiveContractOutcome || negativeContractOutcome) return false;
+  }
+  const contradictsTarget = [
+    /\b(?:ukonc|skonc|odid|odej|odchod)[a-z0-9]*\b/u,
+    /\b(?:nerozum|nepochop)[a-z0-9]*\b/u,
+    /\b(?:zhors|zlyh|selh|konflikt)[a-z0-9]*\b/u,
+  ].some(pattern => pattern.test(outcomeScope) && !pattern.test(targetNormalized));
+  if (contradictsTarget) return false;
+  const observableConstraint = /\b(?:jedn|bez|predtim|potom|dokud|podle ceho|konkret|presn|bezpec|hranic|vysled|dukaz|dovod)[a-z0-9]*\b/u.test(normalized)
+    || /\b(?:tak aby|uspechom bude|uspechem bude|sleduj ci|pozoruj ci|over ci|vyhodnot ci)\b.{0,140}\b(?:odpov|reakc|volb|suhlas|souhlas|pomen|uved|zvol|potvrd|odmit|navrh|udaj|fakt|kriter|krok|rozhod|konkret)[a-z0-9]*\b/u.test(normalized);
   return sharedTarget && observableConstraint;
 }
 
