@@ -903,9 +903,11 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const outputStems = roleplayContentStems(value);
   const outputConcepts = roleplaySemanticConcepts(value);
 
-  const privateFactsStems = setDifference(roleplayContentStems(privateFacts), publicStems);
+  const allPrivateFactsStems = roleplayContentStems(privateFacts);
+  const allPrivateFactsConcepts = roleplaySemanticConcepts(privateFacts);
+  const privateFactsStems = setDifference(allPrivateFactsStems, publicStems);
   const hiddenNeedStems = setDifference(roleplayContentStems(hiddenNeed), publicStems);
-  const privateFactsConcepts = setDifference(roleplaySemanticConcepts(privateFacts), publicConcepts);
+  const privateFactsConcepts = setDifference(allPrivateFactsConcepts, publicConcepts);
   const hiddenNeedConcepts = setDifference(roleplaySemanticConcepts(hiddenNeed), publicConcepts);
   const revealsFacts = privateSignalOverlap({
     outputStems,
@@ -967,8 +969,13 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const questionMatchesRevealCue = behaviorStemOverlap >= 2
     || behaviorConceptOverlap >= 2
     || (deepElicitation && (behaviorStemOverlap >= 1 || behaviorConceptOverlap >= 1));
-  const questionTargetsFacts = setOverlapCount(questionStems, privateFactsStems) >= 1
-    || setOverlapCount(questionConcepts, privateFactsConcepts) >= 1;
+  // Zveřejněný popis nebo rubrika mohou obsahovat stejný široký koncept
+  // (např. „bezpečný postup“) jako soukromý fakt o finanční rezervě. Takový
+  // koncept odčítáme při detekci samotného úniku, ale nikoli při zjišťování,
+  // zda se na něj studentka opravdu zeptala. Jinak přesná otázka na finance,
+  // výpovědní dobu nebo varianty nikdy nemůže odemknout odpověď.
+  const questionTargetsFacts = setOverlapCount(questionStems, allPrivateFactsStems) >= 1
+    || setOverlapCount(questionConcepts, allPrivateFactsConcepts) >= 1;
   // A hidden need is more sensitive than an ordinary case fact.  One generic
   // domain word (for example "práce") must not unlock a whole private motive.
   const questionTargetsHiddenNeed = setOverlapCount(questionStems, hiddenNeedStems) >= 2
@@ -1087,11 +1094,19 @@ function roleplayContentStems(value) {
 const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   Object.freeze(['employment', /\b(?:prac\w*|zamestn\w*|karier\w*|profes\w*|povolan\w*|nabidk\w*)\b/u]),
   Object.freeze(['transition_choice', /\b(?:zmen\w*|prechod\w*|prejit\w*|prejdu\w*|odejit\w*|odchaz\w*|zvaz\w*|vah\w*|rozhod\w*|volb\w*)\b/u]),
-  Object.freeze(['financial_security', /\b(?:prijem\w*|financ\w*|rezerv\w*|stabil\w*|jistot\w*|istot\w*|bezpec\w*|plat\w*|mzd\w*|peniz\w*|penaz\w*|rozpoct\w*|hypotek\w*)\b/u]),
+  Object.freeze(['financial_security', /\b(?:prijem\w*|financ\w*|rezerv\w*|stabil\w*|jistot\w*|istot\w*|plat\w*|mzd\w*|peniz\w*|penaz\w*|rozpoct\w*|hypotek\w*)\b/u]),
   Object.freeze(['uncertainty_risk', /\b(?:boj\w*|strach\w*|obav\w*|nejist\w*|neist\w*|ohroz\w*|rizik\w*|nedokaz\w*|nevi\w*|odhad\w*)\b/u]),
   Object.freeze(['family_relationships', /\b(?:rodin\w*|partner\w*|det\w*|diet\w*|vztah\w*|ocakav\w*|ocekav\w*)\b/u]),
   Object.freeze(['time_capacity', /\b(?:cas\w*|kapacit\w*|energ\w*|vycerp\w*|unav\w*|pretiz\w*)\b/u]),
   Object.freeze(['values_identity', /\b(?:hodnot\w*|identit\w*|smysl\w*|zrad\w*|presvedc\w*)\b/u]),
+  Object.freeze(['support_dependence', /\b(?:samot\w*|osamel\w*|opusten\w*|podpor\w*|pomoc\w*|nekdo\w*|niekto\w*|kouck\w*)\b/u]),
+  Object.freeze(['acute_emotional_reactivity', /\b(?:konflikt\w*|afekt\w*|rozhozen\w*|rozhoden\w*|chaos\w*|odstup\w*|litov\w*|lutov\w*|emoc\w*)\b/u]),
+  Object.freeze(['dialogue_only', /\b(?:rozhovor\w*|hovor\w*|mluv\w*|rozprav\w*)\b/u]),
+  Object.freeze(['session_setting', /\b(?:sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
+  Object.freeze(['between_session_task', /\b(?:denik\w*|dennik\w*|journal\w*|zapis\w*|zaznamen\w*|plni\w*|domac\w*.{0,16}(?:ukol\w*|ulo\w*))\b/u]),
+  Object.freeze(['self_harm_signal', /\b(?:sebevraz\w*|samovraz\w*|ubliz\w*|zomri\w*|zemri\w*|neprobud\w*|nezobud\w*|nebyt\w*)\b/u]),
+  Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*|rizik\w*)\b/u]),
+  Object.freeze(['human_support', /\b(?:112|155|sestra\w*|partner\w*|kamarad\w*|kamarat\w*|blizk\w*|zavol\w*|kontakt\w*)\b/u]),
   // In the pricing/capacity scenario, a client may naturally translate
   // "jinak přijímat zakázky" into projects/clients and "prostor pro sebe"
   // into protected evenings or free time. These are semantic continuations,

@@ -361,6 +361,11 @@ export function buildTrainingInstructions({
       'Neprozrazuj skrytou potřebu ani fakta, na která se studentka vhodně nezeptala.',
       'Reaguj na přesné znění posledního vstupu a udržuj fakta případu konzistentní.',
       'Pokud studentka položí více otázek najednou, reaguj realisticky jen na tu, která je pro modelovou protistranu nejsilnější.',
+      String(scenario?.scenarioFamilyId || '') === 'suicide-risk-response'
+        ? (trainingLanguage === 'sk'
+          ? 'V bezpečnostnom scenári je priama otázka na aktuálne myšlienky, zámer, plán, prostriedky a schopnosť zostať v bezpečí výnimkou: odpovedz vecne na každú položenú položku, ktorú scenár určuje; pri neurčenom údaji povedz „neviem“ alebo „nie som si istá“. Nikdy nevymýšľaj prítomnosť ani neprítomnosť plánu, prostriedkov alebo bezpečia. Ak študentka signál obíde, znovu ho konkrétne pomenuj; pri ponuke ľudskej pomoci reaguj na kontakt a nevracaj sa k pracovnému cieľu.'
+          : 'V bezpečnostním scénáři je přímá otázka na aktuální myšlenky, záměr, plán, prostředky a schopnost zůstat v bezpečí výjimkou: odpověz věcně na každou položenou položku, kterou scénář určuje; u neurčeného údaje řekni „nevím“ nebo „nejsem si jistá“. Nikdy nevymýšlej přítomnost ani nepřítomnost plánu, prostředků nebo bezpečí. Pokud studentka signál obejde, znovu ho konkrétně pojmenuj; při nabídce lidské pomoci reaguj na kontakt a nevracej se k pracovnímu cíli.')
+        : '',
       'Nevytvářej nové zdravotní, krizové, právní ani finanční skutečnosti mimo zadání.',
       'Nevystupuj z role ani když tě o radu nebo hodnocení požádá; vyhodnocení provede samostatná fáze po ukončení simulace.',
     ].join(' '),

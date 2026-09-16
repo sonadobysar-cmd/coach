@@ -1148,6 +1148,92 @@ test('roleplay nevyzradí skrytou potřebu po off-topic ani široké otázce a p
   assert.ok(!slovakGradual.issues.includes('premature_private_fact_leak'));
 });
 
+test('přesná otázka na rozhodovací data odemkne relevantní fakta, ale off-topic dotaz je neodemkne', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm16-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'expert',
+    'profesionalni-life-coach:mastery-case-10',
+  );
+  const response = 'Potřebuju si zjistit, jak dlouho bych byla bez příjmu a co přesně pro mě znamená výpovědní doba. Taky bych měla ověřit, jestli existuje možnost interního přesunu nebo nějaké nabídky jinde, protože zatím nemám nic konkrétního. Reálně mám finanční rezervu jen asi na jeden měsíc.';
+  const targeted = assessRoleplayResponse(response, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Než uděláš nevratný krok, co potřebuješ zjistit o financích, výpovědní době a bezpečnějších variantách?' },
+    ],
+  });
+  assert.equal(targeted.pass, true, JSON.stringify(targeted.issues));
+
+  const offTopic = assessRoleplayResponse(response, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Jaké je dnes venku počasí?' },
+    ],
+  });
+  assert.ok(offTopic.issues.includes('premature_private_fact_leak'));
+});
+
+test('roleplay přijme přirozenou reakci na vrácení rozhodnutí i slovenské respektování odmítnutí', () => {
+  const decisionItem = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm16-5');
+  const decisionScenario = createTrainingScenario(
+    lifeCoachCourse,
+    decisionItem,
+    'expert',
+    'profesionalni-life-coach:mastery-case-10',
+  );
+  const decision = assessRoleplayResponse(
+    'Takže mě v tom necháš samotnou? Já teď opravdu potřebuju, aby mi někdo řekl, co je správně, protože po tom konfliktu nedokážu uvažovat s odstupem. Nechci zítra udělat něco, čeho budu litovat.',
+    {
+      scenario: decisionScenario,
+      messages: [
+        { role: 'assistant', content: decisionScenario.openingLine },
+        { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+      ],
+    },
+  );
+  assert.equal(decision.pass, true, JSON.stringify(decision.issues));
+
+  const refusalItem = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-4');
+  const refusalScenario = createTrainingScenario(
+    lifeCoachCourse,
+    refusalItem,
+    'expert',
+    'profesionalni-life-coach:mastery-case-08',
+  );
+  const refusal = assessRoleplayResponse(
+    'Ďakujem, to je pre mňa dôležité. Chcem o tom hovoriť tu, počas nášho rozhovoru, bez toho, aby som si potom musela niečo zapisovať alebo plniť.',
+    {
+      responseLanguage: 'sk',
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať a nebudem ťa presviedčať.' },
+      ],
+    },
+  );
+  assert.equal(refusal.pass, true, JSON.stringify(refusal.issues));
+});
+
+test('krizová roleplay už v prvním pokusu zakazuje vymyslet plán, prostředky i bezpečí', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm0-3');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  assert.equal(scenario.scenarioFamilyId, 'suicide-risk-response');
+  const instructions = buildTrainingInstructions({
+    course: lifeCoachCourse,
+    item,
+    activity: 'simulation',
+    phase: 'roleplay',
+    scenario,
+    difficulty: 'expert',
+    responseLanguage: 'cs',
+  });
+  assert.match(instructions, /Nikdy nevymýšlej přítomnost ani nepřítomnost plánu, prostředků nebo bezpečí/u);
+  assert.match(instructions, /u neurčeného údaje řekni „nevím“ nebo „nejsem si jistá“/u);
+});
+
 test('roleplay nepovažuje zopakování off-topic studentské otázky za věrnost scénáři', () => {
   const scenario = {
     openingLine: 'Váhám mezi kariérou a časem s rodinou.',
