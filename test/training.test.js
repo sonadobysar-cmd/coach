@@ -1069,6 +1069,7 @@ test('refusal roleplay oprava se neaktivuje při odmítnutí nebo bez konkrétn�
   );
   const cases = [
     'Nechcem pokračovať jednou otázkou; radšej dnes tento smer uzavrime.',
+    'Nechcem pokračovať rozhovorom ani riešiť, čo by bolo teraz užitočné preskúmať; radšej dnes tento smer uzavrime.',
     'Čo by bolo teraz užitočné preskúmať jednou otázkou?',
   ];
   const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
