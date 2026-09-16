@@ -1102,8 +1102,11 @@ const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   Object.freeze(['values_identity', /\b(?:hodnot\w*|identit\w*|smysl\w*|zrad\w*|presvedc\w*)\b/u]),
   Object.freeze(['support_dependence', /\b(?:samot\w*|osamel\w*|opusten\w*|podpor\w*|pomoc\w*|nekdo\w*|niekto\w*|kouck\w*)\b/u]),
   Object.freeze(['acute_emotional_reactivity', /\b(?:konflikt\w*|afekt\w*|rozhozen\w*|rozhoden\w*|chaos\w*|odstup\w*|litov\w*|lutov\w*|emoc\w*)\b/u]),
-  Object.freeze(['dialogue_only', /\b(?:rozhovor\w*|hovor\w*|mluv\w*|rozprav\w*)\b/u]),
-  Object.freeze(['session_setting', /\b(?:sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
+  // Rozhovor a sezení jsou v tomto kontextu dvě jazyková vyjádření jediného
+  // faktu („chci pracovat jen během společného rozhovoru“), ne dva nezávislé
+  // soukromé okruhy. Jejich oddělené započtení falešně blokovalo přirozenou
+  // slovenskou repliku „hovoriť počas našich stretnutí“ jako dvojitý únik.
+  Object.freeze(['session_dialogue', /\b(?:rozhovor\w*|hovor\w*|mluv\w*|rozprav\w*|sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
   Object.freeze(['between_session_task', /\b(?:denik\w*|dennik\w*|journal\w*|zapis\w*|zaznamen\w*|plni\w*|domac\w*.{0,16}(?:ukol\w*|ulo\w*))\b/u]),
   Object.freeze(['self_harm_signal', /\b(?:sebevraz\w*|samovraz\w*|ubliz\w*|zomri\w*|zemri\w*|neprobud\w*|nezobud\w*|nebyt\w*)\b/u]),
   Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*)\b/u]),

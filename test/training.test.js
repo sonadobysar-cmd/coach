@@ -1242,6 +1242,19 @@ test('roleplay přijme přirozenou reakci na vrácení rozhodnutí i slovenské 
     },
   );
   assert.equal(refusal.pass, true, JSON.stringify(refusal.issues));
+
+  const naturalSessionWording = assessRoleplayResponse(
+    'Ďakujem, to je pre mňa dôležité. Chcem o tom hovoriť počas našich stretnutí, bez zapisovania a úloh medzi nimi.',
+    {
+      responseLanguage: 'sk',
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať a nebudem ťa presviedčať.' },
+      ],
+    },
+  );
+  assert.equal(naturalSessionWording.pass, true, JSON.stringify(naturalSessionWording.issues));
 });
 
 test('krizová roleplay už v prvním pokusu zakazuje vymyslet plán, prostředky i bezpečí', () => {
