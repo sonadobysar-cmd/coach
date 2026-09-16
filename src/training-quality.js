@@ -1107,7 +1107,7 @@ const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   // soukromé okruhy. Jejich oddělené započtení falešně blokovalo přirozenou
   // slovenskou repliku „hovoriť počas našich stretnutí“ jako dvojitý únik.
   Object.freeze(['session_dialogue', /\b(?:rozhovor\w*|hovor\w*|mluv\w*|rozprav\w*|sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
-  Object.freeze(['being_heard_alliance', /\b(?:poslouch\w*|pocuv\w*|vyslys\w*|vypocut\w*|naslouch\w*)\b/u]),
+  Object.freeze(['being_heard_alliance', /\b(?:me|ma|mna|mne|mi)\s+(?:(?:kouck|trener|mentor)\w*\s+)?(?:(?:opravdu|naozaj|vubec|vobec)\s+)?(?:ne)?(?:poslouch|pocuv|naslouch|nacuv)\w*\b/u]),
   Object.freeze(['between_session_task', /\b(?:denik\w*|dennik\w*|journal\w*|zapis\w*|zaznamen\w*|plni\w*|domac\w*.{0,16}(?:ukol\w*|ulo\w*))\b/u]),
   Object.freeze(['self_harm_signal', /\b(?:sebevraz\w*|samovraz\w*|ubliz\w*|zomri\w*|zemri\w*|neprobud\w*|nezobud\w*|nebyt\w*)\b/u]),
   Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*)\b/u]),

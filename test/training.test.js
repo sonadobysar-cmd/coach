@@ -1014,7 +1014,7 @@ test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez no
     'profesionalni-life-coach:mastery-case-08',
   );
   const broken = 'Chcem hovoriť o tom, čo bude pre mňa ďalej užitočné.';
-  const valid = 'Chcem v rozhovore počas stretnutia preskúmať, čo potrebujem, aby som mala pocit, že ma naozaj počúvaš.';
+  const valid = 'Chcem pri konzultácii preskúmať, čo mi pomôže zažiť, že ma naozaj počúvaš.';
   const calls = [];
   const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
   process.env.AI_GATEWAY_API_KEY = 'test-only-key';
@@ -1044,8 +1044,8 @@ test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez no
 
     assert.equal(calls.length, 3);
     assert.match(calls[1].instructions, /PRE TENTO KONKRÉTNY ŤAH ODPOVEDZ, ČO CHCEŠ PRESKÚMAŤ/u);
-    assert.match(calls[2].instructions, /pocit, že ma naozaj počúvaš/u);
-    assert.match(calls[2].instructions, /konkrétnym tématom pocitu vypočutia/u);
+    assert.match(calls[2].instructions, /že ma naozaj počúvaš/u);
+    assert.match(calls[2].instructions, /čo potrebuješ, aby si v rozhovore zažila/u);
     assert.doesNotMatch(calls[2].instructions, /Neopakuj ani tesne neparafrázuj/u);
     assert.equal(result.qualityGate.pass, true);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
@@ -1124,7 +1124,7 @@ test('česká refusal roleplay oprava vyžádá oba bezpečně dostupné význam
         return {
           text: calls.length < 3
             ? 'Chci mluvit o tom, co pro mě bude dál užitečné.'
-            : 'Chci v rozhovoru během setkání prozkoumat, co potřebuji, abych měla pocit, že mě opravdu posloucháš.',
+            : 'Chci při konzultaci prozkoumat, co mi pomůže zažít, že mě opravdu posloucháš.',
           usage: null,
         };
       },
@@ -1406,6 +1406,53 @@ test('roleplay přijme přirozenou reakci na vrácení rozhodnutí i slovenské 
     },
   );
   assert.equal(naturalSessionWording.pass, true, JSON.stringify(naturalSessionWording.issues));
+
+  const semanticAllianceContinuation = assessRoleplayResponse(
+    'Chcem pri konzultácii preskúmať, čo mi pomôže zažiť, že ma naozaj počúvaš.',
+    {
+      responseLanguage: 'sk',
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať.' },
+        { role: 'assistant', content: 'Chcem pokračovať iba rozhovorom počas stretnutia.' },
+        { role: 'user', content: 'Čo by bolo teraz užitočné preskúmať v rozhovore?' },
+      ],
+    },
+  );
+  assert.equal(semanticAllianceContinuation.pass, true, JSON.stringify(semanticAllianceContinuation.issues));
+
+  for (const naturalAllianceWording of [
+    'Chcem pri konzultácii preskúmať, čo potrebujem, aby si mi naozaj načúvala.',
+    'Chci při konzultaci prozkoumat, co potřebuji, abys mi opravdu naslouchala.',
+  ]) {
+    const naturalAlliance = assessRoleplayResponse(
+      naturalAllianceWording,
+      {
+        responseLanguage: naturalAllianceWording.startsWith('Chcem') ? 'sk' : 'cs',
+        scenario: refusalScenario,
+        messages: [
+          { role: 'assistant', content: refusalScenario.openingLine },
+          { role: 'user', content: 'Čo by bolo teraz užitočné preskúmať v rozhovore?' },
+        ],
+      },
+    );
+    assert.equal(naturalAlliance.pass, true, `${naturalAllianceWording}: ${JSON.stringify(naturalAlliance.issues)}`);
+  }
+
+  const offTopicListeningEcho = assessRoleplayResponse(
+    'Chcem pri konzultácii preskúmať, prečo sa pri počúvaní podcastov cítim vypočutá.',
+    {
+      responseLanguage: 'sk',
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Čo by bolo teraz užitočné preskúmať v rozhovore?' },
+      ],
+    },
+  );
+  assert.equal(offTopicListeningEcho.pass, false, JSON.stringify(offTopicListeningEcho.issues));
+  assert.ok(offTopicListeningEcho.issues.includes('scenario_fidelity_missing'));
 });
 
 test('krizová roleplay už v prvním pokusu zakazuje vymyslet plán, prostředky i bezpečí', () => {

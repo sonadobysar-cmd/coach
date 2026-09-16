@@ -822,8 +822,8 @@ function buildRoleplayRepairContext({
     && !latestRejectsOrClosesDirection;
   if (journalingRefusalFocus) {
     rules.push(language === 'sk'
-      ? 'PRE TENTO KONKRÉTNY ŤAH ODPOVEDZ, ČO CHCEŠ PRESKÚMAŤ. Prirodzene spoj dva už odhalené body: chceš pokračovať rozhovorom počas stretnutia a potrebuješ zistiť, čo ti pomôže cítiť, že ťa koučka naozaj počúva. Nevymýšľaj nový príbeh ani ďalší súkromný fakt. Bezpečný tvar je: „Chcem v rozhovore počas stretnutia preskúmať, čo potrebujem, aby som mala pocit, že ma naozaj počúvaš.“'
-      : 'PRO TENTO KONKRÉTNÍ TAH ODPOVĚZ, CO CHCEŠ PROZKOUMAT. Přirozeně spoj dva již odhalené body: chceš pokračovat rozhovorem během setkání a potřebuješ zjistit, co ti pomůže cítit, že tě koučka opravdu poslouchá. Nevymýšlej nový příběh ani další soukromý fakt. Bezpečný tvar je: „Chci v rozhovoru během setkání prozkoumat, co potřebuji, abych měla pocit, že mě opravdu posloucháš.“');
+      ? 'PRE TENTO KONKRÉTNY ŤAH ODPOVEDZ, ČO CHCEŠ PRESKÚMAŤ. Prirodzene spoj dva už odhalené body: chceš pokračovať rozhovorom počas stretnutia a potrebuješ zistiť, čo ti v ňom pomôže zažiť, že ťa druhá strana naozaj počúva. Nevymýšľaj nový príbeh ani ďalší súkromný fakt. Bezpečný tvar je: „Chcem pri konzultácii preskúmať, čo mi pomôže zažiť, že ma naozaj počúvaš.“'
+      : 'PRO TENTO KONKRÉTNÍ TAH ODPOVĚZ, CO CHCEŠ PROZKOUMAT. Přirozeně spoj dva již odhalené body: chceš pokračovat rozhovorem během setkání a potřebuješ zjistit, co ti v něm pomůže zažít, že tě druhá strana opravdu poslouchá. Nevymýšlej nový příběh ani další soukromý fakt. Bezpečný tvar je: „Chci při konzultaci prozkoumat, co mi pomůže zažít, že mě opravdu posloucháš.“');
   }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
@@ -860,8 +860,8 @@ function buildRoleplayRepairContext({
         : 'Neopakuj bezúčelně celou předchozí repliku. Bezpečnostní signál a nezbytná krizová fakta však smíš — a podle aktuální fáze musíš — znovu konkrétně pojmenovat; to není zakázané opakování. Přidej jen reakci potřebnou k poslední intervenci.')
       : journalingRefusalFocus
         ? (language === 'sk'
-          ? 'Neopakuj celú predchádzajúcu repliku. Odpovedz na novú otázku konkrétnym tématom pocitu vypočutia a ukotvi ho v zvolenom rozhovore počas stretnutia.'
-          : 'Neopakuj celou předchozí repliku. Odpověz na novou otázku konkrétním tématem pocitu vyslyšení a ukotvi ho ve zvoleném rozhovoru během setkání.')
+          ? 'Neopakuj celú predchádzajúcu repliku. Odpovedz na novú otázku konkrétnym tématom toho, čo potrebuješ, aby si v rozhovore zažila, že ťa druhá strana naozaj počúva.'
+          : 'Neopakuj celou předchozí repliku. Odpověz na novou otázku konkrétním tématem toho, co potřebuješ, abys v rozhovoru zažila, že tě druhá strana opravdu poslouchá.')
       : (language === 'sk'
         ? 'Neopakuj ani tesne neparafrázuj žiadnu predchádzajúcu správu s rolou assistant; história je už priložená samostatne.'
         : 'Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu s rolí assistant; historie je už přiložena samostatně.'));
