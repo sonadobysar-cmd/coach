@@ -517,6 +517,67 @@ test('neměnná deployment identita vyžaduje podepsaný runtime claim, nestač�
   }), false);
 });
 
+test('podepsaný Vercel claim bezpečně váže veřejnou doménu na konkrétní deployment ID', () => {
+  const commit = 'a'.repeat(40);
+  const deploymentId = `dpl_${'c'.repeat(20)}`;
+  const publicUrl = 'https://elitea.cz';
+  const runtimeClaim = createProfessionalCoachRuntimeClaim({
+    baseUrl: publicUrl,
+    appVersion: '0.42.0',
+    gitCommitSha: commit,
+    modelIds: currentModels(),
+    fingerprints: currentFingerprints(),
+    env: {
+      VERCEL: '1',
+      VERCEL_URL: 'elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app',
+      VERCEL_DEPLOYMENT_ID: deploymentId,
+    },
+    issuedAt: '2026-09-15T00:00:00.000Z',
+    secret: RUNTIME_CLAIM_SECRET,
+  });
+  assert.equal(runtimeClaim.deploymentUrl, publicUrl);
+  assert.equal(runtimeClaim.identity, `vercel:${deploymentId}`);
+  assert.equal(professionalCoachRuntimeClaimValid(runtimeClaim, {
+    secret: RUNTIME_CLAIM_SECRET,
+    expectedBaseUrl: publicUrl,
+    expectedAppVersion: '0.42.0',
+    expectedGitCommitSha: commit,
+    expectedModels: currentModels(),
+    expectedFingerprints: currentFingerprints(),
+    now: Date.parse('2026-09-15T00:01:00.000Z'),
+  }), true);
+  assert.equal(immutableDeploymentIdentityMatches({
+    baseUrl: publicUrl,
+    identity: runtimeClaim.identity,
+    gitCommitSha: commit,
+    runtimeClaim,
+  }), true);
+
+  const noDeploymentId = createProfessionalCoachRuntimeClaim({
+    baseUrl: publicUrl,
+    appVersion: '0.42.0',
+    gitCommitSha: commit,
+    modelIds: currentModels(),
+    fingerprints: currentFingerprints(),
+    env: {
+      VERCEL: '1',
+      VERCEL_URL: 'elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app',
+    },
+    issuedAt: '2026-09-15T00:00:00.000Z',
+    secret: RUNTIME_CLAIM_SECRET,
+  });
+  assert.equal(noDeploymentId.deploymentUrl, 'https://elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app');
+  assert.equal(professionalCoachRuntimeClaimValid(noDeploymentId, {
+    secret: RUNTIME_CLAIM_SECRET,
+    expectedBaseUrl: publicUrl,
+    expectedAppVersion: '0.42.0',
+    expectedGitCommitSha: commit,
+    expectedModels: currentModels(),
+    expectedFingerprints: currentFingerprints(),
+    now: Date.parse('2026-09-15T00:01:00.000Z'),
+  }), false);
+});
+
 test('release artefakt fail-closed odmítne cizí run, čas, verzi, model i podvržený runtime claim', () => {
   const runId = 'adversarial-release-run';
   const baseUrl = 'http://127.0.0.1:4173';

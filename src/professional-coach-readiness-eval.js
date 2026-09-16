@@ -2002,9 +2002,21 @@ function runtimeDeploymentDescriptor({ baseUrl, gitCommitSha, env }) {
   const cleanSha = String(gitCommitSha || '').trim();
   if (String(env?.VERCEL || '') === '1') {
     const hostname = String(env?.VERCEL_URL || '').trim().toLowerCase().replace(/^https?:\/\//u, '').replace(/\/+$/u, '');
-    const deploymentUrl = normalizeBaseUrl(hostname ? `https://${hostname}` : '');
-    if (!deploymentUrl || !hostname.endsWith('.vercel.app')) return null;
+    const immutableDeploymentUrl = normalizeBaseUrl(hostname ? `https://${hostname}` : '');
+    if (!immutableDeploymentUrl || !hostname.endsWith('.vercel.app')) return null;
     const deploymentId = String(env?.VERCEL_DEPLOYMENT_ID || '').trim() || null;
+    // Vercel může chránit jednorázovou *.vercel.app adresu SSO, zatímco
+    // produkční doména zůstává veřejná. V takovém případě je bezpečné podepsat
+    // veřejnou vstupní URL pouze tehdy, když ji současně vážeme na neměnné
+    // VERCEL_DEPLOYMENT_ID. Bez ID zůstává jedinou povolenou URL kanonická
+    // *.vercel.app adresa.
+    const requestedBaseUrl = normalizeBaseUrl(baseUrl);
+    const requestedUrl = requestedBaseUrl ? new URL(requestedBaseUrl) : null;
+    const deploymentUrl = deploymentId
+      && requestedUrl?.protocol === 'https:'
+      && !['localhost', '127.0.0.1', '::1'].includes(requestedUrl.hostname.toLowerCase())
+      ? requestedBaseUrl
+      : immutableDeploymentUrl;
     return {
       provider: 'vercel',
       deploymentUrl,
@@ -2035,10 +2047,9 @@ function runtimeClaimIdentityMatches(claim) {
       && !deploymentId
       && identity === `local:${String(claim?.gitCommitSha || '').trim()}`;
   }
-  if (claim?.provider !== 'vercel' || !hostname.endsWith('.vercel.app')) return false;
-  return deploymentId
-    ? identity === `vercel:${deploymentId}`
-    : identity === `vercel-url:${hostname}`;
+  if (claim?.provider !== 'vercel' || new URL(deploymentUrl).protocol !== 'https:') return false;
+  if (deploymentId) return identity === `vercel:${deploymentId}`;
+  return hostname.endsWith('.vercel.app') && identity === `vercel-url:${hostname}`;
 }
 
 function normalizeRuntimeModels(value) {

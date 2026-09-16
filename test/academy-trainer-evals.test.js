@@ -10,6 +10,7 @@ import {
   academyTrainerReleaseBaseline,
   academyTrainerReleaseArtifactValid,
   academyTrainerRuntimeClaimFingerprint,
+  academyTrainerRuntimeClaimValid,
   assessAcademyTrainerBaselineEligibility,
   buildAcademyTrainerEvalPlan,
   debriefEvalRequest,
@@ -288,6 +289,72 @@ test('serverová atestace odmítne chybějící, změněný i lokálně vyroben�
     runtimeClaimSecret: RUNTIME_SECRET,
     secret: OUTCOME_SECRET,
   }), null);
+});
+
+test('Academy runtime claim povolí veřejnou produkční doménu jen s konkrétním Vercel deployment ID', () => {
+  const fingerprints = {
+    applicationFingerprint: 'e'.repeat(64),
+    promptSystemFingerprint: 'b'.repeat(64),
+    evaluationCodeFingerprint: 'c'.repeat(64),
+    evalPlanFingerprint: academyTrainerEvalPlanFingerprint(plan),
+  };
+  const modelIds = {
+    study: 'openai/gpt-5.6-terra',
+    simulation: 'openai/gpt-5.6-luna',
+    debrief: 'openai/gpt-5.6-terra',
+  };
+  const gitCommitSha = 'a'.repeat(40);
+  const publicUrl = 'https://elitea.cz';
+  const deploymentId = `dpl_${'d'.repeat(20)}`;
+  const claim = createAcademyTrainerRuntimeClaim({
+    baseUrl: publicUrl,
+    appVersion: '0.42.0',
+    gitCommitSha,
+    modelIds,
+    fingerprints,
+    secret: RUNTIME_SECRET,
+    env: {
+      VERCEL: '1',
+      VERCEL_URL: 'elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app',
+      VERCEL_DEPLOYMENT_ID: deploymentId,
+    },
+    now: Date.parse('2026-09-15T00:00:00.000Z'),
+  });
+  assert.equal(claim.deploymentUrl, publicUrl);
+  assert.equal(claim.identity, `vercel:${deploymentId}`);
+  assert.equal(academyTrainerRuntimeClaimValid(claim, {
+    secret: RUNTIME_SECRET,
+    expectedBaseUrl: publicUrl,
+    expectedAppVersion: '0.42.0',
+    expectedGitCommitSha: gitCommitSha,
+    expectedModels: modelIds,
+    expectedFingerprints: fingerprints,
+    now: Date.parse('2026-09-15T00:01:00.000Z'),
+  }), true);
+
+  const noDeploymentId = createAcademyTrainerRuntimeClaim({
+    baseUrl: publicUrl,
+    appVersion: '0.42.0',
+    gitCommitSha,
+    modelIds,
+    fingerprints,
+    secret: RUNTIME_SECRET,
+    env: {
+      VERCEL: '1',
+      VERCEL_URL: 'elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app',
+    },
+    now: Date.parse('2026-09-15T00:00:00.000Z'),
+  });
+  assert.equal(noDeploymentId.deploymentUrl, 'https://elitea-a1b2c3d4e-sonadobysar-cmds-projects.vercel.app');
+  assert.equal(academyTrainerRuntimeClaimValid(noDeploymentId, {
+    secret: RUNTIME_SECRET,
+    expectedBaseUrl: publicUrl,
+    expectedAppVersion: '0.42.0',
+    expectedGitCommitSha: gitCommitSha,
+    expectedModels: modelIds,
+    expectedFingerprints: fingerprints,
+    now: Date.parse('2026-09-15T00:01:00.000Z'),
+  }), false);
 });
 
 function completeReport(runId) {

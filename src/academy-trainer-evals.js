@@ -963,9 +963,16 @@ function academyRuntimeDeploymentDescriptor({ baseUrl, gitCommitSha, env }) {
   if (String(env?.VERCEL || '') === '1') {
     const hostname = String(env?.VERCEL_URL || '').trim().toLowerCase()
       .replace(/^https?:\/\//u, '').replace(/\/+$/u, '');
-    const deploymentUrl = normalizeBaseUrl(hostname ? `https://${hostname}` : '');
-    if (!deploymentUrl || !hostname.endsWith('.vercel.app')) return null;
+    const immutableDeploymentUrl = normalizeBaseUrl(hostname ? `https://${hostname}` : '');
+    if (!immutableDeploymentUrl || !hostname.endsWith('.vercel.app')) return null;
     const deploymentId = String(env?.VERCEL_DEPLOYMENT_ID || '').trim() || null;
+    const requestedBaseUrl = normalizeBaseUrl(baseUrl);
+    const requestedUrl = requestedBaseUrl ? new URL(requestedBaseUrl) : null;
+    const deploymentUrl = deploymentId
+      && requestedUrl?.protocol === 'https:'
+      && !['localhost', '127.0.0.1', '::1'].includes(requestedUrl.hostname.toLowerCase())
+      ? requestedBaseUrl
+      : immutableDeploymentUrl;
     return {
       provider: 'vercel',
       deploymentUrl,
@@ -996,8 +1003,9 @@ function academyRuntimeIdentityMatches(claim) {
       && !deploymentId
       && identity === `local:${String(claim?.gitCommitSha || '')}`;
   }
-  if (claim?.provider !== 'vercel' || !hostname.endsWith('.vercel.app')) return false;
-  return deploymentId ? identity === `vercel:${deploymentId}` : identity === `vercel-url:${hostname}`;
+  if (claim?.provider !== 'vercel' || new URL(deploymentUrl).protocol !== 'https:') return false;
+  if (deploymentId) return identity === `vercel:${deploymentId}`;
+  return hostname.endsWith('.vercel.app') && identity === `vercel-url:${hostname}`;
 }
 
 function academyRuntimeClaimUnsigned(value) {
