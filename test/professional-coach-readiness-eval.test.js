@@ -34,6 +34,7 @@ import {
 import {
   assertProfessionalCoachReleasePreflight,
   professionalCoachReadinessRequestHeaders,
+  runProfessionalCoachReadinessEvaluation,
 } from '../scripts/evaluate-professional-coach-readiness.mjs';
 
 const RUNTIME_CLAIM_SECRET = 'elitea-test-release-eval-secret-0000000000000000';
@@ -532,6 +533,22 @@ test('request helper posílá izolovaný eval token a nepropíše jej do žádn�
   assert.equal(headers['x-elitea-release-eval-token'], 'release-secret');
   assert.equal(headers.authorization, undefined);
   assert.equal(headers['content-type'], 'application/json');
+});
+
+test('dílčí diagnostika s release tokenem nejdřív vyžádá podepsaný runtime claim', async () => {
+  const requestedUrls = [];
+  const sentinel = new Error('runtime-claim-request-observed');
+  await assert.rejects(runProfessionalCoachReadinessEvaluation({
+    baseUrl: 'https://example.test',
+    evalToken: 'release-secret',
+    onlyCase: PROFESSIONAL_COACH_READINESS_CASES[0].id,
+    fetchImpl: async url => {
+      requestedUrls.push(String(url));
+      throw sentinel;
+    },
+    logger: () => {},
+  }), error => error === sentinel);
+  assert.deepEqual(requestedUrls, ['https://example.test/api/release-evaluation/runtime-claim']);
 });
 
 test('neměnná deployment identita vyžaduje podepsaný runtime claim, nestačí podvržený tvar URL a ID', () => {

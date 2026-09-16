@@ -319,7 +319,12 @@ async function buildProvenance({ config, cases, startedAt, runId }) {
     evaluationCodeFingerprint: await fingerprintFiles(PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS.evaluationCodeFingerprint),
     evalPlanFingerprint: professionalCoachReadinessPlanFingerprint(cases),
   };
-  const runtimeClaim = config.writeRelease ? await getAuthenticatedRuntimeClaim(config) : null;
+  // Každý běh s release eval tokenem musí být svázaný s přesně tím
+  // deploymentem, který testuje. Platí to i pro dílčí diagnostiku: server
+  // bez otisku podepsaného runtime claimu požadavek správně odmítne dřív,
+  // než se dostane k modelu. Dílčí běh tím nezískává právo vydat release
+  // artefakt; to nadále hlídají writeRelease a kanonický úplný plán.
+  const runtimeClaim = config.evalToken ? await getAuthenticatedRuntimeClaim(config) : null;
   const runtimeClaimVerified = Boolean(runtimeClaim && professionalCoachRuntimeClaimValid(runtimeClaim, {
     secret: config.evalToken,
     expectedBaseUrl: config.baseUrl,
