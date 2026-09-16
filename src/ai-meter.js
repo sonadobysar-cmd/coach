@@ -16,6 +16,40 @@ export function resolveAiCallTimeoutMs(value = process.env.ELITEA_AI_CALL_TIMEOU
   if (!Number.isFinite(parsed)) return 90_000;
   return Math.max(20_000, Math.min(180_000, Math.round(parsed)));
 }
+
+// Provider failures are observable without logging prompts, responses, secret
+// values or raw upstream bodies. These stable categories let production QA
+// distinguish authentication/configuration failures from capacity and timeout
+// incidents instead of silently collapsing everything into a local fallback.
+export function summarizeAiFailure(error) {
+  if (!error) return { errorCategory: null, errorName: null, errorStatusCode: null, errorCode: null };
+  const name = String(error?.name || error?.constructor?.name || 'Error').slice(0, 96);
+  const message = String(error?.message || '');
+  const statusCandidate = error?.statusCode ?? error?.status ?? error?.response?.status ?? error?.cause?.statusCode ?? error?.cause?.status;
+  const parsedStatus = Number(statusCandidate);
+  const statusCode = Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus <= 599
+    ? parsedStatus
+    : null;
+  const code = typeof error?.code === 'string' && /^[A-Z0-9_.:-]{1,96}$/i.test(error.code)
+    ? error.code
+    : null;
+  const fingerprint = `${name} ${code || ''} ${message}`.toLowerCase();
+  let category = 'provider_error';
+  if (statusCode === 401 || /auth|unauthenticated|api.gateway.api.key|oidc|credential/.test(fingerprint)) category = 'authentication';
+  else if (statusCode === 402 || /credit|payment|billing|balance/.test(fingerprint)) category = 'billing';
+  else if (statusCode === 403 || /forbidden|permission|access.denied/.test(fingerprint)) category = 'authorization';
+  else if (statusCode === 404 || /model.not.found|unknown.model/.test(fingerprint)) category = 'model_not_found';
+  else if (statusCode === 408 || /timeout|timed.out|abort/.test(fingerprint)) category = 'timeout';
+  else if (statusCode === 429 || /rate.limit|capacity|overload/.test(fingerprint)) category = 'capacity';
+  else if (statusCode === 400 || /invalid.request|validation|schema/.test(fingerprint)) category = 'invalid_request';
+  else if (statusCode && statusCode >= 500) category = 'provider_unavailable';
+  return {
+    errorCategory: category,
+    errorName: name,
+    errorStatusCode: statusCode,
+    errorCode: code,
+  };
+}
 export function priceUsage(model, usage) {
   const rates = AI_RATES[model];
   const input = usage?.inputTokens, output = usage?.outputTokens;
@@ -80,6 +114,7 @@ export function createMeteredGenerate({ generate = generateText, sink = persistA
         generationId: metadata?.generationId || null,
         instructionChars: instructionText.length,
         messageChars: (args.messages || []).reduce((n, m) => n + (typeof m.content === 'string' ? m.content.length : 0), 0),
+        ...summarizeAiFailure(failure),
       };
       try { await (context.sink || sink)(event); } catch { console.error(JSON.stringify({ message: 'ai_call_meter_sink_failed', id })); }
     }

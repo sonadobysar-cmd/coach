@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMeteredGenerate, priceUsage, aiMeterContext, resolveAiCallTimeoutMs } from '../src/ai-meter.js';
+import { createMeteredGenerate, priceUsage, aiMeterContext, resolveAiCallTimeoutMs, summarizeAiFailure } from '../src/ai-meter.js';
 test('charges cached input separately and reasoning once', () => {
   assert.ok(Math.abs(priceUsage('openai/gpt-5.6-terra', { inputTokens: 1000, outputTokens: 100, inputTokenDetails: { cacheReadTokens: 800 }, outputTokenDetails: { reasoningTokens: 80 } }) - .00176) < 1e-10);
   assert.equal(priceUsage('unknown', {inputTokens: 1, outputTokens: 1}), null);
@@ -22,6 +22,21 @@ test('errors remain unknown cost, recording failure does not mask original excep
  const generate=createMeteredGenerate({generate:async()=>{throw error},sink:e=>events.push(e)});
  await assert.rejects(generate({model:'openai/gpt-5.6-sol'}),e=>e===error);
  assert.equal(events[0].estimatedCostUsd,null);assert.equal(events[0].usageKnown,false);
+ assert.equal(events[0].errorCategory,'provider_error');
+ assert.equal(events[0].errorName,'Error');
+ assert.ok(!JSON.stringify(events[0]).includes('sensitive'));
+});
+
+test('provider diagnostics classify failures without retaining sensitive messages', () => {
+  assert.deepEqual(summarizeAiFailure(Object.assign(new Error('Unauthenticated request with secret abc'), { name: 'GatewayAuthenticationError', statusCode: 401 })), {
+    errorCategory: 'authentication',
+    errorName: 'GatewayAuthenticationError',
+    errorStatusCode: 401,
+    errorCode: null,
+  });
+  assert.equal(summarizeAiFailure(Object.assign(new Error('payment required'), { status: 402 })).errorCategory, 'billing');
+  assert.equal(summarizeAiFailure(Object.assign(new Error('bad payload'), { statusCode: 400 })).errorCategory, 'invalid_request');
+  assert.equal(summarizeAiFailure(Object.assign(new Error('busy'), { statusCode: 429 })).errorCategory, 'capacity');
 });
 
 test('cache writes and actual gateway cost are retained', async()=>{
