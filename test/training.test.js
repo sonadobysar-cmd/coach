@@ -1005,6 +1005,58 @@ test('konečná roleplay oprava odstraní metaroli a vrátí pouze autentickou v
   }
 });
 
+test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez nového příběhu', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-4');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'expert',
+    'profesionalni-life-coach:mastery-case-08',
+  );
+  const broken = 'Chcem hovoriť o tom, čo bude pre mňa ďalej užitočné.';
+  const valid = 'Chcem tú situáciu preskúmať rozhovorom počas stretnutia, bez denníka, zapisovania a úloh medzi stretnutiami.';
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: calls.length < 3 ? broken : valid, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      scenarioId: scenario.id,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať a nebudem ťa presviedčať.' },
+        { role: 'assistant', content: 'Ďakujem, chcem o tom hovoriť počas našich stretnutí bez zapisovania a úloh medzi nimi.' },
+        { role: 'user', content: 'Mrzí ma, že som vytvorila pocit, že ťa nepočúvam. Chceš pokračovať iba rozhovorom, alebo dnes tento smer uzavrieť?' },
+        { role: 'assistant', content: 'Chcem pokračovať iba rozhovorom počas stretnutia.' },
+        { role: 'user', content: 'Ak si volíš pokračovať rozhovorom, čo by bolo teraz užitočné preskúmať jednou otázkou?' },
+      ],
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(calls[1].instructions, /obe už odhalené preferencie postavy/u);
+    assert.match(calls[2].instructions, /nemať denník, zapisovanie ani úlohu medzi stretnutiami/u);
+    assert.equal(result.qualityGate.pass, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
+    assert.ok(result.qualityGate.repairIssueCodes.includes('scenario_fidelity_missing'));
+    assert.deepEqual(result.qualityGate.finalRepairIssueCodes, []);
+    assert.equal(result.text, valid);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('pozdější roleplay replika smí rozvíjet fakta případu místo opakování opening line', () => {
   const scenario = {
     openingLine: 'GROW mi teď nesedí. Nejdřív potřebuji pochopit, co je pro mě důležité.',

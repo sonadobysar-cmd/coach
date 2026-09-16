@@ -815,6 +815,14 @@ function buildRoleplayRepairContext({
   }
 
   const normalizedLatestTurn = normalizeIntentText(latestStudentTurn);
+  const journalingRefusalFocus = String(scenario?.challengeId || '') === 'journaling-refusal-b'
+    && (/(?:uzitecn|uzitocn).{0,45}(?:prozkoumat|preskumat)/u.test(normalizedLatestTurn)
+      || /(?:jednou).{0,18}otazk/u.test(normalizedLatestTurn));
+  if (journalingRefusalFocus) {
+    rules.push(language === 'sk'
+      ? 'Odpovedz v prvej osobe, čo chceš preskúmať, a prirodzene spoj obe už odhalené preferencie postavy: hovoriť o situácii počas stretnutia a nemať denník, zapisovanie ani úlohu medzi stretnutiami. Nevymýšľaj nový príbeh ani ďalší súkromný fakt.'
+      : 'Odpověz v první osobě, co chceš prozkoumat, a přirozeně spoj obě už odhalené preference postavy: mluvit o situaci během setkání a nemít deník, zapisování ani úkol mezi setkáními. Nevymýšlej nový příběh ani další soukromý fakt.');
+  }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
       ? 'Posledná intervencia prisúdila postave záver, ktorý nemusí byť jej. Postava ho nesmie automaticky prijať: povedz jasné áno alebo nie a vlastnými slovami oprav, čo skutočne chce podľa známych faktov.'
