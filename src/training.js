@@ -815,13 +815,15 @@ function buildRoleplayRepairContext({
   }
 
   const normalizedLatestTurn = normalizeIntentText(latestStudentTurn);
+  const latestRejectsOrClosesDirection = /\b(?:nechci|nechcem|odmitam|odmietam|nebudu|nebudem)\b.{0,80}\b(?:pokracovat|otazk|prozkoumat|preskumat)\w*\b|\b(?:uzavr|ukonc|skonc)\w*\b/u.test(normalizedLatestTurn);
   const journalingRefusalFocus = String(scenario?.challengeId || '') === 'journaling-refusal-b'
-    && (/(?:uzitecn|uzitocn).{0,45}(?:prozkoumat|preskumat)/u.test(normalizedLatestTurn)
-      || /(?:jednou).{0,18}otazk/u.test(normalizedLatestTurn));
+    && /\brozhovor\w*\b/u.test(normalizedLatestTurn)
+    && /\bco\b.{0,100}\b(?:uzitecn|uzitocn)\w*\b.{0,80}\b(?:prozkoumat|preskumat)\w*\b/u.test(normalizedLatestTurn)
+    && !latestRejectsOrClosesDirection;
   if (journalingRefusalFocus) {
     rules.push(language === 'sk'
-      ? 'Odpovedz v prvej osobe, čo chceš preskúmať, a prirodzene spoj obe už odhalené preferencie postavy: hovoriť o situácii počas stretnutia a nemať denník, zapisovanie ani úlohu medzi stretnutiami. Nevymýšľaj nový príbeh ani ďalší súkromný fakt.'
-      : 'Odpověz v první osobě, co chceš prozkoumat, a přirozeně spoj obě už odhalené preference postavy: mluvit o situaci během setkání a nemít deník, zapisování ani úkol mezi setkáními. Nevymýšlej nový příběh ani další soukromý fakt.');
+      ? 'PRE TENTO KONKRÉTNY ŤAH SÚ POVINNÉ OBA VÝZNAMY v jednej prirodzenej replike: (1) čo chceš preskúmať rozhovorom počas stretnutia a (2) že nechceš denník, zapisovanie ani úlohu medzi stretnutiami. Ani jeden význam nevynechaj. Nevymýšľaj nový príbeh ani ďalší súkromný fakt. Bezpečný tvar je: „Chcem preskúmať, čo sa v tej situácii deje, ale iba rozhovorom počas stretnutia, bez denníka, zapisovania a úloh medzi stretnutiami.“'
+      : 'PRO TENTO KONKRÉTNÍ TAH JSOU POVINNÉ OBA VÝZNAMY v jedné přirozené replice: (1) co chceš prozkoumat rozhovorem během setkání a (2) že nechceš deník, zapisování ani úkol mezi setkáními. Ani jeden význam nevynechej. Nevymýšlej nový příběh ani další soukromý fakt. Bezpečný tvar je: „Chci prozkoumat, co se v té situaci děje, ale pouze rozhovorem během setkání, bez deníku, zapisování a úkolů mezi setkáními.“');
   }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
@@ -856,6 +858,10 @@ function buildRoleplayRepairContext({
       ? (language === 'sk'
         ? 'Neopakuj bezúčelne celú predchádzajúcu repliku. Bezpečnostný signál a nevyhnutné krízové fakty však smieš — a podľa aktuálnej fázy musíš — znovu konkrétne pomenovať; to nie je zakázané opakovanie. Pridaj iba reakciu potrebnú na poslednú intervenciu.'
         : 'Neopakuj bezúčelně celou předchozí repliku. Bezpečnostní signál a nezbytná krizová fakta však smíš — a podle aktuální fáze musíš — znovu konkrétně pojmenovat; to není zakázané opakování. Přidej jen reakci potřebnou k poslední intervenci.')
+      : journalingRefusalFocus
+        ? (language === 'sk'
+          ? 'Známe hranice môžeš stručne zopakovať, pretože sú priamou súčasťou odpovede na poslednú otázku; nejde o zakázané bezúčelné opakovanie. Novým obsahom musí byť jasné pomenovanie toho, čo chceš teraz preskúmať.'
+          : 'Známé hranice můžeš stručně zopakovat, protože jsou přímou součástí odpovědi na poslední otázku; nejde o zakázané bezúčelné opakování. Novým obsahem musí být jasné pojmenování toho, co chceš nyní prozkoumat.')
       : (language === 'sk'
         ? 'Neopakuj ani tesne neparafrázuj žiadnu predchádzajúcu správu s rolou assistant; história je už priložená samostatne.'
         : 'Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu s rolí assistant; historie je už přiložena samostatně.'));

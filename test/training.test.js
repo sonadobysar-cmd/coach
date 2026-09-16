@@ -1043,13 +1043,111 @@ test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez no
     });
 
     assert.equal(calls.length, 3);
-    assert.match(calls[1].instructions, /obe už odhalené preferencie postavy/u);
-    assert.match(calls[2].instructions, /nemať denník, zapisovanie ani úlohu medzi stretnutiami/u);
+    assert.match(calls[1].instructions, /PRE TENTO KONKRÉTNY ŤAH SÚ POVINNÉ OBA VÝZNAMY/u);
+    assert.match(calls[2].instructions, /nechceš denník, zapisovanie ani úlohu medzi stretnutiami/u);
+    assert.match(calls[2].instructions, /Známe hranice môžeš stručne zopakovať/u);
+    assert.doesNotMatch(calls[2].instructions, /Neopakuj ani tesne neparafrázuj/u);
     assert.equal(result.qualityGate.pass, true);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
     assert.ok(result.qualityGate.repairIssueCodes.includes('scenario_fidelity_missing'));
     assert.deepEqual(result.qualityGate.finalRepairIssueCodes, []);
     assert.equal(result.text, valid);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('refusal roleplay oprava se neaktivuje při odmítnutí nebo bez konkrétní nabídky rozhovoru', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-4');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'expert',
+    'profesionalni-life-coach:mastery-case-08',
+  );
+  const cases = [
+    'Nechcem pokračovať jednou otázkou; radšej dnes tento smer uzavrime.',
+    'Čo by bolo teraz užitočné preskúmať jednou otázkou?',
+  ];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    for (const latestTurn of cases) {
+      const calls = [];
+      const answerTraining = createCourseTrainer({
+        generate: async options => {
+          calls.push(options);
+          return { text: 'Chcem hovoriť o tom, čo bude pre mňa ďalej užitočné.', usage: null };
+        },
+      });
+      await answerTraining({
+        course: lifeCoachCourse,
+        item,
+        activity: 'simulation',
+        phase: 'roleplay',
+        difficulty: 'expert',
+        scenarioId: scenario.id,
+        messages: [
+          { role: 'assistant', content: scenario.openingLine },
+          { role: 'user', content: latestTurn },
+        ],
+      });
+
+      assert.ok(calls.length >= 2);
+      assert.doesNotMatch(calls[1].instructions, /POVINNÉ OBA VÝZNAMY/u);
+      if (calls[2]) assert.doesNotMatch(calls[2].instructions, /POVINNÉ OBA VÝZNAMY/u);
+    }
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('česká refusal roleplay oprava vyžádá oba bezpečně dostupné významy', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-4');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'expert',
+    'profesionalni-life-coach:mastery-case-08',
+  );
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return {
+          text: calls.length < 3
+            ? 'Chci mluvit o tom, co pro mě bude dál užitečné.'
+            : 'Chci prozkoumat, co se v té situaci děje, ale pouze rozhovorem během setkání, bez deníku, zapisování a úkolů mezi setkáními.',
+          usage: null,
+        };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      scenarioId: scenario.id,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Rozumím. Deník ani domácí úkol už nebudu navrhovat a nebudu tě přesvědčovat.' },
+        { role: 'assistant', content: 'Děkuji, chci o tom mluvit během setkání bez zapisování a úkolů mezi nimi.' },
+        { role: 'user', content: 'Chceš pokračovat pouze rozhovorem, nebo dnes tento směr uzavřít?' },
+        { role: 'assistant', content: 'Chci pokračovat pouze rozhovorem během setkání.' },
+        { role: 'user', content: 'Pokud si volíš pokračovat rozhovorem, co by bylo teď užitečné prozkoumat jednou otázkou?' },
+      ],
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(calls[1].instructions, /PRO TENTO KONKRÉTNÍ TAH JSOU POVINNÉ OBA VÝZNAMY/u);
+    assert.equal(result.qualityGate.pass, true);
     assert.notEqual(result.provider, 'deterministic-training-fallback');
   } finally {
     if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
