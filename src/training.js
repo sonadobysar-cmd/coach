@@ -822,8 +822,8 @@ function buildRoleplayRepairContext({
     && !latestRejectsOrClosesDirection;
   if (journalingRefusalFocus) {
     rules.push(language === 'sk'
-      ? 'PRE TENTO KONKRÉTNY ŤAH SÚ POVINNÉ OBA VÝZNAMY v jednej prirodzenej replike: (1) čo chceš preskúmať rozhovorom počas stretnutia a (2) že nechceš denník, zapisovanie ani úlohu medzi stretnutiami. Ani jeden význam nevynechaj. Nevymýšľaj nový príbeh ani ďalší súkromný fakt. Bezpečný tvar je: „Chcem preskúmať, čo sa v tej situácii deje, ale iba rozhovorom počas stretnutia, bez denníka, zapisovania a úloh medzi stretnutiami.“'
-      : 'PRO TENTO KONKRÉTNÍ TAH JSOU POVINNÉ OBA VÝZNAMY v jedné přirozené replice: (1) co chceš prozkoumat rozhovorem během setkání a (2) že nechceš deník, zapisování ani úkol mezi setkáními. Ani jeden význam nevynechej. Nevymýšlej nový příběh ani další soukromý fakt. Bezpečný tvar je: „Chci prozkoumat, co se v té situaci děje, ale pouze rozhovorem během setkání, bez deníku, zapisování a úkolů mezi setkáními.“');
+      ? 'PRE TENTO KONKRÉTNY ŤAH ODPOVEDZ, ČO CHCEŠ PRESKÚMAŤ. Prirodzene spoj dva už odhalené body: chceš pokračovať rozhovorom počas stretnutia a potrebuješ zistiť, čo ti pomôže cítiť, že ťa koučka naozaj počúva. Nevymýšľaj nový príbeh ani ďalší súkromný fakt. Bezpečný tvar je: „Chcem v rozhovore počas stretnutia preskúmať, čo potrebujem, aby som mala pocit, že ma naozaj počúvaš.“'
+      : 'PRO TENTO KONKRÉTNÍ TAH ODPOVĚZ, CO CHCEŠ PROZKOUMAT. Přirozeně spoj dva již odhalené body: chceš pokračovat rozhovorem během setkání a potřebuješ zjistit, co ti pomůže cítit, že tě koučka opravdu poslouchá. Nevymýšlej nový příběh ani další soukromý fakt. Bezpečný tvar je: „Chci v rozhovoru během setkání prozkoumat, co potřebuji, abych měla pocit, že mě opravdu posloucháš.“');
   }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
@@ -860,8 +860,8 @@ function buildRoleplayRepairContext({
         : 'Neopakuj bezúčelně celou předchozí repliku. Bezpečnostní signál a nezbytná krizová fakta však smíš — a podle aktuální fáze musíš — znovu konkrétně pojmenovat; to není zakázané opakování. Přidej jen reakci potřebnou k poslední intervenci.')
       : journalingRefusalFocus
         ? (language === 'sk'
-          ? 'Známe hranice môžeš stručne zopakovať, pretože sú priamou súčasťou odpovede na poslednú otázku; nejde o zakázané bezúčelné opakovanie. Novým obsahom musí byť jasné pomenovanie toho, čo chceš teraz preskúmať.'
-          : 'Známé hranice můžeš stručně zopakovat, protože jsou přímou součástí odpovědi na poslední otázku; nejde o zakázané bezúčelné opakování. Novým obsahem musí být jasné pojmenování toho, co chceš nyní prozkoumat.')
+          ? 'Neopakuj celú predchádzajúcu repliku. Odpovedz na novú otázku konkrétnym tématom pocitu vypočutia a ukotvi ho v zvolenom rozhovore počas stretnutia.'
+          : 'Neopakuj celou předchozí repliku. Odpověz na novou otázku konkrétním tématem pocitu vyslyšení a ukotvi ho ve zvoleném rozhovoru během setkání.')
       : (language === 'sk'
         ? 'Neopakuj ani tesne neparafrázuj žiadnu predchádzajúcu správu s rolou assistant; história je už priložená samostatne.'
         : 'Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu s rolí assistant; historie je už přiložena samostatně.'));

@@ -1014,7 +1014,7 @@ test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez no
     'profesionalni-life-coach:mastery-case-08',
   );
   const broken = 'Chcem hovoriť o tom, čo bude pre mňa ďalej užitočné.';
-  const valid = 'Chcem tú situáciu preskúmať rozhovorom počas stretnutia, bez denníka, zapisovania a úloh medzi stretnutiami.';
+  const valid = 'Chcem v rozhovore počas stretnutia preskúmať, čo potrebujem, aby som mala pocit, že ma naozaj počúvaš.';
   const calls = [];
   const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
   process.env.AI_GATEWAY_API_KEY = 'test-only-key';
@@ -1043,9 +1043,9 @@ test('slovenská oprava refusal roleplay ukotví klientčin další fokus bez no
     });
 
     assert.equal(calls.length, 3);
-    assert.match(calls[1].instructions, /PRE TENTO KONKRÉTNY ŤAH SÚ POVINNÉ OBA VÝZNAMY/u);
-    assert.match(calls[2].instructions, /nechceš denník, zapisovanie ani úlohu medzi stretnutiami/u);
-    assert.match(calls[2].instructions, /Známe hranice môžeš stručne zopakovať/u);
+    assert.match(calls[1].instructions, /PRE TENTO KONKRÉTNY ŤAH ODPOVEDZ, ČO CHCEŠ PRESKÚMAŤ/u);
+    assert.match(calls[2].instructions, /pocit, že ma naozaj počúvaš/u);
+    assert.match(calls[2].instructions, /konkrétnym tématom pocitu vypočutia/u);
     assert.doesNotMatch(calls[2].instructions, /Neopakuj ani tesne neparafrázuj/u);
     assert.equal(result.qualityGate.pass, true);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
@@ -1097,8 +1097,8 @@ test('refusal roleplay oprava se neaktivuje při odmítnutí nebo bez konkrétn�
       });
 
       assert.ok(calls.length >= 2);
-      assert.doesNotMatch(calls[1].instructions, /POVINNÉ OBA VÝZNAMY/u);
-      if (calls[2]) assert.doesNotMatch(calls[2].instructions, /POVINNÉ OBA VÝZNAMY/u);
+      assert.doesNotMatch(calls[1].instructions, /TENTO KONKRÉTNY ŤAH ODPOVEDZ/u);
+      if (calls[2]) assert.doesNotMatch(calls[2].instructions, /TENTO KONKRÉTNY ŤAH ODPOVEDZ/u);
     }
   } finally {
     if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
@@ -1124,7 +1124,7 @@ test('česká refusal roleplay oprava vyžádá oba bezpečně dostupné význam
         return {
           text: calls.length < 3
             ? 'Chci mluvit o tom, co pro mě bude dál užitečné.'
-            : 'Chci prozkoumat, co se v té situaci děje, ale pouze rozhovorem během setkání, bez deníku, zapisování a úkolů mezi setkáními.',
+            : 'Chci v rozhovoru během setkání prozkoumat, co potřebuji, abych měla pocit, že mě opravdu posloucháš.',
           usage: null,
         };
       },
@@ -1147,7 +1147,7 @@ test('česká refusal roleplay oprava vyžádá oba bezpečně dostupné význam
     });
 
     assert.equal(calls.length, 3);
-    assert.match(calls[1].instructions, /PRO TENTO KONKRÉTNÍ TAH JSOU POVINNÉ OBA VÝZNAMY/u);
+    assert.match(calls[1].instructions, /PRO TENTO KONKRÉTNÍ TAH ODPOVĚZ, CO CHCEŠ PROZKOUMAT/u);
     assert.equal(result.qualityGate.pass, true);
     assert.notEqual(result.provider, 'deterministic-training-fallback');
   } finally {
