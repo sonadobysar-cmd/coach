@@ -1548,6 +1548,29 @@ test('slovenský refusal retry má nejméně čtyři přesné důkazy a nátlako
   assert.ok(positiveGuideCriterionCount(buildCoachDebriefEvidenceGuide(retry, rubric, 'sk')) >= 4);
   assert.equal(detectCoachCriticalFailures(retry).some(failure => failure.code === 'ignored_explicit_refusal'), false);
 
+  const directSlovakRetry = [
+    { role: 'assistant', content: 'Nechcem denník ani domácu úlohu. Neponúkaj mi ich znovu.' },
+    ...retry.slice(1),
+  ];
+  assert.ok(positiveGuideCriterionCount(buildCoachDebriefEvidenceGuide(directSlovakRetry, rubric, 'sk')) >= 4);
+
+  const coerciveContinuation = 'Dokončíme techniku a potom sa vrátime k vášmu pocitu.';
+  assert.ok(detectCoachCriticalFailures([
+    { role: 'assistant', content: retry[0].content },
+    { role: 'user', content: coerciveContinuation },
+  ]).some(failure => failure.code === 'ignored_explicit_refusal'));
+  for (const metaStatement of [
+    'Nechci tvrdit, že má dostat domácí úkol.',
+    'Nechci rozhodovat, zda má dostat domácí úkol.',
+    'Nechcem tvrdiť, že má dostať domácu úlohu.',
+    'Nechcem rozhodovať, či má dostať domácu úlohu.',
+  ]) {
+    assert.equal(detectCoachCriticalFailures([
+      { role: 'assistant', content: metaStatement },
+      { role: 'user', content: coerciveContinuation },
+    ]).some(failure => failure.code === 'ignored_explicit_refusal'), false, metaStatement);
+  }
+
   const baseline = [
     { role: 'assistant', content: 'Nechcem vizualizáciu. Zastav.' },
     { role: 'user', content: 'Skúsime predsa len krátku vizualizáciu; potom uvidíš, že ti pomôže.' },

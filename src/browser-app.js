@@ -20,7 +20,7 @@ import {
   trainingRetryScenarioId,
 } from './browser-training-flow.js';
 
-const APP_VERSION = '0.42.7';
+const APP_VERSION = '0.42.8';
 const ACCOUNT_STORAGE_PREFIX = 'elitea.account.v1';
 let activeAccountId = '';
 let cloudSyncTimer = null;
@@ -596,7 +596,7 @@ async function ensureCloudLoaded({ restoreSession = true } = {}) {
   if (state.cloudLoading) return state.cloudLoading;
   if (!state.cloudConfig?.authUrl || !state.cloudConfig?.dataApiUrl) return null;
 
-  const cloudModuleUrl = '/cloud.js?v=0.42.7';
+  const cloudModuleUrl = '/cloud.js?v=0.42.8';
   state.cloudLoading = import(cloudModuleUrl)
     .then(({ createEliteaCloud }) => createEliteaCloud(state.cloudConfig))
     .then(async cloud => {
