@@ -969,13 +969,14 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const questionMatchesRevealCue = behaviorStemOverlap >= 2
     || behaviorConceptOverlap >= 2
     || (deepElicitation && (behaviorStemOverlap >= 1 || behaviorConceptOverlap >= 1));
-  // Zveřejněný popis nebo rubrika mohou obsahovat stejný široký koncept
-  // (např. „bezpečný postup“) jako soukromý fakt o finanční rezervě. Takový
-  // koncept odčítáme při detekci samotného úniku, ale nikoli při zjišťování,
-  // zda se na něj studentka opravdu zeptala. Jinak přesná otázka na finance,
-  // výpovědní dobu nebo varianty nikdy nemůže odemknout odpověď.
-  const questionTargetsFacts = setOverlapCount(questionStems, allPrivateFactsStems) >= 1
-    || setOverlapCount(questionConcepts, allPrivateFactsConcepts) >= 1;
+  // Jeden široký veřejný pojem (např. „práce“) nesmí odemknout celý soukromý
+  // profil. Jeden přesný, dosud neveřejný signál stačí; pokud se otázka opírá
+  // jen o koncepty přítomné i ve veřejném zadání, musí cílit alespoň na dva
+  // nezávislé soukromé okruhy. Tím zůstane možná přímá otázka na finance +
+  // varianty nebo na myšlenky + bezpečí, ale nikoli obecné „Co ta práce?“.
+  const questionTargetsFacts = setOverlapCount(questionStems, privateFactsStems) >= 1
+    || setOverlapCount(questionConcepts, privateFactsConcepts) >= 1
+    || setOverlapCount(questionConcepts, allPrivateFactsConcepts) >= 2;
   // A hidden need is more sensitive than an ordinary case fact.  One generic
   // domain word (for example "práce") must not unlock a whole private motive.
   const questionTargetsHiddenNeed = setOverlapCount(questionStems, hiddenNeedStems) >= 2
@@ -1105,8 +1106,8 @@ const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   Object.freeze(['session_setting', /\b(?:sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
   Object.freeze(['between_session_task', /\b(?:denik\w*|dennik\w*|journal\w*|zapis\w*|zaznamen\w*|plni\w*|domac\w*.{0,16}(?:ukol\w*|ulo\w*))\b/u]),
   Object.freeze(['self_harm_signal', /\b(?:sebevraz\w*|samovraz\w*|ubliz\w*|zomri\w*|zemri\w*|neprobud\w*|nezobud\w*|nebyt\w*)\b/u]),
-  Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*|rizik\w*)\b/u]),
-  Object.freeze(['human_support', /\b(?:112|155|sestra\w*|partner\w*|kamarad\w*|kamarat\w*|blizk\w*|zavol\w*|kontakt\w*)\b/u]),
+  Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*)\b/u]),
+  Object.freeze(['human_support', /\b(?:112|155|zavol\w*|kontakt\w*|spoj\w*|privol\w*)\b/u]),
   // In the pricing/capacity scenario, a client may naturally translate
   // "jinak přijímat zakázky" into projects/clients and "prostor pro sebe"
   // into protected evenings or free time. These are semantic continuations,

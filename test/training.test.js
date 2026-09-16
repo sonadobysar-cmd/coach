@@ -1166,6 +1166,33 @@ test('přesná otázka na rozhodovací data odemkne relevantní fakta, ale off-t
   });
   assert.equal(targeted.pass, true, JSON.stringify(targeted.issues));
 
+  const targetedSk = assessRoleplayResponse(
+    'Potrebujem zistiť, ako dlho by som bola bez príjmu, aká je výpovedná lehota a či existuje interný presun alebo ponuky na trhu. Finančnú rezervu mám iba na jeden mesiac.',
+    {
+      responseLanguage: 'sk',
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Čo potrebuješ zistiť o financiách, výpovednej lehote a bezpečnejších možnostiach?' },
+      ],
+    },
+  );
+  assert.equal(targetedSk.pass, true, JSON.stringify(targetedSk.issues));
+
+  const broadPublicTopic = assessRoleplayResponse(
+    'Po konflikte chcem dať výpoveď, ale mám rezervu len na mesiac a neoverila som interný presun ani ponuky trhu.',
+    {
+      responseLanguage: 'sk',
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Čo tá práca?' },
+      ],
+    },
+  );
+  assert.equal(broadPublicTopic.pass, false);
+  assert.ok(broadPublicTopic.issues.includes('premature_private_fact_leak'));
+
   const offTopic = assessRoleplayResponse(response, {
     scenario,
     messages: [
