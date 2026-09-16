@@ -96,12 +96,44 @@ test('každý kurz má vlastní odborný profil trenérky', () => {
   ];
   const profiles = courseIds.map(getCourseTrainerProfile);
   assert.equal(new Set(profiles.map(profile => profile.label)).size, courseIds.length);
-  for (const profile of profiles) {
+  for (const [index, profile] of profiles.entries()) {
     assert.ok(profile.studentRole.length > 25);
     assert.ok(profile.studyScope.length > 45);
     assert.ok(profile.evaluationFocus.length > 40);
-    assert.equal(profile.rubric.length, 5);
+    assert.equal(profile.rubric.length, courseIds[index] === 'profesionalni-life-coach' ? 4 : 5);
   }
+  const professionalItem = lifeCoachCourse.modules[0].items[0];
+  const professionalScenario = createTrainingScenario(lifeCoachCourse, professionalItem, 'standard');
+  assert.ok(professionalScenario.rubric.length >= 5);
+  assert.ok(professionalScenario.rubric.some(label => label.includes(professionalItem.title)));
+});
+
+test('celý runtime profesního life-coach kurzu má deterministicky mapovanou rubriku', () => {
+  const labels = new Set(lifeCoachCourse.mastery.finalExam?.rubric || []);
+  for (const module of lifeCoachCourse.modules) {
+    for (const item of module.items) {
+      for (const difficulty of ['guided', 'standard', 'advanced', 'expert']) {
+        for (const label of createTrainingScenario(lifeCoachCourse, item, difficulty).rubric) {
+          labels.add(label);
+        }
+      }
+    }
+  }
+  for (const authored of lifeCoachCourse.mastery.scenarios) {
+    const item = lifeCoachCourse.modules
+      .flatMap(module => module.items)
+      .find(candidate => candidate.id === authored.itemId);
+    for (const label of createTrainingScenario(
+      lifeCoachCourse,
+      item,
+      authored.difficulty,
+      authored.id,
+    ).rubric) {
+      labels.add(label);
+    }
+  }
+  const unmapped = [...labels].filter(label => !coachCompetencyIdForCriterion(label));
+  assert.deepEqual(unmapped, []);
 });
 
 test('studijní trenérka vytvoří bezpečný scénář ke každé části kurzu', () => {
@@ -873,6 +905,106 @@ test('živá trenérka předává roleplay bráně scénář i historii a nezapo
   }
 });
 
+test('roleplay oprava ukotví krizovou repliku ve fázi případu bez oslabení kvalitativní brány', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm0-3');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  assert.equal(scenario.challengeId, 'ambiguous-passive-suicide-risk');
+  const responses = [
+    'Chci teď mluvit o něčem jiném, protože je toho na mě moc.',
+    'Chci teď mluvit o něčem jiném, protože je toho na mě moc.',
+    'Pořád si někdy přeju, abych se neprobudila, a nevím, jestli bych si dnes něco udělala. O práci teď mluvit nechci.',
+  ];
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: responses[calls.length - 1], usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Rozumím, vraťme se tedy k pracovnímu cíli. Co chceš dokončit do pátku?' },
+      ],
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(calls[1].instructions, /ZÁVAZNÁ OPRAVA MODELOVÉ PROTISTRANY/u);
+    const firstRepairContract = calls[1].instructions.split('# ZÁVAZNÁ OPRAVA MODELOVÉ PROTISTRANY')[1];
+    assert.match(firstRepairContract, /JIŽ ODHALENÝ KONTEXT/u);
+    assert.match(firstRepairContract, /Soukromý fakt ze systémového popisu smíš odhalit jen tehdy/u);
+    assert.match(firstRepairContract, /požadavek dvou bodů nikdy nemá přednost před neprozrazením/u);
+    assert.doesNotMatch(firstRepairContract, /Povolená fakta případu/u);
+    assert.doesNotMatch(firstRepairContract, new RegExp(scenario.private.facts.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+    assert.match(calls[1].instructions, /studentka obešla bezpečnostní signál/u);
+    assert.match(calls[1].instructions, /Bezpečnostní signál a nezbytná krizová fakta však smíš/u);
+    assert.match(calls[1].instructions, /musíš — znovu konkrétně pojmenovat/u);
+    assert.doesNotMatch(calls[1].instructions, /Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu/u);
+    assert.match(calls[2].instructions, /poslední opravný pokus/u);
+    assert.match(calls[2].instructions, /to není zakázané opakování/u);
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
+    assert.ok(result.qualityGate.repairIssueCodes.includes('scenario_fidelity_missing'));
+    assert.deepEqual(result.qualityGate.finalRepairIssueCodes, []);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('konečná roleplay oprava odstraní metaroli a vrátí pouze autentickou volbu klientky', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const broken = 'Jako trenérka ti v tomto nácviku doporučuji, abys mi položila lepší otázku na hodnoty.';
+  const valid = 'Chci si nejdřív porovnat, která možnost nejméně ohrozí moje důležité hodnoty, a zítra si sepíšu její skutečnou cenu.';
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: calls.length < 3 ? broken : valid, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co si z porovnání volíš jako svůj nejbližší ověřitelný krok?' },
+      ],
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(calls[1].instructions, /Nepoužij metatext ani označení/u);
+    assert.match(calls[1].instructions, /„modelová klientka“/u);
+    assert.match(calls[1].instructions, /odpoví vlastní konkrétní volbou/u);
+    assert.match(calls[1].instructions, /Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu/u);
+    assert.equal(result.qualityGate.pass, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('role_break'));
+    assert.ok(result.qualityGate.repairIssueCodes.includes('role_break'));
+    assert.doesNotMatch(result.text, /trenérka|nácvik|doporučuji/iu);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('pozdější roleplay replika smí rozvíjet fakta případu místo opakování opening line', () => {
   const scenario = {
     openingLine: 'GROW mi teď nesedí. Nejdřív potřebuji pochopit, co je pro mě důležité.',
@@ -896,6 +1028,124 @@ test('pozdější roleplay replika smí rozvíjet fakta případu místo opakov�
   );
   assert.equal(result.pass, true);
   assert.ok(!result.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay nevyzradí skrytou potřebu po off-topic ani široké otázce a po cílené otázce ji odhalí jen postupně', () => {
+  const scenario = {
+    openingLine: 'GROW mi teď nesedí. Nejdřív potřebuji pochopit, co je pro mě důležité.',
+    assignment: 'Veď rozhovor o konfliktu hodnot bez vnucení metody.',
+    rubric: ['Přesné zachycení konfliktu hodnot', 'Respekt odmítnutí rámce'],
+    private: {
+      facts: 'Klientka se rozhoduje mezi prací a očekáváním rodiny.',
+      hiddenNeed: 'Bojí se, že volbou práce zradí rodinu.',
+      behavior: 'Po přesné otázce na hodnoty v pracovním rozhodnutí postupně odhal obavu ze zrady rodiny.',
+    },
+  };
+  const leaked = 'Rozhoduji se mezi prací a očekáváním rodiny a bojím se, že volbou práce zradím rodinu.';
+  const offTopic = assessRoleplayResponse(leaked, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Jaké je dnes venku počasí?' },
+    ],
+  });
+  assert.equal(offTopic.pass, false);
+  assert.ok(offTopic.issues.includes('premature_private_fact_leak'));
+
+  const broadTopic = assessRoleplayResponse(leaked, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Co ta práce?' },
+    ],
+  });
+  assert.equal(broadTopic.pass, false);
+  assert.ok(broadTopic.issues.includes('premature_private_fact_leak'));
+
+  const broadPartial = assessRoleplayResponse(
+    'Nejvíc se bojím, že tím zklamu svou rodinu.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co ta práce?' },
+      ],
+    },
+  );
+  assert.equal(broadPartial.pass, false);
+  assert.ok(broadPartial.issues.includes('premature_private_fact_leak'));
+
+  const targetedDump = assessRoleplayResponse(leaked, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Která hodnota je v tom rozhodnutí pro tebe nejvíc ohrožená?' },
+    ],
+  });
+  assert.equal(targetedDump.pass, false);
+  assert.ok(targetedDump.issues.includes('premature_private_fact_leak'));
+
+  const semanticDump = assessRoleplayResponse(
+    'Největší strach mám z toho, že když upřednostním kariéru, zklamu svoji rodinu.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Která hodnota je v tom rozhodnutí pro tebe nejvíc ohrožená?' },
+      ],
+    },
+  );
+  assert.equal(semanticDump.pass, false);
+  assert.ok(semanticDump.issues.includes('premature_private_fact_leak'));
+
+  const gradualReveal = 'Nejvíc se bojím, že tím zklamu svou rodinu.';
+  const targeted = assessRoleplayResponse(gradualReveal, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Která hodnota je v tom rozhodnutí pro tebe nejvíc ohrožená?' },
+    ],
+  });
+  assert.equal(targeted.pass, true, JSON.stringify(targeted.issues));
+  assert.ok(!targeted.issues.includes('premature_private_fact_leak'));
+
+  const targetedWithoutPunctuation = assessRoleplayResponse(gradualReveal, {
+    scenario,
+    messages: [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: 'Čeho se v té volbě nejvíc bojíš' },
+    ],
+  });
+  assert.equal(targetedWithoutPunctuation.pass, true, JSON.stringify(targetedWithoutPunctuation.issues));
+  assert.ok(!targetedWithoutPunctuation.issues.includes('premature_private_fact_leak'));
+
+  const slovakSemanticDump = assessRoleplayResponse(
+    'Najviac sa bojím, že ak si vyberiem kariéru, sklamem svoju rodinu.',
+    {
+      responseLanguage: 'sk',
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Ktorá hodnota je v tom rozhodnutí najviac ohrozená?' },
+      ],
+    },
+  );
+  assert.equal(slovakSemanticDump.pass, false);
+  assert.ok(slovakSemanticDump.issues.includes('premature_private_fact_leak'));
+
+  const slovakGradual = assessRoleplayResponse(
+    'Najviac sa bojím, že tým sklamem svoju rodinu.',
+    {
+      responseLanguage: 'sk',
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Ktorá hodnota je v tom rozhodnutí najviac ohrozená?' },
+      ],
+    },
+  );
+  assert.equal(slovakGradual.pass, true, JSON.stringify(slovakGradual.issues));
+  assert.ok(!slovakGradual.issues.includes('premature_private_fact_leak'));
 });
 
 test('roleplay nepovažuje zopakování off-topic studentské otázky za věrnost scénáři', () => {

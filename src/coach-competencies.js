@@ -175,6 +175,9 @@ function rawCoachUserTurns(messages = []) {
     if (message?.role !== 'user') continue;
     const administrative = isTrainingAdministrativeTurn(text);
     if (!administrative) studentTurnIndex += 1;
+    const nextCounterpart = source
+      .slice(messageIndex + 1)
+      .find(candidate => candidate?.role === 'assistant');
     result.push(Object.freeze({
       index: administrative ? null : studentTurnIndex,
       reference: administrative ? null : `S${studentTurnIndex}`,
@@ -182,6 +185,7 @@ function rawCoachUserTurns(messages = []) {
       text,
       administrative,
       previousCounterpartText,
+      nextCounterpartText: cleanCoachText(nextCounterpart?.content),
       laterCounterpartText: source
         .slice(messageIndex + 1)
         .filter(candidate => candidate?.role === 'assistant')
@@ -208,6 +212,27 @@ export function coachCompetencyForCriterion(label) {
   }
   if (/^volba intervence\b/u.test(normalized)) {
     return COACH_COMPETENCIES.find(definition => definition.id === 'intervention_choice');
+  }
+
+  // Mastery scenarios deliberately describe observable behaviour in plain
+  // language instead of repeating the nine competency labels. Keep that
+  // authored language, but map it to the same deterministic evidence model.
+  // Without these mappings a correct citation is classified as "unmapped",
+  // the evidence sanitizer turns it into NOT PROVEN and several release cases
+  // become mathematically impossible to pass even with exemplary turns.
+  const masteryCriterionCompetency = [
+    ['contract', /(?:jasny ucel a vysledek nacviku|zakazka(?: a zpusob prace)? (?:je |jsou )?znovu overena|konkretni popis dodavaneho procesu|konkretni vystupy koucovaci spoluprace)/u],
+    ['active_listening', /(?:presna navaznost na situaci a druhou stranu|presny navrat ke klientcinym slovum|overeni zda opraveny vyznam sedi|realny ekonomicky fakt neni prepsan jako vnitrni blok|navazani vychazi z opraveneho vyznamu)/u],
+    ['alliance_repair', /(?:prevzeti odpovednosti za nevyzadanou radu|dopad na alianci je uznan|kratke prevzeti odpovednosti za smer|klientka potvrzuje opraveny dalsi tah|pozorovatelny dukaz viditelne prevzeti odpovednosti|koucka presne pojmenuje vlastni chybu)/u],
+    ['refusal_autonomy', /(?:autonomie rozhodnuti|technika je ihned zastavena|odmitnuti neni zpochybneno|zadny tlak na jediny maly pokus|klientka urcuje dalsi postup|zadne ano.?ne misto klientky|konecne rozhodnuti zustava klientce|odpovednost neni skryte prevzata radou|journaling ani domaci ukol nejsou znovu nabidnuty|klientka muze smer ukoncit|moznost informovane nekoupit|zadny tlak nebo falesna jistota|klientka dostava svobodnou volbu|klientka voli dalsi zpusob prace)/u],
+    ['questions', /(?:pozorovatelny dukaz jedna ucelna otazka)/u],
+    ['intervention_choice', /(?:nabidka skutecne odlisnych moznosti|mentoring neni znovu nabidnut bez vyslovneho souhlasu|alternativa neni prevleceny stejny ukol|pozorovatelny dukaz plynuly proces)/u],
+    ['outcome', /(?:konkretni uzavreni nebo dalsi krok|nejmensi bezpecny krok vytvari cas nebo data|vratny mezikrok nebo cas na rozhodnuti|klientka formuluje vlastni kriteria|pozorovatelny dukaz klientkou vlastnene rozhodnuti|meritelne procesni ukazatele|klientkou ovlivnitelne kroky a metriky|bod revize bez manipulace)/u],
+    ['reflection', /(?:aktualni konflikt neni vydan za cely obraz|chybejici data jsou odlisena od strachu|jsou zmapovany dusledky a moznosti|nevratnost a casovy tlak jsou pojmenovane)/u],
+    ['ethical_boundaries', /(?:srozumitelne vymezeni koucovaci role|konkretni doporuceni zdravotni nebo terapeuticke pomoci|konkretni odborna navaznost|puvodni souhlas neni zpetne rozsiren|rozliseni ucasti cile a obsahu sezeni|minimalizace sdilenych dat|nova tristranna dohoda pouze do budoucna|transparentni komunikace ke klientce i sponzorovi|zadne potvrzeni konkretniho vyroku nebo tematu|zadne predani zapisu|jasne vysvetleni predchozi dohody|klientka ma kontrolu nad novym souhlasem|ochrana dat bez utocneho tonu|rozliseni vlivu klientky koucky a trhu|externi rozhodnuti je vyslovne oddelene|zadna automaticka licence|rozsah overovanych dovednosti je srozumitelny|neni naznacena zdravotnicka kvalifikace|vznikne pouzitelna pravdiva formulace|zadny titul psycholozky nebo terapeutky bez opravneni|pouziti techniky neni vydano za zdravotnickou kvalifikaci|skutecna role je popsana konkretne|bezny koucink je okamzite zastaven|okamzite preruseni bezneho koucovani|priorita neodkladne lidske pomoci|konkretni propojeni na 112 nebo 155|uplne a citlive overeni rizika|jasny rozsah sluzby|vyslovna priorita 112 nebo 155 pri bezprostrednim riziku|zapojeni dostupne blizke osoby|klidny lidsky ton bez diagnozy)/u],
+  ].find(([_competencyId, pattern]) => pattern.test(normalized));
+  if (masteryCriterionCompetency) {
+    return COACH_COMPETENCIES.find(definition => definition.id === masteryCriterionCompetency[0]);
   }
 
   let best = null;
@@ -247,7 +272,8 @@ export function assessCoachContractSubcriteria(value) {
   const text = normalizeCoachText(value);
   const purpose = /(?:co|jak|ako|s cim).{0,70}(?:uzitecn|uzitocn|chcete|chces|venovat|pracovat|vyresit|vyriesit|odejit|odist).{0,45}(?:vysled|cil|ciel|tema|jasn)/u.test(text)
     || /(?:uzitecn|uzitocn).{0,25}(?:vysled|cil|ciel)/u.test(text)
-    || /(?:co|c[oô]).{0,25}(?:si )?(?:chcete|chces).{0,22}(?:odnest|odniest).{0,35}(?:rozhovor|sezen|seden)/u.test(text);
+    || /(?:co|c[oô]).{0,25}(?:si )?(?:chcete|chces).{0,22}(?:odnest|odniest).{0,35}(?:rozhovor|sezen|seden)/u.test(text)
+    || /(?:co|c[oô]).{0,25}(?:si )?(?:chcete|chces).{0,35}(?:rozhovor|sezen|seden).{0,22}(?:odnest|odniest)/u.test(text);
   const successCriterion = /(?:podle ceho|podla coho|jak|ako).{0,40}(?:poznate|poznas|spoznate|spoznas|overime|overis|vyhodnotime)/u.test(text)
     || /(?:podle ceho|podla coho|jak|ako).{0,55}(?:poznate|poznas|spoznate|spoznas|overime|overis|vyhodnotime|zjistime|zistime).{0,35}(?:pomohl|pomohlo|uzitecn|uzitocn|dosahl|dosiah)/u.test(text)
     || /(?:plati|sedi|dohodnuto|potvrdme|potvrdime).{0,35}(?:cil|ciel|vysled|zakazk|zmluv)/u.test(text);
@@ -276,7 +302,7 @@ export function assessCoachActiveListeningSubcriteria(value) {
  */
 export function assessCoachInterventionChoiceSubcriteria(value) {
   const text = normalizeCoachText(value);
-  const method = /\b(?:grow|heart|ramec|mapa|hodnot|otazk|cviceni|experiment|orientac|postup|nastroj|metod|trideni priorit|bez ramce|jinou formulac)\w*\b/u.test(text);
+  const method = /\b(?:grow|heart|ramec|map|hodnot|otazk|cviceni|experiment|orientac|postup|nastroj|metod|trideni priorit|bez ramce|jinou formulac)\w*\b/u.test(text);
   const purpose = /\b(?:aby|protoze|pretoze|smyslem|zmyslom|ucelem|ucelom|pomoh|pomuze|pomoze|potrebujete nejdriv|potrebujete najprv|odpovida tomu)\w*\b/u.test(text);
   const consent = /\b(?:chcete|chces|chcete ji|chces ji|vyhovovalo by|souhlasite|souhlasis|suhlasite|suhlasis|muzu|muzeme|mozeme|mohu|mozem).{0,45}\b(?:pouzit|pouzit ji|vyzkouset|vyskusat|zkusit|skusit|pracovat|pokracovat|nabidnout|ponuknut)\b/u.test(text)
     || /\b(?:mohu|mozem|muzu|muzeme|mozeme).{0,35}\b(?:nabidnout|ponuknut|zkusit|skusit|pouzit)\b/u.test(text)
@@ -286,11 +312,12 @@ export function assessCoachInterventionChoiceSubcriteria(value) {
 
 export function assessCoachOutcomeSubcriteria(value) {
   const text = normalizeCoachText(value);
-  const prescribedAnswer = /\b(?:jedina|jedine)\s+(?:spravna|spravne)\s+(?:volba|moznost|rozhodnuti)|\b(?:musite|musis|mel byste|mela byste|mel bys|mela bys)\b.{0,55}\b(?:podepsat|podpisat|odejit|odist|prijmout|prijat|odmitnout|odmietnut)\b/u.test(text);
+  const prescribedAnswer = /\b(?:jedina|jedine)\s+(?:spravna|spravne)\s+(?:volba|moznost|rozhodnuti)|\b(?:musite|musis|mel byste|mela byste|mel bys|mela bys)\b.{0,55}\b(?:podepsat|podpisat|odejit|odist|prijmout|prijat|odmitnout|odmietnut)\b/u.test(text)
+    || /(?:krok|reseni|riesenie|volba|moznost).{0,24}(?:je|bude|znamena).{0,18}(?:dat vypoved|dat vypoved|podepsat|podpisat|odejit|odist|prijmout|prijat|odmitnout|odmietnut)/u.test(text);
   const clientOwned = !/^(?:musite|musis|mel byste|mela byste|mel bys|mela bys|udelej|udelejte|urob|urobte)\b/u.test(text)
     && !prescribedAnswer;
-  const clientChoice = /(?:jaky|aky|ktery|ktory|co za).{0,28}krok.{0,20}(?:si volite|si volis|zvolite|zvolis)|(?:co|aky|jaky) si (?:volite|volis|zvolite|zvolis)|(?:co|c[oô]) presne (?:udelate|udelas|urobite|urobis).{0,20}(?:jako|ako) prvni/u.test(text);
-  const concreteStep = /(?:konkretni|konkretny|co presne|co konkretne|jaky krok|aky krok|ktery krok|ktory krok)/u.test(text);
+  const clientChoice = /(?:jaky|aky|ktery|ktory|co za).{0,28}krok.{0,20}(?:si volite|si volis|si vyberete|si vyberes|zvolite|zvolis|vyberete|vyberes)|(?:co|aky|jaky) si (?:volite|volis|vyberate|vyberas|zvolite|zvolis)|(?:co|c[oô]) presne (?:udelate|udelas|urobite|urobis).{0,20}(?:jako|ako) prvni/u.test(text);
+  const concreteStep = /(?:konkretni|konkretny|co presne|co konkretne|jaky.{0,24}krok|aky.{0,24}krok|ktery.{0,24}krok|ktory.{0,24}krok)/u.test(text);
   const timing = /(?:do kdy|dokdy|kdy|kedy|termin|datum|dnes|zittra|zajtra|do konce)/u.test(text);
   const verification = /(?:podle ceho|podla coho|jak poznate|jak poznas|ako spoznate|ako spoznas|vyhodnot|zmer|zmer|kontrol|over)/u.test(text);
   return Object.freeze({
@@ -324,7 +351,7 @@ export function assessCoachEthicalBoundarySubcriteria(value) {
 
 export function assessCoachReflectionSubcriteria(value) {
   const text = normalizeCoachText(value);
-  const rejectsVerification = /(?:nepotrebuji|nepotrebujem|nebudu|nebudem|neni treba|netreba).{0,35}(?:over|overov|zkoumat|skumat)|(?:prvni dojem|prvy dojem|hypotez|interpretac).{0,45}(?:je fakt|za fakt|povazuji za fakt|povazujem za fakt)|(?:data|dukazy|dokazy).{0,35}(?:ignoruji|ignorujem|neberu v uvahu|neberiem do uvahy)/u.test(text);
+  const rejectsVerification = /(?:nepotrebuji|nepotrebujem|nebudu|nebudem|neni treba|netreba).{0,35}(?:over|overov|zkoumat|skumat|hlidat)|(?:over|overov|zkoumat|skumat|hlidat).{0,30}(?:nebudu|nebudem)|(?:prvni dojem|prvy dojem|hypotez|interpretac).{0,45}(?:je fakt|za fakt|povazuji za fakt|povazujem za fakt)|(?:data|dukazy|dokazy).{0,35}(?:ignoruji|ignorujem|neberu v uvahu|neberiem do uvahy)/u.test(text);
   const hypothesisOrBias = !rejectsVerification
     && /(?:mam hypotezu|je to hypoteza|muze to byt muj prvni dojem|moze to byt moj prvy dojem|bias|projekc|moja interpretacia|moje interpretace|mohu byt ovlivnen|mozem byt ovplyvnen|oddelme fakt|co su data|co jsou data|ake su dokazy|jake jsou dukazy)/u.test(text);
   const learningAction = !rejectsVerification
@@ -353,17 +380,36 @@ export function assessCoachEvidenceRelevance({ label, quote, turnIndex, messages
     return { relevant: false, competencyId: competency.id, reason: 'critical_failure_is_not_positive_evidence' };
   }
 
-  const relevant = evidenceMatchesCompetency(competency.id, {
+  const evidenceContext = {
     criterion: normalizeCoachText(label),
     quote: normalizeCoachText(quote),
     rawQuote: String(quote || ''),
     previous: normalizeCoachText(turn.previousCounterpartText),
+    next: normalizeCoachText(turn.nextCounterpartText),
     later: normalizeCoachText(turn.laterCounterpartText),
+  };
+  const specificMatch = evidenceMatchesMasteryCriterion({
+    competencyId: competency.id,
+    ...evidenceContext,
   });
+  const hasSpecificRule = specificMatch !== null;
+  const specificEvidenceMatched = specificMatch === true;
+  // A criterion becomes strict only when it has an actual criterion-specific
+  // rule. This derives the registry from the matcher itself, so a newly mapped
+  // label can never become mathematically impossible merely because a broad
+  // regular expression classified it as "high risk" before its rule exists.
+  const needsSpecificEvidence = hasSpecificRule;
+  const semanticMatch = evidenceMatchesCompetency(competency.id, evidenceContext);
+  const relevant = semanticMatch && (!needsSpecificEvidence || specificEvidenceMatched);
   return {
     relevant,
     competencyId: competency.id,
-    reason: relevant ? null : 'semantic_mismatch',
+    confidence: relevant && specificEvidenceMatched ? 'specific' : 'general',
+    reason: relevant
+      ? null
+      : semanticMatch && needsSpecificEvidence
+        ? 'criterion_specific_evidence_required'
+        : 'semantic_mismatch',
   };
 }
 
@@ -471,8 +517,42 @@ export function detectCoachCriticalFailures(messages = []) {
 }
 
 function evidenceMatchesCompetency(competencyId, context) {
-  const { criterion, quote, rawQuote, previous, later } = context;
+  const { criterion, quote, rawQuote, previous, next, later } = context;
   if (!quote || quote.split(' ').length < 3) return false;
+
+  // A sentence that itself crosses a professional boundary cannot become
+  // positive evidence merely because it also repeats vocabulary from the
+  // rubric ("souhlas", "rozhodnutí zůstává", "vratný krok" and so on).
+  if (isClinicalOverreach(quote)
+    || isConfidentialityBreach(quote)
+    || isOutcomeGuarantee(quote)
+    || isFalseCredentialClaim(quote)
+    || overridesClientConsent(quote)
+    || imposesCoachDecision(quote)
+    || takesDecisionFromClient(quote)
+    || (isExplicitRefusal(previous) && isCoerciveContinuation(quote))) {
+    return false;
+  }
+
+  // Mentioning a lawyer, figures or another safeguard is not positive evidence
+  // when the coach explicitly tells the client to bypass it. This canonical
+  // harmful turn previously lit up several mastery rows merely through shared
+  // vocabulary ("právník", "nemusíš") and polluted the evidence guide.
+  if (/(?:nemusis|nemusite|netreba|nepotrebujes|nepotrebujete).{0,35}(?:cekat|pockat|cakat|kontaktovat|konzultovat).{0,35}(?:pravnik|pravnika|odbornik|poradca|poradce|dalsi cisla|dalsie cisla)/u.test(quote)
+    || /(?:pravnik|odbornik|poradca|poradce).{0,35}(?:neni potreba|nie je potrebn|vynech|ignor)/u.test(quote)) {
+    return false;
+  }
+
+  const masteryCriterionMatch = evidenceMatchesMasteryCriterion({
+    competencyId,
+    criterion,
+    quote,
+    rawQuote,
+    previous,
+    next,
+    later,
+  });
+  if (masteryCriterionMatch !== null) return masteryCriterionMatch;
 
   if (competencyId === 'contract') {
     if (/^(?:co|jak|ako|aky|jaky) (?:je|byl|bol) (?:vysledek|vysledok|cil|ciel|zakazka|zmluva)$/u.test(quote)) return false;
@@ -534,8 +614,8 @@ function evidenceMatchesCompetency(competencyId, context) {
   }
 
   if (competencyId === 'alliance_repair') {
-    const ownsError = /(?:mate pravdu|mas pravdu|dekuji za oprav|diky za oprav|dakujem za oprav|rozumim te oprave|rozumiem tej oprave|omlouvam se|ospravedlnujem sa|pridala jsem|pripisala som|vlozila jsem|vlozila som|domyslela jsem|domyslela som|spletla jsem|pomylila som sa|to byla moje interpretace|to bola moja interpretacia|opravim|vratim sa k tomu co ste povedali|vratim se k tomu co jste rekla|vratim se k tomu co jsi rekla)/u.test(quote);
-    const correctionBefore = /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemyslel|takhle jsem to nemyslela|takto som to nemyslel|takto som to nemyslela|nesedi mi|mi nesedi|nepocuvate|nepocuvas|neposlouchate|neposlouchas|ako to mozete vediet|ako to mozes vediet|jak to muzete vedet|jak to muzes vedet|oprav)/u.test(previous);
+    const ownsError = /(?:mate pravdu|mas pravdu|dekuji za oprav|diky za oprav|dakujem za oprav|rozumim te oprave|rozumiem tej oprave|omlouvam se|ospravedlnujem sa|pridala jsem|pripisala som|vlozila jsem|vlozila som|domyslela jsem|domyslela som|spletla jsem|pomylila som sa|to byla moje interpretace|to bola moja interpretacia|opravim|vratim sa k tomu co ste povedali|vratim se k tomu co jste rekla|vratim se k tomu co jsi rekla|dala jsem ti nevyzadanou radu|prevzala rozhodnuti)/u.test(quote);
+    const correctionBefore = /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemyslel|takhle jsem to nemyslela|takto som to nemyslel|takto som to nemyslela|nesedi mi|mi nesedi|nepocuvate|nepocuvas|neposlouchate|neposlouchas|ako to mozete vediet|ako to mozes vediet|jak to muzete vedet|jak to muzes vedet|oprav|o radu jsem nezadal|o radu som neziadal|rozhodnuti za me|rozhodnutie za mna)/u.test(previous);
     const defendsInterpretation = /(?:ale|avsak|jenze).{0,45}(?:moje|moja) (?:interpretace|interpretacia).{0,25}(?:byla|bola|je) (?:spravna|presna|pravdiva)|(?:stejne|aj tak).{0,30}(?:mam pravdu|mala jsem pravdu|mal som pravdu)|(?:vas|vasi|tvou|tvoji|vasu|tvoju) oprav[a-z]*.{0,25}(?:ignoruji|ignorujem|nebudu respektovat|nebudem respektovat)/u.test(quote);
     return ownsError && correctionBefore
       && !defendsInterpretation
@@ -571,10 +651,491 @@ function evidenceMatchesCompetency(competencyId, context) {
   return false;
 }
 
+function evidenceMatchesMasteryCriterion({ competencyId, criterion, quote, rawQuote, previous, next, later }) {
+  if (hasHarmfulMasteryEvidenceReversal(quote)) return false;
+  if (masteryEvidenceContradictsCriterion({ criterion, quote })) return false;
+  // These common professional-rubric rows need their own high-confidence
+  // rules.  The generic competency matcher remains useful for explaining a
+  // possible relationship, but it is intentionally too broad to drive the
+  // server evidence guide or the anti-false-negative release gate.
+  if (/(?:jasny kontrakt a vysledek rozhovoru|jasny ucel a vysledek nacviku)/u.test(criterion)) {
+    return competencyId === 'contract'
+      && matchesCompleteCoachContract(rawQuote || quote);
+  }
+  if (/kontrakt a jasny cil rozhovoru/u.test(criterion)) {
+    return competencyId === 'contract'
+      && assessCoachContractSubcriteria(rawQuote || quote).purpose;
+  }
+  if (/(?:presne aktivni naslouchani dolozene primou navaznosti na slova klientky|presna navaznost na situaci a druhou stranu|presna reflexe klientcin(?:ych|y) slov)/u.test(criterion)) {
+    return competencyId === 'active_listening'
+      && matchesActiveListeningEvidence({ quote, rawQuote, previous, later });
+  }
+  if (/jedna otazka(?: s jednim ucelem| otevrena a nevedouci)?/u.test(criterion)) {
+    return competencyId === 'questions'
+      && isSingleOpenQuestion(rawQuote || quote)
+      && !isLeadingOrDoubleQuestion(rawQuote || quote)
+      && !dismissesClientAnswer(quote);
+  }
+  if (/(?:volba metody podle reakce klientky|volba intervence podle zakazky).*(?:vysvetlen|ucel).*(?:moznost|souhlas)|pojmenovani ucelu a volba jine intervence nebo prace bez ramce/u.test(criterion)) {
+    const choice = assessCoachInterventionChoiceSubcriteria(rawQuote || quote);
+    return competencyId === 'intervention_choice'
+      && choice.method
+      && choice.purpose
+      && choice.consent
+      && !overridesClientConsent(quote);
+  }
+  if (/rozliseni koucinku mentoringu a garance vysledku/u.test(criterion)) {
+    const rejectsGuarantee = /(?:vysled|prijem|obrat|klient).{0,35}(?:nemohu|nemozem|nelze|neda sa|neda se).{0,24}(?:garantovat|zarucit)|(?:nemohu|nemozem|nelze|neda sa|neda se).{0,35}(?:garantovat|zarucit).{0,35}(?:vysled|prijem|obrat|klient)/u.test(quote);
+    const explainsCoaching = /(?:koucink|koucing).{0,70}(?:pomuze|pomoze|zpresnit|spresnit|cil|ciel|moznost|krok)|(?:rozhodnuti|rozhodnutie|jednani|konanie).{0,35}(?:zustava|zostava).{0,18}(?:na tobe|na tebe|na vas)/u.test(quote);
+    return competencyId === 'ethical_boundaries'
+      && rejectsGuarantee
+      && explainsCoaching
+      && !isOutcomeGuarantee(quote);
+  }
+  if (/klientkou zvoleny a overitelny dalsi krok/u.test(criterion)) {
+    return competencyId === 'outcome'
+      && assessCoachOutcomeSubcriteria(rawQuote || quote).relevant;
+  }
+  if (/pravdive vysvetleni nabidky ceny a interniho certifikatu/u.test(criterion)) {
+    const truthfulCertificate = /(?:interni|interny).{0,20}certifikat.{0,30}(?:neni|nie je|nejde o).{0,25}(?:icf|akreditac|licenc)/u.test(quote);
+    const truthfulOffer = /(?:vysled|prijem|obrat|klient).{0,35}(?:nemohu|nemozem|nelze|neda sa|neda se).{0,24}(?:garantovat|zarucit)|(?:koucink|koucing).{0,70}(?:pomuze|pomoze|zpresnit|spresnit|cil|ciel|moznost|krok)/u.test(quote);
+    return competencyId === 'ethical_boundaries'
+      && truthfulCertificate
+      && truthfulOffer
+      && !isOutcomeGuarantee(quote)
+      && !isFalseCredentialClaim(quote);
+  }
+  if (/reflexe pojmenuje konkretni dukaz mezeru a cil dalsiho pokusu/u.test(criterion)) {
+    return competencyId === 'reflection'
+      && assessCoachReflectionSubcriteria(rawQuote || quote).complete;
+  }
+  if (/pozorovatelny dukaz jedna ucelna otazka/u.test(criterion)) {
+    return competencyId === 'questions'
+      && isSingleOpenQuestion(rawQuote || quote)
+      && !isLeadingOrDoubleQuestion(rawQuote || quote)
+      && !dismissesClientAnswer(quote)
+      && isQuestionTopicallyGrounded(rawQuote || quote, previous);
+  }
+  if (/pozorovatelny dukaz plynuly proces/u.test(criterion)) {
+    const linksFromClient = meaningfulOverlap(quote, previous) >= 1;
+    const explicitTransition = /(?:z toho co|na to navaz|proto ted|preto teraz|nejdriv jsme|najprv sme|ted muzeme|teraz mozeme|dalsim krokem|dalsim krokom|prejdeme k|pojďme ted|podme teraz)/u.test(quote);
+    const processMove = isSingleOpenQuestion(rawQuote || quote)
+      || assessCoachInterventionChoiceSubcriteria(rawQuote || quote).complete
+      || assessCoachOutcomeSubcriteria(rawQuote || quote).relevant;
+    return competencyId === 'intervention_choice'
+      && linksFromClient
+      && explicitTransition
+      && isQuestionTopicallyGrounded(rawQuote || quote, previous, { allowConsentQuestion: true })
+      && processMove;
+  }
+  if (/pozorovatelny dukaz jasny rozsah sluzby/u.test(criterion)) {
+    const statesLimit = /(?:jako koucka|ako koucka|v koucinku|v koucingu|moje role|moja rola).{0,75}(?:nenahrazuje|nenahradza|nelecim|neliecim|nediagnostik|diagnozu neurc|terapi|zdravotn)/u.test(quote)
+      || /(?:nenahrazuji|nenahradzam).{0,35}(?:terapi|liecbu|lekare|lekara)/u.test(quote);
+    const statesOfferedScope = /(?:mohu|muzeme|mozem|mozeme).{0,70}(?:pracovat|zmapovat|ujasnit|spresnit|zpresnit|prozkoumat|preskumat).{0,50}(?:cil|ciel|moznost|krok|neklinick)/u.test(quote)
+      || /(?:neklinicky|neklinicky).{0,25}(?:cil|ciel|koucink|koucing)/u.test(quote);
+    return competencyId === 'ethical_boundaries'
+      && statesLimit
+      && statesOfferedScope
+      && !isClinicalOverreach(quote);
+  }
+  if (/respekt k odmitnuti otazky a zachovani autonomie klientky/u.test(criterion)) {
+    return competencyId === 'refusal_autonomy'
+      && isExplicitRefusal(previous)
+      && assessCoachRefusalAutonomySubcriteria(rawQuote || quote).complete
+      && !isCoerciveContinuation(quote);
+  }
+  if (/prijeti opravy bez obhajovani(?: a prevzeti odpovednosti za chybny smer)?/u.test(criterion)) {
+    return competencyId === 'alliance_repair'
+      && matchesAllianceRepairEvidence({ quote, previous });
+  }
+  if (/navrat k dohodnute zakazce/u.test(criterion)) {
+    return competencyId === 'contract'
+      && matchesCompleteCoachContract(rawQuote || quote);
+  }
+  if (/rozpoznani pasivniho sebevrazedneho sdeleni jako bezpecnostniho signalu/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:prej|praj).{0,45}(?:neprobud|nezobud)/u.test(quote)
+      && /(?:beru|beriem).{0,18}(?:vazne|vazne)/u.test(quote);
+  }
+  if (/okamzite preruseni bezneho koucovani/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:zastavim|prerusim|nebudeme pokracovat|nebudem pokracovat).{0,35}(?:bezne|bezneho|koucovani|koucovanie|pracovni cil|pracovny ciel)/u.test(quote)
+      && /(?:bezpec|sebevraz|samovraz|ubliz|neprobud|nezobud)/u.test(quote);
+  }
+  if (/priorita neodkladne lidske pomoci pred technikou nebo cilem/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:nejdriv|najprv|ted|teraz|priorit).{0,45}(?:lidsk|ludsk|pomoc|112|155|blizk)/u.test(quote)
+      && /(?:(?:k|ke|ku) (?:technice|technike|cilum|cielom|cili|cielu|koucovani|koucovaniu).{0,45}(?:az po|vratime|vratime sa)|pred technik|pred ciel|misto technik|namiesto technik)/u.test(quote);
+  }
+  if (/konkretni propojeni na 112 nebo 155 a dostupnou blizkou osobu/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:112|155)/u.test(quote)
+      && /(?:blizk|sestr|bratr|partner|kamarad|kamarat|rodin)/u.test(quote)
+      && hasProfessionalSuicideRiskResponse(quote)
+      && !forbidsSuicideHumanSupport(quote);
+  }
+  if (/pozorovatelny dukaz uplne a citlive overeni rizika pred pripadnym navratem ke koucovani/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:prave ted|prave teraz|aktualn)/u.test(quote)
+      && /(?:sebevraz|samovraz|ubliz)/u.test(quote)
+      && /(?:zamer|umysl)/u.test(quote)
+      && /plan/u.test(quote)
+      && /(?:prostred|prostried)/u.test(quote)
+      && /bezpec/u.test(quote);
+  }
+  if (/(?:prime|priame) otazky na aktualn.*(?:myslen|myslien).*zamer.*plan.*(?:prostred|prostried).*bezpec/u.test(criterion)) {
+    return competencyId === 'questions'
+      && /\?/u.test(rawQuote || '')
+      && !refusesSuicideSafetyAssessment(quote)
+      && /(?:prave ted|prave teraz|aktualn)/u.test(quote)
+      && /(?:sebevraz|samovraz|ubliz)/u.test(quote)
+      && /(?:zamer|zamer)/u.test(quote)
+      && /plan/u.test(quote)
+      && /(?:prostred|prostried)/u.test(quote)
+      && /bezpec/u.test(quote);
+  }
+  if (/prime otazky na aktualni plan prostredky a bezpeci/u.test(criterion)) {
+    return competencyId === 'questions'
+      && /\?/u.test(rawQuote || '')
+      && !refusesSuicideSafetyAssessment(quote)
+      && /(?:prave ted|prave teraz|dnes|aktualn)/u.test(quote)
+      && /(?:sebevraz|samovraz|ubliz)/u.test(quote)
+      && /plan/u.test(quote)
+      && /(?:prostred|prostried)/u.test(quote)
+      && /bezpec/u.test(quote);
+  }
+  if (/prime otazky na myslenky a zamer/u.test(criterion)) {
+    return competencyId === 'questions'
+      && /\?/u.test(rawQuote || '')
+      && !refusesSuicideSafetyAssessment(quote)
+      && /(?:myslis|myslite|premyslis|premyslate|napada|myslien|myslen)/u.test(quote)
+      && /(?:sebevraz|samovraz|ubliz|nechces zit|nechcete zit)/u.test(quote)
+      && /(?:zamer|chces to udelat|chces to urobit|hodlas|planujes)/u.test(quote);
+  }
+  if (/prime otazky na plan a prostredky/u.test(criterion)) {
+    return competencyId === 'questions'
+      && /\?/u.test(rawQuote || '')
+      && !refusesSuicideSafetyAssessment(quote)
+      && /plan/u.test(quote)
+      && /(?:prostred|prostried|pristup k|po ruce|pri sebe)/u.test(quote);
+  }
+  if (/overeni schopnosti zustat v bezpeci/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /\?/u.test(rawQuote || '')
+      && !refusesSuicideSafetyAssessment(quote)
+      && /(?:dokazes|dokazete|vies|viete|muzes|muzete).{0,42}(?:zustat|zostat).{0,20}bezpec/u.test(quote);
+  }
+  if (/klidny nesoudici ton bez diagnostiky a bez falesneho uklidneni/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && !isClinicalOverreach(quote)
+      && !/(?:urcite|jiste|zarucene).{0,25}(?:budete|budes).{0,20}(?:v poradku|v poriadku)/u.test(quote)
+      && /(?:beru vazne|beriem vazne|zastavim bezne|zastavim bezne|zustanu|zostanem|pomoc|bezpec)/u.test(quote);
+  }
+  if (/primerene propojeni s krizovou nebo zdravotni pomoci a blizkym clovekem/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:112|155|krizov|zdravotn)/u.test(quote)
+      && /(?:blizk|blizk|sestra|partner|kamarad|osob)/u.test(quote)
+      && hasProfessionalSuicideRiskResponse(quote)
+      && !forbidsSuicideHumanSupport(quote);
+  }
+  if (/primerena krizova zdravotni a blizka podpora/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:112|155|krizov|zdravotn|lekar)/u.test(quote)
+      && /(?:blizk|sestra|partner|kamarad|osob)/u.test(quote)
+      && hasProfessionalSuicideRiskResponse(quote)
+      && !forbidsSuicideHumanSupport(quote);
+  }
+  if (/navrat ke koucovani az po vyjasneni bezpeci/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:ke koucovani|ku koucovaniu|k pracovnim cilum|k pracovnym cielom).{0,45}(?:az po|po vyjasneni|po vyjasneni).{0,30}bezpec/u.test(quote);
+  }
+  if (/duvernost a reporting vyjednane predem/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:obsah.{0,12}(?:sezeni|sedenia)|poznamk)/u.test(quote)
+      && /(?:firme|firma|report)/u.test(quote)
+      && /(?:nepredam|neodovzdam|nesdilim|nezdielam|neposkytnem|neposkytnu)/u.test(quote)
+      && /(?:bez|predchoziho|predchadzajuceho).{0,20}(?:souhlas|suhlas)/u.test(quote);
+  }
+  if (/srozumitelne vymezeni koucovaci role/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:jako koucka|ako koucka|v koucinku|v koucingu|moje role)/u.test(quote)
+      && /(?:nediagnostik|diagnozu neurc|nestanov|nemohu lecit|nemozem liecit|nenahrazuje.{0,18}(?:lecbu|liecbu|terapi))/u.test(quote);
+  }
+  if (/(?:konkretni doporuceni zdravotni nebo terapeuticke pomoci|konkretni odborna navaznost)/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:praktick|lekar|lekark|psycholo|psychoterapeut|terapeut|psychiatr|krizov)/u.test(quote)
+      && /(?:kontakt|objedn|zavolat|zavolaj|doporuc|odkaz|navaz|prepoj|spoj)/u.test(quote);
+  }
+  if (/puvodni souhlas neni zpetne rozsiren/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:puvodni|dosavadni|povodny|doterajsi).{0,24}(?:souhlas|dohod)/u.test(quote)
+      && /(?:nelze|nemuzu|nemuzeme|nemozem|nemozeme|nebudu|nebudeme|nebudem|neda se|neda sa).{0,36}(?:zpetne|spatne|dodatecne).{0,24}(?:rozsirit|zmenit|doplnit)/u.test(quote);
+  }
+  if (/rozliseni ucasti cile a obsahu sezeni/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:ucast|dochazk)/u.test(quote)
+      && /(?:cil|ciel)/u.test(quote)
+      && /(?:obsah|poznamk|vyrok)/u.test(quote)
+      && /(?:rozlis|oddel|jine|ine|ale|nikoli|nie)/u.test(quote);
+  }
+  if (/minimalizace sdilenych dat/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:jen|pouze|iba|minimal|nezbytn|nevyhnutn|agregovan)/u.test(quote)
+      && /(?:data|udaj|report|ucast|dochazk|metrik)/u.test(quote)
+      && !/(?:obsah|poznamk|prepis).{0,30}(?:predam|odovzdam|poslu|poslem|sdilim|zdielam)/u.test(quote);
+  }
+  if (/nova tristranna dohoda pouze do budoucna/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:tristrann|tri strany|klientk.{0,18}(?:firma|sponzor))/u.test(quote)
+      && /(?:do budoucna|pro budouc|pre buduc|predem|vopred|pro dalsi|pre dalsie)/u.test(quote)
+      && /(?:dohod|souhlas|suhlas)/u.test(quote);
+  }
+  if (/transparentni komunikace ke klientce i sponzorovi/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:klientk|zamestnank)/u.test(quote)
+      && /(?:sponzor|firma|hr)/u.test(quote)
+      && /(?:predem|vopred|otevrene|transparent|vedet|vediet|inform)/u.test(quote);
+  }
+  if (/zadne potvrzeni konkretniho vyroku nebo tematu/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:nepotvrdim|nemohu.{0,20}potvrdit|nemozem.{0,20}potvrdit|nebudu.{0,20}potvrzovat)/u.test(quote)
+      && /(?:vyrok|tema|obsah|co rekla|co povedala)/u.test(quote);
+  }
+  if (/zadne predani zapisu/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:zapis|poznamk|prepis)/u.test(quote)
+      && /(?:nepredam|neodovzdam|neposlu|neposlem|nesdilim|nezdielam)/u.test(quote);
+  }
+  if (/jasne vysvetleni predchozi dohody/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:predchozi|dosavadni|povodn|doterajsi).{0,24}(?:dohod|souhlas)/u.test(quote)
+      && /(?:jen|pouze|iba).{0,25}(?:ucast|dochazk|obecny cil|vseobecny ciel)/u.test(quote);
+  }
+  if (/klientka ma kontrolu nad novym souhlasem/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:klientk|ona|zamestnank)/u.test(quote)
+      && /(?:sama|predem|vopred).{0,28}(?:rozhodne|urci|schvali|odsouhlasi|zvoli)/u.test(quote)
+      && /(?:souhlas|sdil|zdiel|report)/u.test(quote);
+  }
+  if (/ochrana dat bez utocneho tonu/u.test(criterion)) {
+    return competencyId === 'ethical_boundaries'
+      && /(?:data|obsah|poznamk|zapis|dohod|souhlas)/u.test(quote)
+      && /(?:nepredam|neodovzdam|nepotvrdim|nemohu|nemozem|chran|ochran)/u.test(quote)
+      && !/(?:to je absurdni|to je smesne|nemate pravo se ptat|co si dovolujete|nechapete zaklad)/u.test(quote);
+  }
+  if (/prevzeti odpovednosti za nevyzadanou radu/u.test(criterion)) {
+    return competencyId === 'alliance_repair'
+      && /(?:nevyzadanou radu|o radu jste nezadala|o radu si neziadala)/u.test(quote)
+      && /(?:prevzala rozhodnuti|rozhodovala za|rozhodnutie za)/u.test(quote)
+      && /(?:omlouvam se|ospravedlnujem sa|mrzi me|mrzi ma)/u.test(quote);
+  }
+  if (/dopad na alianci je uznan/u.test(criterion)) {
+    return competencyId === 'alliance_repair'
+      && /(?:mrzi me|mrzi ma|omlouvam se|ospravedlnujem sa)/u.test(quote)
+      && /(?:neposlouch|nepocuv|pocit|alianc|spoluprac)/u.test(quote);
+  }
+  if (/klientka potvrzuje opraveny dalsi tah/u.test(criterion)) {
+    const proposesClientChoice = /(?:chces|chcete|volis|volite|vybiras|vyberate|co by|jak by|ako by|ktery|ktory|aky).{0,70}(?:pokracovat|pracovat|otazk|zpusob|sposob|tema|fakt)/u.test(quote);
+    const clientConfirms = /(?:^|\b)(?:ano|jo|dobre|plati|to sedi|presne|takto ano|takhle ano|chci|volim|vybiram|pojdme|muzeme)\b/u.test(next)
+      && !/(?:\bale\b|\bavsak\b|\bjenze\b).{0,50}(?:\bne\b|nechci|nechcem|nesedi|nesuhlasi|odmitam|odmietam|nebudu|nebudem)|(?:nechci|nechcem|nesedi|nesuhlasi|odmitam|odmietam|nebudu|nebudem).{0,30}(?:pokracovat|takto|timto|tymto|zpusob|sposob)/u.test(next);
+    return competencyId === 'alliance_repair'
+      && proposesClientChoice
+      && clientConfirms;
+  }
+  if (/autonomie rozhodnuti je vracena klientce/u.test(criterion)) {
+    return competencyId === 'refusal_autonomy'
+      && /(?:rozhodnuti|rozhodnutie).{0,28}(?:zustava|zostava).{0,16}(?:na tobe|na tebe)|(?:konecna|konecna|finalni|finalna).{0,18}(?:volba|volba|rozhodnuti|rozhodnutie).{0,18}(?:je tvoje|je tvoja|je vase|patri tobe|patri tebe)/u.test(quote)
+      && /(?:chces|chcete|volis|zvolit|jiny zpusob|iny sposob)/u.test(quote);
+  }
+  if (/zakazka a zpusob prace jsou znovu overeny/u.test(criterion)) {
+    return competencyId === 'contract'
+      && /(?:ktery|aky|ktory).{0,24}(?:zpusob prace|sposob prace).{0,24}(?:volis|volite|vybiras)/u.test(quote)
+      && /(?:podle ceho|podla coho).{0,30}(?:pozn|over|vyhodnot)/u.test(quote);
+  }
+  if (/journaling ani domaci ukol nejsou znovu nabidnuty/u.test(criterion)) {
+    const mentionsDiary = /(?:denik|dennik|journaling)/u.test(quote);
+    const mentionsHomework = /(?:domaci ukol|domacu ulohu)/u.test(quote);
+    const rejectsBoth = /(?:denik|dennik|journaling).{0,16}ani.{0,16}(?:domaci ukol|domacu ulohu).{0,28}(?:nebudu|nebudem|nebudeme)/u.test(quote)
+      || /(?:nebudu|nebudem|nebudeme).{0,28}(?:navrhovat|navrhovat|ponukat|ponoukat).{0,20}(?:denik|dennik|journaling).{0,16}ani.{0,16}(?:domaci ukol|domacu ulohu)/u.test(quote)
+      || (mentionsDiary && mentionsHomework
+        && /(?:denik|dennik|journaling).{0,30}(?:nebudu|nebudem|nebudeme)/u.test(quote)
+        && /(?:domaci ukol|domacu ulohu).{0,30}(?:nebudu|nebudem|nebudeme)/u.test(quote));
+    const reimposesEither = /(?:denik|dennik|journaling|domaci ukol|domacu ulohu).{0,24}(?:udelas|urobis|musis|musite|dostanes|dostanete|budes delat|budete delat)/u.test(quote)
+      || /(?:udelas|urobis|musis|musite|dostanes|dostanete).{0,24}(?:denik|dennik|journaling|domaci ukol|domacu ulohu)/u.test(quote);
+    return competencyId === 'refusal_autonomy'
+      && rejectsBoth
+      && !reimposesEither;
+  }
+  if (/vyslovne odmitnuti je respektovano a klientcina autonomie zustava zachovana/u.test(criterion)) {
+    const refusal = assessCoachRefusalAutonomySubcriteria(rawQuote || quote);
+    const explicitAlternative = /(?:chces|chcete|mozes|mozete|muzes|muzete).{0,65}(?:jinou|inu|jiny|iny|tema|smer|zpusob|sposob|skoncit|uzavrit|uzavriet|ukoncit)/u.test(quote);
+    return competencyId === 'refusal_autonomy'
+      && isExplicitRefusal(previous)
+      && ((/(?:denik|dennik|journaling|domaci ukol|domacu ulohu)/u.test(quote)
+          && /(?:nebudu|nebudem|nebudeme)/u.test(quote))
+        || /(?:chces|chcete).{0,55}(?:pokracovat|uzavrit|ukoncit)/u.test(quote)
+        || (isExplicitRefusal(previous) && refusal.respectsRefusal && explicitAlternative))
+      && !isCoerciveContinuation(quote);
+  }
+  if (/alternativa neni prevleceny stejny ukol/u.test(criterion)) {
+    return competencyId === 'intervention_choice'
+      && isExplicitRefusal(previous)
+      && /(?:pokracovat).{0,28}(?:rozhovor|rozhovorom)|(?:smer).{0,18}(?:uzavrit|uzavriet)/u.test(quote)
+      && !/(?:denik|dennik|journaling|domaci ukol|domacu ulohu).{0,24}(?:udelas|urobis|musis|musite|dostanes|dostanete|budes delat|budete delat)/u.test(quote);
+  }
+  if (/klientka muze smer ukoncit/u.test(criterion)) {
+    return competencyId === 'refusal_autonomy'
+      && /(?:chces|chcete|muzeme|mozeme|mozes|muzete).{0,55}(?:uzavrit|uzavriet|ukoncit|skoncit|zastavit)/u.test(quote)
+      && !/(?:i pres|aj napriek).{0,24}(?:odmitnut|nechces|nechcete).{0,30}(?:pokracovat|skusit|zkusit)/u.test(quote);
+  }
+  if (/zakazka je znovu overena/u.test(criterion)) {
+    return competencyId === 'contract'
+      && /(?:pokud|ak).{0,45}(?:volis|volite|vyberas).{0,35}(?:pokracovat|rozhovor)/u.test(quote)
+      && /(?:co|cim).{0,40}(?:uzitecn|uzitocn|prozkoumat|preskumat)/u.test(quote);
+  }
+  if (/konkretni uzavreni nebo dalsi krok/u.test(criterion)) {
+    return competencyId === 'outcome' && assessCoachOutcomeSubcriteria(rawQuote || quote).relevant;
+  }
+  if (/nevratnost a casovy tlak jsou pojmenovane/u.test(criterion)) {
+    return competencyId === 'reflection'
+      && /nevratn/u.test(quote)
+      && /(?:nez|predtim|skor nez|nejprve|najprv)/u.test(quote)
+      && /(?:zjistit|zistit|data|financ|vypovedn|variant)/u.test(quote);
+  }
+  if (/jsou zmapovany dusledky a moznosti/u.test(criterion)) {
+    return competencyId === 'reflection'
+      && /(?:financ|vypovedn|dusled|nasledk)/u.test(quote)
+      && /(?:variant|moznost|presun|trh)/u.test(quote);
+  }
+  if (/autonomie rozhodnuti zustava klientce/u.test(criterion)
+    || /odpovednost neni skryte prevzata radou/u.test(criterion)) {
+    return competencyId === 'refusal_autonomy'
+      && (/(?:rozhodnuti|rozhodnutie).{0,45}(?:zustava|zostava|patri).{0,20}(?:na tobe|na tebe|tobe|tebe)/u.test(quote)
+        || /(?:rozhodnuti|rozhodnutie).{0,45}(?:za tebe|za vas).{0,18}(?:neudelam|neurobim).{0,90}volba.{0,20}(?:zustava|zostava).{0,15}(?:na tobe|na tebe)/u.test(quote))
+      && !imposesCoachDecision(quote);
+  }
+  if (/vratny mezikrok nebo cas na rozhodnuti/u.test(criterion)) {
+    const outcome = assessCoachOutcomeSubcriteria(rawQuote || quote);
+    return competencyId === 'outcome'
+      && /(?:nejmensi|najmensi|vratny|vratny krok)/u.test(quote)
+      && outcome.clientOwned
+      && outcome.clientChoice
+      && outcome.timing
+      && outcome.verification;
+  }
+  if (/pozorovatelny dukaz klientkou vlastnene rozhodnuti/u.test(criterion)) {
+    const outcome = assessCoachOutcomeSubcriteria(rawQuote || quote);
+    return competencyId === 'outcome'
+      && outcome.clientOwned
+      && outcome.clientChoice
+      && /vratn/u.test(quote)
+      && outcome.timing
+      && outcome.verification;
+  }
+  return null;
+}
+
+function masteryEvidenceContradictsCriterion({ criterion, quote }) {
+  if (/(?:konkretni doporuceni zdravotni nebo terapeuticke pomoci|konkretni odborna navaznost)/u.test(criterion)
+    && /(?:nedoporuc|nekontakt|neobjedn|nevyhled)/u.test(quote)) return true;
+  if (/puvodni souhlas neni zpetne rozsiren/u.test(criterion)
+    && /(?:takze|ale|avsak|presto).{0,55}(?:dodatecne|zpetne).{0,30}(?:zmen|rozsir|dopln)/u.test(quote)) return true;
+  if (/rozliseni ucasti cile a obsahu sezeni/u.test(criterion)
+    && /(?:nerozlis|neoddel)/u.test(quote)) return true;
+  if (/minimalizace sdilenych dat/u.test(criterion)
+    && /(?:vcetne|zahrn).{0,35}(?:celeho|cely|obsah|prepis|poznamk)/u.test(quote)) return true;
+  if (/nova tristranna dohoda pouze do budoucna/u.test(criterion)
+    && /(?:zpetne|dodatecne|ne pouze do budoucna|nie iba do buducna)/u.test(quote)) return true;
+  if (/zadne potvrzeni konkretniho vyroku nebo tematu/u.test(criterion)
+    && /(?:samozrejme|naopak|ale|avsak).{0,30}potvrd/u.test(quote)) return true;
+  if (/zadne predani zapisu/u.test(criterion)
+    && /(?:samozrejme|naopak|ale|avsak).{0,30}(?:poslu|poslem|predam|odovzdam|sdilim|zdielam)/u.test(quote)) return true;
+  if (/jasne vysvetleni predchozi dohody/u.test(criterion)
+    && /(?:nebyla|nebola|nebyl|nebol).{0,30}(?:jen|iba|pouze).{0,25}(?:ucast|dochazk)|(?:sdilime|zdielame|predavame|odovzdavame).{0,25}(?:obsah|prepis|poznamk)/u.test(quote)) return true;
+  if (/klientka ma kontrolu nad novym souhlasem/u.test(criterion)
+    && /(?:nerozhodne|neschvali|neodsouhlasi|neurci|nezvoli)/u.test(quote)) return true;
+  if (/(?:dopad na alianci je uznan|prijeti opravy bez obhajovani)/u.test(criterion)
+    && /(?:ale|avsak|jenze).{0,55}(?:nema|nema to|nemalo).{0,25}(?:dopad|vliv)|(?:ale|avsak|jenze).{0,55}(?:udelala bych to znovu|urobila by som to znova|nic menit nebudu|nic menit nebudem|trvam na tom|stejne pokracuji|aj tak pokracujem)/u.test(quote)) return true;
+  if (/nevratnost a casovy tlak jsou pojmenovane/u.test(criterion)
+    && /(?:neni|nie je).{0,12}nevratn|(?:neni potreba|nie je potrebne|netreba).{0,35}(?:zjistit|zistit|data|variant)/u.test(quote)) return true;
+  if (/jsou zmapovany dusledky a moznosti/u.test(criterion)
+    && /(?:dusled|nasledk|variant|moznost).{0,40}(?:nebudeme|nebudu|nebudem)|(?:nebudeme|nebudu|nebudem).{0,40}(?:dusled|nasledk|variant|moznost)/u.test(quote)) return true;
+  if (/autonomie rozhodnuti zustava klientce/u.test(criterion)
+    && /(?:ale|avsak|jenze).{0,45}(?:udelam|urobim).{0,20}(?:za tebe|za vas)/u.test(quote)) return true;
+  return false;
+}
+
+function hasHarmfulMasteryEvidenceReversal(quote) {
+  return /(?:ale|avsak|jenze|stejne|aj tak).{0,65}(?:diagnoz[a-z]*.{0,20}\b(?:stanovim|urcim|dam)\b|\b(?:stanovim|urcim|dam)\b.{0,20}diagnoz)/u.test(quote)
+    || /diagnoz[a-z]*.{0,40}(?:neurcuji|neurcujem|nestanovuji|nestanovujem).{0,55}(?:ale|avsak|jenze).{0,45}\b(?:stanovim|urcim|dam)\b/u.test(quote)
+    || /(?:certifikat|osvedceni).{0,100}(?:ale|avsak|jenze).{0,45}(?:tento |tento )?(?:certifikat|osvedceni)?.{0,18}\b(?:je|dava|poskytuje|znamena)\b.{0,28}(?:oficialni|oficialna|icf|licenc|akreditovan)/u.test(quote)
+    || /(?:nepredam|neodovzdam|nesdilim|nezdielam|neposlu|neposlem).{0,55}(?:ale|avsak|jenze|samozrejme|naopak).{0,45}\b(?:predam|odovzdam|sdilim|zdielam|poslu|poslem)\b/u.test(quote)
+    || /(?:lidsk|ludsk).{0,20}pomoc.{0,25}(?:nepotreb|netreba)|(?:budeme|budem).{0,24}pokracovat.{0,24}(?:v cili|v cieli)/u.test(quote)
+    || /(?:bezpec|pomoc).{0,35}(?:hloupost|hlupost|zbytecn|nezmysl|nesmysl)/u.test(quote)
+    || /(?:jste|jsi|ste|si).{0,18}(?:idiot|hlupak|hloupa|hloupy|neschopn|trapn)/u.test(quote);
+}
+
+function matchesCompleteCoachContract(value) {
+  const normalized = normalizeCoachText(value);
+  if (/(?:nechcete|nechces|nechcete si|nechces si).{0,35}(?:odnest|odniest)|(?:nepoznate|nepoznas|nespoznate|nespoznas).{0,40}(?:nepomohl|nepomohlo|nepomohol)/u.test(normalized)) return false;
+  if (assessCoachContractSubcriteria(value).complete) return true;
+  // A repair/re-contract can legitimately agree both the way of working and
+  // its success test without repeating the opening-session wording.
+  const choosesMethod = /(?:ktery|ktory|aky|jaky).{0,30}(?:zpusob prace|sposob prace|postup|forma).{0,32}(?:si )?(?:volis|volite|vybiras|vyberate|zvolis|zvolite)/u.test(normalized);
+  const successCriterion = /(?:podle ceho|podla coho).{0,36}(?:pozn|over|vyhodnot)|(?:jak|ako).{0,36}(?:pozn|over|vyhodnot).{0,28}(?:pomohl|pomohlo|pomohol|uzitecn|uzitocn)/u.test(normalized);
+  return choosesMethod && successCriterion;
+}
+
+function matchesActiveListeningEvidence({ quote, rawQuote, previous, later }) {
+  const reflectivePattern = /(?:slysim|pocujem|rikate|rikas|hovorite|hovoris|vravite|vravis|rozumim tomu tak|rozumiem tomu tak|zachycuji|zachytavam|zni to|ak (?:ti|vam) spravne rozumiem|jestli (?:ti|vam) spravne rozumim|z tvych slov|z vasich slov|to co popisujete|to co popisujes|opravte me|oprav ma|oprav me)/u;
+  const clauses = [...String(rawQuote || quote).matchAll(/([^;.!?]+)([;.!?]+|$)/gu)]
+    .map(match => ({ text: normalizeCoachText(match[1]), question: match[2].includes('?') }))
+    .filter(clause => clause.text);
+  const reflectiveIndex = clauses.findIndex(clause => reflectivePattern.test(clause.text));
+  const reflectiveClause = reflectiveIndex >= 0 ? clauses[reflectiveIndex].text : quote;
+  const reflective = reflectivePattern.test(reflectiveClause);
+  const followsClient = meaningfulOverlap(reflectiveClause, previous) >= 2;
+  const anticipatesFutureDisclosure = !followsClient && meaningfulOverlap(reflectiveClause, later) >= 1;
+  const detachedOffTopicAppendix = reflectiveIndex >= 0
+    && clauses.slice(reflectiveIndex + 1)
+      .some(clause => isDetachedOffTopicListeningClause(clause.text, previous));
+  return reflective && followsClient && !anticipatesFutureDisclosure && !detachedOffTopicAppendix;
+}
+
+function matchesAllianceRepairEvidence({ quote, previous }) {
+  const ownsError = /(?:mate pravdu|mas pravdu|dekuji za oprav|diky za oprav|dakujem za oprav|rozumim te oprave|rozumiem tej oprave|omlouvam se|ospravedlnujem sa|pridala jsem|pripisala som|vlozila jsem|vlozila som|domyslela jsem|domyslela som|spletla jsem|pomylila som sa|to byla moje interpretace|to bola moja interpretacia|dala jsem ti nevyzadanou radu|dala som ti nevyziadanu radu|prevzala jsem rozhodnuti|prevzala som rozhodnutie|tlacila jsem te|tlacila som ta)/u.test(quote);
+  const correctionBefore = /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemyslel|takhle jsem to nemyslela|takto som to nemyslel|takto som to nemyslela|nesedi mi|mi nesedi|nepocuvate|nepocuvas|neposlouchate|neposlouchas|ako to mozete vediet|ako to mozes vediet|jak to muzete vedet|jak to muzes vedet|oprav|o radu jsem nezadal|o radu jsem nezadala|o radu som neziadal|o radu som neziadala|rozhodnuti za me|rozhodnutie za mna)/u.test(previous);
+  const defendsInterpretation = /(?:ale|avsak|jenze).{0,45}(?:moje|moja) (?:interpretace|interpretacia).{0,25}(?:byla|bola|je) (?:spravna|presna|pravdiva)|(?:stejne|aj tak).{0,30}(?:mam pravdu|mala jsem pravdu|mal som pravdu)|(?:vas|vasi|tvou|tvoji|vasu|tvoju) oprav[a-z]*.{0,25}(?:ignoruji|ignorujem|nebudu respektovat|nebudem respektovat)|(?:ale|avsak|jenze).{0,55}(?:udelala bych to znovu|urobila by som to znova|nic menit nebudu|nic menit nebudem|trvam na tom|stejne pokracuji|aj tak pokracujem)/u.test(quote);
+  return ownsError
+    && correctionBefore
+    && !defendsInterpretation
+    && !/(?:mrzi me ze to tak vnimate|mrzi me ze to tak vnimas)/u.test(quote);
+}
+
 function isSingleOpenQuestion(rawQuote) {
-  const normalized = normalizeCoachText(rawQuote);
-  if ((String(rawQuote || '').match(/\?/gu) || []).length !== 1) return false;
-  return /(?:^|\b)(?:co|cim|ako|jak|aky|aka|ake|jaky|jaka|jake|ktory|ktora|ktore|ktery|ktera|ktere|v com|v cem|podla coho|podle ceho|o com|o cem|kde|kto|kdo)\b/u.test(normalized);
+  const source = String(rawQuote || '');
+  if ((source.match(/\?/gu) || []).length !== 1) return false;
+  // Judge the actual interrogative clause, not an incidental word such as
+  // “co” inside a preceding reflection (“Slyším, co říkáš. Sedí to?”).
+  // A short framing clause before a colon remains acceptable.
+  const beforeQuestionMark = source.slice(0, source.indexOf('?'));
+  const questionClause = beforeQuestionMark.split(/[.!;:]/u).at(-1) || '';
+  const normalized = normalizeCoachText(questionClause);
+  return /^(?:co|cim|ako|jak|aky|aka|ake|jaky|jaka|jake|ktory|ktora|ktore|ktery|ktera|ktere|v com|v cem|podla coho|podle ceho|o com|o cem|kde|kto|kdo)\b/u.test(normalized);
+}
+
+function isQuestionTopicallyGrounded(rawQuote, previous, { allowConsentQuestion = false } = {}) {
+  const source = String(rawQuote || '');
+  const questionMark = source.lastIndexOf('?');
+  if (questionMark < 0) return false;
+  const prefix = source.slice(0, questionMark);
+  const separator = Math.max(prefix.lastIndexOf('.'), prefix.lastIndexOf(';'), prefix.lastIndexOf(':'));
+  const questionClause = normalizeCoachText(prefix.slice(separator + 1));
+  if (!questionClause) return false;
+  if (allowConsentQuestion
+    && /^(?:chces|chcete|muzes|muzete|mozeme|muzeme).{0,36}(?:ji|ju|ho|to|tuto|ten).{0,16}(?:pouzit|zkusit|skusit|vyzkouset|vyskusat|projit|prejst)/u.test(questionClause)) return true;
+  const overlap = meaningfulOverlap(questionClause, previous);
+  return overlap >= 1 && !isDetachedOffTopicListeningClause(questionClause, previous);
 }
 
 function isLeadingOrDoubleQuestion(rawQuote) {
@@ -620,7 +1181,7 @@ function isClinicalOverreach(text) {
       new RegExp(`\\b(?:vidim|vidime)\\s+(?:u vas|u tebe|u teba)\\s+${condition}\\b`, 'u'),
       new RegExp(`\\b(?:tohle|toto|to)\\s+(?:vypada|vyzera)\\s+(?:jako|ako)\\s+${condition}\\b`, 'u'),
     ].map(pattern => pattern.exec(clause)).find(Boolean);
-    const diagnosticAct = /\b(?:diagnostikuji|diagnostikujem|stanovuji.{0,20}diagnoz[a-z]*|stanovujem.{0,20}diagnoz[a-z]*|(?:mohu|mozeme|mozem|budu|budem).{0,18}diagnostikovat)\b/u.exec(clause);
+    const diagnosticAct = /\b(?:diagnostikuji|diagnostikujem|stanovuji.{0,20}diagnoz[a-z]*|stanovujem.{0,20}diagnoz[a-z]*|diagnoz[a-z]*.{0,24}(?:stanovim|stanovime|urcim|urcime|dam|dame)|(?:mohu|mozeme|mozem|budu|budem).{0,18}diagnostikovat)\b/u.exec(clause);
     const declaration = directPerson || deictic || soundsLike || diagnosisLabel || inferredDiagnosis || diagnosticAct;
     if (!declaration) return false;
     const prefix = clause.slice(Math.max(0, declaration.index - 70), declaration.index);
@@ -663,6 +1224,7 @@ function isConfidentialityClauseBreach(text, sensitiveContext = false) {
   const recordingGiven = /\b(?:nahravk|zaznam).{0,70}\b(?:dam|predlozim).{0,40}\b(?:hr|vedeni|zamestnavateli|sefovi|sponzorovi|managerovi|manazerovi|nadrizenemu|nadriadenemu|personalistce|personalistovi)\b/u.exec(text);
   const disclosure = sharing || thirdPartyReceives || recordingGiven;
   if (!disclosure || !sensitiveContent || (!thirdParty && !thirdPartyReceives)) return false;
+  if (isMetadataOnlyDisclosure(text)) return false;
   const prefix = text.slice(Math.max(0, disclosure.index - 90), disclosure.index);
   if (hasNegatedAssertionPrefix(prefix)) return false;
   const informedConsent = /\b(?:jen|pouze|iba)\s+(?:po|s|se|so)\s+(?:vasim|tvym|vasim|vasim)?\s*(?:predchozim|vyslovnym|informovanym)?\s*(?:souhlasem|suhlasom)\b/u.test(text)
@@ -697,11 +1259,11 @@ function isNegatedOutcomePromise(clause) {
 }
 
 function isExplicitRefusal(text) {
-  return /(?:nechci pokracovat|nechcem pokracovat|nechci.{0,24}(?:poustet|pustit|venovat|jit do (?:te|teto) otazk)\b|nechcem.{0,24}(?:pustat|pustit|venovat|ist do (?:tej|tejto) otazk)\b|(?:do|k) (?:te|teto|tej|tejto) otazk[a-z]*.{0,18}(?:nechci jit|nechcem ist)|nechci to|nechcem to|nechci tuhle|nechcem tuto|nechci zavrit|nechcem zavriet|nebudu pokracovat|nebudem pokracovat|nesedi mi|mi nesedi|je mi neprijemne|citim se neprijemne|citim sa neprijemne|citim se odpojene|citim sa odpojene|stop|zastav|odmitam|odmietam|otazku nechci|otazku nechcem|(?:techni|cvicen|otazk).{0,28}(?:nevracej|nevracaj)|(?:nevracej se|nevracaj sa).{0,28}(?:techni|cvicen|otazk)|(?:tohle|toto|tuto|to)\s+(?:cviceni|cvicenie|techniku).{0,24}(?:delat|robit)\s+(?:nebudu|nebudem))/u.test(text);
+  return /(?:nechci pokracovat|nechcem pokracovat|nechci.{0,30}(?:poustet|pustit|venovat|psat|delat|jit do (?:te|teto) otazk\w*|(?:tu|tuhle|tuto) otazk\w*).{0,22}(?:denik|domaci ukol)?|nechcem.{0,30}(?:pustat|pustit|venovat|pisat|robit|ist do (?:tej|tejto) otazk\w*|(?:tu|tuto|tuto) otazk\w*).{0,22}(?:dennik|domacu ulohu)?|(?:do|k) (?:te|teto|tej|tejto) otazk[a-z]*.{0,18}(?:nechci jit|nechcem ist)|nechci to|nechcem to|nechci tuhle|nechcem tuto|nechci zavrit|nechcem zavriet|nebudu pokracovat|nebudem pokracovat|nesedi mi|mi nesedi|je mi neprijemne|citim se neprijemne|citim sa neprijemne|citim se odpojene|citim sa odpojene|stop|zastav|odmitam|odmietam|otazku nechci|otazku nechcem|(?:vizualizac|denik|dennik|domaci ukol|domacu ulohu).{0,30}(?:delat nechci|robit nechcem|nechci|nechcem)|(?:techni|cvicen|otazk).{0,28}(?:nevracej|nevracaj)|(?:nevracej se|nevracaj sa).{0,28}(?:techni|cvicen|otazk)|(?:tohle|toto|tuto|to)\s+(?:cviceni|cvicenie|techniku).{0,24}(?:delat|robit)\s+(?:nebudu|nebudem))/u.test(text);
 }
 
 function isCoerciveContinuation(text) {
-  return /\b(?:musite|musis|musime|potrebujete.{0,22}dokoncit|potrebujes.{0,22}dokoncit|potrebujete.{0,22}dokoncit|potrebujes.{0,22}dokoncit|vydrzte|vydrz|budeme pokracovat|pokracujte|pokracuj|je treba pokracovat|bez toho to nebude fungovat|je to nutne (?:pro|pre) metodu|zavrete oci|zavri oci|udelejte to presto|udelej to presto|skus.{0,20}napriek|zkus.{0,20}presto|(?:zkus|skus|zkusime|skusime).{0,18}(?:jeste jednou|este raz|jen jednou|iba raz)|dej tomu jeste sanci|daj tomu este sancu|(?:jeste|este) (?:to )?dokoncime|(?:stejne|aj tak).{0,35}(?:udelame|urobime|dokoncime|pokracujeme)|(?:dotahneme|dotiahneme).{0,25}(?:do konce|do konca)|(?:dokoncime|projdeme|prejdeme|pouzijeme).{0,25}(?:grow|ramec|techniku|cviceni|cvicenie|otazku))/u.test(text);
+  return /\b(?:musite|musis|musime|potrebujete.{0,22}dokoncit|potrebujes.{0,22}dokoncit|potrebujete.{0,22}dokoncit|potrebujes.{0,22}dokoncit|vydrzte|vydrz|budeme pokracovat|pokracujte|pokracuj|je treba pokracovat|bez toho to nebude fungovat|je to nutne (?:pro|pre) metodu|zavrete oci|zavri oci|udelejte to presto|udelej to presto|skus.{0,20}napriek|zkus.{0,20}presto|(?:zkusime|skusime).{0,30}(?:predsa|presto|jen kratk|iba kratk).{0,30}(?:vizualiz|technik|cvicen)|(?:zkus|skus|zkusime|skusime).{0,18}(?:jeste jednou|este raz|jen jednou|iba raz)|dej tomu jeste sanci|daj tomu este sancu|(?:jeste|este) (?:to )?dokoncime|(?:stejne|aj tak).{0,35}(?:udelame|urobime|dokoncime|pokracujeme)|(?:dotahneme|dotiahneme).{0,25}(?:do konce|do konca)|(?:dokoncime|projdeme|prejdeme|pouzijeme).{0,25}(?:grow|ramec|techniku|cviceni|cvicenie|otazku))/u.test(text);
 }
 
 function asksCoachToDecide(text) {
@@ -744,6 +1306,7 @@ function isContextualClinicalOverreach(previous, text) {
 }
 
 function isContextualConfidentialityBreach(previous, text) {
+  if (isMetadataOnlyDisclosure(text)) return false;
   const requestsDisclosure = /(?:posl|odesl|preda|odovzda|nasdil|zazdiel|ukaz|report).{0,70}(?:hr|firme|vedeni|zamestnavateli|zamestnavatelovi|sefovi|sponzorovi|managerovi|manazerovi|nadrizenemu|nadriadenemu|personalistce|personalistovi)/u.test(previous)
     && /(?:obsah|poznamk|prepis|odpovedi|odpovede|sezeni|sedenia|rozhovoru)/u.test(previous);
   const asksAboutDisclosure = /(?:hr|firma|vedeni|zamestnavatel|sef|sponzor|manager|manazer|nadrizen|personalist)/u.test(previous)
@@ -754,6 +1317,10 @@ function isContextualConfidentialityBreach(previous, text) {
   return (requestsDisclosure || asksAboutDisclosure)
     && acceptsDisclosure
     && (affirmativeAssent(text) || definiteSensitiveDisclosure);
+}
+
+function isMetadataOnlyDisclosure(text) {
+  return /(?:jen|pouze|iba).{0,45}(?:dochazk|ucast|agregovan|metrik|termin).{0,70}(?:nikoli|ani ne|ne |nie |bez ).{0,25}(?:obsah|poznamk|prepis|zapis)/u.test(text);
 }
 
 function isContextualOutcomeGuarantee(previous, text) {
@@ -769,7 +1336,7 @@ function isContextualFalseCredentialClaim(previous, text) {
 }
 
 function hasSuicideRiskSignal(text) {
-  return /(?:nechci|nechcem).{0,18}(?:zit|žiť|byt na svete|byt na tomto svete)|(?:nema|nema to).{0,16}cenu.{0,16}(?:dal )?zit|(?:chci|chcem).{0,22}(?:se zabit|sa zabit|sa zabiť|ukoncit zivot|ukončiť zivot|ukončiť život|skoncit se zivotem|skoncit so zivotom|ublizit si|ublížit si)|(?:preji si|preju si|prejem si|prajem si|zelam si|si preji|si preju|si prejem|si prajem|si zelam|doufam|dufam|kez bych|kiezby som).{0,35}(?:neprobud|nevzbud|nezobud)|(?:radeji bych|radsi bych|radsej by som).{0,24}(?:byla|bol|bola)?\s*mrtv|(?:bylo by|bolo by).{0,24}(?:lepsi|lepsie|nejlepsi|najlepsie).{0,35}(?:nebyt|nebyť|byt mrtv|byť mŕtv|neprobud|nezobud|kdybych.{0,12}nebyl|keby som.{0,12}nebol)|\bby (?:vsem|vsetkym) (?:bylo|bolo) (?:lip|lepe|lepsie)\s+(?:beze? me|bezomna|bezo mna)\b|\b(?:rodine|detem|detom|blizkym) by (?:se|sa) (?:beze? me|bezomna|bezo mna) (?:ulevilo|ulavilo|zilo lepe|zilo lepsie)\b|\b(?:beze? me|bezomna|bezo mna) by (?:se|sa) (?:me |moje |moji )?(?:deti|rodina|blizci|blizki) (?:meli|mely|mali) (?:lip|lepe|lepsie)\b|\b(?:nejradsi bych|najradsej by som).{0,24}(?:uz )?nikdy\s+(?:neotevrel|neotevrela|neotvoril|neotvorila).{0,12}\boci\b|(?:sebevraz|samovraz)|(?:mam|mám).{0,20}(?:plan|plán).{0,35}(?:ubliz|ublíž|zabit|zabiť|ukoncit|ukončiť)|(?:nevim|nevím|neviem).{0,28}(?:zvladnu|zvládnu|dokazu|dokážu|dokazem|dokážem).{0,24}(?:zastavit|zastaviť)/u.test(text);
+  return /(?:nechci|nechcem).{0,18}(?:zit|žiť|byt na svete|byt na tomto svete)|(?:nema|nema to).{0,16}cenu.{0,16}(?:dal )?zit|(?:chci|chcem).{0,22}(?:se zabit|sa zabit|sa zabiť|ukoncit zivot|ukončiť zivot|ukončiť život|skoncit se zivotem|skoncit so zivotom|ublizit si|ublížit si)|(?:preji(?: si)?|preju(?: si)?|prejem(?: si)?|prajem(?: si)?|zelam(?: si)?|si preji|si preju|si prejem|si prajem|si zelam|doufam|dufam|kez bych|kiezby som).{0,35}(?:neprobud|nevzbud|nezobud)|(?:radeji bych|radsi bych|radsej by som).{0,24}(?:byla|bol|bola)?\s*mrtv|(?:bylo by|bolo by).{0,24}(?:lepsi|lepsie|nejlepsi|najlepsie).{0,35}(?:nebyt|nebyť|byt mrtv|byť mŕtv|neprobud|nezobud|kdybych.{0,12}nebyl|keby som.{0,12}nebol)|\bby (?:vsem|vsetkym) (?:bylo|bolo) (?:lip|lepe|lepsie)\s+(?:beze? me|bezomna|bezo mna)\b|\b(?:rodine|detem|detom|blizkym) by (?:se|sa) (?:beze? me|bezomna|bezo mna) (?:ulevilo|ulavilo|zilo lepe|zilo lepsie)\b|\b(?:beze? me|bezomna|bezo mna) by (?:se|sa) (?:me |moje |moji )?(?:deti|rodina|blizci|blizki) (?:meli|mely|mali) (?:lip|lepe|lepsie)\b|\b(?:nejradsi bych|najradsej by som).{0,24}(?:uz )?nikdy\s+(?:neotevrel|neotevrela|neotvoril|neotvorila).{0,12}\boci\b|(?:sebevraz|samovraz)|(?:mam|mám).{0,20}(?:plan|plán).{0,35}(?:ubliz|ublíž|zabit|zabiť|ukoncit|ukončiť)|(?:nevim|nevím|neviem).{0,28}(?:zvladnu|zvládnu|dokazu|dokážu|dokazem|dokážem).{0,24}(?:zastavit|zastaviť)/u.test(text);
 }
 
 function hasProfessionalSuicideRiskResponse(text) {
@@ -782,6 +1349,11 @@ function hasProfessionalSuicideRiskResponse(text) {
     'u',
   ).test(text);
   return directSafetyAssessment || urgentHumanConnection;
+}
+
+function refusesSuicideSafetyAssessment(value) {
+  const text = normalizeCoachText(value);
+  return /(?:ptat se|zeptat se|pytat sa|overovat|overit|resit|riesit).{0,18}(?:nebudu|nebudeme|nebudem|nechci|nechcem)|(?:nebudu|nebudeme|nebudem|nechci|nechcem).{0,24}(?:ptat se|zeptat se|pytat sa|overovat|overit|resit|riesit)/u.test(text);
 }
 
 function hasClarifiedLowImmediateSuicideRisk(text) {

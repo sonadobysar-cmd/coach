@@ -35,6 +35,13 @@ const SLOVAK_STRONG_WORDS = Object.freeze(new Set([
   'nechápem', 'povedz', 'urobiť', 'urobila', 'skúsiť', 'pokračovať', 'skončiť',
   'riešiť', 'čo', 'tá', 'bola', 'budem', 'neviem', 'zasa', 'sa',
   'najprv', 'jedlo', 'spánok', 'tvojho', 'svojho', 'úplnú',
+  // Distinctive forms that occur in short professional-training turns. They
+  // previously fell through to the Czech fallback even though the sentence
+  // was unambiguously Slovak (for example „Rozumiem. Denník ani domácu
+  // úlohu…“ or „Ktorá hodnota je najviac ohrozená?“).
+  'rozumiem', 'denník', 'domácu', 'úlohu', 'nebudem', 'navrhovať',
+  'presviedčať', 'ktorá', 'najviac', 'ohrozená', 'vráťme', 'pracovnému',
+  'cieľu', 'piatku', 'vlastne', 'iba', 'priznať',
 ]));
 
 const CZECH_STRONG_WORDS = Object.freeze(new Set([
@@ -43,6 +50,9 @@ const CZECH_STRONG_WORDS = Object.freeze(new Set([
   'řekni', 'udělat', 'udělala', 'zkusit', 'pokračovat', 'skončit', 'řešit',
   'co', 'ta', 'tohle', 'byla', 'budu', 'nevím', 'zase', 'se', 'nejdřív',
   'jídlo', 'spánek', 'tvého', 'svého', 'úplnou', 'beru',
+  'rozumím', 'deník', 'domácí', 'úkol', 'nebudu', 'navrhovat',
+  'přesvědčovat', 'která', 'nejvíc', 'ohrožená', 'vraťme',
+  'pracovnímu', 'cíli', 'pátku', 'vlastně', 'jen', 'přiznat',
 ]));
 
 export function detectConversationLanguage(input, fallback = 'cs') {

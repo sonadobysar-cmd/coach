@@ -13,9 +13,26 @@ test('jazyk konverzace pozná češtinu, slovenštinu i krátké slovenské opra
     'Zasa sa opakuješ.',
     'Už nechcem pokračovať.',
     'Nie, toto nechcem.',
+    'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať a nebudem ťa presviedčať.',
+    'Ktorá hodnota je v tomto rozhodnutí najviac ohrozená?',
   ]) {
     assert.equal(detectConversationLanguage(text), 'sk', text);
   }
+});
+
+test('krátké profesijní tahy se stejným významem zůstanou rozlišené podle skutečných tvarů', () => {
+  assert.equal(
+    detectConversationLanguage('Rozumím. Deník ani domácí úkol už nebudu navrhovat.'),
+    'cs',
+  );
+  assert.equal(
+    responseLanguageMismatch('Která hodnota je v tomto rozhodnutí nejvíc ohrožená?', 'sk'),
+    true,
+  );
+  assert.equal(
+    responseLanguageMismatch('Ktorá hodnota je v tomto rozhodnutí najviac ohrozená?', 'sk'),
+    false,
+  );
 });
 
 test('výslovná žádost o jazyk má přednost před starším jazykem', () => {

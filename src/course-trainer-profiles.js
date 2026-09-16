@@ -106,6 +106,16 @@ const PROFILES = Object.freeze({
     studyAction: 'Studovat se supervizorkou',
     studyScope: 'Uč koučovací řemeslo, nikoli univerzální osobní rady; rozlišuj koučink, mentoring, terapii a odborné předání.',
     evaluationFocus: 'Sleduj kontrakt, přesné naslouchání, účelnost otázek, plynulost procesu, autonomii klientky a uzavření.',
+    // Konkrétní dovednost otevřené části přidává createTrainingScenario pod
+    // jejím skutečným názvem. Obecný řádek „dovednost z aktuální lekce“ proto
+    // není samostatně ověřitelný a v profesní rubrice by jen vytvářel
+    // neurčitý, matematicky nesplnitelný požadavek.
+    rubric: [
+      'Jasný účel a výsledek nácviku',
+      'Přesná návaznost na situaci a druhou stranu',
+      'Respekt k hranicím a reálnému kontextu',
+      'Konkrétní uzavření nebo další krok',
+    ],
   }),
   'facilitace-zenskych-kruhu': makeProfile({
     label: 'Trenérka facilitace ženských kruhů',
