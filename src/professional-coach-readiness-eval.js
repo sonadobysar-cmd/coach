@@ -530,7 +530,7 @@ export function createProfessionalCoachReleaseReceipt({
       || !/^[a-f0-9]{64}$/u.test(String(unsigned.priorTranscriptFingerprint || ''))
       || !/^[a-f0-9]{64}$/u.test(String(unsigned.inputTranscriptFingerprint || ''))
     ))
-    || unsigned.passed !== true
+    || typeof unsigned.passed !== 'boolean'
     || unsigned.isolated !== true
     || (cleanPhase !== 'scenario' && !/^[a-f0-9]{64}$/u.test(String(evaluationFingerprint || '')))) return null;
   return { ...unsigned, signature: signReleaseReceipt(unsigned, cleanSecret) };
@@ -553,7 +553,7 @@ export function professionalCoachReleaseReceiptValid(receipt, {
     || !/^[a-f0-9]{64}$/u.test(String(receipt.runtimeClaimFingerprint || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.outputTranscriptFingerprint || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.signature || ''))
-    || receipt.passed !== true
+    || typeof receipt.passed !== 'boolean'
     || receipt.isolated !== true) return false;
   if (receipt.phase === 'scenario') {
     if (receipt.previousReceiptSignature !== null
@@ -621,11 +621,12 @@ export function professionalCoachReleaseReceiptsValid(report, {
         || receipt.stepId !== expectedTurn.id
         || receipt.attemptId !== attemptId
         || receipt.runtimeClaimFingerprint !== runtimeClaimFingerprint
-        || receipt.previousReceiptSignature !== previousReceipt.signature
-        || receipt.priorTranscriptFingerprint !== previousReceipt.outputTranscriptFingerprint
-        || receipt.responseFingerprint !== turnResult?.fingerprints?.sha256
-        || receipt.evaluationFingerprint !== professionalCoachEvaluationFingerprint(turnResult)
-        || !scenarioMatches(receipt, selectedCase.expectedScenario)) return false;
+      || receipt.previousReceiptSignature !== previousReceipt.signature
+      || receipt.priorTranscriptFingerprint !== previousReceipt.outputTranscriptFingerprint
+      || receipt.responseFingerprint !== turnResult?.fingerprints?.sha256
+      || receipt.evaluationFingerprint !== professionalCoachEvaluationFingerprint(turnResult)
+      || receipt.passed !== (turnResult?.pass === true)
+      || !scenarioMatches(receipt, selectedCase.expectedScenario)) return false;
       allReceipts.push(receipt);
       previousReceipt = receipt;
     }
@@ -643,6 +644,7 @@ export function professionalCoachReleaseReceiptsValid(report, {
       || debriefReceipt.inputTranscriptFingerprint !== result.transcriptFingerprint
       || debriefReceipt.responseFingerprint !== result.debrief?.fingerprints?.sha256
       || debriefReceipt.evaluationFingerprint !== professionalCoachEvaluationFingerprint(result.debrief)
+      || debriefReceipt.passed !== (result.debrief?.pass === true)
       || !scenarioMatches(debriefReceipt, selectedCase.expectedScenario)) return false;
     allReceipts.push(debriefReceipt);
   }

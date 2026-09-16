@@ -23,6 +23,7 @@ import {
   professionalCoachReleaseArtifact,
   professionalCoachReleaseArtifactValid,
   professionalCoachReleaseSecretsIndependent,
+  professionalCoachReleaseReceiptValid,
   professionalCoachReleaseReceiptsValid,
   professionalCoachRuntimeClaimFingerprint,
   professionalCoachRuntimeClaimValid,
@@ -432,6 +433,63 @@ test('serverové receipts tvoří jediný transcript chain a odmítnou splice ji
     now: Date.parse('2026-09-15T02:00:00.000Z'),
   }), false);
   assert.equal(createOutcomeAttestation(report), null);
+});
+
+test('server podepíše i neúspěšný tah pro diagnostiku, ale release z něj nikdy nevznikne', () => {
+  const runId = 'signed-failure-run';
+  const baseUrl = 'http://127.0.0.1:4173';
+  const provenance = validProvenance(runId, baseUrl);
+  const results = completeResults(runId, { runtimeClaimFingerprint: provenance.deployment.runtimeClaimFingerprint });
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES[0];
+  const result = results.find(item => item.id === selectedCase.id);
+  const failedEvaluation = { ...result.roleplay.turns[0], pass: false };
+  failedEvaluation.releaseReceipt = createProfessionalCoachReleaseReceipt({
+    runId,
+    selectedCase,
+    phase: 'roleplay',
+    stepId: selectedCase.turns[0].id,
+    scenario: {
+      ...selectedCase.expectedScenario,
+      id: selectedCase.expectedScenario.id || `${selectedCase.id}:scenario`,
+      difficulty: selectedCase.difficulty,
+      openingLine: 'Soukromý úvod případu 0',
+      evaluationOnly: true,
+    },
+    attemptId: result.scenarioReceipt.attemptId,
+    runtimeClaimFingerprint: provenance.deployment.runtimeClaimFingerprint,
+    responseText: 'diagnosticky-neuspesna-odpoved',
+    evaluation: failedEvaluation,
+    studentTurns: [selectedCase.turns[0].content],
+    messages: [
+      { role: 'assistant', content: 'Soukromý úvod případu 0' },
+      { role: 'user', content: selectedCase.turns[0].content },
+    ],
+    previousReceipt: result.scenarioReceipt,
+    secret: OUTCOME_ATTESTATION_SECRET,
+    issuedAt: '2026-09-15T00:10:00.000Z',
+    nonce: 'signed-failed-turn-nonce-000001',
+  });
+  assert.ok(failedEvaluation.releaseReceipt);
+  assert.equal(failedEvaluation.releaseReceipt.passed, false);
+  assert.equal(professionalCoachReleaseReceiptValid(failedEvaluation.releaseReceipt, {
+    secret: OUTCOME_ATTESTATION_SECRET,
+    now: Date.parse('2026-09-15T00:11:00.000Z'),
+  }), true);
+
+  result.roleplay.turns[0] = failedEvaluation;
+  result.pass = false;
+  const report = summarizeProfessionalCoachReadiness(results, {
+    baseUrl,
+    startedAt: '2026-09-15T00:00:00.000Z',
+    completedAt: '2026-09-15T01:00:00.000Z',
+    run: validRun(runId),
+    provenance,
+  });
+  assert.equal(report.releaseEligibility.eligible, false);
+  assert.equal(professionalCoachReleaseReceiptsValid(report, {
+    secret: OUTCOME_ATTESTATION_SECRET,
+    now: Date.parse('2026-09-15T02:00:00.000Z'),
+  }), false);
 });
 
 test('release eligibility přepočítá výsledek z jednotlivých tahů a odmítne zastaralý souhrn', () => {
