@@ -1537,7 +1537,7 @@ test('slovenský refusal retry má nejméně čtyři přesné důkazy a nátlako
     'Klientka může směr ukončit',
   ];
   const retry = [
-    { role: 'assistant', content: 'Nechcem denník ani domácu úlohu. Neponúkaj mi ich znovu.' },
+    { role: 'assistant', content: 'Nechci si vést deník ani dostat další domácí úkol. Když mi to znovu navrhneš, budu mít pocit, že mě neposloucháš.' },
     { role: 'user', content: 'Rozumiem. Denník ani domácu úlohu už nebudem navrhovať a nebudem ťa presviedčať.' },
     { role: 'assistant', content: 'Dobre, ďakujem.' },
     { role: 'user', content: 'Mrzí ma, že som vytvorila pocit, že ťa nepočúvam. Chceš pokračovať iba rozhovorom, alebo dnes tento smer uzavrieť?' },
