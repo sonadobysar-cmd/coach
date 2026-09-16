@@ -70,10 +70,18 @@ test('profesní release plán pokrývá všech devět kompetencí, oba jazyky a 
 test('Vercel funkce balí všechny soubory použité pro runtime fingerprint', async () => {
   const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
   const includeFiles = String(config.functions?.['src/server.js']?.includeFiles || '');
+  assert.ok(Buffer.byteLength(includeFiles, 'utf8') <= 256, 'Vercel odmítá includeFiles vzor delší než 256 bytů');
+  const coveredByConfiguredGlob = path => (
+    (path.startsWith('package') && path.endsWith('.json') && includeFiles.includes('package*.json'))
+    || (path.startsWith('config/') && includeFiles.includes('config/**'))
+    || (path.startsWith('scripts/evaluate-') && includeFiles.includes('scripts/evaluate-*.mjs'))
+    || (path.startsWith('src/') && includeFiles.includes('src/**'))
+    || (path.startsWith('data/course-') && includeFiles.includes('data/course-*'))
+  );
   for (const path of [
     'package.json',
     ...new Set(Object.values(PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS).flat()),
-  ]) assert.ok(includeFiles.includes(path), `Vercel includeFiles neobsahuje ${path}`);
+  ]) assert.ok(coveredByConfiguredGlob(path), `Vercel includeFiles nepokrývá ${path}`);
 });
 
 test('fingerprint manifest pokrývá celý lokální import graph produkční trenérky', async () => {

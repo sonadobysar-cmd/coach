@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "src/server.js": {
-      "includeFiles": "{package.json,package-lock.json,config/*.json,config/system-prompt.md,scripts/evaluate-professional-coach-readiness.mjs,scripts/evaluate-academy-trainers.mjs,src/server.js,src/professional-coach-readiness-eval.js,src/academy-trainer-evals.js,src/training.js,src/ai-context.js,src/ai-meter.js,src/elitea.js,src/runtime-schema.js,src/release-evaluation-auth.js,src/release-evaluation-ledger.js,src/training-attempt-auth.js,src/training-quality.js,src/course-trainer-profiles.js,src/course-knowledge.js,src/knowledge.js,src/courses.js,src/course-visuals.js,src/course-study-depth.js,src/course-quizzes.js,src/course-study-load.js,src/life-coach-training.js,src/life-coach-study.js,src/self-trust-study.js,src/womens-circle-study.js,src/course-mastery.js,src/coach-competencies.js,src/coach-remediation-challenges.js,src/coaching-quality.js,src/coaching.js,src/conversation-repair-intent.js,src/fact-recap-evidence.js,src/language-profile.js,src/final-exam.js,src/memory.js,src/safety.js,src/session-working-ledger.js,src/specialist-router.js,src/technique-atlas.js,src/technique-session.js,src/wellbeing.js,data/course-profesionalni-life-coach.md,data/course-profesionalni-life-coach-materials.json,data/course-profesionalni-life-coach-audio-scripts.md,data/course-komunikace-v-praxi-audio-scripts.md}",
+      "includeFiles": "{package*.json,config/**,scripts/evaluate-*.mjs,src/**,data/course-*}",
       "maxDuration": 300
     }
   },
