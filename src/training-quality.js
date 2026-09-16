@@ -500,7 +500,7 @@ export function buildTrainingRepairInstruction({
     `Počet odborných vstupů studentky: ${turns.length}.`,
     `Kritéria, která musíš všechna vyhodnotit přesně v tomto pořadí: ${rubric.join(' | ')}`,
     trainingLanguage === 'sk'
-      ? `Napíš celý rozbor znova so slovenskými nadpismi: ${debriefHeadings('sk').map(heading => `„${heading}“`).join(', ')}. V časti „${competencyHeading}“ použi práve jednu stavovú odrážku pre každé kritérium v zadanom poradí, jeho názov prirodzene prelož do slovenčiny, vnútorné úvodzovky z názvu vypusť a použi iba stavy ${statusLabels}.`
+      ? `Napíš celý rozbor znova so slovenskými nadpismi: ${debriefHeadings('sk').map(heading => `„${heading}“`).join(', ')}. V časti „${competencyHeading}“ použi práve jednu stavovú odrážku pre každé kritérium v zadanom poradí, jeho názov prirodzene prelož do slovenčiny, vnútorné úvodzovky z názvu vypusť a použi iba stavy ${statusLabels}. Nepouži české slovo „úkol“; vždy napíš slovenské „úloha“.`
       : `Napiš celý rozbor znovu v povinném formátu. V části „${competencyHeading}“ použij právě jednu stavovou odrážku pro každé kritérium, zopakuj jeho název jako prostý text bez vnitřních uvozovek a žádné nevynechej. Použij pouze stavy ${statusLabels}.`,
     strictCoachEvidence
       ? trainingLanguage === 'sk'

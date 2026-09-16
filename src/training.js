@@ -294,7 +294,7 @@ export function buildTrainingInstructions({
       [
         outputLanguageInstruction,
         trainingLanguage === 'sk'
-          ? 'Celý viditeľný rozbor napíš iba po slovensky. České názvy kritérií z interného zadania prirodzene prelož do slovenčiny, zachovaj však ich počet, význam a presné poradie.'
+          ? 'Celý viditeľný rozbor napíš iba po slovensky. České názvy kritérií z interného zadania prirodzene prelož do slovenčiny, zachovaj však ich počet, význam a presné poradie. Prelož aj jednotlivé české odborné slová: nikdy nepouži „úkol“, ale slovenské „úloha“.'
           : 'Celý viditelný rozbor napiš pouze česky.',
         BUSINESS_ACADEMY_CATEGORIES.has(course?.categoryId)
           ? 'Při hodnocení můžeš využít související metodiku byznysové a marketingové fakulty pro odbornou přesnost, ale hodnotíš výhradně výkon v tomto scénáři a podle uvedených kritérií.'

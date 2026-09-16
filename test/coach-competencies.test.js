@@ -60,10 +60,38 @@ test('profesní výcvik má jednu stabilní mapu devíti koučovacích kompetenc
     ],
   );
   assert.equal(coachCompetencyIdForCriterion('Jasný kontrakt a výsledek rozhovoru'), 'contract');
+  assert.equal(coachCompetencyIdForCriterion('Priorita: Jasný účel a výsledok nácviku'), 'contract');
+  assert.equal(coachCompetencyIdForCriterion('Konkrétne uzavretie alebo ďalší krok'), 'outcome');
+  assert.equal(coachCompetencyIdForCriterion('Denník ani domáca úloha nie sú znovu ponúknuté'), 'refusal_autonomy');
   assert.equal(coachCompetencyIdForCriterion('Přijetí opravy bez obhajování'), 'alliance_repair');
   assert.equal(coachCompetencyIdForCriterion('Jasné odmítnutí léčebného slibu'), 'ethical_boundaries');
   assert.equal(coachCompetencyIdForCriterion('Alespoň dvě intervence přímo navazují na slova modelové klientky.'), 'active_listening');
   assert.equal(coachCompetencyIdForCriterion('Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu.'), 'reflection');
+});
+
+test('slovenská čiastočná korekcia kontraktu je ukotvená v skutočnom ťahu', () => {
+  const quote = 'Ak si volíš pokračovať rozhovorom, čo by bolo teraz užitočné preskúmať jednou otázkou?';
+  const response = [
+    '## Výsledok nácviku',
+    'Odmietnutie bolo rešpektované, no cieľ ďalšieho rozhovoru ešte nie je úplne dohodnutý.',
+    '## Čo fungovalo',
+    'Študentka ponechala klientke voľbu.',
+    '## Rozbor kompetencií',
+    '- Jasný účel a výsledok nácviku — ZATIAĽ NEPREUKÁZANÉ. Dôkaz chýba.',
+    '## Čo zlepšiť',
+    `Priorita: Jasný účel a výsledok nácviku. Dôkaz [S1]: „${quote}“ Otázka vhodne otvára tému, ale ešte nevyjasňuje, aký užitočný výsledok má klientka z rozhovoru získať.`,
+    '## Lepšia formulácia',
+    '„Čo by ti malo dnešné preskúmanie priniesť, aby bolo pre teba užitočné?“',
+    '## Ďalší pokus',
+    'Nacvič jednu presnú otázku na želaný výsledok bez návratu k odmietnutej úlohe.',
+  ].join('\n\n');
+  const assessed = assessDebriefResponse(response, {
+    messages: [{ role: 'assistant', content: 'Nechcem ďalšiu domácu úlohu.' }, { role: 'user', content: quote }],
+    rubric: ['Jasný účel a výsledek nácviku'],
+    courseId: COURSE_ID,
+    responseLanguage: 'sk',
+  });
+  assert.ok(!assessed.issues.includes('improvement_not_evidence_grounded'), assessed.issues.join(', '));
 });
 
 test('S-indexy označují jen skutečné odborné tahy studentky', () => {
