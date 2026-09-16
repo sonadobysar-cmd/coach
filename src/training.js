@@ -1,4 +1,4 @@
-import { meteredGenerateText as generateText } from './ai-meter.js';
+import { meteredGenerateText as generateText, summarizeAiFailure } from './ai-meter.js';
 import { DEFAULT_DEEP_MODEL, mergeUsage, normalizeReasoningEffort, resolveModelId } from './elitea.js';
 import { getCourseTrainerProfile } from './course-trainer-profiles.js';
 import {
@@ -516,7 +516,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         ),
       });
       totalUsage = mergeUsage(totalUsage, result.usage);
-    } catch {
+    } catch (error) {
       const fallback = demoTrainingAnswer({
         safeMessages,
         course,
@@ -526,7 +526,11 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         scenario,
         responseLanguage,
       });
-      return { ...fallback, provider: 'local-training-fallback' };
+      return {
+        ...fallback,
+        provider: 'local-training-fallback',
+        providerFailure: summarizeAiFailure(error),
+      };
     }
     if (!result.text?.trim()) {
       const fallback = demoTrainingAnswer({
@@ -538,7 +542,16 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         scenario,
         responseLanguage,
       });
-      return { ...fallback, provider: 'local-training-fallback' };
+      return {
+        ...fallback,
+        provider: 'local-training-fallback',
+        providerFailure: {
+          errorCategory: 'empty_response',
+          errorName: null,
+          errorStatusCode: null,
+          errorCode: null,
+        },
+      };
     }
 
     const candidateContext = {

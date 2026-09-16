@@ -50,6 +50,54 @@ export function summarizeAiFailure(error) {
     errorCode: code,
   };
 }
+
+const INTERNAL_AI_ERROR_CODES = new Set([
+  'AI_USAGE_LIMIT_REACHED',
+  'COACHING_QUALITY_FAIL_CLOSED',
+  'RELEASE_EVALUATION_SCOPE',
+  'RELEASE_RECEIPT_NOT_CONFIGURED_OR_FAILED',
+  'ACADEMY_RELEASE_RECEIPT_NOT_CONFIGURED_OR_FAILED',
+]);
+
+// Convert only recognizable upstream AI failures to a stable, Czech client
+// message. Raw provider bodies can contain account, billing and request data;
+// they belong in privacy-safe telemetry, never in the member response.
+export function publicAiProviderError(error) {
+  if (!error) return null;
+  const summary = summarizeAiFailure(error);
+  const code = String(error?.code || '');
+  if (INTERNAL_AI_ERROR_CODES.has(code)) return null;
+
+  const chain = [error, error?.cause, error?.lastError, ...(Array.isArray(error?.errors) ? error.errors.slice(0, 3) : [])]
+    .filter(Boolean);
+  const fingerprint = chain
+    .map(value => `${value?.name || ''} ${value?.code || ''} ${value?.message || ''}`)
+    .join(' ')
+    .toLowerCase();
+  const recognizableProviderFailure = [402, 408, 429].includes(summary.errorStatusCode)
+    || /gateway|api.?call.?error|retryerror|ai_gateway|positive credit balance|provider unavailable|model not found/.test(fingerprint);
+  if (!recognizableProviderFailure) return null;
+
+  if (summary.errorCategory === 'capacity') {
+    return {
+      statusCode: 429,
+      code: 'AI_PROVIDER_CAPACITY',
+      message: 'Kapacita AI modelu je teď dočasně vyčerpaná. Zkus odpověď znovu za chvíli.',
+    };
+  }
+  if (summary.errorCategory === 'timeout') {
+    return {
+      statusCode: 504,
+      code: 'AI_PROVIDER_TIMEOUT',
+      message: 'AI odpověď se tentokrát nestihla dokončit. Zkus ji prosím znovu.',
+    };
+  }
+  return {
+    statusCode: 503,
+    code: 'AI_PROVIDER_UNAVAILABLE',
+    message: 'Elitea se teď nemůže spojit s AI modelem. Zkus odpověď prosím znovu za chvíli.',
+  };
+}
 export function priceUsage(model, usage) {
   const rates = AI_RATES[model];
   const input = usage?.inputTokens, output = usage?.outputTokens;

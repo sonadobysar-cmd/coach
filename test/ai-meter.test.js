@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMeteredGenerate, priceUsage, aiMeterContext, resolveAiCallTimeoutMs, summarizeAiFailure } from '../src/ai-meter.js';
+import { createMeteredGenerate, priceUsage, aiMeterContext, publicAiProviderError, resolveAiCallTimeoutMs, summarizeAiFailure } from '../src/ai-meter.js';
 test('charges cached input separately and reasoning once', () => {
   assert.ok(Math.abs(priceUsage('openai/gpt-5.6-terra', { inputTokens: 1000, outputTokens: 100, inputTokenDetails: { cacheReadTokens: 800 }, outputTokenDetails: { reasoningTokens: 80 } }) - .00176) < 1e-10);
   assert.equal(priceUsage('unknown', {inputTokens: 1, outputTokens: 1}), null);
@@ -37,6 +37,31 @@ test('provider diagnostics classify failures without retaining sensitive message
   assert.equal(summarizeAiFailure(Object.assign(new Error('payment required'), { status: 402 })).errorCategory, 'billing');
   assert.equal(summarizeAiFailure(Object.assign(new Error('bad payload'), { statusCode: 400 })).errorCategory, 'invalid_request');
   assert.equal(summarizeAiFailure(Object.assign(new Error('busy'), { statusCode: 429 })).errorCategory, 'capacity');
+});
+
+test('provider failures become stable Czech client errors without leaking upstream billing details', () => {
+  const upstream = Object.assign(
+    new Error('A positive credit balance is required for all requests. Visit https://vercel.com/account/billing?secret=abc'),
+    { name: 'RetryError', statusCode: 402 },
+  );
+  const publicError = publicAiProviderError(upstream);
+  assert.deepEqual(publicError, {
+    statusCode: 503,
+    code: 'AI_PROVIDER_UNAVAILABLE',
+    message: 'Elitea se teď nemůže spojit s AI modelem. Zkus odpověď prosím znovu za chvíli.',
+  });
+  assert.ok(!JSON.stringify(publicError).includes('credit'));
+  assert.ok(!JSON.stringify(publicError).includes('vercel.com'));
+  assert.equal(publicAiProviderError(Object.assign(new Error('Dnešní limit je vyčerpaný.'), {
+    statusCode: 429,
+    code: 'AI_USAGE_LIMIT_REACHED',
+  })), null);
+  assert.equal(publicAiProviderError(Object.assign(new Error('Neplatné přihlášení.'), { statusCode: 401 })), null);
+  assert.deepEqual(publicAiProviderError(Object.assign(new Error('busy'), { statusCode: 429 })), {
+    statusCode: 429,
+    code: 'AI_PROVIDER_CAPACITY',
+    message: 'Kapacita AI modelu je teď dočasně vyčerpaná. Zkus odpověď znovu za chvíli.',
+  });
 });
 
 test('cache writes and actual gateway cost are retained', async()=>{

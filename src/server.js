@@ -1,4 +1,4 @@
-import { aiMeterContext } from './ai-meter.js';
+import { aiMeterContext, publicAiProviderError, summarizeAiFailure } from './ai-meter.js';
 import { createHash, randomUUID } from 'node:crypto';
 import express from 'express';
 import { readFile } from 'node:fs/promises';
@@ -1400,16 +1400,17 @@ app.post('/api/chat', async (request, response) => {
       message: 'chat_failed',
       requestId,
       durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error),
+      ...summarizeAiFailure(error),
     }));
+    const providerError = publicAiProviderError(error);
     const message = /GatewayRateLimitError|rate-limit|rate limit/i.test(error?.message || '')
       ? 'Kapacita AI modelu je teď dočasně vyčerpaná. Zkus odpověď znovu za chvíli.'
       : /Unauthenticated|AI_GATEWAY_API_KEY|GatewayAuthenticationError/i.test(error?.message || '')
         ? 'Připojení AI se nepodařilo ověřit. Odpověď zůstala uložená — zkus ji prosím znovu.'
         : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.';
-    response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
-      error: error?.statusCode ? error.message : message,
-      ...(error?.code ? { code: error.code } : {}),
+    response.status(providerError?.statusCode || error?.statusCode || 500).set('Cache-Control', 'no-store').json({
+      error: providerError?.message || (error?.statusCode ? error.message : message),
+      ...((providerError?.code || error?.code) ? { code: providerError?.code || error.code } : {}),
       ...(error?.usage ? { usage: error.usage } : {}),
     });
   }
@@ -1460,11 +1461,17 @@ app.post('/api/public-coach-test/chat', async (request, response) => {
       session: session.nextSession,
     });
   } catch (error) {
-    console.error(JSON.stringify({ level: 'error', message: 'public_coach_test_failed', code: error?.code || 'UNKNOWN', durationMs: Date.now() - startedAt }));
+    console.error(JSON.stringify({
+      level: 'error',
+      message: 'public_coach_test_failed',
+      durationMs: Date.now() - startedAt,
+      ...summarizeAiFailure(error),
+    }));
+    const providerError = publicAiProviderError(error);
     const gatewayLimited = /GatewayRateLimitError|rate-limit|rate limit/i.test(error?.message || '');
-    return response.status(error?.statusCode || (gatewayLimited ? 429 : 500)).set('Cache-Control', 'no-store').json({
-      error: gatewayLimited ? 'Kapacita testu je teď krátce vyčerpaná. Zkus odpověď znovu za chvíli.' : (error?.statusCode ? error.message : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.'),
-      ...(error?.code ? { code: error.code } : {}),
+    return response.status(providerError?.statusCode || error?.statusCode || (gatewayLimited ? 429 : 500)).set('Cache-Control', 'no-store').json({
+      error: providerError?.message || (gatewayLimited ? 'Kapacita testu je teď krátce vyčerpaná. Zkus odpověď znovu za chvíli.' : (error?.statusCode ? error.message : 'Elitea teď nemohla odpovědět. Zkus to prosím znovu.')),
+      ...((providerError?.code || error?.code) ? { code: providerError?.code || error.code } : {}),
     });
   }
 });
@@ -1631,6 +1638,16 @@ app.post('/api/training', async (request, response) => {
       autoTransition,
       finalExam,
     });
+    if (!releaseEvaluation && result.provider === 'local-training-fallback') {
+      throw Object.assign(
+        new Error('Studijní trenérka se teď nemůže spojit s AI modelem. Tento pokus se nehodnotí; zkus ho prosím za chvíli znovu.'),
+        {
+          statusCode: 503,
+          code: 'AI_PROVIDER_UNAVAILABLE',
+          providerFailure: result.providerFailure || null,
+        },
+      );
+    }
     generationCompleted = true;
     if (verifiedTrainingStep) {
       const nextAttempt = advanceTrainingAttempt(verifiedTrainingStep, result.text);
@@ -1806,11 +1823,12 @@ app.post('/api/training', async (request, response) => {
       message: 'training_failed',
       requestId,
       durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error),
+      ...summarizeAiFailure(error),
     }));
-    return response.status(error?.statusCode || 500).set('Cache-Control', 'no-store').json({
-      error: error?.statusCode ? error.message : 'Studijní trenérka teď nemohla odpovědět. Zkus to prosím znovu.',
-      ...(error?.code ? { code: error.code } : {}),
+    const providerError = publicAiProviderError(error);
+    return response.status(providerError?.statusCode || error?.statusCode || 500).set('Cache-Control', 'no-store').json({
+      error: providerError?.message || (error?.statusCode ? error.message : 'Studijní trenérka teď nemohla odpovědět. Zkus to prosím znovu.'),
+      ...((providerError?.code || error?.code) ? { code: providerError?.code || error.code } : {}),
       ...(error?.usage ? { usage: error.usage } : {}),
     });
   }
