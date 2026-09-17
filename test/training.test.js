@@ -949,6 +949,91 @@ test('server zachová validní první repliku a odřízne až následný únik s
   }
 });
 
+test('server zachová jednoznačné potvrzení reflexe a odřízne nesouvisející dovětek', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const raw = 'Ano, sedí to, ale teď bych raději plánovala dovolenou a řešila počasí na pláži.';
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: raw, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Když to takhle shrnu, nechci za tebe rozhodovat. Co je pro tebe v té volbě důležité?' },
+        { role: 'assistant', content: 'Potřebuji nepřeskočit konflikt hodnot ani cenu jednotlivých možností.' },
+        { role: 'user', content: 'Slyším, že nechceš přeskočit konflikt hodnot ani cenu jednotlivých možností. Sedí to, nebo něco přidávám?' },
+      ],
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.text, 'Ano, sedí to.');
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('oprava přirozeného ověření porozumění žádá jedinou krátkou odpověď', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return {
+          text: calls.length === 1
+            ? 'Teď bych raději plánovala dovolenou a řešila počasí na pláži.'
+            : 'Ano, sedí to.',
+          usage: null,
+        };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Slyším, že nechceš přeskočit konflikt hodnot ani cenu jednotlivých možností. Sedí to, nebo něco přidávám?' },
+      ],
+    });
+
+    assert.equal(calls.length, 2);
+    assert.match(calls[1].instructions, /JDE O PŘÍMÉ OVĚŘENÍ POROZUMĚNÍ/u);
+    assert.match(calls[1].instructions, /„Ano, sedí to\.“/u);
+    assert.match(calls[1].instructions, /Neotvírej nové téma/u);
+    assert.equal(result.text, 'Ano, sedí to.');
+    assert.equal(result.qualityGate.pass, true);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('server zachová klientčin krok a odřízne předčasný metakomentař k práci koučky', async () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items)
     .find(candidate => candidate.id === 'm7-5');

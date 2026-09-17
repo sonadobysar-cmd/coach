@@ -955,10 +955,7 @@ function buildRoleplayRepairContext({
   ];
 
   const normalizedLatestTurn = normalizeIntentText(latestStudentTurn);
-  const directConfirmation = /\?/u.test(String(latestStudentTurn || '')) && (
-    /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(normalizedLatestTurn)
-    || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(normalizedLatestTurn)
-  );
+  const directConfirmation = isRoleplayDirectConfirmationPrompt(latestStudentTurn);
   const directChoice = /\?/u.test(String(latestStudentTurn || ''))
     && /\b(?:chces|chcete|volis|vyberas|radeji|radsej)\w*\b.{0,100}\b(?:nebo|alebo)\b/u.test(normalizedLatestTurn);
   const yesNoInvitation = /\?/u.test(String(latestStudentTurn || ''))
@@ -1033,6 +1030,11 @@ function buildRoleplayRepairContext({
     rules.push(language === 'sk'
       ? 'Otázka priamo otvára užitočný výsledok rozhovoru. Odpovedz jedným konkrétnym cieľom alebo potrebou z faktov postavy, ale neodhaľuj naraz celý súkromný profil ani skrytú potrebu.'
       : 'Otázka přímo otevírá užitečný výsledek rozhovoru. Odpověz jedním konkrétním cílem nebo potřebou z faktů postavy, ale neodhaluj najednou celý soukromý profil ani skrytou potřebu.');
+  }
+  if (directConfirmation) {
+    rules.push(language === 'sk'
+      ? 'IDE O PRIAME OVERENIE POROZUMENIA. Odpovedz jedinou krátkou vetou. Ak zhrnutie sedí, potvrď ho napríklad presne „Áno, sedí to.“ Ak nesedí, začni „Nie“ a jednou krátkou vetou oprav iba nepresnosť. Neotváraj novú tému, neopakuj celý príbeh a neklaď otázku.'
+      : 'JDE O PŘÍMÉ OVĚŘENÍ POROZUMĚNÍ. Odpověz jedinou krátkou větou. Pokud shrnutí sedí, potvrď ho například přesně „Ano, sedí to.“ Pokud nesedí, začni „Ne“ a jednou krátkou větou oprav pouze nepřesnost. Neotvírej nové téma, neopakuj celý příběh a nepokládej otázku.');
   }
   if (repairOwnership) {
     rules.push(language === 'sk'
@@ -1155,6 +1157,17 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
       changed = true;
       quality = assessTrainingOutput(preparedText, context);
     }
+    if (!quality.pass) {
+      const directConfirmation = sanitizeRoleplayDirectConfirmation(preparedText, quality, context);
+      if (directConfirmation.changed) {
+        const directConfirmationQuality = assessTrainingOutput(directConfirmation.text, context);
+        if (directConfirmationQuality.pass) {
+          preparedText = directConfirmation.text;
+          changed = true;
+          quality = directConfirmationQuality;
+        }
+      }
+    }
     const progressiveDisclosure = sanitizeRoleplayProgressiveDisclosure(preparedText, quality);
     if (progressiveDisclosure.changed) {
       const progressiveQuality = assessTrainingOutput(progressiveDisclosure.text, context);
@@ -1256,6 +1269,55 @@ function sanitizeRoleplayMetaTail(value, quality, responseLanguage = 'cs') {
     : { text, changed: false };
 }
 
+function sanitizeRoleplayDirectConfirmation(value, quality, context = {}) {
+  const text = String(value || '').trim();
+  const issues = new Set(Array.isArray(quality?.issues) ? quality.issues : []);
+  const latestStudentTurn = [...(Array.isArray(context.messages) ? context.messages : [])]
+    .reverse()
+    .find(message => message?.role === 'user')?.content || '';
+  const safetyScenario = String(context.scenario?.scenarioFamilyId || '') === 'suicide-risk-response';
+  if (!text || safetyScenario || !isRoleplayDirectConfirmationPrompt(latestStudentTurn)) {
+    return { text, changed: false };
+  }
+
+  // Canonicalisation is allowed only for an otherwise ordinary counterpart
+  // reply whose leading yes/no meaning is unambiguous. Never use it to hide a
+  // role break, trainer advice, a language switch or a structurally malformed
+  // answer. The canonical sentence is subsequently checked by the complete
+  // roleplay gate against the real scenario and transcript.
+  const blockedIssues = new Set([
+    'role_break',
+    'trainer_advice_leak',
+    'response_language_mismatch',
+    'list_or_heading',
+    'trailing_fragment',
+    'generic_counterpart_turn',
+  ]);
+  if ([...issues].some(issue => blockedIssues.has(issue))) {
+    return { text, changed: false };
+  }
+
+  const normalized = normalizeIntentText(text);
+  const leadingWindow = normalized.slice(0, 120);
+  const affirmative = /^(?:ano|jo|jasne|presne|sedi to)\b/u.test(normalized);
+  const negative = /^(?:ne|nie|nesedi|nesouhlasim|nesuhlasim)\b/u.test(normalized);
+  if (affirmative === negative) return { text, changed: false };
+
+  // „Ano, ale ne úplně / něco přidáváš“ is not a clean confirmation and must
+  // remain with the model so that the actual correction is not erased.
+  const contradictedAffirmative = affirmative
+    && /\b(?:ale|avsak|jenze)\b.{0,55}\b(?:ne|nie|nesedi|nesouhlas|nesuhlas|pridav|chybi|chyba|jinak|inak|spis|skor|uplne)\w*\b/u.test(leadingWindow);
+  if (contradictedAffirmative) return { text, changed: false };
+
+  const slovak = context.responseLanguage === 'sk';
+  const canonical = affirmative
+    ? (slovak ? 'Áno, sedí to.' : 'Ano, sedí to.')
+    : (slovak ? 'Nie, nesedí mi to.' : 'Ne, nesedí mi to.');
+  return canonical !== text
+    ? { text: canonical, changed: true }
+    : { text, changed: false };
+}
+
 function sanitizeRoleplayProgressiveDisclosure(value, quality) {
   const text = String(value || '').trim();
   const issues = [...(quality?.issues || [])];
@@ -1284,6 +1346,16 @@ function normalizeIntentText(value) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function isRoleplayDirectConfirmationPrompt(value) {
+  const raw = String(value || '');
+  if (!/\?/u.test(raw)) return false;
+  const normalized = normalizeIntentText(raw);
+  return /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(normalized)
+    || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(normalized)
+    || /\b(?:sedi to|plati to|je to tak)\b.{0,45}\b(?:nebo|alebo)\b.{0,35}\b(?:neco|nieco|pridavam)\w*\b/u.test(normalized)
+    || /\b(?:sedi to|plati to|je to tak|rozumim tomu spravne|rozumiem tomu spravne)\s*$/u.test(normalized);
 }
 
 function trainingCounterpartLabel(hint, courseId) {
