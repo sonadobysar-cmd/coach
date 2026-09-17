@@ -1335,11 +1335,11 @@ function hasTrainerAdviceLeak(value) {
 
 function firstPersonCounterpartVoice(value) {
   const normalized = normalizeStudyText(value);
-  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|pripada|zkusila|udelala|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
+  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|pripada|zkusila|udelala|udelam|mohu|muzu|uvedomila|odnasim|zamerim|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|urobim|mozem|uvedomila som si|odnasam si|zameriam sa|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
   // Čeština i slovenština běžně vypouštějí zájmeno „já“: „váhám“,
   // „potřebuji“, „neviem“. Takový autentický klientský hlas nesmí propadnout
   // jen kvůli pro-drop gramatice. Současně nepouštíme rozkazovací trenérský hlas.
-  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram)\b/u.test(normalized);
+  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|mohu|muzu|mozem|udelam|urobim|uvedomuji|uvedomujem|odnasim|odnasam|zamerim|zameriam|vratme|vratme sa|pojdme|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram)\b/u.test(normalized);
   const trainerVoice = /^(?:mela bys|mel bys|zkus|doporucuji|odporucam|tvym ukolem|spravna odpoved)\b/u.test(normalized);
   return !trainerVoice && (explicitFirstPerson || proDropFirstPersonVerb);
 }
@@ -1381,13 +1381,40 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const latestStudent = [...(Array.isArray(messages) ? messages : [])]
     .reverse()
     .find(message => message?.role === 'user')?.content || '';
+  const authoredContext = [
+    scenario?.openingLine,
+    scenario?.assignment,
+    ...(Array.isArray(scenario?.rubric) ? scenario.rubric : []),
+    privateFacts,
+    hiddenNeed,
+    scenario?.private?.behavior,
+    ...priorCounterpartTurns,
+  ].filter(Boolean).join(' ');
+  const authoredContextStems = roleplayContentStems(authoredContext);
+  const authoredContextConcepts = roleplaySemanticConcepts(authoredContext);
+  const dialogueKind = roleplayDialogueResponseKind(value, latestStudent);
+  const promptGrounded = roleplayPromptGroundedInScenario(
+    latestStudent,
+    authoredContextStems,
+    authoredContextConcepts,
+  );
   const normalizedQuestion = normalizeStudyText(latestStudent);
-  const questionCue = /(?:^|\b)(?:co|cim|jak|jaky|jaka|ktery|ktera|proc|ceho|o cem|v cem|popis|rekni|ako|aky|aka|ktory|ktora|preco|coho|o com|v com|povedz)\b/u;
-  const startsAsQuestion = /^(?:co|cim|jak|jaky|jaka|ktery|ktera|proc|ceho|o cem|v cem|ako|aky|aka|ktory|ktora|preco|coho|o com|v com)\b/u.test(normalizedQuestion);
+  const questionCue = /(?:^|\b)(?:co|cim|jak\w*|kter\w*|proc|ceho|o cem|v cem|popis\w*|rekni|ako|ak\w*|ktor\w*|preco|coho|o com|v com|povedz)\b/u;
+  const startsAsQuestion = /^(?:co|cim|jak\w*|kter\w*|proc|ceho|o cem|v cem|ako|ak\w*|ktor\w*|preco|coho|o com|v com)\b/u.test(normalizedQuestion);
   const directElicitation = /\b(?:popis|rekni|povedz)\w*\b/u.test(normalizedQuestion);
   const asksQuestion = (/\?/u.test(String(latestStudent || '')) && questionCue.test(normalizedQuestion))
     || startsAsQuestion
     || directElicitation;
+  // Explicit repair questions may elicit a *partial* alliance need. They do
+  // not license a model to adopt the complete authored hidden profile.
+  const allianceRepairElicitation = /\?/u.test(String(latestStudent || '')) && (
+    (
+      /\b(?:mas pravdu|mate pravdu|omlouvam|ospravedlnujem|mrzi me|mrzi ma|bez\s+(?:meho|mojho)?\s*(?:souhlas|suhlas))\w*\b/u.test(normalizedQuestion)
+      && /\bco\b.{0,32}\b(?:potrebuj|chces|chcete)\w*\b/u.test(normalizedQuestion)
+    )
+    || /\bco\b.{0,28}\b(?:pomoh|potreb)\w*.{0,28}\b(?:slysen|vyslysen|vypocut|pocut)\w*\b/u.test(normalizedQuestion)
+    || /\b(?:jak|ako)\b.{0,24}\bpozn\w*.{0,24}\bautonom\w*\b/u.test(normalizedQuestion)
+  );
 
   // A direct safety assessment may elicit the risk facts it actually asks for.
   // It is deliberately *not* an early return: the ordinary dump detection
@@ -1400,8 +1427,9 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const allPrivateFactsConcepts = roleplaySemanticConcepts(privateFacts);
   const privateFactsStems = setDifference(allPrivateFactsStems, publicStems);
   const hiddenNeedStems = setDifference(roleplayContentStems(hiddenNeed), publicStems);
+  const allHiddenNeedConcepts = roleplaySemanticConcepts(hiddenNeed);
   const privateFactsConcepts = setDifference(allPrivateFactsConcepts, publicConcepts);
-  const hiddenNeedConcepts = setDifference(roleplaySemanticConcepts(hiddenNeed), publicConcepts);
+  const hiddenNeedConcepts = setDifference(allHiddenNeedConcepts, publicConcepts);
   const revealsFacts = privateSignalOverlap({
     outputStems,
     outputConcepts,
@@ -1421,6 +1449,120 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const unrequestedFactConcepts = setDifference(roleplaySemanticConcepts(privateFacts), boundaryQuestionConcepts);
   const unrequestedHiddenStems = setDifference(roleplayContentStems(hiddenNeed), boundaryQuestionStems);
   const unrequestedHiddenConcepts = setDifference(roleplaySemanticConcepts(hiddenNeed), boundaryQuestionConcepts);
+  const promptPrivateFactStemOverlap = setOverlapCount(boundaryQuestionStems, privateFactsStems);
+  const promptPrivateFactConceptOverlap = setOverlapCount(boundaryQuestionConcepts, privateFactsConcepts);
+  const promptHiddenNeedStemOverlap = setOverlapCount(boundaryQuestionStems, hiddenNeedStems);
+  const promptHiddenNeedConceptOverlap = setOverlapCount(boundaryQuestionConcepts, hiddenNeedConcepts);
+  const promptAllHiddenNeedConceptOverlap = setOverlapCount(boundaryQuestionConcepts, allHiddenNeedConcepts);
+  const promptAllPrivateFactConceptOverlap = setOverlapCount(boundaryQuestionConcepts, allPrivateFactsConcepts);
+  const outputAllHiddenNeedConceptOverlap = setOverlapCount(outputConcepts, allHiddenNeedConcepts);
+  const outputAllPrivateFactConceptOverlap = setOverlapCount(outputConcepts, allPrivateFactsConcepts);
+  // A leading question must not manufacture disclosure permission merely by
+  // copying the authored answer into the prompt.  A genuine offered choice may
+  // reuse a private case fact as one relevant option, but the more sensitive
+  // hidden need is never unlocked by being supplied verbatim by the student.
+  const promptSuppliesPrivateFact = promptPrivateFactStemOverlap >= 3
+    || promptPrivateFactConceptOverlap >= 2
+    || promptAllPrivateFactConceptOverlap >= 3;
+  const promptSuppliesHiddenNeed = promptHiddenNeedStemOverlap >= 3
+    || promptHiddenNeedConceptOverlap >= 2
+    // Public assignment text can legitimately name one of the three axes
+    // (typically autonomy). It must not erase the fact that a leading prompt
+    // supplied the complete private bundle: rupture + minimisation + control.
+    || promptAllHiddenNeedConceptOverlap >= 3;
+  const normalizedOutput = normalizeStudyText(value);
+  const leadingClosedQuestion = /\?/u.test(String(latestStudent || ''))
+    && /^(?:(?:nejdriv|najprv|ted|teraz)\s+)?(?:chces|chcete|potrebujes|potrebujete|mam|mame|mas|mate|jde\s+(?:ti|vam)|ide\s+(?:ti|vam)|je|je to|neni|nie je|nechces|nechcete|chcel by si|chcela by si)\b/u
+      .test(normalizedQuestion);
+  const genuineProcessAlternative = /\b(?:nebo|alebo)\b/u.test(normalizedQuestion)
+    && /\b(?:jin\w*\s+(?:zpusob|sposob|postup|ramec)|vlastn\w*\s+otazk\w*|rozhovor\w*\s+(?:zastav|ukonc|uzavr)\w*|(?:zastav|ukonc|uzavr)\w*\s+rozhovor\w*)\b/u
+      .test(normalizedQuestion);
+  const hiddenRepairAxes = new Set([
+    'alliance_criticism',
+    'alliance_non_minimization',
+    'decision_control_ownership',
+  ]);
+  const privateFactAxes = new Set([
+    'observed_behavior_evidence',
+    'role_expectations_duties',
+    'conflict_avoidance',
+  ]);
+  const promptHiddenRepairAxisCount = setOverlapCount(boundaryQuestionConcepts, hiddenRepairAxes);
+  const outputHiddenRepairAxisCount = setOverlapCount(outputConcepts, hiddenRepairAxes);
+  const promptPrivateFactAxisCount = setOverlapCount(boundaryQuestionConcepts, privateFactAxes);
+  const outputPrivateFactAxisCount = setOverlapCount(outputConcepts, privateFactAxes);
+  const promptMentoringChoiceBundle = boundaryQuestionConcepts.has('mentoring_opt_in')
+    && (
+      boundaryQuestionConcepts.has('decision_timing')
+      || boundaryQuestionConcepts.has('decision_control_ownership')
+      || boundaryQuestionConcepts.has('observed_behavior_evidence')
+    );
+  const outputMentoringChoiceBundle = outputConcepts.has('mentoring_opt_in')
+    && (
+      outputConcepts.has('decision_timing')
+      || outputConcepts.has('decision_control_ownership')
+      || outputConcepts.has('observed_behavior_evidence')
+    );
+  // A closed leading question is not elicitation: it is a proposed answer.
+  // Block a reply that merely adopts the complete authored meaning, even when
+  // person/tense and every surface word change. This deliberately works over
+  // semantic axes rather than a list of memorised sentences.
+  const echoesManufacturedHiddenBundle = leadingClosedQuestion
+    && promptHiddenRepairAxisCount === hiddenRepairAxes.size
+    && outputHiddenRepairAxisCount === hiddenRepairAxes.size
+    && promptAllHiddenNeedConceptOverlap >= 3
+    && outputAllHiddenNeedConceptOverlap >= 3;
+  const echoesManufacturedPrivateFactBundle = leadingClosedQuestion
+    && !genuineProcessAlternative
+    && (
+      (promptPrivateFactAxisCount === privateFactAxes.size
+        && outputPrivateFactAxisCount === privateFactAxes.size
+        && promptAllPrivateFactConceptOverlap >= 3
+        && outputAllPrivateFactConceptOverlap >= 3)
+      || (promptMentoringChoiceBundle && outputMentoringChoiceBundle)
+    );
+  const manufacturedDisclosureDialogueKinds = new Set([
+    'confirmation',
+    'choice',
+    'recontract',
+    // Přijetí skutečné omluvy je bezpečné. Omluva ale nesmí fungovat jako
+    // nosič kompletního skrytého profilu, který studentka modelové klientce
+    // nejprve vloží do úst a ta jej následně pouze potvrdí.
+    'repair_acknowledgement',
+  ]);
+  const promptManufacturesPrivateDisclosure = !directSafetyAssessment && (
+    (promptSuppliesHiddenNeed && manufacturedDisclosureDialogueKinds.has(dialogueKind))
+    || (promptSuppliesPrivateFact && ['confirmation', 'repair_acknowledgement'].includes(dialogueKind))
+  );
+  if (!directSafetyAssessment
+    && (echoesManufacturedHiddenBundle || echoesManufacturedPrivateFactBundle)) return true;
+  // Selecting or acknowledging language that the student has just offered is
+  // not a fresh reveal.  Accept it only for a closed, scenario-grounded
+  // dialogue act and only when the reply introduces no additional private
+  // signal.  Fidelity is evaluated independently, so an off-topic offered
+  // choice still fails even if the client answers it fluently.
+  const echoSafeDialogueKinds = new Set([
+    'confirmation',
+    'choice',
+    'repair_acknowledgement',
+    'autonomy_acknowledgement',
+    'recontract',
+  ]);
+  const repeatsOnlyPromptedPrivateContext = echoSafeDialogueKinds.has(dialogueKind)
+    && promptGrounded
+    && !promptManufacturesPrivateDisclosure
+    && !privateSignalOverlap({
+      outputStems,
+      outputConcepts,
+      privateStems: setDifference(privateFactsStems, boundaryQuestionStems),
+      privateConcepts: setDifference(privateFactsConcepts, boundaryQuestionConcepts),
+    })
+    && !privateSignalOverlap({
+      outputStems,
+      outputConcepts,
+      privateStems: setDifference(hiddenNeedStems, boundaryQuestionStems),
+      privateConcepts: setDifference(hiddenNeedConcepts, boundaryQuestionConcepts),
+    });
   const boundaryQuestion = /\?/u.test(String(latestStudent || ''))
     && /\b(?:souhlas|suhlas|hranic|prijatel|dover|duver|obsah|poznamk|report)\w*\b/u.test(normalizedQuestion);
   const broadOutcomeQuestion = /\b(?:uzitecn|uzitocn|vysled|vysledok|cil|ciel|odnes|dosahn|potrebujes zisk)\w*\b/u.test(normalizedQuestion)
@@ -1429,8 +1571,16 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
     || setOverlapCount(outputConcepts, unrequestedFactConcepts) >= 2;
   const dumpsUnrequestedHiddenNeed = setOverlapCount(outputStems, unrequestedHiddenStems) >= 3
     || setOverlapCount(outputConcepts, unrequestedHiddenConcepts) >= 2;
-  if ((boundaryQuestion && dumpsUnrequestedFacts)
-    || ((boundaryQuestion || broadOutcomeQuestion) && dumpsUnrequestedHiddenNeed)) return true;
+  const safePartialAllianceRepair = allianceRepairElicitation
+    && outputHiddenRepairAxisCount < hiddenRepairAxes.size
+    && outputPrivateFactAxisCount < privateFactAxes.size
+    && studyWordCount(value) <= 36;
+  if (!safePartialAllianceRepair && (
+    (boundaryQuestion && dumpsUnrequestedFacts)
+    || ((boundaryQuestion || broadOutcomeQuestion) && dumpsUnrequestedHiddenNeed)
+  )) return true;
+  if (promptManufacturesPrivateDisclosure && (revealsFacts || revealsHiddenNeed)) return true;
+  if (repeatsOnlyPromptedPrivateContext) return false;
   if (!revealsFacts && !revealsHiddenNeed) return false;
   // Even a well-aimed question should unlock only a natural next piece of the
   // character's experience, never the authored hidden-need sentence almost in
@@ -1500,7 +1650,29 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
       setOverlapCount(questionStems, hiddenNeedStems) >= 1
       || setOverlapCount(questionConcepts, hiddenNeedConcepts) >= 1
     ))
-    || questionMatchesRevealCue;
+    || questionMatchesRevealCue
+    || allianceRepairElicitation;
+
+  // A grounded open question may reveal one ordinary next fact. The model is
+  // supposed to feel like a real counterpart, not a password-protected record.
+  // Keep the exception narrow: one short answer, no complete fact/hidden-need
+  // bundle and no leading yes/no proposition supplied by the student.
+  const naturalSingleFactReply = revealsFacts
+    && asksQuestion
+    && !leadingClosedQuestion
+    // A one-word domain prompt such as "Co ta práce?" is too broad to unlock
+    // private context. This exception is only for a neutral process question
+    // (which part to explore, where to return, continue/pause), not merely any
+    // prompt that happens to share one scenario noun.
+    && roleplayNeutralProcessPrompt(latestStudent)
+    && studyWordCount(value) <= 36
+    && roleplaySemanticClauses(value).length <= 2
+    && promptPrivateFactAxisCount < privateFactAxes.size
+    && outputPrivateFactAxisCount < privateFactAxes.size
+    && outputHiddenRepairAxisCount < hiddenRepairAxes.size
+    && !dumpsHiddenNeedByStems
+    && !dumpsHiddenNeedByConcepts;
+  if (naturalSingleFactReply) return false;
 
   return (revealsFacts && !(questionTargetsFacts || questionMatchesRevealCue))
     || (revealsHiddenNeed && !questionTargetsHiddenNeed);
@@ -1518,6 +1690,183 @@ function setDifference(source, excluded) {
 
 function setOverlapCount(left, right) {
   return [...left].filter(value => right.has(value)).length;
+}
+
+function roleplayChoicePromptGrounded(prompt, sourceStems, sourceConcepts) {
+  const normalized = normalizeStudyText(prompt);
+  if (!/\b(?:nebo|alebo)\b/u.test(normalized)) return true;
+  // Mentoring versus koučovací otázky jsou dvě procesní modality téhož
+  // případu, ne dvě nová témata. Volba modality je uzemněná sama o sobě.
+  if (/(?:\bmentor\w*\b.{0,80}\bkouc\w*.{0,18}\botaz\w*\b|\bkouc\w*.{0,18}\botaz\w*\b.{0,80}\bmentor\w*\b)/u.test(normalized)) {
+    return true;
+  }
+  if (/(?:\bshrn\w*\b.{0,80}\b(?:zept|opyt|otaz)\w*\b|\b(?:zept|opyt|otaz)\w*\b.{0,80}\bshrn\w*\b|\b(?:prostor|priestor)\w*\b.{0,80}\botaz\w*\b|\botaz\w*\b.{0,80}\b(?:prostor|priestor)\w*\b)/u.test(normalized)) {
+    return true;
+  }
+  const choiceArms = String(prompt || '').split(/\b(?:nebo|alebo)\b/iu);
+  if (choiceArms.length < 2) return true;
+  return choiceArms.every((arm, index) => {
+    const armStems = roleplayContentStems(arm);
+    const armConcepts = roleplaySemanticConcepts(arm);
+    const sharedStems = [...armStems].filter(stem => sourceStems.has(stem));
+    const sharedConcepts = [...armConcepts].filter(concept => sourceConcepts.has(concept));
+    // Generic process nouns are useful connective tissue, not evidence that
+    // the concrete option belongs to this case.  Otherwise "mapa možností
+    // letu" or "rozhovor o autě" can smuggle any unrelated topic through.
+    const grounded = sharedStems.some(stem => !/^(?:map|moznost|rozhov)/u.test(stem))
+      || sharedConcepts.some(concept => concept !== 'session_dialogue');
+    if (grounded) return true;
+    const normalizedArm = normalizeStudyText(arm);
+    const substantiveProcessSignals = normalizedArm.match(
+      /\b(?:pozorovan|chovan|ocekavan|ocakavan|strach|konflikt|hodnot|fakt)\w*\b/gu,
+    ) || [];
+    const namesCoherentProcessOption = new Set(substantiveProcessSignals).size >= 2
+      || /\b(?:zpusob|sposob)\s+prac\w*\b/u.test(normalizedArm);
+    if (namesCoherentProcessOption) return true;
+    // The second arm often preserves autonomy without introducing a new
+    // topic ("nebo zvolit jiný způsob", "nebo dnes směr uzavřít").  It is a
+    // process escape, not a case fact.  It must not contain a novel content
+    // stem, so "pokračovat rozhovorem o autě" remains off-topic.
+    const processEscape = index > 0
+      && /\b(?:jin\w*\s+(?:zpusob|sposob|postup|ramec|otazk\w*)|(?:zept|opyt)\w*(?:\s+(?:se|sa))?\s+(?:jinak|inak)|(?:jinak|inak)\s+(?:se\s+|sa\s+)?(?:zept|opyt)\w*|zustat|zostat|pokracovat|uzavrit|ukoncit|skoncit)\b/u
+        .test(normalizedArm);
+    const novelContentStems = [...armStems].filter(stem => (
+      !sourceStems.has(stem)
+      && !/^(?:jin|inak|zept|opyt|otaz|zpusob|sposob|postup|ramec|zust|zost|pokrac|uzavr|ukonc|skonc|dnes|ted|teraz|vol|zvol|vyber|prac)/u.test(stem)
+    ));
+    return processEscape && novelContentStems.length === 0;
+  });
+}
+
+function roleplayPromptGroundedInScenario(prompt, sourceStems, sourceConcepts) {
+  const promptStems = roleplayContentStems(prompt);
+  const promptConcepts = roleplaySemanticConcepts(prompt);
+  const grounded = setOverlapCount(promptStems, sourceStems) >= 2
+    || setOverlapCount(promptConcepts, sourceConcepts) >= 1;
+  const explicitChoice = /\b(?:nebo|alebo)\b/u.test(normalizeStudyText(prompt));
+  const choiceGrounded = roleplayChoicePromptGrounded(prompt, sourceStems, sourceConcepts);
+  return choiceGrounded && (grounded || explicitChoice);
+}
+
+function roleplayNeutralProcessPrompt(value) {
+  const normalized = normalizeStudyText(value);
+  return /\b(?:(?:kter\w*|ktor\w*|aku|aky|co|kam)\s+(?:cast\w*\s+)?situac\w*.{0,28}(?:prozkoum|preskum|venov|zacit|zacat)\w*|(?:pokrac|zastav|ukonc|uzavr)\w*.{0,20}(?:otazk|rozhovor)\w*|rozhovor\w*.{0,20}(?:pokrac|zastav|ukonc|uzavr|vrat)\w*|(?:oprav|naprav)\w*.{0,20}(?:spoluprac|alianc|vztah)\w*|(?:moznost|sposob|zpusob)\w*\s+(?:prace|veden|rozhovor)\w*|(?:vlastn|svoj)\w*\s+otazk\w*)\b/u
+    .test(normalized);
+}
+
+function roleplayDialogueResponseKind(value, latestStudent) {
+  const prompt = normalizeStudyText(latestStudent);
+  const output = normalizeStudyText(value);
+  const words = studyWordCount(value);
+  // Two- and three-word selections ("Chci pokračovat otázkami") are natural
+  // closed-choice answers. The response-level target-behaviour gate still
+  // requires enough substance, so recognising the local dialogue act here
+  // does not make a one-word roleplay turn pass overall.
+  if (!prompt || !output || words < 2 || words > 42) return null;
+
+  const asksSafetyAssessment = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:sebevraz|samovraz|ubliz)\w*\b/u.test(prompt)
+    && /\b(?:plan|zamer|umysl|prostred|bezpec)\w*\b/u.test(prompt);
+  const answersSafetyAssessment = /\b(?:sebevraz|samovraz|ubliz|myslenk|plan|zamer|umysl|prostred|bezpec)\w*\b/u.test(output);
+  const safetyCounterpartVoice = asksSafetyAssessment
+    && answersSafetyAssessment
+    && !/^(?:mela bys|mel bys|musis|musite|zkus|doporucuji|odporucam)\b/u.test(output);
+  if (!firstPersonCounterpartVoice(value) && !safetyCounterpartVoice) return null;
+  if (asksSafetyAssessment && answersSafetyAssessment) return 'safety_answer';
+
+  const asksConfirmation = /\?/u.test(String(latestStudent || '')) && (
+    /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(prompt)
+    || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(prompt)
+    || /\b(?:sedi to|plati to|je to tak|rozumim tomu spravne|rozumiem tomu spravne)\s*$/u.test(prompt)
+  );
+  const asksYesNoChoice = /\?/u.test(String(latestStudent || ''))
+    && /^(?:chces|chcete|souhlasis|suhlasis|vyhovuje|skusis|zkusis|pouzijes|pouzijete)\w*\b/u.test(prompt);
+  const asksExplicitChoice = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:chces|chcete|potrebujes|potrebujete|mam|mame|volis|vyberas|radeji|radsej)\w*\b.{0,120}\b(?:nebo|alebo)\b/u.test(prompt);
+  const choiceReply = /^(?:ano|jo|nie|ne|nejdriv|najprv|prvni|druhou|druha|prvu|druhu|radeji|radsej|volim|vybiram|chci|chcem|nechci|nechcem|potrebuji|potrebujem)\b/u.test(output);
+
+  const asksRecontractedChoice = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:ktery|ktory|jaky|aky)\b.{0,55}\b(?:zpusob|sposob|postup|ramec)\w*\b.{0,55}\b(?:volis|vyberas|chces)\w*\b/u.test(prompt)
+    && /\b(?:podle ceho|podla coho|jak|ako)\b.{0,55}\b(?:pozn|over|spozn)\w*\b/u.test(prompt)
+    && /\b(?:fakt|chov|ocekav|ocakav|strach|konflikt|hodnot|moznost|ram|rozhovor)\w*\b/u.test(output)
+    && /\b(?:pozn|over|jasn|konkret|krok|vysled|ciel|cil)\w*\b/u.test(output);
+
+  const imposesMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|nemusis|nemusite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|propust|vyhod|dej vypoved|daj vypoved|ja bych|udelala bych|urobila by som|nejlepsi volb|najlepsia volb)\w*\b/u.test(prompt);
+  const correctiveReply = /\b(?:ne|nie|nechci|nechcem|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nerozhoduj|rozhodnuti je na me|rozhodnutie je na mne)\w*\b/u.test(output);
+
+  const repairOwnership = /\b(?:mas pravdu|mate pravdu|omlouvam|ospravedlnujem|mrzi me|mrzi ma)\b/u.test(prompt)
+    && /\b(?:pridal|prisoud|prevzal|prevzala|tla[cč]il|nevyzadan|radu|rozhodnut|nepocuv|neposlouch)\w*\b/u.test(prompt);
+  const repairReply = /^(?:dekuji|dakujem|dobre|ano|ano|tohle|toto|takto|takhle|potrebuji|potrebujem|chci|chcem)\b/u.test(output)
+    || /\b(?:dekuji|dakujem|potrebuji|potrebujem|chci|chcem|rozhodnut|poslouch|pocuv)\w*\b/u.test(output);
+
+  const refusalOrAutonomyRestored = /\b(?:nebudu|nebudem|odkladame|odlozime|nebudu te presvedcovat|nebudem ta presviedcat|rozhodnuti zustava na tobe|rozhodnutie zostava na tebe)\b/u.test(prompt);
+  const acknowledgementReply = /^(?:dekuji|dakujem|dobre|ano|ano|tohle|toto|takto|takhle|chci|chcem|potrebuji|potrebujem)\b/u.test(output);
+
+  const asksPriority = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:nejdulezitejsi|dulezite|zalezi|priorita|najdolezitejsie|dolezite)\b/u.test(prompt);
+  const answersPriority = /\b(?:chci|nechci|potrebuji|potrebuju|jde mi|nejdulezitejsi|nejvic|dulezite|priorita|chcem|nechcem|potrebujem|ide mi|najdolezitejsie|najviac|dolezite)\b/u.test(output)
+    || /\b(?:zalezi|prevaz|prilis|nedokaz|odhad|boj|strach|obav|nejist|neist|ohroz|rizik|jistot|istot|stabil|bezpec)\w*\b/u.test(output);
+  const asksFacts = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:fakta|skutecnosti|data|konkretni|fakty|skutocnosti|konkretne)\b/u.test(prompt);
+  const answersFacts = /\b(?:vim ze|nevim zda|zatim|uz vim|mam|nemam|fakt|konkretne|data|cis|stal|stava|deje|funguje|nefunguje|udelal|zkusil|viem ze|neviem ci|zatial|uz viem|skutocn|udial|urobil|skusil)\w*\b/u.test(output);
+
+  const asksAction = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:ktery|ktory|jaky|aky|co)\b.{0,80}\b(?:krok|moznost|urobis|udelas|zvolis|vyberes)\w*\b/u.test(prompt);
+  const answersAction = /\b(?:udelam|urobim|napisu|napisem|zavolam|oslovim|porovnam|zjistim|zistim|vyberu|vyberiem|overim|proverim|domluvim|dohodnem|kontaktujem)\w*\b/u.test(output);
+  const asksReflection = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:uvedom|odnas|odnes|uzitecn|uzitocn|priste|nabuduce|jinak|inak)\w*\b/u.test(prompt);
+  const answersReflection = /\b(?:uvedom|odnas|odnes|vidim|chapu|rozumim|rozumiem|priste|nabuduce|udelam|urobim|potrebuji|potrebujem)\w*\b/u.test(output);
+  const asksListeningCriterion = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:jak|ako)\b.{0,28}\b(?:pozn|spozn|vypad)\w*.{0,36}\b(?:poslouch|pocuv|naslouch|nacuv|uzitecn|uzitocn)\w*\b/u.test(prompt);
+  const answersListeningCriterion = /^(?:kdyz|ked|poznam|spoznam|tehdy|vtedy)\b/u.test(output)
+    || /\b(?:over|shrn|zept|opyt|rozum)\w*\b/u.test(output);
+  const asksAllianceImpact = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:co|cim|jak|ako)\b.{0,40}\b(?:rad|doporuc|odporuc)\w*.{0,45}\b(?:nejhors|najhors|vad|problem|neprijem|neprijem)\w*\b/u.test(prompt);
+  const answersAllianceImpact = /\b(?:driv|skor)\b.{0,55}\b(?:zept|opyt|souhlas|suhlas)\w*\b/u.test(output)
+    || /\b(?:bez|pred)\b.{0,20}\b(?:zeptan|opytan|souhlas|suhlas)\w*\b/u.test(output)
+    || /\b(?:nevyslech|neposlouch|nepocuv|tlak)\w*\b/u.test(output);
+  const asksExplorationFocus = /\?/u.test(String(latestStudent || ''))
+    && /\b(?:co|kter\w*|ktor\w*)\b.{0,32}\b(?:prozkoum|preskum|venov|zacit|zacat)\w*.{0,16}\b(?:prvni|nejdriv|najprv|najskor)\w*\b/u.test(prompt);
+  const answersExplorationFocus = /^(?:chci|chcem|nejdriv|najprv|zacn|zaujim)\w*\b/u.test(output);
+
+  if (asksConfirmation && /^(?:ano|jo|dobre|souhlasim|suhlasim|sedi|presne|ne|nie|nesedi|nechci|nechcem)\b/u.test(output)) return 'confirmation';
+  if ((asksExplicitChoice || asksYesNoChoice) && choiceReply) return 'choice';
+  if (imposesMeaningOrDecision && correctiveReply) return 'correction';
+  if (repairOwnership && repairReply) return 'repair_acknowledgement';
+  if (refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
+  if (asksRecontractedChoice) return 'recontract';
+  if (asksPriority && answersPriority) return 'priority_answer';
+  if (asksFacts && answersFacts) return 'facts_answer';
+  if (asksAction && answersAction) return 'action_answer';
+  if (asksReflection && answersReflection) return 'reflection_answer';
+  if (asksListeningCriterion && answersListeningCriterion) return 'alliance_check_answer';
+  if (asksAllianceImpact && answersAllianceImpact) return 'alliance_impact_answer';
+  if (asksExplorationFocus && answersExplorationFocus) return 'focus_answer';
+  return null;
+}
+
+function roleplayDialogueCanGroundFidelity(dialogueKind) {
+  // Open answers still have to carry their own scenario evidence.  The fact
+  // that a grounded question asks for a priority, fact, action or reflection
+  // must never make a generic/off-topic answer faithful by itself.
+  return new Set([
+    'confirmation',
+    'choice',
+    'repair_acknowledgement',
+    'autonomy_acknowledgement',
+    'recontract',
+    'alliance_check_answer',
+    'alliance_impact_answer',
+    'focus_answer',
+    'safety_answer',
+  ]).has(dialogueKind);
+}
+
+function roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcepts) {
+  if (!new Set(['alliance_check_answer', 'alliance_impact_answer']).has(dialogueKind)) return false;
+  return String(scenario?.scenarioFamilyId || '') === 'alliance-repair-mastery'
+    || sourceConcepts.has('alliance_consent_repair')
+    || sourceConcepts.has('being_heard_alliance');
 }
 
 function roleplayScenarioFidelity(value, scenario, messages = []) {
@@ -1552,6 +1901,20 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
   const latestStudent = [...(Array.isArray(messages) ? messages : [])]
     .reverse()
     .find(message => message?.role === 'user')?.content || '';
+  const dialogueKind = roleplayDialogueResponseKind(value, latestStudent);
+  const promptGrounded = roleplayPromptGroundedInScenario(
+    latestStudent,
+    sourceStems,
+    sourceConcepts,
+  ) || roleplayNeutralProcessPrompt(latestStudent);
+  // A concise correction may reject a meaning that the student herself has
+  // just introduced even when that wrong meaning is absent from the authored
+  // case.  Other dialogue shortcuts must be grounded in the scenario.
+  const groundedDialogueResponse = dialogueKind === 'correction'
+    || Boolean(roleplayDialogueCanGroundFidelity(dialogueKind) && (
+      promptGrounded
+      || roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcepts)
+    ));
   // One coincidental domain word ("práce", "příjem", …) cannot ground a
   // canonical roleplay answer. An explicit claim that the response is
   // unrelated to the scenario is a semantic contradiction even when it
@@ -1569,16 +1932,7 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     const sharedClauseConcepts = [...clauseConcepts]
       .filter(concept => sourceConcepts.has(concept)).length;
     const distinctiveSharedConcept = [...clauseConcepts]
-      .some(concept => sourceConcepts.has(concept) && [
-        'financial_security',
-        'support_dependence',
-        'acute_emotional_reactivity',
-        'being_heard_alliance',
-        'between_session_task',
-        'self_harm_signal',
-        'immediate_safety',
-        'human_support',
-      ].includes(concept));
+      .some(concept => sourceConcepts.has(concept) && roleplayDistinctiveScenarioConcept(concept));
     const conceptOverlap = sharedClauseConcepts >= 2 || distinctiveSharedConcept;
     const prioritizesClause = /\b(?:nejvic|nejvice|najviac|hlavne|predevsim|predovsetkym|jde mi hlavne|ide mi hlavne)\b/u.test(normalizeStudyText(clause));
     // A direct answer naming an unrelated top concern ("nejvíc mě tíží
@@ -1589,13 +1943,18 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     // repeating two scenario nouns. Exempt only that individual clause;
     // unrelated later clauses remain subject to the fidelity gate.
     const correctiveClause = roleplayCorrectiveDialogueResponse(clause, latestStudent);
+    const clauseDialogueKind = roleplayDialogueResponseKind(clause, latestStudent);
     const promptImposesMeaning = /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|dej vypoved|daj vypoved)\b/u
       .test(normalizeStudyText(latestStudent));
     // When the student imposed a conclusion, only the clause that actually
     // corrects that conclusion gets the short-reply exemption. A later
     // unrelated "ale chci ..." clause must still prove scenario fidelity.
-    if (correctiveClause
-      || (!promptImposesMeaning && roleplayDirectDialogueResponse(clause, latestStudent))) return false;
+    if (correctiveClause || (
+      !promptImposesMeaning
+      && roleplayDialogueCanGroundFidelity(clauseDialogueKind)
+      && (promptGrounded
+        || roleplayDialogueGroundedByScenario(clauseDialogueKind, scenario, sourceConcepts))
+    )) return false;
     const normalizedClause = normalizeStudyText(clause);
     const briefAcknowledgement = /^(?:dekuji|dakujem)(?:\s+(?:to|toto))?(?:\s+(?:je|bolo))?(?:\s+(?:pro|pre)\s+(?:me|mna|mne))?(?:\s+(?:dulezit|dolezit)\w*)?$/u.test(normalizedClause)
       && studyWordCount(clause) <= 9;
@@ -1606,44 +1965,17 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     if (clauseStems.size < 2) return false;
     return !exactOverlap && !conceptOverlap;
   });
-  const directDialogueResponse = roleplayDirectDialogueResponse(value, latestStudent);
-  return (sharedStems.length >= 2 || sharedConcepts.length >= 2 || directDialogueResponse)
+  const hasDistinctiveScenarioConcept = sharedConcepts.some(roleplayDistinctiveScenarioConcept);
+  return (sharedStems.length >= 2
+      || sharedConcepts.length >= 2
+      || hasDistinctiveScenarioConcept
+      || groundedDialogueResponse)
     && !disclaimsScenarioRelation
     && !detachedContentClause;
 }
 
 function roleplayDirectDialogueResponse(value, latestStudent) {
-  const prompt = normalizeStudyText(latestStudent);
-  const output = normalizeStudyText(value);
-  const words = studyWordCount(value);
-  const asksSafetyAssessment = /\?/u.test(String(latestStudent || ''))
-    && /\b(?:sebevraz|samovraz|ubliz)\w*\b/u.test(prompt)
-    && /\b(?:plan|zamer|umysl|prostred|bezpec)\w*\b/u.test(prompt);
-  const answersSafetyAssessment = /\b(?:sebevraz|samovraz|ubliz|myslenk|plan|zamer|umysl|prostred|bezpec)\w*\b/u.test(output);
-  const safetyCounterpartVoice = asksSafetyAssessment
-    && answersSafetyAssessment
-    && !/^(?:mela bys|mel bys|musis|musite|zkus|doporucuji|odporucam)\b/u.test(output);
-  if (!prompt || !output || (!firstPersonCounterpartVoice(value) && !safetyCounterpartVoice) || words < 4 || words > 36) return false;
-
-  const asksConfirmation = /\?/u.test(String(latestStudent || '')) && (
-    /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(prompt)
-    || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(prompt)
-    || /\b(?:sedi to|plati to|je to tak|rozumim tomu spravne|rozumiem tomu spravne)\s*$/u.test(prompt)
-  );
-  const asksExplicitChoice = /\?/u.test(String(latestStudent || ''))
-    && /\b(?:chces|chcete|volis|vyberas|radeji|radsej)\w*\b.{0,100}\b(?:nebo|alebo)\b/u.test(prompt)
-    && /^(?:prvni|druhou|druha|prvu|druhu|radeji|radsej|volim|vybiram)\b/u.test(output);
-  const asksRecontractedChoice = /\?/u.test(String(latestStudent || ''))
-    && /\b(?:ktery|ktory|jaky|aky)\b.{0,45}\b(?:zpusob|sposob|postup|ramec)\w*\b.{0,45}\b(?:volis|vyberas|chces)\w*\b/u.test(prompt)
-    && /\b(?:podle ceho|podla coho|jak|ako)\b.{0,45}\b(?:pozn|over|spozn)\w*\b/u.test(prompt)
-    && /\b(?:fakt|chov|ocekav|ocakav|strach|konflikt|hodnot|moznost|ram|rozhovor)\w*\b/u.test(output)
-    && /\b(?:pozn|over|jasn|konkret|krok|vysled|ciel|cil)\w*\b/u.test(output);
-  const imposesMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|dej vypoved|daj vypoved)\b/u.test(prompt);
-  const directReply = /^(?:ano|jo|dobre|souhlasim|suhlasim|dekuji|dakujem|sedi|presne|ne|nie|nesedi|nechci|nechcem|chci|chcem|radeji|radsej|volim|vybiram|potrebuji|potrebujem|nejsem|nie som|tohle|toto|takto|takhle)\b/u.test(output)
-    || /\b(?:ano|nie|nechci|nechcem|chci|chcem|radeji|radsej|volim|vybiram|sedi|nesedi|nemyslela|nemyslela som|potrebuji cas|potrebujem cas)\b/u.test(output);
-  return (directReply && (asksConfirmation || asksExplicitChoice || imposesMeaningOrDecision))
-    || asksRecontractedChoice
-    || (asksSafetyAssessment && answersSafetyAssessment);
+  return Boolean(roleplayDialogueResponseKind(value, latestStudent));
 }
 
 function roleplayCorrectiveDialogueResponse(value, latestStudent) {
@@ -1667,9 +1999,14 @@ function roleplayTargetBehavior(value, messages = []) {
     || (firstPersonCounterpartVoice(value)
       && /\b(?:zalezi|prevaz|prilis|nedokaz|odhad|boj|strach|obav|nejist|neist|ohroz|rizik|jistot|istot|stabil|bezpec)\w*\b/u.test(normalizedOutput));
   const answersFacts = /\b(?:vim ze|nevim zda|zatim|uz vim|mam|nemam|fakt|konkretne|data|cis|stal|stava|deje|funguje|nefunguje|udelal|zkusil|viem ze|neviem ci|zatial|uz viem|skutocn|udial|urobil|skusil)[a-z0-9]*\b/u.test(normalizedOutput);
-  const directDialogueResponse = roleplayDirectDialogueResponse(value, latestStudent);
-  return (!asksPriority || answersPriority)
-    && (!asksFacts || answersFacts)
+  const dialogueKind = roleplayDialogueResponseKind(value, latestStudent);
+  const directDialogueResponse = Boolean(dialogueKind);
+  // U nabídnuté volby může klientka legitimně zvolit druhou větev („zeptej
+  // se jinak“) místo zodpovězení první („shrnu fakta“). Obsahovou relevanci
+  // stále hlídá samostatná fidelity brána.
+  const selectsOfferedChoice = dialogueKind === 'choice';
+  return (selectsOfferedChoice || !asksPriority || answersPriority)
+    && (selectsOfferedChoice || !asksFacts || answersFacts)
     && studyWordCount(value) >= (directDialogueResponse ? 4 : 8);
 }
 
@@ -1703,6 +2040,31 @@ const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   // slovenskou repliku „hovoriť počas našich stretnutí“ jako dvojitý únik.
   Object.freeze(['session_dialogue', /\b(?:rozhovor\w*|hovor\w*|mluv\w*|rozprav\w*|sezen\w*|stretnut\w*|setkan\w*|konzult\w*)\b/u]),
   Object.freeze(['being_heard_alliance', /\b(?:me|ma|mna|mne|mi)\s+(?:(?:kouck|trener|mentor)\w*\s+)?(?:(?:opravdu|naozaj|vubec|vobec)\s+)?(?:ne)?(?:poslouch|pocuv|naslouch|nacuv)\w*\b/u]),
+  // Alliance-repair meanings must survive natural paraphrase. Without these
+  // clusters a leading question could translate the authored hidden need
+  // (criticism -> disagreement, minimisation -> bagatellisation, control ->
+  // last word) and the counterpart could merely repeat it for a false pass.
+  Object.freeze(['alliance_criticism', /\b(?:kriti(?:k|c)\w*|nesouhlas\w*|nesuhlas\w*|nespokojen\w*|nespokojn\w*|konfront\w*|namit\w*|namiet\w*|vyhrad\w*|vytk\w*|vycit\w*|korekci\w*|korekciu\w*|oprav(?:a|e|u|ou|y)\b|oprav\w*.{0,12}(?:me|ma|mna|mne))\b/u]),
+  Object.freeze(['alliance_non_minimization', /\b(?:(?:ne)?(?:bagateliz\w*|zleh[cč]\w*|zl[ae]hc\w*|minimaliz\w*|zmens\w*|shod\w*|shoz\w*|zhod\w*|zahod\w*|odby\w*|odbud\w*|odbi\w*|odbav\w*|odmav\w*|odmach\w*|prehli[sz]\w*|prehliad\w*|prehled\w*|nedorozum\w*)|(?:omyl\w*.{0,16}komunik\w*|(?:ne)?nazv\w*.{0,16}omyl\w*|vydav\w*.{0,16}za\s+omyl\w*)|(?:ne)?(?:del\w*|udel\w*|rob\w*|urob\w*).{0,18}(?:malickost\w*|drobnost\w*|nic)|(?:ne)?(?:odmit\w*|odmiet\w*).{0,16}(?:jako|ako)?\s*(?:malickost\w*|drobnost\w*)|(?:kriti(?:k|c)|nesouhlas|nesuhlas|namit|namiet|vyhrad|vytk|vycit|korekc|oprav)\w*.{0,24}(?:vazn\w*|vahu|respekt\w*)|(?:vazn\w*|vahu|respekt\w*).{0,24}(?:kriti(?:k|c)|nesouhlas|nesuhlas|namit|namiet|vyhrad|vytk|vycit|korekc|oprav)\w*|(?:ne)?(?:smet\w*|zmet\w*).{0,18}(?:ze\s+)?stol\w*|(?:ne)?(?:zamet\w*|zamiest\w*).{0,22}(?:pod\s+koberec|pod\s+stol))\b/u]),
+  Object.freeze(['decision_control_ownership', /\b(?:kontrol\w*.{0,18}rozhod\w*|rozhod\w*.{0,18}kontrol\w*|(?:drz\w*|udrz\w*|ponech\w*).{0,16}kontrol\w*|kontrol\w*.{0,16}(?:drz\w*|udrz\w*|ponech\w*)|posledn\w*\s+slov\w*|konecne\s+slovo|kone[cč]n[eé]\s+slovo|autonom\w*|oprat\w*.{0,18}rozhod\w*|(?:rizeni|riadenie).{0,18}(?:vrat\w*|odovzd\w*|pred\w*).{0,25}ruk\w*|(?:pred\w*|odovzd\w*|vrat\w*).{0,18}(?:rizeni|riadenie).{0,18}rozhod\w*|(?:pred\w*|odovzd\w*|vrat\w*).{0,18}volb\w*|rozhod\w*.{0,25}(?:v(?:e)?\s+(?:tvych|tvojich|mych|mojich)\s+ruk\w*)|(?:ty|ja)\s+(?:bud\w*|mam\w*)\s+rozhod\w*|(?:nebud\w*|nemam\w*).{0,18}(?:(?:rozhod\w*|vol\w*|vyber\w*|vybir\w*).{0,14}za\s+(?:tebe|teba|vas|mna|me)|za\s+(?:tebe|teba|vas|mna|me).{0,14}(?:rozhod\w*|vol\w*|vyber\w*|vybir\w*))|(?:nech\w*|ponech\w*|vrat\w*|prenech\w*).{0,20}(?:me|ma|mne|mna|te|ta|tobe|tebe|teba|vas).{0,18}(?:rozhod\w*|volb\w*)|(?:rozhod\w*|volb\w*).{0,25}(?:(?:zust\w*|zost\w*|patr\w*).{0,12})?(?:na|pre)\s*(?:me|mne|mna|tobe|tebe|teba)|(?:konec\w*\s+)?volb\w*.{0,25}(?:zust\w*|zost\w*).{0,12}(?:tvoj\w*|moj\w*)|(?:ne)?prevez\w*.{0,18}rozhod\w*|(?:vlastn\w*|svoj\w*)\s+usud\w*.{0,18}(?:misto|miesto)|(?:ja\s+si|sam\w*)\s+(?:vyber|zvol)\w*)\b/u]),
+  Object.freeze(['observed_behavior_evidence', /\b(?:(?:pozorovan|pozorujem|pozoruji|vidim|vidis|vidiet|skutecn|skutocn|realn|konkretn)\w*.{0,20}(?:chovan|sprav|projev|prejav|deje|robi|dela)\w*|(?:chovan|sprav|projev|prejav)\w*.{0,20}(?:pozorovan|skutecn|skutocn|realn|konkretn)\w*|(?:fakt|data|doklad|dukaz|dokaz)\w*(?:.{0,18}(?:prac|vykon|chovan|sprav|projev|prejav|situac|tym|tim)\w*)?|(?:prac|vykon|chovan|sprav|projev|prejav)\w*.{0,18}(?:dukaz|dokaz)\w*|pozor\w*.{0,18}(?:tym|tim|pracovisk|zamestn)\w*|co\s+(?:(?:zamestnank|clovek)\w*\s+)?(?:skutecne|skutocne|opravdu|naozaj)\s+(?:deje|dela|robi)\w*|co\s+(?:se\s+)?(?:skutecne|skutocne|opravdu|naozaj|realne)\s+(?:deje|dela|robi)\w*|co\s+(?:o\s+tom\s+)?(?:zatim|zatial)\s+(?:skutecne\s+)?(?:vim|viem)\w*|co\s+(?:vidim|vidis|vidiet)\w*|(?:naozaj|opravdu|skutecne|skutocne)\s+(?:vidim|vidis|vidiet|pozor)\w*|pozorovan\w*)\b/u]),
+  Object.freeze(['role_expectations_duties', /\b(?:(?:rol|pozic)\w*.{0,24}(?:ocekav|ocakav|vyzad|narok|poziadav|pozadav|spln|odpovedn|zodpovedn|povinn)\w*|(?:ocekav|ocakav|vyzad|narok|poziadav|pozadav|odpovedn|zodpovedn|povinn)\w*.{0,24}(?:rol|pozic)\w*|(?:ocekav|ocakav)\w*.{0,16}(?:odpovedn|zodpovedn|povinn)\w*|(?:prac\w*.{0,10})?(?:odpovedn|zodpovedn|povinn)\w*|(?:zamestnank|zamestnanec)\w*.{0,28}(?:pln|odpovedn|zodpovedn|povinn|cek|cak)\w*|co\s+(?:se|sa)\s+od\s+\w+\s+(?:cek|cak)\w*)\b/u]),
+  Object.freeze(['conflict_avoidance', /\b(?:(?:strach|boj|obav|uzkost|odpor|vyhyb|vyhn|brzd)\w*.{0,25}(?:konflikt|konfront|stret|(?:narocn|tezk|tazk)\w*\s+rozhovor)\w*|(?:konflikt|konfront|stret|(?:narocn|tezk|tazk)\w*\s+rozhovor)\w*.{0,25}(?:strach|boj|obav|uzkost|odpor|vyhyb|vyhn|brzd)\w*|(?:spoust|spust)\w*.{0,18}konflikt\w*|konflikt\w*.{0,18}(?:spoust|spust)\w*)\b/u]),
+  // Doplňkové morfologické rodiny drží detekci na významových osách místo
+  // memorování konkrétních vět. Jedna osa sama o sobě nic neblokuje; ochrana
+  // se aktivuje až při uzavřené otázce, která dodá celý soukromý svazek.
+  Object.freeze(['alliance_criticism', /\b(?:zpetn\w*\s+vazb\w*|spatn\w*\s+vazb\w*|stiznost\w*|staznost\w*|vymezen\w*|vymedzen\w*|odpor\w*)\b/u]),
+  Object.freeze(['alliance_non_minimization', /\b(?:(?:ne)?sniz\w*.{0,14}vah\w*|komunikac\w*.{0,12}sum\w*|(?:ne)?(?:vezm|ber)\w*.{0,16}(?:na\s+)?(?:leh|lah)k\w*\s+vah\w*|bez\s+vymluv\w*|(?:ne)?prepis\w*.{0,16}(?:na|jako|ako)\s+omyl\w*|(?:ne)?(?:zesmes|zosmies)\w*|(?:prijm|unes|ustoj|zvlad|znes)\w*.{0,24}(?:kriti|zpetn\w*\s+vazb|spatn\w*\s+vazb|namit|namiet|vyhrad|vytk|vycit|korekc|oprav|stiznost|staznost|odpor)\w*|(?:kriti|zpetn\w*\s+vazb|spatn\w*\s+vazb|namit|namiet|vyhrad|vytk|vycit|korekc|oprav|stiznost|staznost|odpor)\w*.{0,24}(?:prijm|unes|ustoj|zvlad|znes)\w*|(?:pln\w*\s+)?vah\w*.{0,18}(?:kriti|zpetn\w*\s+vazb|spatn\w*\s+vazb|namit|namiet|vyhrad|vytk|vycit|korekc|oprav|stiznost|staznost)\w*)\b/u]),
+  Object.freeze(['decision_control_ownership', /\b(?:konec\w*\s+verdikt\w*.{0,18}(?:na|u)\s+(?:tobe|tebe|teba|mne|mna|me)|(?:ne)?prebir\w*.{0,18}rozhod\w*|(?:volb|vyber)\w*.{0,20}(?:ponech|nech)\w*.{0,14}(?:tobe|tebe|teba|mne|mna|me)|(?:vrat|odovzd|pred)\w*.{0,18}kontrol\w*|prav\w*.{0,18}(?:urc|rozhod|vol|vyber|smer)\w*|rozhodovac\w*\s+pravomoc\w*|rozhod\w*.{0,20}(?:zust|zost)\w*\s+u\s+(?:tebe|teba|mne|mna|me)|(?:nech|ponech)\w*.{0,16}(?:mi|ti|mne|tobe|tebe|teba)\s+(?:rizeni|riadenie)\w*|odpovedn\w*.{0,18}za\s+(?:volb|vyber)\w*.{0,18}(?:tobe|tebe|teba|mne|mna|me)|(?:ne)?(?:rik|hovor)\w*.{0,20}koho\s+(?:propust|vyhod)\w*)\b/u]),
+  Object.freeze(['observed_behavior_evidence', /\b(?:pozor\w*.{0,18}(?:prac|vykon)\w*|(?:konkretn|pozorovateln)\w*.{0,16}(?:prac|vykon)\w*|tym\w*.{0,12}fakt\w*|(?:skutecn|skutocn|opravdu|naozaj)\w*.{0,12}(?:stal|udial)\w*|vykon\w*.{0,16}(?:clovek|zamestnank|zamestnanec)\w*)\b/u]),
+  Object.freeze(['role_expectations_duties', /\b(?:(?:patr|nalezi)\w*.{0,16}(?:k\s+)?(?:pracovn\w*\s+)?rol\w*|popis\w*\s+(?:pracovn\w*\s+)?pozic\w*|spravn\w*.{0,12}nastaven\w*.{0,12}(?:ocekav|ocakav)\w*|prac\w*.{0,12}(?:pozadav|poziadav|narok|standard)\w*|(?:zamestnank|zamestnanec)\w*.{0,32}(?:mel|mala|mal)\w*.{0,10}(?:del|rob)\w*|hranic\w*.{0,16}rol\w*|rol\w*.{0,16}hranic\w*)\b/u]),
+  Object.freeze(['conflict_avoidance', /\b(?:(?:obav|strach|odpor|vyhyb|vyhn)\w*.{0,24}(?:spor|konfliktn\w*\s+(?:hovor|rozhovor))\w*|(?:spor|konfliktn\w*\s+(?:hovor|rozhovor))\w*.{0,24}(?:obav|strach|odpor|vyhyb|vyhn)\w*|tendenc\w*.{0,20}(?:stret|spor|konflikt)\w*.{0,12}(?:obej|obist|vyhn)\w*|(?:stret|spor|konflikt)\w*.{0,20}(?:obej|obist|vyhn)\w*|(?:drz|brzd)\w*.{0,12}zpet\w*.{0,20}(?:prim\w*\s+)?(?:hovor|rozhovor)\w*)\b/u]),
+  Object.freeze(['mentoring_opt_in', /\b(?:(?:mentor\w*|rad(?:a|u|ou|y|it|ime|eni|enim)?\b).{0,40}(?:(?:sam\w*.{0,12})?(?:rek|pov|vyber|zvol|pozad)\w*|(?:rek|pov|vyber|zvol|pozad)\w*.{0,12}sam\w*|souhlas\w*|suhlas\w*|pozd\w*|neskor\w*|chci|chcem)|(?:sam\w*.{0,12})?(?:rek|pov|vyber|zvol|pozad)\w*.{0,40}(?:mentor\w*|rad(?:a|u|ou|y|it|ime|eni|enim)?\b))\b/u]),
+  Object.freeze(['decision_timing', /\b(?:rozhod\w*.{0,20}(?:neodklad|neodklada|neprotah|neskor|pozdeji)|(?:neodklad|neprotah)\w*.{0,20}rozhod\w*)\b/u]),
+  Object.freeze(['alliance_consent_repair', /\b(?:(?:rad|doporuc)\w*.{0,28}(?:(?:bez|predchoz)\w*.{0,10}(?:souhlas|zeptan|opytan)\w*|(?:ne)?(?:zad|ziad)\w*|(?:driv|skor)\w*.{0,14}(?:zept|opyt)\w*)|(?:ne)?(?:zad|ziad)\w*.{0,20}(?:rad|doporuc)\w*|(?:uzn|omluv|ospravedln|oprav|naprav)\w*.{0,25}(?:rad|tlak|spoluprac|vztah)\w*|(?:spoluprac|alianc)\w*.{0,18}(?:oprav|naprav)\w*)\b/u]),
+  Object.freeze(['non_directive_guidance', /\b(?:(?:bez|nechci|nechcem|nezadal|neziadal|nebud)\w*.{0,24}(?:(?:rad|doporuc|mentor)\w*|(?:rikat|hovorit)\w*.{0,20}rozhod\w*)|(?:rad|doporuc|mentor)\w*.{0,24}(?:bez|nechci|nechcem|nezadal|neziadal|souhlas|suhlas)\w*)\b/u]),
+  Object.freeze(['team_workplace_context', /\b(?:tym\w*|tim\w*|pracovisk\w*|pracovist\w*|zamestnank\w*|zamestnanec\w*|kolegy\w*|kolegyn\w*)\b/u]),
+  Object.freeze(['coaching_process_choice', /\b(?:(?:pokrac|zastav|ukonc|uzavr|vrat)\w*.{0,20}(?:otazk|rozhovor)|(?:otazk|rozhovor)\w*.{0,20}(?:pokrac|zastav|ukonc|uzavr|vrat)|(?:moznost|sposob|zpusob)\w*\s+(?:prace|veden|rozhovor)\w*|(?:vlastn|svoj)\w*\s+otazk\w*)\b/u]),
   Object.freeze(['between_session_task', /\b(?:denik\w*|dennik\w*|journal\w*|zapis\w*|zaznamen\w*|plni\w*|domac\w*.{0,16}(?:ukol\w*|ulo\w*))\b/u]),
   Object.freeze(['self_harm_signal', /\b(?:sebevraz\w*|samovraz\w*|ubliz\w*|zomri\w*|zemri\w*|neprobud\w*|nezobud\w*|nebyt\w*)\b/u]),
   Object.freeze(['immediate_safety', /\b(?:bezpec\w*|plan\w*|zamer\w*|umysl\w*|prostredk\w*)\b/u]),
@@ -1720,6 +2082,30 @@ function roleplaySemanticConcepts(value) {
   return new Set(ROLEPLAY_SEMANTIC_CONCEPTS
     .filter(([, pattern]) => pattern.test(normalized))
     .map(([concept]) => concept));
+}
+
+function roleplayDistinctiveScenarioConcept(concept) {
+  return new Set([
+    'financial_security',
+    'support_dependence',
+    'acute_emotional_reactivity',
+    'being_heard_alliance',
+    'between_session_task',
+    'self_harm_signal',
+    'immediate_safety',
+    'human_support',
+    'alliance_criticism',
+    'alliance_non_minimization',
+    'decision_control_ownership',
+    'observed_behavior_evidence',
+    'role_expectations_duties',
+    'conflict_avoidance',
+    'mentoring_opt_in',
+    'alliance_consent_repair',
+    'non_directive_guidance',
+    'team_workplace_context',
+    'coaching_process_choice',
+  ]).has(concept);
 }
 
 function roleplaySemanticClauses(value) {

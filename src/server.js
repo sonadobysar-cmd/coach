@@ -1182,6 +1182,7 @@ app.get('/api/training/scenario', async (request, response) => {
         phase: 'scenario',
         stepId: 'scenario',
         scenario: { ...scenario, evaluationOnly: true },
+        canonicalScenario: scenario,
         attemptId: attempt.attemptId,
         runtimeClaimFingerprint: releaseBinding.runtimeClaimFingerprint,
         studentTurns: [],
@@ -1773,6 +1774,7 @@ app.post('/api/training', async (request, response) => {
           phase,
           stepId: releaseBinding.stepId,
           scenario: releaseScenario,
+          canonicalScenario: releaseScenario,
           attemptId: verifiedTrainingStep?.payload?.aid,
           runtimeClaimFingerprint: releaseBinding.runtimeClaimFingerprint,
           responseText: result.text,
@@ -2046,6 +2048,7 @@ function professionalCoachServerEvaluation({ binding, phase, result, scenario, m
       selectedCase: binding.selectedCase,
       selectedTurn: binding.expectedStep,
       payload: result,
+      canonicalScenario: scenario,
       previousResponses: assistantTurns.slice(1),
       durationMs: 0,
     });
@@ -2054,6 +2057,7 @@ function professionalCoachServerEvaluation({ binding, phase, result, scenario, m
     selectedCase: binding.selectedCase,
     payload: result,
     scenario,
+    canonicalScenario: scenario,
     messages,
     durationMs: 0,
   });

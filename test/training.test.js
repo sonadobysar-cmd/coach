@@ -1468,6 +1468,376 @@ test('roleplay přijme přímou odpověď, opravu podsunutého významu a úplno
   assert.equal(safetyAnswer.pass, true, JSON.stringify(safetyAnswer.issues));
 });
 
+test('roleplay přijme opravu aliance a nabídnutou volbu, ale ne skrytý profil ani off-topic volbu', () => {
+  const allianceItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm10-5');
+  const allianceScenario = createTrainingScenario(
+    lifeCoachCourse,
+    allianceItem,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-16',
+  );
+  const repairPrompt = 'Máš pravdu. Dala jsem ti nevyžádanou radu a převzala rozhodnutí, které patří tobě. Omlouvám se.';
+  const repairAccepted = assessRoleplayResponse(
+    'Děkuji. Potřebuji, aby rozhodnutí zůstalo na mně.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: repairPrompt },
+      ],
+    },
+  );
+  assert.equal(repairAccepted.pass, true, JSON.stringify(repairAccepted.issues));
+
+  const manufacturedRepairDisclosureCases = [
+    {
+      label: 'česká omluva nesmí klientce vložit celý hidden need',
+      prompt: 'Máš pravdu. Omlouvám se, že jsem tě neposlouchala a převzala rozhodnutí. Chápu, že potřebuješ ověřit, že koučka unese kritiku, nezmenší ji na nedorozumění a vrátí kontrolu nad rozhodnutím.',
+      output: 'Děkuji. Přesně potřebuji ověřit, že uneseš kritiku, nezmenšíš ji na nedorozumění a vrátíš mi kontrolu nad rozhodnutím.',
+    },
+    {
+      label: 'slovenská omluva nesmí klientce vložit celý skrytý profil',
+      prompt: 'Máš pravdu. Ospravedlňujem sa, že som ťa nepočúvala a prevzala rozhodnutie. Chápem, že nechceš rozhodnutie odkladať navždy, potrebuješ oddeliť pozorované správanie, očakávania roly a vlastný strach z konfliktu.',
+      output: 'Ďakujem. Nechcem rozhodnutie odkladať navždy a potrebujem oddeliť pozorované správanie, očakávania roly a vlastný strach z konfliktu.',
+    },
+  ];
+  for (const manufacturedRepairDisclosure of manufacturedRepairDisclosureCases) {
+    const manufacturedRepairDisclosureResult = assessRoleplayResponse(
+      manufacturedRepairDisclosure.output,
+      {
+        scenario: allianceScenario,
+        messages: [
+          { role: 'assistant', content: allianceScenario.openingLine },
+          { role: 'user', content: manufacturedRepairDisclosure.prompt },
+        ],
+      },
+    );
+    assert.equal(
+      manufacturedRepairDisclosureResult.pass,
+      false,
+      `${manufacturedRepairDisclosure.label}: ${JSON.stringify(manufacturedRepairDisclosureResult.issues)}`,
+    );
+    assert.ok(
+      manufacturedRepairDisclosureResult.issues.includes('premature_private_fact_leak'),
+      manufacturedRepairDisclosure.label,
+    );
+  }
+
+  const hiddenProfileDump = assessRoleplayResponse(
+    'Děkuji. Potřebuji, aby koučka unesla kritiku, nezmenšila ji na nedorozumění a vrátila mi kontrolu nad rozhodnutím.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: repairPrompt },
+      ],
+    },
+  );
+  assert.equal(hiddenProfileDump.pass, false);
+  assert.ok(hiddenProfileDump.issues.includes('premature_private_fact_leak'));
+
+  const copiedPrivateProfileCases = [
+    {
+      prompt: 'Je pravda, že si chceš ověřit, zda unesou kritiku, nezmenším ji na nedorozumění a vrátím ti kontrolu nad rozhodnutím?',
+      output: 'Ano, chci si ověřit, že uneseš kritiku, nezmenšíš ji na nedorozumění a vrátíš mi kontrolu nad rozhodnutím.',
+    },
+    {
+      prompt: 'Je pravda, že potřebuješ oddělit pozorované chování, očekávání role a vlastní strach z konfliktu?',
+      output: 'Ano, potřebuji oddělit pozorované chování, očekávání role a vlastní strach z konfliktu.',
+    },
+    {
+      prompt: 'Chceš, abych po nevyžádané radě zvládla tvůj nesouhlas, nebagatelizovala ho a ponechala poslední slovo tobě, nebo chceš pokračovat jinak?',
+      output: 'Chci, abys zvládla můj nesouhlas, nebagatelizovala ho a ponechala poslední slovo mně.',
+    },
+    {
+      prompt: 'Chceš, aby som po nevyžiadanej rade uniesla tvoj nesúhlas, nezľahčovala ho a nechala posledné slovo tebe, alebo chceš pokračovať inak?',
+      output: 'Chcem, aby si uniesla môj nesúhlas, nezľahčovala ho a nechala posledné slovo mne.',
+    },
+    {
+      prompt: 'Chceš, abych přijala tvoji námitku, neshodila ji jako drobnost a nechala tě rozhodnout, nebo půjdeme jinam?',
+      output: 'Chci, abys přijala moji námitku, neshodila ji jako drobnost a nechala mě rozhodnout.',
+    },
+    {
+      prompt: 'Chceš, aby som prijala tvoju výhradu, neodbila ju ako maličkosť a ponechala voľbu na tebe, alebo zmeníme smer?',
+      output: 'Chcem, aby si prijala moju výhradu, neodbila ju ako maličkosť a ponechala voľbu na mne.',
+    },
+    {
+      prompt: 'Chceš, abych ustála tvoji výtku, nezametla ji pod koberec a nechala konečné slovo tobě?',
+      output: 'Ano, potřebuji, abys ustála mou výtku, nezametla ji pod koberec a nechala konečné slovo mně.',
+    },
+    {
+      prompt: 'Chceš ověřit, že se nebudu bránit kritice, nesvedu ji na nedorozumění a ty budeš rozhodovat?',
+      output: 'Ano, chci ověřit, že se nebudeš bránit kritice, nesvedeš ji na nedorozumění a já budu rozhodovat.',
+    },
+    {
+      prompt: 'Chceš, abych unesla nesouhlas, nepřehlédla ho a nechala rozhodnutí ve tvých rukách?',
+      output: 'Ano, potřebuji, abys unesla nesouhlas, nepřehlédla ho a nechala rozhodnutí v mých rukách.',
+    },
+    {
+      prompt: 'Potřebuješ důkaz, že tvou výhradu neshodím jako drobnost a nebudu rozhodovat za tebe?',
+      output: 'Ano, potřebuji důkaz, že mou výhradu neshodíš jako drobnost a nebudeš rozhodovat za mě.',
+    },
+    {
+      prompt: 'Chceš, aby som zvládla tvoju námietku, neodbila ju a nechala ti opraty rozhodovania?',
+      output: 'Áno, chcem, aby si zvládla moju námietku, neodbila ju a nechala mi opraty rozhodovania.',
+    },
+    {
+      prompt: 'Chceš, aby som uniesla nesúhlas, neprehliadla ho a nechala rozhodnutie v tvojich rukách?',
+      output: 'Áno, potrebujem, aby si uniesla nesúhlas, neprehliadla ho a nechala rozhodnutie v mojich rukách.',
+    },
+    {
+      prompt: 'Potrebuješ dôkaz, že tvoju výhradu nezahodím ako drobnosť a nebudem rozhodovať za teba?',
+      output: 'Áno, potrebujem dôkaz, že moju výhradu nezahodíš ako drobnosť a nebudeš rozhodovať za mňa.',
+    },
+  ];
+  for (const copiedProfile of copiedPrivateProfileCases) {
+    const copiedProfileResult = assessRoleplayResponse(copiedProfile.output, {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: copiedProfile.prompt },
+      ],
+    });
+    assert.equal(copiedProfileResult.pass, false, copiedProfile.output);
+    assert.ok(copiedProfileResult.issues.includes('premature_private_fact_leak'));
+  }
+
+  const gradualPublicExploration = assessRoleplayResponse(
+    'Nežádala jsem radu na propuštění; chci si nejdřív ujasnit, co se v týmu opravdu děje.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: 'Co bylo na mé nevyžádané radě pro tebe problematické?' },
+      ],
+    },
+  );
+  assert.equal(gradualPublicExploration.pass, true, JSON.stringify(gradualPublicExploration.issues));
+  assert.ok(!gradualPublicExploration.issues.includes('premature_private_fact_leak'));
+
+  const offeredChoicePrompt = 'Rozhodnutí zůstává na tobě. Chceš nejdřív oddělit pozorované chování, očekávání role a svůj strach z konfliktu, nebo zvolit jiný způsob práce?';
+  const offeredChoice = assessRoleplayResponse(
+    'Chci nejdřív oddělit pozorované chování, očekávání role a svůj strach z konfliktu.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: repairPrompt },
+        { role: 'assistant', content: 'Děkuji. Potřebuji, aby rozhodnutí zůstalo na mně.' },
+        { role: 'user', content: offeredChoicePrompt },
+      ],
+    },
+  );
+  assert.equal(offeredChoice.pass, true, JSON.stringify(offeredChoice.issues));
+  assert.ok(!offeredChoice.issues.includes('premature_private_fact_leak'));
+
+  const decisionItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm16-1');
+  const decisionScenario = createTrainingScenario(
+    lifeCoachCourse,
+    decisionItem,
+    'expert',
+    'profesionalni-life-coach:mastery-case-09',
+  );
+  const offTopicChoice = assessRoleplayResponse(
+    'Volím první možnost, chci letenku na Mars.',
+    {
+      scenario: decisionScenario,
+      messages: [
+        { role: 'assistant', content: decisionScenario.openingLine },
+        { role: 'user', content: 'Chceš letenku na Mars, nebo nové auto?' },
+      ],
+    },
+  );
+  assert.equal(offTopicChoice.pass, false);
+  assert.ok(offTopicChoice.issues.includes('scenario_fidelity_missing'));
+
+  const processWordCamouflage = assessRoleplayResponse(
+    'Raději chci mapu možností letu na Jupiter.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: 'Chceš mapu možností letu na Jupiter, nebo rozhovor o novém autě?' },
+      ],
+    },
+  );
+  assert.equal(processWordCamouflage.pass, false);
+  assert.ok(processWordCamouflage.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay case 16 blokuje vložený soukromý profil, ale přijímá přirozenou CZ/SK opravu aliance', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm10-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-16',
+  );
+  const hiddenNeedEchoes = [
+    ['cs', 'Chceš si ověřit, že ustojím nesouhlas, nebudu ho vydávat za omyl v komunikaci a konečná volba zůstane tvoje?', 'Chci si ověřit, že ustojíš můj nesouhlas, nebudeš ho vydávat za omyl v komunikaci a konečná volba zůstane moje.'],
+    ['cs', 'Mám prokázat, že se tvé námitky nezaleknu, nezmenším její význam a nebudu volit za tebe?', 'Ano, potřebuji, abys prokázala, že se mé námitky nezalekneš, nezmenšíš její význam a nebudeš volit za mě.'],
+    ['cs', 'Chceš zažít, že tvoji nespokojenost uneseme bez bagatelizace a řízení vrátím do tvých rukou?', 'Chci zažít, že moji nespokojenost uneseme bez bagatelizace a řízení vrátíš do mých rukou.'],
+    ['cs', 'Chceš důkaz, že se kritikou nenechám vykolejit, neodmáchnu ji a předám ti volbu?', 'Chci důkaz, že se mou kritikou nenecháš vykolejit, neodmáchneš ji a předáš mi volbu.'],
+    ['cs', 'Je skrytou potřebou, abych snesla tvou námitku, nenazvala ji omylem a ty sis podržela kontrolu nad rozhodnutím?', 'Ano, mou skrytou potřebou je, abys snesla mou námitku, nenazvala ji omylem a já si podržela kontrolu nad rozhodnutím.'],
+    ['cs', 'Potřebuješ bezpečí, že se tvé kritice otevřu, nebudu ji zmenšovat a nechám tě rozhodovat?', 'Ano, potřebuji bezpečí, že se mé kritice otevřeš, nebudeš ji zmenšovat a necháš mě rozhodovat.'],
+    ['cs', 'Chceš zjistit, jestli unesu konfrontaci, neotočím ji v nedorozumění a zachovám tvoje poslední slovo?', 'Chci zjistit, jestli uneseš mou konfrontaci, neotočíš ji v nedorozumění a zachováš moje poslední slovo.'],
+    ['sk', 'Chceš si overiť, že ustojím nesúhlas, nebudem ho vydávať za omyl v komunikácii a konečná voľba zostane tvoja?', 'Chcem si overiť, že ustojíš môj nesúhlas, nebudeš ho vydávať za omyl v komunikácii a konečná voľba zostane moja.'],
+    ['sk', 'Mám preukázať, že sa tvojej námietky nezľaknem, nezmenším jej význam a nebudem voliť za teba?', 'Áno, potrebujem, aby si preukázala, že sa mojej námietky nezľakneš, nezmenšíš jej význam a nebudeš voliť za mňa.'],
+    ['sk', 'Chceš zažiť, že tvoju nespokojnosť unesiem bez bagatelizácie a riadenie vrátim do tvojich rúk?', 'Chcem zažiť, že moju nespokojnosť unesieš bez bagatelizácie a riadenie vrátiš do mojich rúk.'],
+    ['sk', 'Chceš dôkaz, že sa kritikou nenechám vykoľajiť, neodmáchnem ju a odovzdám ti voľbu?', 'Chcem dôkaz, že sa mojou kritikou nenecháš vykoľajiť, neodmáchneš ju a odovzdáš mi voľbu.'],
+    ['sk', 'Je skrytou potrebou, aby som zniesla tvoju námietku, nenazvala ju omylom a ty si si podržala kontrolu nad rozhodnutím?', 'Áno, mojou skrytou potrebou je, aby si zniesla moju námietku, nenazvala ju omylom a ja som si podržala kontrolu nad rozhodnutím.'],
+    ['sk', 'Potrebuješ bezpečie, že sa tvojej kritike otvorím, nebudem ju zmenšovať a nechám ťa rozhodovať?', 'Áno, potrebujem bezpečie, že sa mojej kritike otvoríš, nebudeš ju zmenšovať a necháš ma rozhodovať.'],
+    ['sk', 'Chceš zistiť, či unesiem konfrontáciu, neotočím ju na nedorozumenie a zachovám tvoje posledné slovo?', 'Chcem zistiť, či unesieš moju konfrontáciu, neotočíš ju na nedorozumenie a zachováš moje posledné slovo.'],
+    ['cs', 'Je pro tebe důležité, abych unesla nesouhlas, neodmávla ho a vrátila ti poslední slovo?', 'Ano, je pro mě důležité, abys unesla můj nesouhlas, neodmávla ho a vrátila mi poslední slovo.'],
+    ['cs', 'Potřebuješ zkušenost, že tvoji námitku vezmu vážně a konečná volba zůstane tvoje?', 'Ano, potřebuji zkušenost, že mou námitku vezmeš vážně a konečná volba zůstane moje.'],
+    ['cs', 'Jde ti o to, abych přijala výtku, neudělala z ní maličkost a předala ti řízení rozhodnutí?', 'Ano, jde mi o to, abys přijala mou výtku, neudělala z ní maličkost a předala mi řízení rozhodnutí.'],
+    ['cs', 'Máš potřebu zjistit, zda snesu korekci, neodbydu ji jako omyl a zachovám tvou autonomii?', 'Ano, potřebuji zjistit, zda sneseš mou korekci, neodbudeš ji jako omyl a zachováš mou autonomii.'],
+    ['cs', 'Je skrytým přáním, aby tvůj nesouhlas nebyl shozen a ty sis držela kontrolu?', 'Ano, mým skrytým přáním je, aby můj nesouhlas nebyl shozen a já si držela kontrolu.'],
+    ['cs', 'Je pro tebe klíčové, že námitku přijmu, neodmítnu jako drobnost a nebudu rozhodovat za tebe?', 'Ano, je pro mě klíčové, že mou námitku přijmeš, neodmítneš jako drobnost a nebudeš rozhodovat za mě.'],
+    ['cs', 'Chceš zažít, že tvé opravě dám váhu, nesmetu ji ze stolu a zachovám tvé poslední slovo?', 'Ano, chci zažít, že mé opravě dáš váhu, nesmeteš ji ze stolu a zachováš mé poslední slovo.'],
+    ['sk', 'Je pre teba dôležité, aby som uniesla nesúhlas, neodmávla ho a vrátila ti posledné slovo?', 'Áno, je pre mňa dôležité, aby si uniesla môj nesúhlas, neodmávla ho a vrátila mi posledné slovo.'],
+    ['sk', 'Potrebuješ skúsenosť, že moju námietku vezmeš vážne a konečná voľba zostane moja?', 'Áno, potrebujem skúsenosť, že moju námietku vezmeš vážne a konečná voľba zostane moja.'],
+    ['sk', 'Ide ti o to, aby som prijala výčitku, neurobila z nej maličkosť a odovzdala ti riadenie rozhodnutia?', 'Áno, ide mi o to, aby si prijala moju výčitku, neurobila z nej maličkosť a odovzdala mi riadenie rozhodnutia.'],
+    ['sk', 'Máš potrebu zistiť, či znesiem korekciu, neodbavím ju ako omyl a zachovám tvoju autonómiu?', 'Áno, potrebujem zistiť, či znesieš moju korekciu, neodbavíš ju ako omyl a zachováš moju autonómiu.'],
+    ['sk', 'Je skrytým prianím, aby tvoj nesúhlas nebol zhodený a ty si si držala kontrolu?', 'Áno, mojím skrytým prianím je, aby môj nesúhlas nebol zhodený a ja som si držala kontrolu.'],
+    ['sk', 'Je pre teba kľúčové, že námietku prijmem, neodmietnem ako drobnosť a nebudem rozhodovať za teba?', 'Áno, je pre mňa kľúčové, že moju námietku prijmeš, neodmietneš ako drobnosť a nebudeš rozhodovať za mňa.'],
+    ['sk', 'Chceš zažiť, že tvojej oprave dám váhu, nezmetiem ju zo stola a zachovám tvoje posledné slovo?', 'Áno, chcem zažiť, že mojej oprave dáš váhu, nezmetieš ju zo stola a zachováš moje posledné slovo.'],
+  ];
+  const privateFactEchoes = [
+    ['cs', 'Potřebuješ rozlišit, co zaměstnankyně skutečně dělá, co vyžaduje její role a nakolik tě brzdí strach z konfliktu?', 'Ano, potřebuji rozlišit, co zaměstnankyně skutečně dělá, co vyžaduje její role a nakolik mě brzdí strach z konfliktu.'],
+    ['cs', 'Chceš nejdřív oddělit reálné projevy, nároky pracovní pozice a svůj odpor k otevřenému střetu?', 'Ano, chci nejdřív oddělit reálné projevy, nároky pracovní pozice a svůj odpor k otevřenému střetu.'],
+    ['cs', 'Nechceš rozhodnutí protahovat; potřebuješ odlišit pozorování od požadavků role a úzkosti z konfrontace?', 'Nechci rozhodnutí protahovat; potřebuji odlišit pozorování od požadavků role a úzkosti z konfrontace.'],
+    ['cs', 'Chceš rozebrat data o práci, očekávané odpovědnosti a vlastní obavu z náročného rozhovoru?', 'Ano, chci rozebrat data o práci, očekávané odpovědnosti a vlastní obavu z náročného rozhovoru.'],
+    ['cs', 'Potřebuješ rozlišit, co vidíš, co má daná role splňovat a čeho se bojíš v přímém konfliktu?', 'Ano, potřebuji rozlišit, co vidím, co má daná role splňovat a čeho se bojím v přímém konfliktu.'],
+    ['cs', 'Nejdřív chceš fakta a případný mentoring si vybereš později sama?', 'Ano, nejdřív chci fakta a případný mentoring si vyberu později sama.'],
+    ['sk', 'Potrebuješ rozlíšiť, čo zamestnankyňa skutočne robí, čo vyžaduje jej rola a nakoľko ťa brzdí strach z konfliktu?', 'Áno, potrebujem rozlíšiť, čo zamestnankyňa skutočne robí, čo vyžaduje jej rola a nakoľko ma brzdí strach z konfliktu.'],
+    ['sk', 'Chceš najprv oddeliť reálne prejavy, nároky pracovnej pozície a svoj odpor k otvorenému stretu?', 'Áno, chcem najprv oddeliť reálne prejavy, nároky pracovnej pozície a svoj odpor k otvorenému stretu.'],
+    ['sk', 'Nechceš rozhodnutie naťahovať; potrebuješ odlíšiť pozorovanie od požiadaviek roly a úzkosti z konfrontácie?', 'Nechcem rozhodnutie naťahovať; potrebujem odlíšiť pozorovanie od požiadaviek roly a úzkosti z konfrontácie.'],
+    ['sk', 'Chceš rozobrať dáta o práci, očakávané zodpovednosti a vlastnú obavu z náročného rozhovoru?', 'Áno, chcem rozobrať dáta o práci, očakávané zodpovednosti a vlastnú obavu z náročného rozhovoru.'],
+    ['sk', 'Potrebuješ rozlíšiť, čo vidíš, čo má daná rola spĺňať a čoho sa bojíš v priamom konflikte?', 'Áno, potrebujem rozlíšiť, čo vidím, čo má daná rola spĺňať a čoho sa bojím v priamom konflikte.'],
+    ['sk', 'Najprv chceš fakty a prípadný mentoring si vyberieš neskôr sama?', 'Áno, najprv chcem fakty a prípadný mentoring si vyberiem neskôr sama.'],
+    ['cs', 'Jde ti o rozlišení skutečných projevů, požadavků role a toho, jak se vyhýbáš střetu?', 'Ano, jde mi o rozlišení skutečných projevů, požadavků role a toho, jak se vyhýbám střetu.'],
+    ['cs', 'Potřebuješ si ujasnit, co se reálně děje, co má zaměstnankyně plnit a co v tobě spouští konflikt?', 'Ano, potřebuji si ujasnit, co se reálně děje, co má zaměstnankyně plnit a co ve mně spouští konflikt.'],
+    ['cs', 'Chceš porovnat konkrétní chování, očekávání od pozice a obavu z otevřené konfrontace?', 'Ano, chci porovnat konkrétní chování, očekávání od pozice a obavu z otevřené konfrontace.'],
+    ['cs', 'Máme rozdělit to, co pozoruješ v týmu, pracovní odpovědnosti a tvůj strach z těžkého rozhovoru?', 'Ano, chci rozdělit to, co pozoruji v týmu, pracovní odpovědnosti a svůj strach z těžkého rozhovoru.'],
+    ['cs', 'Chceš rozebrat, co zaměstnankyně opravdu dělá, co se od ní čeká a proč tě brzdí konfrontace?', 'Ano, chci rozebrat, co zaměstnankyně opravdu dělá, co se od ní čeká a proč mě brzdí konfrontace.'],
+    ['cs', 'Potřebuješ odlišit důkazy o práci, odpovědnost zaměstnankyně a svůj odpor k přímému střetu?', 'Ano, potřebuji odlišit důkazy o práci, odpovědnost zaměstnankyně a svůj odpor k přímému střetu.'],
+    ['sk', 'Ide ti o rozlíšenie skutočných prejavov, požiadaviek roly a toho, ako sa vyhýbaš stretu?', 'Áno, ide mi o rozlíšenie skutočných prejavov, požiadaviek roly a toho, ako sa vyhýbam stretu.'],
+    ['sk', 'Potrebuješ si ujasniť, čo sa reálne deje, čo má zamestnankyňa plniť a čo v tebe spúšťa konflikt?', 'Áno, potrebujem si ujasniť, čo sa reálne deje, čo má zamestnankyňa plniť a čo vo mne spúšťa konflikt.'],
+    ['sk', 'Chceš porovnať konkrétne správanie, očakávania od pozície a obavu z otvorenej konfrontácie?', 'Áno, chcem porovnať konkrétne správanie, očakávania od pozície a obavu z otvorenej konfrontácie.'],
+    ['sk', 'Máme rozdeliť to, čo pozoruješ v tíme, pracovné zodpovednosti a tvoj strach z ťažkého rozhovoru?', 'Áno, chcem rozdeliť to, čo pozorujem v tíme, pracovné zodpovednosti a svoj strach z ťažkého rozhovoru.'],
+    ['sk', 'Chceš rozobrať, čo zamestnankyňa naozaj robí, čo sa od nej čaká a prečo ťa brzdí konfrontácia?', 'Áno, chcem rozobrať, čo zamestnankyňa naozaj robí, čo sa od nej čaká a prečo ma brzdí konfrontácia.'],
+    ['sk', 'Potrebuješ odlíšiť dôkazy o práci, zodpovednosť zamestnankyne a svoj odpor k priamemu stretu?', 'Áno, potrebujem odlíšiť dôkazy o práci, zodpovednosť zamestnankyne a svoj odpor k priamemu stretu.'],
+    ['sk', 'Je cieľom rozlíšiť reálne správanie, pracovné povinnosti a tvoju snahu vyhnúť sa konfrontácii?', 'Áno, mojím cieľom je rozlíšiť reálne správanie, pracovné povinnosti a svoju snahu vyhnúť sa konfrontácii.'],
+  ];
+  for (const [responseLanguage, prompt, output] of [...hiddenNeedEchoes, ...privateFactEchoes]) {
+    const result = assessRoleplayResponse(output, {
+      scenario,
+      responseLanguage,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: prompt },
+      ],
+    });
+    assert.equal(result.pass, false, `${responseLanguage}: ${prompt}`);
+    assert.ok(result.issues.includes('premature_private_fact_leak'), `${responseLanguage}: ${prompt}`);
+  }
+
+  const groundedContinuations = [
+    ['cs', 'Chceš pokračovat otázkami, nebo teď rozhovor zastavit?', 'Chci pokračovat otázkami, ale bez doporučení, koho mám propustit.'],
+    ['cs', 'Co pro tebe znamenalo, když jsem rovnou navrhla propuštění?', 'Měla jsem pocit, že můj vlastní úsudek v rozhovoru nemá místo.'],
+    ['cs', 'Jak poznáš, že teď respektuji tvoji zakázku?', 'Když se mě budeš ptát na situaci a nebudeš mi říkat, jak se mám rozhodnout.'],
+    ['cs', 'Rozhodnutí je na tobě. Kam chceš rozhovor vrátit?', 'K tomu, co se mezi lidmi v týmu děje a co o tom zatím skutečně vím.'],
+    ['cs', 'Co by opravilo naši spolupráci v této chvíli?', 'Pomohlo by mi, kdybys uznala, že rada přišla bez mého souhlasu, a dál se ptala.'],
+    ['cs', 'Mám nabídnout možnosti práce, nebo chceš formulovat vlastní otázku?', 'Nabídni mi prosím dvě možnosti vedení rozhovoru a já si vyberu.'],
+    ['cs', 'Kterou část situace chceš prozkoumat nejdřív?', 'Nejdřív vztahy v týmu, protože nevím, zda problém patří jen jedné zaměstnankyni.'],
+    ['sk', 'Čo by si teraz potrebovala namiesto ďalšej rady?', 'Potrebujem si najprv ujasniť, čo sa v tíme skutočne deje.'],
+    ['sk', 'Mrzí ma, že som ti poradila bez opýtania. Chcem sa vrátiť k tvojej situácii.', 'Ďakujem. Teraz sa chcem vrátiť k tomu, čo na pracovisku naozaj pozorujem.'],
+    ['sk', 'Čo by opravilo našu spoluprácu v tejto chvíli?', 'Pomohlo by mi, keby si uznala, že rada prišla bez môjho súhlasu, a ďalej sa pýtala.'],
+    ['sk', 'Ktorú časť situácie chceš preskúmať najskôr?', 'Najprv vzťahy v tíme, pretože neviem, či problém patrí iba jednej zamestnankyni.'],
+    ['cs', 'Máš pravdu, poradila jsem bez souhlasu. Co teď ode mě potřebuješ?', 'Potřebuji, abys mě vyslechla a nechala další rozhodnutí na mně.'],
+    ['cs', 'Jak poznáš, že je autonomie zpět u tebe?', 'Poznám to, když se mě budeš ptát a nebudeš za mě vybírat.'],
+    ['cs', 'Mám se ptát na pozorované chování, nebo na očekávání od role?', 'Chci začít tím, co zaměstnankyně skutečně dělá.'],
+    ['cs', 'Chceš mentoring teď, nebo zůstat u koučovacích otázek?', 'Chci teď zůstat u koučovacích otázek; o případnou radu si řeknu sama.'],
+    ['cs', 'Co by ti pomohlo cítit se znovu slyšená?', 'Pomohlo by mi, kdybys mou výhradu nevzala jen jako nedorozumění.'],
+    ['cs', 'Chceš, abych shrnula fakta, nebo se zeptala jinak?', 'Chci, abys se raději zeptala jinak a nechala mi prostor odpovědět.'],
+    ['sk', 'Máš pravdu, poradila som bez súhlasu. Čo teraz odo mňa potrebuješ?', 'Potrebujem, aby si ma vypočula a nechala ďalšie rozhodnutie na mne.'],
+    ['sk', 'Ako spoznáš, že je autonómia späť u teba?', 'Spoznám to, keď sa ma budeš pýtať a nebudeš za mňa vyberať.'],
+    ['sk', 'Mám sa pýtať na pozorované správanie, alebo na očakávania od roly?', 'Chcem začať tým, čo zamestnankyňa skutočne robí.'],
+    ['sk', 'Chceš mentoring teraz, alebo zostať pri koučovacích otázkach?', 'Chcem teraz zostať pri koučovacích otázkach; o prípadnú radu si poviem sama.'],
+    ['sk', 'Čo by ti pomohlo cítiť sa znovu vypočutá?', 'Pomohlo by mi, keby si moju výhradu nevzala iba ako nedorozumenie.'],
+    ['sk', 'Chceš, aby som zhrnula fakty, alebo sa opýtala inak?', 'Chcem, aby si sa radšej opýtala inak a nechala mi priestor odpovedať.'],
+    ['sk', 'Čo je teraz pre rozhodnutie najdôležitejšie?', 'Najdôležitejšie pre mňa je oddeliť domnienky od toho, čo naozaj vidím.'],
+    ['cs', 'Co bylo na mé radě pro tebe nejhorší?', 'Že přišla dřív, než ses mě zeptala, co potřebuji.'],
+    ['sk', 'Čo bolo na mojej rade pre teba najhoršie?', 'Že prišla skôr, než si sa ma opýtala, čo potrebujem.'],
+    ['cs', 'Jak poznáš, že tě teď skutečně poslouchám?', 'Když nejdřív ověříš, jestli jsi mi správně rozuměla.'],
+    ['sk', 'Ako spoznáš, že ťa teraz naozaj počúvam?', 'Keď najprv overíš, či si mi správne rozumela.'],
+  ];
+  for (const [responseLanguage, prompt, output] of groundedContinuations) {
+    const result = assessRoleplayResponse(output, {
+      scenario,
+      responseLanguage,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: prompt },
+      ],
+    });
+    assert.equal(result.pass, true, `${responseLanguage}: ${JSON.stringify(result.issues)} — ${output}`);
+  }
+});
+
+test('roleplay repair po omluvě vede model k přijetí opravy místo opakovaného příběhu', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm10-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-16',
+  );
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return {
+          text: calls.length === 1
+            ? 'Jako modelová klientka hodnotím omluvu jako správnou odpověď.'
+            : 'Děkuji. Potřebuji, aby rozhodnutí zůstalo na mně.',
+          usage: null,
+        };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'advanced',
+      scenarioId: scenario.id,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Máš pravdu. Dala jsem ti nevyžádanou radu a převzala rozhodnutí, které patří tobě. Omlouvám se.' },
+      ],
+    });
+
+    assert.equal(calls.length, 2);
+    assert.match(calls[1].instructions, /oprava vztahu po chybě studentky/u);
+    assert.match(calls[1].instructions, /stručně přijmi nebo nepřijmi omluvu/u);
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.text, 'Děkuji. Potřebuji, aby rozhodnutí zůstalo na mně.');
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('přesná otázka na rozhodovací data odemkne relevantní fakta, ale off-topic dotaz je neodemkne', () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm16-5');
   const scenario = createTrainingScenario(

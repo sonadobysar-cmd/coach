@@ -256,6 +256,7 @@ export function createLifeCoachLessonScenario({ course, item, moduleIndex, diffi
     courseTitle: course.title,
     itemId: item.id,
     itemTitle: item.title,
+    itemKind: item.kind,
     moduleIndex,
     difficulty,
     scenarioFamilyId: definition.scenarioFamilyId,

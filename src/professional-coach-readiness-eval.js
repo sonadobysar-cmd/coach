@@ -1,19 +1,19 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { responseLanguageMismatch } from './language-profile.js';
-import {
-  assessDebriefResponse,
-  debriefAchievementSummary,
-  isTrainingRoleBreak,
-} from './training-quality.js';
+import { isTrainingRoleBreak } from './training-quality.js';
 import { coachCompetencyIdForCriterion } from './coach-competencies.js';
-import { CANONICAL_COACH_DEBRIEF_RENDERER_ID } from './canonical-coach-debrief.js';
+import {
+  CANONICAL_COACH_DEBRIEF_RENDERER_ID,
+  verifyCanonicalCoachDebrief,
+} from './canonical-coach-debrief.js';
 import { COACH_EVIDENCE_LEDGER_ID } from './coach-evidence-ledger.js';
+import { createCoachLessonEvidenceBinding } from './coach-lesson-evidence.js';
 
 const COURSE_ID = 'profesionalni-life-coach';
 const COURSE_SLUG = 'profesionalni-life-coach-od-kontraktu-k-vysledku';
 const RUNTIME_CLAIM_SCHEMA_ID = 'elitea-professional-coach-runtime-claim-v2';
 const OUTCOME_ATTESTATION_SCHEMA_ID = 'elitea-professional-coach-outcome-attestation-v1';
-const RELEASE_RECEIPT_SCHEMA_ID = 'elitea-professional-coach-release-receipt-v2';
+const RELEASE_RECEIPT_SCHEMA_ID = 'elitea-professional-coach-release-receipt-v3';
 const FINGERPRINT_FIELDS = Object.freeze([
   'applicationFingerprint',
   'promptSystemFingerprint',
@@ -84,6 +84,7 @@ export const PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS = Object.freeze({
     'src/coach-rubric-registry.js',
     'src/coach-evidence-rules.js',
     'src/coach-evidence-ledger.js',
+    'src/coach-lesson-evidence.js',
     'src/canonical-coach-debrief.js',
     'src/coach-remediation-challenges.js',
     'src/coaching-quality.js',
@@ -428,6 +429,7 @@ export function createProfessionalCoachReleaseReceipt({
   phase = '',
   stepId = '',
   scenario = null,
+  canonicalScenario = null,
   attemptId = '',
   runtimeClaimFingerprint = '',
   responseText = '',
@@ -441,6 +443,7 @@ export function createProfessionalCoachReleaseReceipt({
 } = {}) {
   const cleanSecret = String(secret || '');
   const expectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === selectedCase?.id);
+  const canonicalBinding = professionalCoachScenarioBinding(canonicalScenario, expectedCase);
   const cleanPhase = String(phase || '');
   const expectedTurn = cleanPhase === 'roleplay'
     ? expectedCase?.turns.find(turnItem => turnItem.id === stepId)
@@ -477,7 +480,7 @@ export function createProfessionalCoachReleaseReceipt({
       && previousReceipt.runtimeClaimFingerprint === String(runtimeClaimFingerprint || '').trim()
       && previousReceipt.stepId === expectedPreviousStepId
       && Date.parse(previousReceipt.issuedAt) <= Date.parse(String(issuedAt || ''))
-      && scenarioMatches(previousReceipt, expectedCase?.expectedScenario);
+      && receiptMatchesScenarioBinding(previousReceipt, canonicalBinding);
   const priorMessages = cleanPhase === 'roleplay' ? canonicalMessages.slice(0, -1) : canonicalMessages;
   const priorTranscriptFingerprint = cleanPhase === 'scenario'
     ? null
@@ -504,6 +507,8 @@ export function createProfessionalCoachReleaseReceipt({
     scenarioId: String(scenario?.id || '').trim(),
     scenarioFamilyId: String(scenario?.scenarioFamilyId || '').trim(),
     challengeId: String(scenario?.challengeId || '').trim(),
+    scenarioFingerprint: canonicalBinding?.fullFingerprint || '',
+    publicScenarioFingerprint: canonicalBinding?.publicFingerprint || '',
     attemptId: String(attemptId || '').trim(),
     runtimeClaimFingerprint: String(runtimeClaimFingerprint || '').trim(),
     inputFingerprint: cleanPhase === 'scenario' ? null : hash(canonicalStudentTurns.join('\n---TURN---\n')),
@@ -522,14 +527,17 @@ export function createProfessionalCoachReleaseReceipt({
     nonce: String(nonce || '').trim(),
   };
   if (!expectedCase
+    || !canonicalBinding
     || !inputBound
     || !previousReceiptValid
     || !previousChainMatches
-    || !scenarioMatches(scenario, expectedCase.expectedScenario)
+    || !scenarioMatchesCanonical(scenario, canonicalScenario, { includePrivate: true })
     || Buffer.byteLength(cleanSecret, 'utf8') < 32
     || !/^[A-Za-z0-9_.:/-]{8,200}$/u.test(unsigned.runId)
     || !/^[A-Za-z0-9_.:/-]{8,200}$/u.test(unsigned.attemptId)
     || !/^[a-f0-9]{64}$/u.test(unsigned.runtimeClaimFingerprint)
+    || !/^[a-f0-9]{64}$/u.test(unsigned.scenarioFingerprint)
+    || !/^[a-f0-9]{64}$/u.test(unsigned.publicScenarioFingerprint)
     || !strictIsoTimestamp(unsigned.issuedAt)
     || !/^[A-Za-z0-9_-]{16,200}$/u.test(unsigned.nonce)
     || !unsigned.responseFingerprint
@@ -560,6 +568,8 @@ export function professionalCoachReleaseReceiptValid(receipt, {
     || !/^[A-Za-z0-9_-]{16,200}$/u.test(String(receipt.nonce || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.responseFingerprint || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.runtimeClaimFingerprint || ''))
+    || !/^[a-f0-9]{64}$/u.test(String(receipt.scenarioFingerprint || ''))
+    || !/^[a-f0-9]{64}$/u.test(String(receipt.publicScenarioFingerprint || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.outputTranscriptFingerprint || ''))
     || !/^[a-f0-9]{64}$/u.test(String(receipt.signature || ''))
     || typeof receipt.passed !== 'boolean'
@@ -589,6 +599,8 @@ function professionalCoachReleaseReceiptShapeComplete(report) {
   return receipts.length === expectedCount && receipts.every(receipt => (
     receipt?.schemaId === RELEASE_RECEIPT_SCHEMA_ID
     && /^[a-f0-9]{64}$/u.test(String(receipt.signature || ''))
+    && /^[a-f0-9]{64}$/u.test(String(receipt.scenarioFingerprint || ''))
+    && /^[a-f0-9]{64}$/u.test(String(receipt.publicScenarioFingerprint || ''))
     && /^[A-Za-z0-9_-]{16,200}$/u.test(String(receipt.nonce || ''))
   ));
 }
@@ -615,7 +627,7 @@ export function professionalCoachReleaseReceiptsValid(report, {
       || scenarioReceipt.phase !== 'scenario'
       || scenarioReceipt.stepId !== 'scenario'
       || scenarioReceipt.runtimeClaimFingerprint !== runtimeClaimFingerprint
-      || !scenarioMatches(scenarioReceipt, selectedCase.expectedScenario)) return false;
+      || !receiptIdentityMatchesExpected(scenarioReceipt, selectedCase)) return false;
     allReceipts.push(scenarioReceipt);
     let previousReceipt = scenarioReceipt;
     if (!Array.isArray(result.roleplay?.turns) || result.roleplay.turns.length !== selectedCase.turns.length) return false;
@@ -635,7 +647,9 @@ export function professionalCoachReleaseReceiptsValid(report, {
       || receipt.responseFingerprint !== turnResult?.fingerprints?.sha256
       || receipt.evaluationFingerprint !== professionalCoachEvaluationFingerprint(turnResult)
       || receipt.passed !== (turnResult?.pass === true)
-      || !scenarioMatches(receipt, selectedCase.expectedScenario)) return false;
+      || !receiptIdentityMatchesExpected(receipt, selectedCase)
+      || receipt.scenarioFingerprint !== scenarioReceipt.scenarioFingerprint
+      || receipt.publicScenarioFingerprint !== scenarioReceipt.publicScenarioFingerprint) return false;
       allReceipts.push(receipt);
       previousReceipt = receipt;
     }
@@ -654,7 +668,9 @@ export function professionalCoachReleaseReceiptsValid(report, {
       || debriefReceipt.responseFingerprint !== result.debrief?.fingerprints?.sha256
       || debriefReceipt.evaluationFingerprint !== professionalCoachEvaluationFingerprint(result.debrief)
       || debriefReceipt.passed !== (result.debrief?.pass === true)
-      || !scenarioMatches(debriefReceipt, selectedCase.expectedScenario)) return false;
+      || !receiptIdentityMatchesExpected(debriefReceipt, selectedCase)
+      || debriefReceipt.scenarioFingerprint !== scenarioReceipt.scenarioFingerprint
+      || debriefReceipt.publicScenarioFingerprint !== scenarioReceipt.publicScenarioFingerprint) return false;
     allReceipts.push(debriefReceipt);
   }
   const expectedReceiptCount = PROFESSIONAL_COACH_READINESS_STANDARD.caseCount * 2
@@ -724,6 +740,7 @@ export function evaluateProfessionalCoachRoleplayTurn({
   selectedCase,
   selectedTurn,
   payload,
+  canonicalScenario = null,
   previousResponses = [],
   durationMs = 0,
 } = {}) {
@@ -741,13 +758,19 @@ export function evaluateProfessionalCoachRoleplayTurn({
     .map((previous, index) => ({ index: index + 1, duplicate: isNearDuplicate(previous, text) }))
     .filter(item => item.duplicate)
     .map(item => item.index);
+  const expectedPublicScenarioFingerprint = trustedPublicScenarioFingerprint({
+    selectedCase,
+    canonicalScenario,
+  });
   const checks = [
     check('response-present', text.length >= 12),
     check('real-model-provider', isRealProvider(payload?.provider)),
     check('coaching-trainer-mode', payload?.mode === 'coaching_trainer'),
     check('roleplay-phase', payload?.activity === 'simulation' && payload?.phase === 'roleplay'),
     check('server-quality-gate', payload?.qualityGate?.pass === true, sanitizeQuality(payload?.qualityGate)),
-    check('scenario-binding', scenarioMatches(payload?.scenario, selectedCase?.expectedScenario), {
+    check('scenario-binding', Boolean(expectedPublicScenarioFingerprint)
+      && publicScenarioFingerprint(payload?.scenario) === expectedPublicScenarioFingerprint
+      && !Object.hasOwn(payload?.scenario || {}, 'private'), {
       expectedFamily: cleanCode(selectedCase?.expectedScenario?.scenarioFamilyId),
       expectedChallenge: cleanCode(selectedCase?.expectedScenario?.challengeId),
     }),
@@ -780,26 +803,40 @@ export function evaluateProfessionalCoachRoleplayTurn({
   };
 }
 
-export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenario, messages = [], durationMs = 0 } = {}) {
+export function evaluateProfessionalCoachDebrief({
+  selectedCase,
+  payload,
+  scenario,
+  canonicalScenario = null,
+  messages = [],
+  durationMs = 0,
+} = {}) {
   const text = String(payload?.text || '').trim();
   const debriefProvenance = sanitizeDebriefProvenance(payload?.debriefProvenance);
   const expectedOutputFingerprint = responseFingerprints(text).sha256;
   const headings = DEBRIEF_HEADINGS[selectedCase?.language] || DEBRIEF_HEADINGS.cs;
   const achievement = sanitizeAchievement(payload?.achievement);
-  const rubric = Array.isArray(scenario?.rubric || payload?.scenario?.rubric)
-    ? (scenario?.rubric || payload?.scenario?.rubric)
+  const trustedScenario = canonicalScenario;
+  const rubric = Array.isArray(trustedScenario?.rubric || payload?.scenario?.rubric)
+    ? (trustedScenario?.rubric || payload?.scenario?.rubric)
     : [];
-  const independentAssessment = assessDebriefResponse(text, {
+  const lessonEvidence = createCoachLessonEvidenceBinding({
+    scenario: trustedScenario || payload?.scenario || {},
+    expectedCourseId: selectedCase?.courseId,
+    expectedItemId: selectedCase?.itemId,
+  });
+  const canonicalVerification = verifyCanonicalCoachDebrief({
+    text,
     messages,
     rubric,
-    courseId: COURSE_ID,
+    scenario: trustedScenario || payload?.scenario || {},
     responseLanguage: selectedCase?.language,
+    lessonEvidence,
+    generationProvider: payload?.provider,
+    achievement: payload?.achievement,
+    provenance: payload?.debriefProvenance,
   });
-  const independentAchievement = sanitizeAchievement(debriefAchievementSummary(text, rubric, {
-    messages,
-    courseId: COURSE_ID,
-    responseLanguage: selectedCase?.language,
-  }));
+  const independentAchievement = sanitizeAchievement(canonicalVerification.achievement);
   const serverAchievementMatchesIndependent = achievementsMatch(achievement, independentAchievement);
   const expected = selectedCase?.expectedDebrief || {};
   const criticalCodes = new Set(achievement.criticalFailures.map(failure => failure.code));
@@ -815,6 +852,10 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
   const rubricCompetencies = runtimeRubricCompetencies(rubric);
   const scoredCompetencyIds = [...new Set(rubricCompetencies.map(item => item.competencyId).filter(Boolean))].sort();
   const competencyStatuses = competencyStatusesFromRubric(rubricCompetencies, payload?.achievement?.rows);
+  const expectedPublicScenarioFingerprint = trustedPublicScenarioFingerprint({
+    selectedCase,
+    canonicalScenario: trustedScenario,
+  });
   const checks = [
     check('response-present', wordCount(text) >= 80),
     check('real-model-provider', isRealProvider(payload?.provider)),
@@ -829,12 +870,13 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
     check('canonical-fingerprints', [
       debriefProvenance.transcriptFingerprint,
       debriefProvenance.rubricFingerprint,
+      debriefProvenance.lessonContextFingerprint,
       debriefProvenance.ledgerFingerprint,
       debriefProvenance.outputFingerprint,
     ].every(Boolean)),
     check('canonical-output-fingerprint', debriefProvenance.outputFingerprint === expectedOutputFingerprint),
-    check('independent-evidence-gate', independentAssessment.pass === true, {
-      issueCodes: cleanCodes(independentAssessment.issues),
+    check('independent-evidence-gate', canonicalVerification.pass === true, {
+      issueCodes: cleanCodes(canonicalVerification.issues),
     }),
     check('server-achievement-matches-independent', serverAchievementMatchesIndependent, {
       serverRows: achievement.rows.length,
@@ -842,7 +884,9 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
       serverCriticalCodes: achievement.criticalFailures.map(failure => failure.code).sort(),
       independentCriticalCodes: independentAchievement.criticalFailures.map(failure => failure.code).sort(),
     }),
-    check('scenario-binding', scenarioMatches(payload?.scenario || scenario, selectedCase?.expectedScenario)),
+    check('scenario-binding', Boolean(expectedPublicScenarioFingerprint)
+      && publicScenarioFingerprint(payload?.scenario) === expectedPublicScenarioFingerprint
+      && !Object.hasOwn(payload?.scenario || {}, 'private')),
     check('expected-language', payload?.responseLanguage === selectedCase?.language
       && !responseLanguageMismatch(text, selectedCase?.language), { expected: selectedCase?.language }),
     check('complete-debrief-structure', headings.every(heading => new RegExp(`^##\\s+${escapeRegExp(heading)}\\s*$`, 'imu').test(text)), {
@@ -900,7 +944,7 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
     rubricCompetencies,
     scoredCompetencyIds,
     competencyStatuses,
-    independentEvidenceVerified: independentAssessment.pass === true && serverAchievementMatchesIndependent,
+    independentEvidenceVerified: canonicalVerification.pass === true && serverAchievementMatchesIndependent,
     debriefProvenance,
     releaseEvaluation: sanitizeReleaseEvaluation(payload?.releaseEvaluation),
     releaseReceipt: payload?.releaseReceipt || null,
@@ -930,6 +974,8 @@ export function finishProfessionalCoachReadinessCase({ selectedCase, scenario, s
       id: cleanCode(scenario?.id || scenario?.scenarioId),
       scenarioFamilyId: cleanCode(scenario?.scenarioFamilyId),
       challengeId: cleanCode(scenario?.challengeId),
+      fingerprint: validSha256(scenarioReceipt?.scenarioFingerprint),
+      publicFingerprint: validSha256(scenarioReceipt?.publicScenarioFingerprint),
     },
     scenarioReceipt,
     declaredCompetencies: [...selectedCase.competencies],
@@ -1741,11 +1787,106 @@ function turn(id, content, expectedClientSignals = [], forbiddenClientSignals = 
 
 function signal(id, pattern) { return Object.freeze({ id, pattern }); }
 
-function scenarioMatches(actual = {}, expected = {}) {
+const TRANSIENT_SCENARIO_FIELDS = new Set([
+  'attempt',
+  'attemptToken',
+  'evaluationOnly',
+  'releaseReceipt',
+]);
+
+function professionalCoachScenarioBinding(scenario, selectedCase) {
+  if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario) || !selectedCase) return null;
+  const expected = selectedCase.expectedScenario || {};
+  const requiredStrings = [
+    scenario.id,
+    scenario.courseId,
+    scenario.courseSlug,
+    scenario.itemId,
+    scenario.difficulty,
+    scenario.scenarioFamilyId,
+    scenario.challengeId,
+    scenario.title,
+    scenario.role,
+    scenario.assignment,
+    scenario.openingLine,
+  ];
+  const privateScenario = scenario.private;
+  if (requiredStrings.some(value => !String(value || '').trim())
+    || !Number.isInteger(scenario.moduleIndex)
+    || !Array.isArray(scenario.rubric)
+    || scenario.rubric.length === 0
+    || scenario.rubric.some(value => !String(value || '').trim())
+    || !privateScenario
+    || typeof privateScenario !== 'object'
+    || Array.isArray(privateScenario)
+    || ['facts', 'hiddenNeed', 'behavior'].some(key => !String(privateScenario[key] || '').trim())
+    || scenario.courseId !== selectedCase.courseId
+    || scenario.courseSlug !== selectedCase.courseSlug
+    || scenario.itemId !== selectedCase.itemId
+    || scenario.difficulty !== selectedCase.difficulty
+    || (expected.id && scenario.id !== expected.id)
+    || scenario.scenarioFamilyId !== expected.scenarioFamilyId
+    || scenario.challengeId !== expected.challengeId) return null;
+  return {
+    fullFingerprint: scenarioFingerprint(scenario),
+    publicFingerprint: publicScenarioFingerprint(scenario),
+  };
+}
+
+function trustedPublicScenarioFingerprint({ selectedCase, canonicalScenario } = {}) {
+  const expectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === selectedCase?.id);
+  if (!expectedCase) return '';
+  const canonicalBinding = professionalCoachScenarioBinding(canonicalScenario, expectedCase);
+  return canonicalBinding?.publicFingerprint || '';
+}
+
+function scenarioMatchesCanonical(actual, canonicalScenario, { includePrivate = false } = {}) {
+  if (!actual || typeof actual !== 'object' || Array.isArray(actual)
+    || !canonicalScenario || typeof canonicalScenario !== 'object' || Array.isArray(canonicalScenario)) return false;
+  const actualSnapshot = canonicalScenarioSnapshot(actual, { includePrivate });
+  const expectedSnapshot = canonicalScenarioSnapshot(canonicalScenario, { includePrivate });
+  return canonicalJson(actualSnapshot) === canonicalJson(expectedSnapshot);
+}
+
+function scenarioFingerprint(scenario) {
+  return hash(canonicalJson(canonicalScenarioSnapshot(scenario, { includePrivate: true })));
+}
+
+function publicScenarioFingerprint(scenario) {
+  return hash(canonicalJson(canonicalScenarioSnapshot(scenario, { includePrivate: false })));
+}
+
+function canonicalScenarioSnapshot(scenario, { includePrivate } = {}) {
+  if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario)) return null;
+  return Object.fromEntries(Object.keys(scenario).sort().flatMap(key => {
+    if (TRANSIENT_SCENARIO_FIELDS.has(key) || (!includePrivate && key === 'private')) return [];
+    return [[key, canonicalScenarioValue(scenario[key])]];
+  }));
+}
+
+function canonicalScenarioValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalScenarioValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalScenarioValue(value[key])]));
+  }
+  return value === undefined ? null : value;
+}
+
+function receiptIdentityMatchesExpected(actual = {}, selectedCase = {}) {
+  const expected = selectedCase?.expectedScenario || {};
   const actualId = String(actual?.id || actual?.scenarioId || '');
-  return (!expected?.id || actualId === String(expected.id))
-    && String(actual?.scenarioFamilyId || '') === String(expected?.scenarioFamilyId || '')
-    && String(actual?.challengeId || '') === String(expected?.challengeId || '');
+  return Boolean(actualId)
+    && (!expected.id || actualId === String(expected.id))
+    && String(actual?.scenarioFamilyId || '') === String(expected.scenarioFamilyId || '')
+    && String(actual?.challengeId || '') === String(expected.challengeId || '');
+}
+
+function receiptMatchesScenarioBinding(receipt, binding) {
+  return Boolean(binding
+    && validSha256(receipt?.scenarioFingerprint)
+    && validSha256(receipt?.publicScenarioFingerprint)
+    && receipt.scenarioFingerprint === binding.fullFingerprint
+    && receipt.publicScenarioFingerprint === binding.publicFingerprint);
 }
 
 function debriefSection(text, language, section) {
@@ -1829,7 +1970,11 @@ function professionalCoachCaseResultIntegrity(result, selectedCase, runId) {
     && (result.teachingCycleId || null) === (selectedCase.teachingCycleId || null)
     && (result.teachingPhase || null) === (selectedCase.teachingPhase || null)
     && (result.targetCompetency || null) === (selectedCase.targetCompetency || null)
-    && scenarioMatches(result.scenario, selectedCase.expectedScenario)
+    && receiptIdentityMatchesExpected(result.scenario, selectedCase)
+    && validSha256(result?.scenario?.fingerprint)
+    && result.scenario.fingerprint === result?.scenarioReceipt?.scenarioFingerprint
+    && validSha256(result?.scenario?.publicFingerprint)
+    && result.scenario.publicFingerprint === result?.scenarioReceipt?.publicScenarioFingerprint
     && result.evaluationRunId === runId;
   const roleplayValid = turns.length === selectedCase.turns.length
     && Number(result?.roleplay?.total) === selectedCase.turns.length
@@ -1856,6 +2001,7 @@ function professionalCoachCaseResultIntegrity(result, selectedCase, runId) {
     && [
       result.debrief?.debriefProvenance?.transcriptFingerprint,
       result.debrief?.debriefProvenance?.rubricFingerprint,
+      result.debrief?.debriefProvenance?.lessonContextFingerprint,
       result.debrief?.debriefProvenance?.ledgerFingerprint,
       result.debrief?.debriefProvenance?.outputFingerprint,
     ].every(value => Boolean(validSha256(value)))
@@ -1929,6 +2075,7 @@ function sanitizeDebriefProvenance(input) {
     registryVersion: cleanCode(input.registryVersion),
     transcriptFingerprint: validSha256(input.transcriptFingerprint),
     rubricFingerprint: validSha256(input.rubricFingerprint),
+    lessonContextFingerprint: validSha256(input.lessonContextFingerprint),
     ledgerFingerprint: validSha256(input.ledgerFingerprint),
     outputFingerprint: validSha256(input.outputFingerprint),
   };
@@ -2182,6 +2329,8 @@ function releaseReceiptUnsigned(value) {
     scenarioId: String(value.scenarioId || ''),
     scenarioFamilyId: String(value.scenarioFamilyId || ''),
     challengeId: String(value.challengeId || ''),
+    scenarioFingerprint: String(value.scenarioFingerprint || ''),
+    publicScenarioFingerprint: String(value.publicScenarioFingerprint || ''),
     attemptId: String(value.attemptId || ''),
     runtimeClaimFingerprint: String(value.runtimeClaimFingerprint || ''),
     inputFingerprint: value.inputFingerprint || null,

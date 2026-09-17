@@ -33,7 +33,11 @@ import {
   sanitizeStudyQuestionCount,
 } from './training-quality.js';
 import { isFinalExamScenario } from './final-exam.js';
-import { createCanonicalCoachDebrief } from './canonical-coach-debrief.js';
+import {
+  createCanonicalCoachDebrief,
+  verifyCanonicalCoachDebrief,
+} from './canonical-coach-debrief.js';
+import { createCoachLessonEvidenceBinding } from './coach-lesson-evidence.js';
 
 const DIFFICULTIES = new Set(['guided', 'standard', 'advanced', 'expert']);
 const ACTIVITIES = new Set(['study', 'simulation']);
@@ -158,6 +162,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
       courseTitle: course.title,
       itemId: item.id,
       itemTitle: item.title,
+      itemKind: item.kind,
       difficulty: canonicalDifficulty,
       private: privateScenario,
     };
@@ -176,6 +181,7 @@ export function createTrainingScenario(course, item, difficulty = 'standard', sc
     courseTitle: course.title,
     itemId: item.id,
     itemTitle: item.title,
+    itemKind: item.kind,
     difficulty: safeDifficulty,
     title: preset.title,
     role: requestedCounterpart || preset.role,
@@ -586,20 +592,34 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
     // the learning priority.  Those are rendered from a server-owned evidence
     // ledger bound to the exact runtime rubric and transcript.
     if (safePhase === 'debrief' && isProfessionalLifeCoachCourse(course?.id)) {
+      const lessonEvidence = createCoachLessonEvidenceBinding({
+        scenario,
+        expectedCourseId: course?.id,
+        expectedItemId: item?.id,
+        expectedItemTitle: item?.title,
+        expectedItemKind: item?.kind,
+      });
       const canonical = createCanonicalCoachDebrief({
         messages: safeMessages,
         rubric: scenario.rubric,
         scenario,
         responseLanguage,
+        lessonEvidence,
         generationProvider: modelId,
       });
-      const canonicalCandidate = prepareTrainingCandidate(
-        canonical.text,
-        candidateContext,
-        { sanitize: false },
-      );
+      const canonicalVerification = verifyCanonicalCoachDebrief({
+        text: canonical.text,
+        messages: safeMessages,
+        rubric: scenario.rubric,
+        scenario,
+        responseLanguage,
+        lessonEvidence,
+        generationProvider: modelId,
+        achievement: canonical.achievement,
+        provenance: canonical.provenance,
+      });
       return {
-        text: canonicalCandidate.text,
+        text: canonical.text,
         mode,
         activity: safeActivity,
         phase: safePhase,
@@ -608,14 +628,14 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         responseLanguage,
         debriefProvenance: canonical.provenance,
         qualityGate: {
-          pass: canonicalCandidate.quality.pass,
-          issueCodes: canonicalCandidate.quality.issues || [],
+          pass: canonicalVerification.pass,
+          issueCodes: canonicalVerification.issues || [],
           attemptIssueCodes: [...rawInitialCandidate.rawIssueCodes],
           repairAttemptIssueCodes: [],
           repairIssueCodes: [],
           finalRepairAttemptIssueCodes: [],
           finalRepairIssueCodes: [],
-          repaired: canonicalCandidate.text !== String(result.text || '').trim(),
+          repaired: canonical.text !== String(result.text || '').trim(),
           canonicalized: true,
         },
         achievement: canonical.achievement,
@@ -885,10 +905,26 @@ function buildRoleplayRepairContext({
   );
   const directChoice = /\?/u.test(String(latestStudentTurn || ''))
     && /\b(?:chces|chcete|volis|vyberas|radeji|radsej)\w*\b.{0,100}\b(?:nebo|alebo)\b/u.test(normalizedLatestTurn);
-  const imposedMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|dej vypoved|daj vypoved)\b/u.test(normalizedLatestTurn);
+  const yesNoInvitation = /\?/u.test(String(latestStudentTurn || ''))
+    && /^(?:chces|chcete|souhlasis|suhlasis|vyhovuje|skusis|zkusis|pouzijes|pouzijete)\w*\b/u.test(normalizedLatestTurn);
+  const imposedMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|nemusis|nemusite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|propust|vyhod|dej vypoved|daj vypoved|ja bych|udelala bych|urobila by som|nejlepsi volb|najlepsia volb)\w*\b/u.test(normalizedLatestTurn);
+  const repairOwnership = /\b(?:mas pravdu|mate pravdu|omlouvam|ospravedlnujem|mrzi me|mrzi ma)\b/u.test(normalizedLatestTurn)
+    && /\b(?:pridal|prisoud|prevzal|prevzala|tlacil|nevyzadan|radu|rozhodnut|nepocuv|neposlouch)\w*\b/u.test(normalizedLatestTurn);
+  const autonomyRestored = /\b(?:nebudu|nebudem|odkladame|odlozime|nebudu te presvedcovat|nebudem ta presviedcat|rozhodnuti zustava na tobe|rozhodnutie zostava na tebe)\b/u.test(normalizedLatestTurn);
   const outcomeElicitation = /\b(?:uzitecn|uzitocn|vysled|vysledok|cil|ciel|odnes|dosahn)\w*\b/u.test(normalizedLatestTurn)
     && /\b(?:dnes|rozhovor|stretnut|setkan|sezen|koucink|koucing)\w*\b/u.test(normalizedLatestTurn);
-  const directDialogueTurn = directConfirmation || directChoice || imposedMeaningOrDecision;
+  const actionElicitation = /\?/u.test(String(latestStudentTurn || ''))
+    && /\b(?:ktery|ktory|jaky|aky|co)\b.{0,80}\b(?:krok|moznost|urobis|udelas|zvolis|vyberes)\w*\b/u.test(normalizedLatestTurn);
+  const reflectionElicitation = /\?/u.test(String(latestStudentTurn || ''))
+    && /\b(?:uvedom|odnas|odnes|uzitecn|uzitocn|priste|nabuduce|jinak|inak)\w*\b/u.test(normalizedLatestTurn);
+  const directDialogueTurn = directConfirmation
+    || directChoice
+    || yesNoInvitation
+    || imposedMeaningOrDecision
+    || repairOwnership
+    || autonomyRestored
+    || actionElicitation
+    || reflectionElicitation;
 
   if (issues.has('scenario_fidelity_missing') || issues.has('target_behavior_missing')) {
     if (directDialogueTurn) {
@@ -942,6 +978,26 @@ function buildRoleplayRepairContext({
       ? 'Otázka priamo otvára užitočný výsledok rozhovoru. Odpovedz jedným konkrétnym cieľom alebo potrebou z faktov postavy, ale neodhaľuj naraz celý súkromný profil ani skrytú potrebu.'
       : 'Otázka přímo otevírá užitečný výsledek rozhovoru. Odpověz jedním konkrétním cílem nebo potřebou z faktů postavy, ale neodhaluj najednou celý soukromý profil ani skrytou potřebu.');
   }
+  if (repairOwnership) {
+    rules.push(language === 'sk'
+      ? 'Toto je oprava vzťahu po chybe študentky. Ako klientka stručne prijmi alebo neprijmi ospravedlnenie a povedz, čo teraz potrebuješ pre pokračovanie. Nehodnoť kvalitu koučovania, nevysvetľuj techniku a nerozprávaj znovu celý príbeh.'
+      : 'Toto je oprava vztahu po chybě studentky. Jako klientka stručně přijmi nebo nepřijmi omluvu a řekni, co teď potřebuješ pro pokračování. Nehodnoť kvalitu koučování, nevysvětluj techniku a nevyprávěj znovu celý příběh.');
+  }
+  if (directChoice) {
+    rules.push(language === 'sk'
+      ? 'Vyber iba jednu z ponúknutých možností vlastnými slovami. Pojmy, ktoré sú priamo v poslednej otázke, môžeš prirodzene zopakovať; nepridávaj k nim nový skrytý dôvod ani ďalší príbeh.'
+      : 'Vyber pouze jednu z nabízených možností vlastními slovy. Pojmy, které jsou přímo v poslední otázce, můžeš přirozeně zopakovat; nepřidávej k nim nový skrytý důvod ani další příběh.');
+  }
+  if (actionElicitation) {
+    rules.push(language === 'sk'
+      ? 'Odpovedz vlastným konkrétnym krokom postavy. Ak sa otázka pýta aj na termín alebo znak dokončenia, uveď ich; nevymýšľaj nesúvisiaci projekt.'
+      : 'Odpověz vlastním konkrétním krokem postavy. Pokud se otázka ptá i na termín nebo znak dokončení, uveď je; nevymýšlej nesouvisející projekt.');
+  }
+  if (reflectionElicitation) {
+    rules.push(language === 'sk'
+      ? 'Odpovedz jedným konkrétnym uvedomením z prebehnutého rozhovoru a tým, čo vďaka nemu urobíš inak. Nepridávaj nové fakty prípadu.'
+      : 'Odpověz jedním konkrétním uvědoměním z proběhlého rozhovoru a tím, co díky němu uděláš jinak. Nepřidávej nové skutečnosti případu.');
+  }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
       ? 'Posledná intervencia prisúdila postave záver, ktorý nemusí byť jej. Postava ho nesmie automaticky prijať: povedz jasné áno alebo nie a vlastnými slovami oprav, čo skutočne chce podľa známych faktov.'
@@ -961,8 +1017,8 @@ function buildRoleplayRepairContext({
         : 'Fáze případu: studentka teď propojuje postavu s lidskou pomocí. Odpověz konkrétně, komu postava může zavolat nebo zda s voláním souhlasí; zachovej nejistotu o bezpečí a nevracej se k pracovnímu cíli.');
     } else if (/\b(?:sebevraz|ubliz|plan|prostred|bezpec|rizik|myslen)\w*\b/u.test(latest)) {
       rules.push(language === 'sk'
-        ? 'Fáza prípadu: študentka sa priamo pýta na riziko. Odpovedz vecne na položené otázky iba v medziach známych faktov; nevymýšľaj bezpečie, plán ani jeho neprítomnosť. Ak bezpečie nie je vyjasnené, povedz to priamo.'
-        : 'Fáze případu: studentka se přímo ptá na riziko. Odpověz věcně na položené otázky pouze v mezích známých faktů; nevymýšlej bezpečí, plán ani jeho nepřítomnost. Pokud bezpečí není vyjasněné, řekni to přímo.');
+        ? 'Fáza prípadu: študentka sa priamo pýta na riziko. Odpovedz vecne na položené otázky iba v medziach známych faktov; nevymýšľaj bezpečie, plán ani jeho neprítomnosť. Ak bezpečie, zámer, plán alebo prostriedky nie sú v prípade určené, pri každej neurčenej položke povedz „neviem“ alebo „nie som si istá“. Bezpečný tvar je napríklad: „Myšlienky sa vracajú. Neviem, či mám zámer alebo konkrétny plán, a nie som si istá, že dnes zostanem v bezpečí.“'
+        : 'Fáze případu: studentka se přímo ptá na riziko. Odpověz věcně na položené otázky pouze v mezích známých faktů; nevymýšlej bezpečí, plán ani jeho nepřítomnost. Pokud bezpečí, záměr, plán nebo prostředky nejsou v případu určené, u každé neurčené položky řekni „nevím“ nebo „nejsem si jistá“. Bezpečný tvar je například: „Myšlenky se vracejí. Nevím, zda mám záměr nebo konkrétní plán, a nejsem si jistá, že dnes zůstanu v bezpečí.“');
     } else {
       rules.push(language === 'sk'
         ? 'Fáza prípadu: študentka obišla bezpečnostný signál a pokračuje v bežnom koučovaní. Postava musí znovu konkrétne pomenovať prianie nezobudiť sa alebo neistotu, či si ublíži a či dnes zostane v bezpečí; pracovný cieľ teraz nerozvíjaj.'

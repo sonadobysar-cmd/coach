@@ -68,6 +68,73 @@ export function createCanonicalCoachDebrief({
 }
 
 /**
+ * Independently verifies a response that claims to be the canonical debrief.
+ *
+ * This deliberately does not parse the prose back into grades.  It rebuilds
+ * the evidence ledger from the immutable inputs, renders the only acceptable
+ * output, and then verifies the response, achievement and every provenance
+ * fingerprint byte-for-byte.  That prevents a second, looser text heuristic
+ * from disagreeing with (or silently weakening) the server-owned ledger.
+ */
+export function verifyCanonicalCoachDebrief({
+  text = '',
+  messages = [],
+  rubric = [],
+  scenario = {},
+  responseLanguage = 'cs',
+  lessonEvidence = null,
+  generationProvider = null,
+  achievement = null,
+  provenance = null,
+} = {}) {
+  let expected;
+  try {
+    expected = createCanonicalCoachDebrief({
+      messages,
+      rubric,
+      scenario,
+      responseLanguage,
+      lessonEvidence,
+      generationProvider,
+    });
+  } catch (error) {
+    return deepFreeze({
+      pass: false,
+      issues: ['canonical_rebuild_failed'],
+      shouldRepair: false,
+      achievement: null,
+      provenance: null,
+      ledger: null,
+      errorName: clean(error?.name) || 'Error',
+    });
+  }
+
+  const actualText = String(text || '').trim();
+  const issues = [];
+  if (actualText !== expected.text) issues.push('canonical_output_mismatch');
+  if (!sameCanonicalValue(achievement, expected.achievement)) {
+    issues.push('canonical_achievement_mismatch');
+  }
+  if (!sameCanonicalValue(provenance, expected.provenance)) {
+    issues.push('canonical_provenance_mismatch');
+  }
+  // Keep the output digest check explicit. It catches a text mutation even if
+  // a future caller accidentally omits another field from a comparison.
+  if (fingerprint(actualText) !== expected.provenance.outputFingerprint) {
+    issues.push('canonical_output_fingerprint_mismatch');
+  }
+
+  return deepFreeze({
+    pass: issues.length === 0,
+    issues: [...new Set(issues)],
+    shouldRepair: false,
+    achievement: expected.achievement,
+    provenance: expected.provenance,
+    ledger: expected.ledger,
+  });
+}
+
+/**
  * Renders only ledger facts. It cannot accept model-authored statuses, quotes
  * or priorities, so an eloquent model response can never override the server.
  */
@@ -101,6 +168,7 @@ export function renderCanonicalCoachDebrief({ ledger, generationProvider = null 
     registryVersion: ledger.registryVersion,
     transcriptFingerprint: ledger.transcriptFingerprint,
     rubricFingerprint: ledger.rubricFingerprint,
+    lessonContextFingerprint: ledger.lessonContextFingerprint,
     ledgerFingerprint: ledger.ledgerFingerprint,
     outputFingerprint: fingerprint(text),
   });
@@ -429,6 +497,20 @@ function assertLedger(ledger) {
 
 function fingerprint(value) {
   return createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function sameCanonicalValue(left, right) {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
+function canonicalJson(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  if (value === undefined) return 'undefined';
+  return JSON.stringify(value);
 }
 
 function deepFreeze(value) {

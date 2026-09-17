@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import {
   PROFESSIONAL_COACH_READINESS_CASES,
@@ -23,9 +23,12 @@ import {
   summarizeProfessionalCoachReadiness,
   validateProfessionalCoachReadinessPlan,
 } from '../src/professional-coach-readiness-eval.js';
-import { resolveTrainingModel } from '../src/training.js';
+import { loadCourses } from '../src/courses.js';
+import { attachCourseMastery } from '../src/course-mastery.js';
+import { createTrainingScenario, resolveTrainingModel } from '../src/training.js';
 
 const execFileAsync = promisify(execFile);
+let canonicalProfessionalCoachCoursePromise = null;
 
 export async function runProfessionalCoachReadinessEvaluation(options = {}) {
   const config = resolveConfig(options);
@@ -112,6 +115,7 @@ export async function runProfessionalCoachReadinessEvaluation(options = {}) {
 }
 
 async function runLiveCase(config, selectedCase) {
+  const canonicalScenario = await canonicalScenarioFor(selectedCase);
   const scenario = await getScenario(config, selectedCase);
   if (String(scenario?.scenarioFamilyId || '') !== selectedCase.expectedScenario.scenarioFamilyId
     || String(scenario?.challengeId || '') !== selectedCase.expectedScenario.challengeId) {
@@ -142,6 +146,7 @@ async function runLiveCase(config, selectedCase) {
       selectedCase,
       selectedTurn,
       payload,
+      canonicalScenario,
       previousResponses,
       durationMs: Date.now() - started,
     });
@@ -169,7 +174,8 @@ async function runLiveCase(config, selectedCase) {
   const debrief = evaluateProfessionalCoachDebrief({
     selectedCase,
     payload: debriefPayload,
-    scenario,
+    scenario: canonicalScenario,
+    canonicalScenario,
     messages,
     durationMs: Date.now() - debriefStarted,
   });
@@ -181,6 +187,26 @@ async function runLiveCase(config, selectedCase) {
     debrief,
     transcript: messages,
   });
+}
+
+async function canonicalScenarioFor(selectedCase) {
+  if (!canonicalProfessionalCoachCoursePromise) {
+    canonicalProfessionalCoachCoursePromise = loadCourses([
+      fileURLToPath(new URL('../data/course-profesionalni-life-coach.md', import.meta.url)),
+    ]).then(([course]) => attachCourseMastery(course));
+  }
+  const course = await canonicalProfessionalCoachCoursePromise;
+  const item = course.modules
+    .flatMap(module => module.items || [])
+    .find(candidate => candidate.id === selectedCase.itemId);
+  if (!item) throw new Error(`Kanonická část kurzu ${selectedCase.itemId} nebyla nalezena.`);
+  return createTrainingScenario(
+    course,
+    item,
+    selectedCase.difficulty,
+    selectedCase.expectedScenario?.id || null,
+    null,
+  );
 }
 
 async function getScenario(config, selectedCase) {

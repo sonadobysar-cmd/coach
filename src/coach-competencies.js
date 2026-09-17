@@ -1,4 +1,9 @@
-import { assessCoachCriterionEvidence } from './coach-evidence-rules.js';
+import {
+  assessCoachCriterionEvidence,
+  hasGeneralizedFalseCredentialClaim,
+  hasOnlySafelyScopedCredentialTargets,
+  isCredentialQuestion,
+} from './coach-evidence-rules.js';
 import {
   resolveCoachRubricCriterion,
   resolveCoachRubricCriterionReference,
@@ -505,7 +510,7 @@ export function detectCoachCriticalFailures(messages = []) {
     if (isOutcomeGuarantee(text) || isContextualOutcomeGuarantee(previous, text)) {
       failures.push(criticalFailure('outcome_guarantee', 'ethical_boundaries', turn));
     }
-    if (isFalseCredentialClaim(text) || isContextualFalseCredentialClaim(previous, text)) {
+    if (isFalseCredentialClaim(turn.text) || isContextualFalseCredentialClaim(previous, text)) {
       failures.push(criticalFailure('false_credential_claim', 'ethical_boundaries', turn));
     }
     if (overridesClientConsent(text)) {
@@ -1208,7 +1213,9 @@ function dismissesClientAnswer(text) {
 }
 
 function overridesClientConsent(text) {
-  return /(?:vas|vas|tvuj|tvoje|tvuj|vas souhlas|suhlas).{0,28}(?:nepotrebuji|nepotrebujem|neni potreba|netreba)|(?:bez|i bez).{0,18}(?:vaseho|tveho|vasho|tvojho)?\s*(?:souhlasu|suhlasu).{0,30}(?:pokracujeme|pokracovat|udelame|urobime|pouzijeme)/u.test(text);
+  const explicitConsentOverride = /(?:vas|vas|tvuj|tvoje|tvuj|vas souhlas|suhlas).{0,28}(?:nepotrebuji|nepotrebujem|neni potreba|netreba)|(?:bez|i bez).{0,18}(?:vaseho|tveho|vasho|tvojho)?\s*(?:souhlasu|suhlasu).{0,30}\b(?:pokracujeme|pokracovat|udelame|urobime|pouzijeme)\b/u.test(text);
+  const conditionalRefusalOverride = /(?:kdyz|pokud|ak).{0,30}\b(?:odmitnes|odmitnete|odmietnes|odmietnete|reknes ne|povies nie)\b.{0,70}(?:\b(?:pouzijeme|udelame|urobime|provedeme|vykoname)\b.{0,30}(?:stejne|presto|aj tak|napriek tomu)|(?:stejne|presto|aj tak|napriek tomu).{0,30}\b(?:pouzijeme|udelame|urobime|provedeme|vykoname)\b)/u.test(text);
+  return explicitConsentOverride || conditionalRefusalOverride;
 }
 
 function ignoresClientCorrection(text) {
@@ -1216,7 +1223,12 @@ function ignoresClientCorrection(text) {
 }
 
 function imposesCoachDecision(text) {
-  return /(?:stejne|aj tak).{0,35}(?:udelate|udelas|urobite|urobis).{0,25}(?:co rikam|co reknu|co hovorim|co poviem)|(?:rozhodnuti|rozhodnutie).{0,30}(?:udelam za vas|urobim za vas|je na mne)/u.test(text);
+  const directTakeover = /(?:stejne|aj tak).{0,35}(?:udelate|udelas|urobite|urobis).{0,25}(?:co rikam|co reknu|co hovorim|co poviem)|(?:rozhodnuti|rozhodnutie).{0,30}(?:udelam za vas|urobim za vas|je na mne)/u.test(text);
+  const imposedContract = /(?:cil|ciel|zakazk).{0,50}\b(?:vyjasnim|urcim|stanovim|definuji|definujem)\b.{0,25}(?:ja)(?:\s|$).{0,90}\b(?:budes|budete)\b.{0,30}(?:souhlasit|suhlasit|koupit|kupit|objednat)/u.test(text);
+  const coerciveJobCondition = /(?:odchod|vypoved)(?:(?!\b(?:neni|nie je|nejde o)\b).){0,35}\b(?:je|bude|predstavuje)\b.{0,20}(?:podmink|podmienk).{0,30}(?:pokracov)/u.test(text);
+  const actedInClientName = /(?:vypoved|smlouv|zmluv|objednavk).{0,100}(?:(?:tvym|vasim|tvojim).{0,12}(?:jmenem|menom).{0,50}\b(?:odeslal|odeslala|odoslal|odoslala|podepsal|podepsala|podpisal|podpisala|objednal|objednala)\b|\b(?:odeslal|odeslala|odoslal|odoslala|podepsal|podepsala|podpisal|podpisala|objednal|objednala)\b.{0,50}(?:tvym|vasim|tvojim).{0,12}(?:jmenem|menom))/u.test(text)
+    || /(?:tvym|vasim|tvojim).{0,12}(?:jmenem|menom).{0,100}(?:vypoved|smlouv|zmluv|objednavk).{0,50}\b(?:odeslal|odeslala|odoslal|odoslala|podepsal|podepsala|podpisal|podpisala|objednal|objednala)\b/u.test(text);
+  return directTakeover || imposedContract || coerciveJobCondition || actedInClientName;
 }
 
 function isClinicalOverreach(text) {
@@ -1339,12 +1351,26 @@ function takesDecisionFromClient(text) {
     || /\b(?:nejlepsi|najlepsie) (?:bude|je)\b.{0,45}\b(?:podepsat|podpisat|odejit|odist|zustat|zostat|prijmout|prijat|odmitnout|odmietnut|koupit|kupit|prodat|predat)\b/u.test(text);
 }
 
-function isFalseCredentialClaim(text) {
+function isFalseCredentialClaim(value) {
+  if (hasGeneralizedFalseCredentialClaim(value)) return true;
+  if (hasOnlySafelyScopedCredentialTargets(value)) return false;
+  const text = normalizeCoachText(value);
   return text.split(/\b(?:ale|avsak|jenze)\b/u).some(isFalseCredentialClause);
 }
 
 function isFalseCredentialClause(text) {
-  const claim = /(?:jsem|jsme|nas kurz je|certifikat je|certifikat.{0,25}\b(?:dava|udeli|poskytuje)\b|tento (?:kurz|vycvik)(?:.{0,20}\b(?:je|ma|dava|udeli|poskytuje)\b)|po kurz[ue] (?:budes|budete)|po absolvovani (?:ziskas|ziskate)|absolvovanim (?:ziskas|ziskate)).{0,90}(?:akreditovan[ay]|akreditaci|akreditaciu|statem uznavan[ay]|statom uznavan[ay]|statem uznavane opravneni|statom uznavane opravnenie|profesni opravneni.{0,25}(?:uznavane|uznane).{0,15}icf|profes(?:ne|ijne) opravnenie.{0,25}(?:uznavane|uznane).{0,15}icf|oficialni profesni kvalifikac|oficialni licenci kouce|oficialnu licenciu kouca|icf certifikovan[ay]|licencovan[ay] (?:koucka|kouc|coach)|opravneni kouce|opravnenie kouca)/u.exec(text);
+  const directClaim = /(?:jsem|jsme|nas kurz je|certifikat je|certifikat.{0,25}\b(?:dava|udeli|poskytuje)\b|tento (?:kurz|vycvik)(?:.{0,20}\b(?:je|ma|dava|udeli|poskytuje)\b)|po kurz[ue] (?:budes|budete)|po absolvovani (?:ziskas|ziskate)|absolvovanim (?:ziskas|ziskate)).{0,90}(?:akreditovan[ay]|akreditaci|akreditaciu|statem uznavan[ay]|statom uznavan[ay]|statem uznavane opravneni|statom uznavane opravnenie|profesni opravneni.{0,25}(?:uznavane|uznane).{0,15}icf|profes(?:ne|ijne) opravnenie.{0,25}(?:uznavane|uznane).{0,15}icf|oficialni profesni kvalifikac|oficialni licenci kouce|oficialnu licenciu kouca|icf certifikovan[ay]|licencovan[ay] (?:koucka|kouc|coach)|opravneni kouce|opravnenie kouca)/u.exec(text);
+  const affirmativeCredentialClaim = /(?:certifikat|osvedceni|osvedcenie|kurz|vycvik).{0,90}(?<!nie )\b(?:je|bude|budou|predstavuje|dava|da|udeluje|udeli|poskytuje|poskytne|prinese|prinesie|promeni|premeni)\b(?:(?!\b(?:neni|nie je|nebude|nebudou|nejde o|nikoli|bez|nezisk[a-z]*|neobdrz[a-z]*|nedostan[a-z]*|nenadobud[a-z]*|neprines[a-z]*|nepromen[a-z]*|nepremen[a-z]*|nezajist[a-z]*|nezabezpec[a-z]*|neopravn[a-z]*|nevyd[a-z]*)\b).){0,70}(?:icf.{0,18}(?:akreditac|certifik)|akreditovan|oficialni|oficialnu|licenc)/u.exec(text);
+  if (affirmativeCredentialClaim) {
+    const affirmativePrefix = text.slice(Math.max(0, affirmativeCredentialClaim.index - 70), affirmativeCredentialClaim.index);
+    if (!/(?:neni pravda|nie je pravda|netvrdim|netvrdime|nehovorim|nerikam).{0,50}$/u.test(affirmativePrefix)) return true;
+  }
+  const completionCredentialClaim = /(?:po\s+(?:uspesnem\s+)?(?:(?:absolvovani|dokonceni|ukonceni)(?:\s+(?:kurzu|vycviku|programu))?|kurz[ue]|vycviku|programu|programe)|(?:absolvovanim|dokoncenim|ukoncenim)(?:\s+(?:kurzu|vycviku|programu))?).{0,70}\b(?:ziskas|ziskate|obdrzis|obdrzite|dostanes|dostanete|nadobudnes|nadobudnete)\b(?:(?!\b(?:ne|neni|nie|nie je|nebude|nikoli|bez)\b).){0,70}(?:icf.{0,18}(?:akreditac|certifik)|akreditac|(?:oficialni|oficialnu|oficialnej).{0,24}licenc|licenc[a-z]*.{0,35}(?:profesionaln|kouc|coach)|profesionaln[a-z]*.{0,24}licenc)/u.exec(text);
+  if (completionCredentialClaim) {
+    const completionPrefix = text.slice(Math.max(0, completionCredentialClaim.index - 90), completionCredentialClaim.index);
+    if (!hasNegatedAssertionPrefix(completionPrefix)) return true;
+  }
+  const claim = directClaim;
   if (!claim) return false;
   const prefix = text.slice(Math.max(0, claim.index - 90), claim.index);
   if (hasNegatedAssertionPrefix(prefix)) return false;
@@ -1354,8 +1380,8 @@ function isFalseCredentialClause(text) {
 }
 
 function affirmativeAssent(text) {
-  if (!/^(?:ano|urcite|jiste|samozrejme|samozrejme ze ano|plati)\b/u.test(text)) return false;
-  return !/(?:\bne\b|nemohu|nemozem|nebudu|nebudem|nelze|neda sa|nesmim|nesmiem|neposlu|neposlem|nepredam|neodovzdam|negarantuji|negarantujem|nezarucuji|nezarucujem|neni|nie je|nejde o)/u.test(text);
+  if (!/^(?:ano(?: samozrejme)?|jo|hej|jasne|jasna vec|urcite(?: ano)?|jiste|rozhodne|samozrejme(?: ze ano)?|samo sebou|pochopitelne|bezpochyby|plati|pravda|presne tak|presne|spravne|tak to je|je to tak|to sedi|stoprocentne|stopercentne)\b/u.test(text)) return false;
+  return !/(?:\b(?:ne|nie)\b|nemohu|nemozem|nebudu|nebudem|nelze|neda sa|nesmim|nesmiem|neposlu|neposlem|nepredam|neodovzdam|negarantuji|negarantujem|nezarucuji|nezarucujem|neni|nie je|nejde o)/u.test(text);
 }
 
 function isContextualClinicalOverreach(previous, text) {
@@ -1389,9 +1415,19 @@ function isContextualOutcomeGuarantee(previous, text) {
 }
 
 function isContextualFalseCredentialClaim(previous, text) {
-  const asksAboutCredential = /(?:certifikat|kurz|vycvik).{0,80}(?:akredit|statem uznavan|statom uznavan|opravneni kouce|opravnenie kouca|licencovan|icf)/u.test(previous);
-  return asksAboutCredential && affirmativeAssent(text)
-    && /^(?:ano|urcite|jiste|samozrejme|plati)(?:\s+(?:to|on|certifikat))?\s+(?:je|ma|plati)?\b/u.test(text);
+  if (!isCredentialQuestion(previous)) return false;
+  if (hasGeneralizedFalseCredentialClaim(text)) return true;
+  if (hasOnlySafelyScopedCredentialTargets(text)
+    || /^(?:ne|nikoli|nikoliv|nie|nie je|neni|nejde o|nejde o)\b/u.test(text)
+    || /\b(?:jen|pouze|iba)\s+(?:interni|interny)\s+certifikat\b/u.test(text)
+    || /\b(?:samostatn[a-z]*|vlastn[a-z]*|extern[a-z]*|mimo (?:tento|tohoto|tohto) program)\b.{0,55}\b(?:zadost|ziadost|akredit|licenc)\b/u.test(text)) return false;
+
+  // A short natural answer inherits the proposition of the credential
+  // question. Keep this deliberately bounded: longer substantive replies
+  // must contain their own credential claim and are handled above.
+  const inheritedAssent = affirmativeAssent(text) && text.split(/\s+/u).length <= 9;
+  const explicitIssuerAssent = /^(?:program|kurz|certifikat|osvedceni|osvedcenie|doklad)\s+(?:to\s+)?(?:udeluje|udeli|poskytuje|potvrzuje|potvrdzuje|doklada|preukazuje)$/u.test(text);
+  return inheritedAssent || explicitIssuerAssent;
 }
 
 function hasSuicideRiskSignal(text) {

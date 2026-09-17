@@ -504,16 +504,28 @@ export function resolveCoachRubricCriterion(label, context = {}) {
     return Object.freeze({ resolved: false, reason: 'empty_criterion', label: String(label || '') });
   }
 
-  const exact = EXACT_REGISTRY.get(normalizedLabel);
-  if (exact) return exact;
-
   if (GENERIC_CURRENT_LESSON_LABELS.has(normalizedLabel)) {
     return resolveLessonBoundCriterion(label, context);
   }
 
+  const exact = EXACT_REGISTRY.get(normalizedLabel);
+
+  // Lesson-specific labels also occur in the audited catalogue. They must
+  // nevertheless be resolved from the currently opened server-owned item;
+  // returning the static registry entry first would silently discard the
+  // course/item/module binding and make the lesson proof impossible to verify.
   if (DYNAMIC_LESSON_CRITERION_PREFIXES.some(prefix => normalizedLabel.startsWith(prefix))) {
+    const hasLessonContext = canonicalModuleIndex(context) !== null
+      && Boolean(String(context.itemTitle || context.item?.title || context.scenario?.itemTitle || '').trim())
+      && Boolean(String(context.itemId || context.item?.id || context.scenario?.itemId || '').trim());
+    // Context-free lookups are still used to map a known audited label to its
+    // competency in passport/reporting code. They cannot prove evidence. The
+    // evidence ledger always supplies the exact server-owned lesson context.
+    if (!hasLessonContext && exact) return exact;
     return resolveLessonBoundCriterion(label, context, { requireTitleMatch: true });
   }
+
+  if (exact) return exact;
 
   return Object.freeze({
     resolved: false,

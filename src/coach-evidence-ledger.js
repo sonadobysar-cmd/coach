@@ -4,7 +4,11 @@ import {
   indexedCoachStudentTurns,
   requiredCoachEvidenceCount,
 } from './coach-competencies.js';
-import { assessCoachCriterionEvidence } from './coach-evidence-rules.js';
+import {
+  assessCoachCriterionEvidence,
+  hasConsequencesMappingContradiction,
+  mentionsConsequencesAndOptions,
+} from './coach-evidence-rules.js';
 import {
   COACH_RUBRIC_REGISTRY_VERSION,
   normalizeCoachRubricLabel,
@@ -98,6 +102,7 @@ export function buildCoachEvidenceLedger({
       && entry.resolved
       && isObservedCompetencyFailure({
         competencyId: entry.competencyId,
+        normalizedLabel: entry.normalizedLabel,
         attempt,
         turns,
       })
@@ -105,7 +110,7 @@ export function buildCoachEvidenceLedger({
       reference: attempt.reference,
       turnIndex: attempt.turnIndex,
       quote: attempt.quote,
-      reason: observedFailureReason(entry.competencyId),
+      reason: observedFailureReason(entry.competencyId, entry.normalizedLabel),
     }));
     const status = rowStatus({
       resolved: entry.resolved === true,
@@ -152,17 +157,24 @@ export function buildCoachEvidenceLedger({
       && criticalFailures.length === 0
       && rows.every(row => row.status === 'proven'),
   });
-  const transcriptFingerprint = fingerprint(turns.map(turn => ({
-    reference: turn.reference,
-    text: turn.text,
-    previousCounterpartText: turn.previousCounterpartText,
-    nextCounterpartText: turn.nextCounterpartText,
-  })));
+  // Bind the ledger to the complete transcript, not only to the projected
+  // student turns used for competency evidence. Otherwise an extra assistant
+  // or system message outside the projection could change the real session
+  // while leaving a previously issued canonical debrief apparently valid.
+  const transcriptFingerprint = fingerprint((Array.isArray(messages) ? messages : [])
+    .map((message, index) => ({
+      index,
+      role: clean(message?.role) || null,
+      content: clean(message?.content),
+    }))
+    .filter(message => message.content));
   const rubricFingerprint = fingerprint(rows.map(row => ({
     label: row.label,
     normalizedLabel: row.normalizedLabel,
     evidenceRuleId: row.evidenceRuleId,
   })));
+  const lessonContext = canonicalLessonContext(scenario);
+  const lessonContextFingerprint = fingerprint(lessonContext);
   const unsignedLedger = {
     schemaVersion: 1,
     evidenceEngine: COACH_EVIDENCE_LEDGER_ID,
@@ -176,10 +188,27 @@ export function buildCoachEvidenceLedger({
     summary,
     transcriptFingerprint,
     rubricFingerprint,
+    lessonContext,
+    lessonContextFingerprint,
   };
   return deepFreeze({
     ...unsignedLedger,
     ledgerFingerprint: fingerprint(unsignedLedger),
+  });
+}
+
+function canonicalLessonContext(scenario = {}) {
+  const moduleValue = scenario?.moduleIndex ?? scenario?.item?.moduleIndex;
+  const moduleIndex = Number(moduleValue);
+  return Object.freeze({
+    scenarioId: clean(scenario?.id) || null,
+    scenarioFamilyId: clean(scenario?.scenarioFamilyId) || null,
+    difficulty: clean(scenario?.difficulty) || null,
+    courseId: clean(scenario?.courseId) || null,
+    itemId: clean(scenario?.itemId || scenario?.item?.id) || null,
+    itemTitle: clean(scenario?.itemTitle || scenario?.item?.title) || null,
+    itemKind: clean(scenario?.itemKind || scenario?.item?.kind) || null,
+    moduleIndex: Number.isInteger(moduleIndex) && moduleIndex >= 0 ? moduleIndex : null,
   });
 }
 
@@ -281,9 +310,15 @@ function signalsCorrection(value) {
   return /(?:\bne\b|\bnie\b|nechci|nechcem|to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to|takto som to|nemysl|oprav|nesedi|nesedí|nerozum)/iu.test(clean(value));
 }
 
-function isObservedCompetencyFailure({ competencyId, attempt, turns }) {
+function isObservedCompetencyFailure({ competencyId, normalizedLabel, attempt, turns }) {
   const turn = turns.find(candidate => candidate.index === attempt.turnIndex);
   if (!turn) return false;
+  if (/jsou zmapovany dusledky a moznosti/u.test(normalizedLabel)
+    && !attempt.relevant
+    && (hasConsequencesMappingContradiction(attempt.quote)
+      || mentionsConsequencesAndOptions(attempt.quote))) {
+    return true;
+  }
   if (competencyId === 'active_listening') {
     return signalsCorrection(turn.nextCounterpartText);
   }
@@ -306,7 +341,10 @@ function signalsAllianceCorrection(value) {
   return /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|to som nepovedal|to som nepovedala|takhle jsem to|takto som to|neposlouch|nepočúv|neslysiš|neslyšíš|nepocujes|nepočuješ|nerozumel|nerozuměl|nerozumela|nerozuměla|nerozumies|nerozumíš|domyslel|domyslela|podsouv|pridavas mi|přidáváš mi)/iu.test(text);
 }
 
-function observedFailureReason(competencyId) {
+function observedFailureReason(competencyId, normalizedLabel = '') {
+  if (/jsou zmapovany dusledky a moznosti/u.test(normalizedLabel)) {
+    return 'later_turn_omitted_consequences_or_options';
+  }
   return competencyId === 'active_listening'
     ? 'counterpart_corrected_added_or_misheard_meaning'
     : 'counterpart_correction_was_not_repaired';

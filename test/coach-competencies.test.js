@@ -23,6 +23,7 @@ import {
   createCourseTrainer,
   createTrainingScenario,
 } from '../src/training.js';
+import { buildCoachEvidenceLedger } from '../src/coach-evidence-ledger.js';
 
 const COURSE_ID = PROFESSIONAL_LIFE_COACH_COURSE_ID;
 
@@ -1459,6 +1460,60 @@ test('evidence guide u mastery retry najde nejméně čtyři skutečně doložen
   const guide = buildCoachDebriefEvidenceGuide(messages, rubric, 'cs');
   assert.match(guide, /Konkrétní uzavření nebo další krok[\s\S]*\[S3\]/u);
   assert.match(guide, /Autonomie rozhodnutí zůstává klientce[\s\S]*\[S1\]/u);
+});
+
+test('kanonický ledger dosáhne release minim na záměrně silných CZ/SK tazích bez oslabení důkazu', () => {
+  const fullRubric = [
+    'Jasný kontrakt a výsledek rozhovoru',
+    'Volba metody podle reakce klientky, s vysvětleným účelem a možností rámec odložit',
+    'Rozlišení koučinku, mentoringu a garance výsledku',
+    'Důvěrnost a reporting vyjednané předem',
+    'Klientkou zvolený a ověřitelný další krok',
+    'Pravdivé vysvětlení nabídky, ceny a interního certifikátu',
+  ];
+  const fullSessionTurns = {
+    cs: [
+      'Než půjdeme dál: co by pro tebe bylo užitečným výsledkem dnešního rozhovoru a podle čeho na konci poznáš, že jsme ho dosáhly?',
+      'Výsledek ani vyšší příjem ti nemohu zaručit. Koučink ti pomůže zpřesnit cíl, možnosti a vlastní kroky; rozhodnutí a jednání zůstává na tobě. Interní certifikát kurzu není ICF akreditace.',
+      'Obsah sezení ani poznámky firmě bez tvého předchozího souhlasu nepředám. Předem můžeme společně dohodnout jen účast, společný cíl nebo výsledkovou metriku. Je taková hranice pro tebe přijatelná?',
+      'Mohu ti nabídnout krátkou mapu toho, co je ve tvém vlivu a co závisí na trhu, abychom našly poctivý první krok. Chceš ji použít?',
+      'Který konkrétní krok si volíš, dokdy ho uděláš a podle čeho poznáš, že proběhl?',
+    ],
+    sk: [
+      'Než pôjdeme ďalej: čo by bolo pre teba užitočným výsledkom dnešného rozhovoru a podľa čoho na konci spoznáš, že sme ho dosiahli?',
+      'Výsledok ani vyšší príjem ti nemôžem zaručiť. Koučink ti pomôže spresniť cieľ, možnosti a vlastné kroky; rozhodnutie a konanie zostáva na tebe. Interný certifikát kurzu nie je ICF akreditácia.',
+      'Obsah sedenia ani poznámky firme bez tvojho predchádzajúceho súhlasu neposkytnem. Vopred môžeme spoločne dohodnúť iba účasť, spoločný cieľ alebo výsledkovú metriku. Je táto hranica pre teba prijateľná?',
+      'Môžem ti ponúknuť krátku mapu toho, čo je vo tvojom vplyve a čo závisí od trhu, aby sme našli poctivý prvý krok. Chceš ju použiť?',
+      'Ktorý konkrétny krok si volíš, dokedy ho urobíš a podľa čoho spoznáš, že prebehol?',
+    ],
+  };
+  for (const language of ['cs', 'sk']) {
+    const messages = [{ role: 'assistant', content: language === 'sk' ? 'Chcem zmeniť prácu.' : 'Chci změnit práci.' }];
+    for (const quote of fullSessionTurns[language]) {
+      messages.push({ role: 'user', content: quote }, { role: 'assistant', content: language === 'sk' ? 'Rozumiem.' : 'Rozumím.' });
+    }
+    const ledger = buildCoachEvidenceLedger({ messages, rubric: fullRubric, responseLanguage: language });
+    assert.equal(ledger.summary.proven, 6, `${language}: ${ledger.rows.filter(row => row.status !== 'proven').map(row => row.label).join(' | ')}`);
+  }
+
+  const decisionMessages = [
+    { role: 'assistant', content: 'Rozhodni za mě, jestli mám dát výpověď.' },
+    { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+    { role: 'assistant', content: 'Co tedy potřebuji zvážit?' },
+    { role: 'user', content: 'Než uděláš nevratný krok, co potřebuješ zjistit o financích, výpovědní době a bezpečnějších variantách?' },
+    { role: 'assistant', content: 'Potřebuji nejdřív data.' },
+    { role: 'user', content: 'Jaký nejmenší vratný krok si vybereš, do kdy ho uděláš a kdy své rozhodnutí znovu vyhodnotíš?' },
+  ];
+  const decisionLedger = buildCoachEvidenceLedger({
+    messages: decisionMessages,
+    rubric: [
+      'Konkrétní uzavření nebo další krok',
+      'Autonomie rozhodnutí zůstává klientce; koučka neurčuje odchod ani setrvání',
+      'Jsou zmapovány důsledky a možnosti',
+      'Vznikne vratný mezikrok nebo čas na rozhodnutí',
+    ],
+  });
+  assert.equal(decisionLedger.summary.proven, 4);
 });
 
 test('evidence guide nikdy nechválí obcházení právníka ani převzetí klientčina rozhodnutí', () => {

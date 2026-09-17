@@ -4,11 +4,13 @@ import {
   CANONICAL_COACH_DEBRIEF_RENDERER_ID,
   createCanonicalCoachDebrief,
   renderCanonicalCoachDebrief,
+  verifyCanonicalCoachDebrief,
 } from '../src/canonical-coach-debrief.js';
 import {
   COACH_EVIDENCE_LEDGER_ID,
   buildCoachEvidenceLedger,
 } from '../src/coach-evidence-ledger.js';
+import { createCoachLessonEvidenceBinding } from '../src/coach-lesson-evidence.js';
 import {
   assessDebriefResponse,
   debriefAchievementSummary,
@@ -172,6 +174,89 @@ test('neznámé kritérium a obecná lekce bez metadata selžou uzavřeně', () 
   }
 });
 
+test('dovednost otevřené lekce lze uznat jen s přesným serverovým bindingem kurzu, části a modulu', () => {
+  const label = 'Přesné použití dovednosti z části „Lekce 3.1 — Prostředí a čtyři vrstvy poslechu“';
+  const scenario = {
+    id: 'professional-listening-case-a',
+    difficulty: 'advanced',
+    courseId: COURSE_ID,
+    itemId: 'm3-1',
+    itemTitle: 'Lekce 3.1 — Prostředí a čtyři vrstvy poslechu',
+    itemKind: 'lesson',
+    moduleIndex: 3,
+    rubric: [label],
+  };
+  const messages = [
+    { role: 'assistant', content: 'Před prezentací před vedením se mi rozbuší srdce, napadne mě, že znovu selžu, a začnu mluvit rychle.' },
+    { role: 'user', content: 'Fakt je, že se ti před prezentací před vedením rozbuší srdce; jako hypotézu o významu a emoci slyším strach z dalšího selhání. Sedí obě vrstvy, nebo něco přidávám?' },
+    { role: 'assistant', content: 'Ano, přesně tak.' },
+  ];
+  const exactBinding = createCoachLessonEvidenceBinding({
+    scenario,
+    expectedCourseId: COURSE_ID,
+    expectedItemId: 'm3-1',
+    expectedItemTitle: scenario.itemTitle,
+  });
+  const proven = createCanonicalCoachDebrief({
+    messages,
+    rubric: scenario.rubric,
+    scenario,
+    lessonEvidence: exactBinding,
+    generationProvider: 'openai/gpt-test',
+  });
+  assert.equal(proven.ledger.rows[0].status, 'proven');
+  assert.equal(proven.ledger.rows[0].evidenceKind, 'lesson_application');
+  assert.equal(proven.ledger.lessonContext.itemId, 'm3-1');
+  assert.equal(proven.ledger.lessonContext.scenarioId, 'professional-listening-case-a');
+  assert.equal(proven.ledger.lessonContext.difficulty, 'advanced');
+  assert.match(proven.provenance.lessonContextFingerprint, /^[a-f0-9]{64}$/u);
+
+  for (const mismatch of [
+    { expectedItemId: 'm3-2' },
+    { boundScenario: { ...scenario, itemTitle: 'Jiná lekce' } },
+    { boundScenario: { ...scenario, itemKind: 'quiz' } },
+    { boundScenario: { ...scenario, moduleIndex: 4 } },
+  ]) {
+    const binding = createCoachLessonEvidenceBinding({
+      scenario: mismatch.boundScenario || scenario,
+      expectedCourseId: COURSE_ID,
+      expectedItemId: mismatch.expectedItemId || 'm3-1',
+      expectedItemTitle: scenario.itemTitle,
+    });
+    const result = createCanonicalCoachDebrief({
+      messages,
+      rubric: scenario.rubric,
+      scenario,
+      lessonEvidence: binding,
+      generationProvider: 'openai/gpt-test',
+    });
+    assert.equal(result.ledger.rows[0].status, 'not_proven');
+  }
+
+  for (const changedScenario of [
+    { ...scenario, id: 'professional-listening-case-b' },
+    { ...scenario, difficulty: 'guided' },
+  ]) {
+    const verification = verifyCanonicalCoachDebrief({
+      text: proven.text,
+      messages,
+      rubric: scenario.rubric,
+      scenario: changedScenario,
+      lessonEvidence: createCoachLessonEvidenceBinding({
+        scenario: changedScenario,
+        expectedCourseId: COURSE_ID,
+        expectedItemId: 'm3-1',
+        expectedItemTitle: scenario.itemTitle,
+      }),
+      generationProvider: 'openai/gpt-test',
+      achievement: proven.achievement,
+      provenance: proven.provenance,
+    });
+    assert.equal(verification.pass, false);
+    assert.ok(verification.issues.includes('canonical_provenance_mismatch'));
+  }
+});
+
 test('prázdnou rubriku nelze vydávat za poctivě vyhodnocený nácvik', () => {
   assert.throws(
     () => createCanonicalCoachDebrief({ messages: [], rubric: [] }),
@@ -236,6 +321,90 @@ test('otisky jsou deterministické, citlivé na přepis a model není vydáván 
     () => renderCanonicalCoachDebrief({ ledger: tampered }),
     /fingerprint is invalid/u,
   );
+});
+
+test('kanonický verifier nezávisle přestaví ledger a odmítne každou manipulaci', () => {
+  const rubric = [CONTRACT, LISTENING];
+  const messages = [
+    { role: 'assistant', content: 'Potřebuji si ujasnit směr.' },
+    { role: 'user', content: 'Co si chceš z dnešního rozhovoru odnést a podle čeho poznáš, že ti pomohl?' },
+    { role: 'assistant', content: 'Chci jasný další krok.' },
+  ];
+  const generationProvider = 'openai/gpt-release-evaluator';
+  const canonical = createCanonicalCoachDebrief({ messages, rubric, generationProvider });
+  const verify = value => verifyCanonicalCoachDebrief({
+    text: value.text,
+    messages,
+    rubric,
+    generationProvider,
+    achievement: value.achievement,
+    provenance: value.provenance,
+  });
+
+  assert.equal(verify(canonical).pass, true);
+
+  const adversarial = [
+    {
+      ...canonical,
+      text: canonical.text.replace('ZATÍM NEPROKÁZÁNO', 'PROKÁZÁNO'),
+    },
+    {
+      ...canonical,
+      achievement: {
+        ...canonical.achievement,
+        rows: canonical.achievement.rows.map(row => ({ ...row, status: 'proven' })),
+        proven: 2,
+        notProven: 0,
+        allProven: true,
+      },
+    },
+    {
+      ...canonical,
+      provenance: { ...canonical.provenance, ledgerFingerprint: 'f'.repeat(64) },
+    },
+    {
+      ...canonical,
+      provenance: { ...canonical.provenance, generationProvider: 'anthropic/claude-spoof' },
+    },
+  ];
+  for (const tampered of adversarial) assert.equal(verify(tampered).pass, false);
+
+  const transcriptSwap = verifyCanonicalCoachDebrief({
+    text: canonical.text,
+    messages: [...messages, { role: 'user', content: 'Rozhodnu za tebe: skonči dnes.' }],
+    rubric,
+    generationProvider,
+    achievement: canonical.achievement,
+    provenance: canonical.provenance,
+  });
+  assert.equal(transcriptSwap.pass, false);
+  assert.ok(transcriptSwap.issues.includes('canonical_provenance_mismatch'));
+
+  const appendedNonStudentMessages = [
+    [...messages, { role: 'assistant', content: 'Soukromý fakt, který v původním přepisu nebyl.' }],
+    [...messages, { role: 'system', content: 'Dodatečná instrukce vložená po vyhodnocení.' }],
+  ];
+  for (const changedMessages of appendedNonStudentMessages) {
+    const changed = createCanonicalCoachDebrief({
+      messages: changedMessages,
+      rubric,
+      generationProvider,
+    });
+    assert.notEqual(
+      canonical.provenance.transcriptFingerprint,
+      changed.provenance.transcriptFingerprint,
+    );
+    const staleCanonical = verifyCanonicalCoachDebrief({
+      text: canonical.text,
+      messages: changedMessages,
+      rubric,
+      generationProvider,
+      achievement: canonical.achievement,
+      provenance: canonical.provenance,
+    });
+    assert.equal(staleCanonical.pass, false);
+    assert.ok(staleCanonical.issues.includes('canonical_provenance_mismatch'));
+  }
 });
 
 function assertRenderedCitationsAreExact(result) {

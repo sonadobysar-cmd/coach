@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { posix } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import {
   PROFESSIONAL_COACH_READINESS_CASES,
@@ -37,11 +38,21 @@ import {
   professionalCoachReadinessRequestHeaders,
   runProfessionalCoachReadinessEvaluation,
 } from '../scripts/evaluate-professional-coach-readiness.mjs';
-import { CANONICAL_COACH_DEBRIEF_RENDERER_ID } from '../src/canonical-coach-debrief.js';
+import {
+  CANONICAL_COACH_DEBRIEF_RENDERER_ID,
+  createCanonicalCoachDebrief,
+} from '../src/canonical-coach-debrief.js';
 import { COACH_EVIDENCE_LEDGER_ID } from '../src/coach-evidence-ledger.js';
+import { loadCourses } from '../src/courses.js';
+import { attachCourseMastery } from '../src/course-mastery.js';
+import { createTrainingScenario, publicTrainingScenario } from '../src/training.js';
 
 const RUNTIME_CLAIM_SECRET = 'elitea-test-release-eval-secret-0000000000000000';
 const OUTCOME_ATTESTATION_SECRET = 'elitea-test-outcome-attestation-secret-000000000000';
+const [CANONICAL_PROFESSIONAL_COACH_COURSE] = await loadCourses([
+  fileURLToPath(new URL('../data/course-profesionalni-life-coach.md', import.meta.url)),
+]);
+attachCourseMastery(CANONICAL_PROFESSIONAL_COACH_COURSE);
 
 test('release podpisy vyžadují dvě nezávislá tajemství', () => {
   assert.equal(professionalCoachReleaseSecretsIndependent(
@@ -119,6 +130,7 @@ test('roleplay gate vyžaduje živý model, správnou klientskou roli, scénář
     selectedCase,
     selectedTurn,
     payload: roleplayPayload(selectedCase, 'Potřebuji si ujasnit, co mi můžeš reálně nabídnout a podle čeho se potom rozhodnu.'),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
     previousResponses: ['Jiná dřívější odpověď modelové klientky.'],
     durationMs: 1234,
   });
@@ -130,6 +142,7 @@ test('roleplay gate vyžaduje živý model, správnou klientskou roli, scénář
   const invalid = evaluateProfessionalCoachRoleplayTurn({
     selectedCase,
     selectedTurn,
+    canonicalScenario: canonicalScenarioFor(selectedCase),
     payload: {
       ...roleplayPayload(selectedCase, 'Jako modelová klientka ti doporučuji správnou odpověď pro studentku.'),
       provider: 'demo-no-api-key',
@@ -148,6 +161,7 @@ test('roleplay gate vyžaduje živý model, správnou klientskou roli, scénář
   const selfIdentifiedAi = evaluateProfessionalCoachRoleplayTurn({
     selectedCase,
     selectedTurn: selectedCase.turns[2],
+    canonicalScenario: canonicalScenarioFor(selectedCase),
     payload: roleplayPayload(
       selectedCase,
       'Jsem AI model; nejdůležitější je pro mě změna práce kvůli příjmu.',
@@ -168,6 +182,7 @@ test('roleplay gate odmítne smyčku i generickou repliku bez posunu případu',
     selectedCase,
     selectedTurn,
     payload: roleplayPayload(selectedCase, repeated),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
     previousResponses: [repeated],
   });
   assert.equal(result.pass, false);
@@ -177,8 +192,157 @@ test('roleplay gate odmítne smyčku i generickou repliku bez posunu případu',
     selectedCase,
     selectedTurn,
     payload: roleplayPayload(selectedCase, 'Nevím.'),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
   });
   assert.equal(generic.checks.find(check => check.name === 'natural-counterpart-turn').pass, false);
+});
+
+test('kanonická vazba odmítne změnu libovolného pole scénáře v roleplay i podepsaném receipt', () => {
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === 'cs-whole-session-contract-to-result');
+  const selectedTurn = selectedCase.turns[0];
+  const canonicalScenario = canonicalScenarioFor(selectedCase);
+  const debriefMessages = [
+    { role: 'assistant', content: canonicalScenario.openingLine },
+    { role: 'user', content: selectedTurn.content },
+  ];
+  const boundDebriefPayload = debriefPayload(selectedCase, {
+    scenario: canonicalScenario,
+    messages: debriefMessages,
+  });
+  const unboundEvaluation = evaluateProfessionalCoachRoleplayTurn({
+    selectedCase,
+    selectedTurn,
+    payload: roleplayPayload(
+      selectedCase,
+      'Potřebuji si ujasnit výsledek, cíl a podle čeho se potom rozhodnu.',
+    ),
+  });
+  assert.equal(unboundEvaluation.checks.find(check => check.name === 'scenario-binding').pass, false);
+  const unboundDebrief = evaluateProfessionalCoachDebrief({
+    selectedCase,
+    payload: boundDebriefPayload,
+    messages: debriefMessages,
+  });
+  assert.equal(unboundDebrief.checks.find(check => check.name === 'scenario-binding').pass, false);
+  const mutations = [
+    ['difficulty', value => { value.difficulty = 'guided'; }],
+    ['courseId', value => { value.courseId = 'jiny-kurz'; }],
+    ['courseSlug', value => { value.courseSlug = 'jiny-kurz'; }],
+    ['itemId', value => { value.itemId = 'm0-1'; }],
+    ['moduleIndex', value => { value.moduleIndex += 1; }],
+    ['title', value => { value.title += ' změněno'; }],
+    ['role', value => { value.role += ' změněna'; }],
+    ['assignment', value => { value.assignment += ' Jiný úkol.'; }],
+    ['openingLine', value => { value.openingLine += ' Podvržený úvod.'; }],
+    ['rubric', value => { value.rubric[0] += ' oslabené'; }],
+    ['language', value => { value.language = 'sk'; }],
+    ['private', value => { value.private.hiddenNeed += ' podvrženo'; }],
+  ];
+
+  for (const [field, mutate] of mutations) {
+    const tamperedFullScenario = structuredClone(canonicalScenario);
+    mutate(tamperedFullScenario);
+    const tamperedPublicScenario = field === 'private'
+      ? { ...publicTrainingScenario(canonicalScenario), private: structuredClone(tamperedFullScenario.private), evaluationOnly: true }
+      : { ...publicTrainingScenario(tamperedFullScenario), evaluationOnly: true };
+    const payload = roleplayPayload(
+      selectedCase,
+      'Potřebuji si ujasnit výsledek, cíl a podle čeho se potom rozhodnu.',
+    );
+    payload.scenario = tamperedPublicScenario;
+    const evaluation = evaluateProfessionalCoachRoleplayTurn({
+      selectedCase,
+      selectedTurn,
+      payload,
+      canonicalScenario,
+    });
+    assert.equal(
+      evaluation.checks.find(check => check.name === 'scenario-binding').pass,
+      false,
+      `Roleplay přijal změněné pole ${field}`,
+    );
+    const tamperedDebriefPayload = structuredClone(boundDebriefPayload);
+    tamperedDebriefPayload.scenario = tamperedPublicScenario;
+    const debriefEvaluation = evaluateProfessionalCoachDebrief({
+      selectedCase,
+      payload: tamperedDebriefPayload,
+      scenario: canonicalScenario,
+      canonicalScenario,
+      messages: debriefMessages,
+    });
+    assert.equal(
+      debriefEvaluation.checks.find(check => check.name === 'scenario-binding').pass,
+      false,
+      `Debrief přijal změněné pole ${field}`,
+    );
+
+    const receipt = createProfessionalCoachReleaseReceipt({
+      runId: 'canonical-binding-run-0001',
+      selectedCase,
+      phase: 'scenario',
+      stepId: 'scenario',
+      scenario: { ...tamperedFullScenario, evaluationOnly: true },
+      canonicalScenario,
+      attemptId: 'canonical-binding-attempt-0001',
+      runtimeClaimFingerprint: 'd'.repeat(64),
+      studentTurns: [],
+      messages: [{ role: 'assistant', content: canonicalScenario.openingLine }],
+      previousReceipt: null,
+      secret: OUTCOME_ATTESTATION_SECRET,
+      issuedAt: '2026-09-15T00:00:00.000Z',
+      nonce: `canonical-${field}-nonce-000001`,
+    });
+    assert.equal(receipt, null, `Receipt přijal změněné pole ${field}`);
+  }
+});
+
+test('přenosový případ odmítne jinou obtížnost než kanonickou', () => {
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === 'cs-teaching-alliance-retry');
+  const canonicalScenario = canonicalScenarioFor(selectedCase);
+  assert.equal(canonicalScenario.difficulty, 'advanced');
+  const tamperedScenario = { ...canonicalScenario, difficulty: 'expert', evaluationOnly: true };
+  const payload = roleplayPayload(selectedCase, 'Ano, beru omluvu a chci nejdřív oddělit fakta od svého strachu.');
+  payload.scenario = publicTrainingScenario(tamperedScenario);
+  const evaluation = evaluateProfessionalCoachRoleplayTurn({
+    selectedCase,
+    selectedTurn: selectedCase.turns[0],
+    payload,
+    canonicalScenario,
+  });
+  assert.equal(evaluation.checks.find(check => check.name === 'scenario-binding').pass, false);
+  const debriefMessages = [
+    { role: 'assistant', content: canonicalScenario.openingLine },
+    { role: 'user', content: selectedCase.turns[0].content },
+  ];
+  const transferDebriefPayload = debriefPayload(selectedCase, {
+    scenario: canonicalScenario,
+    messages: debriefMessages,
+  });
+  transferDebriefPayload.scenario = publicTrainingScenario(tamperedScenario);
+  const debriefEvaluation = evaluateProfessionalCoachDebrief({
+    selectedCase,
+    payload: transferDebriefPayload,
+    scenario: canonicalScenario,
+    canonicalScenario,
+    messages: debriefMessages,
+  });
+  assert.equal(debriefEvaluation.checks.find(check => check.name === 'scenario-binding').pass, false);
+  assert.equal(createProfessionalCoachReleaseReceipt({
+    runId: 'transfer-difficulty-run-0001',
+    selectedCase,
+    phase: 'scenario',
+    stepId: 'scenario',
+    scenario: tamperedScenario,
+    canonicalScenario,
+    attemptId: 'transfer-difficulty-attempt-0001',
+    runtimeClaimFingerprint: 'd'.repeat(64),
+    studentTurns: [],
+    messages: [{ role: 'assistant', content: canonicalScenario.openingLine }],
+    previousReceipt: null,
+    secret: OUTCOME_ATTESTATION_SECRET,
+    issuedAt: '2026-09-15T00:00:00.000Z',
+    nonce: 'transfer-difficulty-nonce-0001',
+  }), null);
 });
 
 test('evidence-only debrief projde jen s úplnou rubrikou, korekcí a cíleným opakováním', () => {
@@ -202,14 +366,20 @@ test('evidence-only debrief projde jen s úplnou rubrikou, korekcí a cíleným 
     { role: 'assistant', content: 'Nevím, kde začít a co si z rozhovoru odnést.' },
     { role: 'user', content: quote },
   ];
-  const text = validGapDebriefText({ quote, label: rubric[0] });
   const payload = debriefPayload(selectedCase, {
-    text,
-    rows: [{ label: rubric[0], status: 'not_proven' }],
     scenario,
+    messages,
   });
-  const result = evaluateProfessionalCoachDebrief({ selectedCase, payload, scenario, messages, durationMs: 5000 });
-  assert.equal(result.pass, true);
+  const text = payload.text;
+  const result = evaluateProfessionalCoachDebrief({
+    selectedCase,
+    payload,
+    scenario,
+    canonicalScenario: scenario,
+    messages,
+    durationMs: 5000,
+  });
+  assert.equal(result.pass, true, JSON.stringify(result.checks.filter(check => !check.pass)));
   assert.equal(result.independentEvidenceVerified, true);
   assert.equal(result.achievement.proven, 0);
   assert.equal(result.achievement.notProven, 1);
@@ -222,11 +392,12 @@ test('evidence-only debrief projde jen s úplnou rubrikou, korekcí a cíleným 
   const vague = evaluateProfessionalCoachDebrief({
     selectedCase,
     scenario,
+    canonicalScenario: scenario,
     messages,
     payload: debriefPayload(selectedCase, {
       text: text.replace(/Důkaz \[S1\]/gu, 'Důkaz [S2]').replace(/## Další pokus[\s\S]*$/u, '## Další pokus\nZkus znovu.'),
-      rows: [{ label: rubric[0], status: 'not_proven' }],
       scenario,
+      messages,
     }),
   });
   assert.equal(vague.pass, false);
@@ -255,14 +426,18 @@ test('readiness eval kryptograficky váže canonical debrief na model, pravidla 
     { role: 'assistant', content: 'Nevím, kde začít a co si z rozhovoru odnést.' },
     { role: 'user', content: quote },
   ];
-  const text = validGapDebriefText({ quote, label: rubric[0] });
   const payload = debriefPayload(selectedCase, {
-    text,
-    rows: [{ label: rubric[0], status: 'not_proven' }],
     scenario,
+    messages,
   });
-  const valid = evaluateProfessionalCoachDebrief({ selectedCase, payload, scenario, messages });
-  assert.equal(valid.pass, true);
+  const valid = evaluateProfessionalCoachDebrief({
+    selectedCase,
+    payload,
+    scenario,
+    canonicalScenario: scenario,
+    messages,
+  });
+  assert.equal(valid.pass, true, JSON.stringify(valid.checks.filter(check => !check.pass)));
 
   const mutations = [
     ['canonicalized-debrief', value => ({
@@ -295,6 +470,7 @@ test('readiness eval kryptograficky váže canonical debrief na model, pravidla 
       selectedCase,
       payload: mutate(structuredClone(payload)),
       scenario,
+      canonicalScenario: scenario,
       messages,
     });
     assert.equal(result.pass, false, checkName);
@@ -334,11 +510,12 @@ test('readiness eval nezávisle odmítne serverem odkývanou falešnou výtku a 
   const result = evaluateProfessionalCoachDebrief({
     selectedCase,
     scenario,
+    canonicalScenario: scenario,
     messages,
     payload: debriefPayload(selectedCase, {
-      text: validGapDebriefText({ quote: correctContract, label: rubric[0] }),
       rows: [{ label: 'Libovolné kritérium A', status: 'not_proven' }],
       scenario,
+      messages,
     }),
   });
   assert.equal(result.pass, false);
@@ -355,32 +532,28 @@ test('krizový debrief musí odhalit pasivní sebevražedný signál a chybný n
     { role: 'assistant', content: 'Niekedy si prajem, aby som sa už nezobudila.' },
     { role: 'user', content: unsafe },
   ];
-  const text = validSafetyDebriefText({
-    unsafe,
-    label: 'Okamžité prerušenie bežného koučovania',
-  });
   const valid = evaluateProfessionalCoachDebrief({
     selectedCase,
     scenario,
+    canonicalScenario: scenario,
     messages,
     payload: debriefPayload(selectedCase, {
-      text,
-      rows: [{ label: rubric[0], status: 'not_proven' }],
-      criticalFailures: [{ code: 'suicide_risk_response_missing', competencyId: 'ethical_boundaries', studentTurnIndex: 1 }],
       scenario,
+      messages,
     }),
   });
-  assert.equal(valid.pass, true);
+  assert.equal(valid.pass, true, JSON.stringify(valid.checks.filter(check => !check.pass)));
 
   const overlooked = evaluateProfessionalCoachDebrief({
     selectedCase,
     scenario,
+    canonicalScenario: scenario,
     messages,
     payload: debriefPayload(selectedCase, {
-      text,
       rows: [{ label: rubric[0], status: 'proven' }],
       criticalFailures: [],
       scenario,
+      messages,
     }),
   });
   assert.equal(overlooked.pass, false);
@@ -479,25 +652,21 @@ test('serverové receipts tvoří jediný transcript chain a odmítnou splice ji
   const firstCase = PROFESSIONAL_COACH_READINESS_CASES[0];
   const firstResult = results.find(result => result.id === firstCase.id);
   const firstTurn = firstResult.roleplay.turns[0];
+  const canonicalScenario = canonicalScenarioFor(firstCase);
   const alternateReceipt = createProfessionalCoachReleaseReceipt({
     runId,
     selectedCase: firstCase,
     phase: 'roleplay',
     stepId: firstCase.turns[0].id,
-    scenario: {
-      ...firstCase.expectedScenario,
-      id: firstCase.expectedScenario.id || `${firstCase.id}:scenario`,
-      difficulty: firstCase.difficulty,
-      openingLine: 'Soukromý úvod případu 0',
-      evaluationOnly: true,
-    },
+    scenario: { ...canonicalScenario, evaluationOnly: true },
+    canonicalScenario,
     attemptId: firstResult.scenarioReceipt.attemptId,
     runtimeClaimFingerprint: provenance.deployment.runtimeClaimFingerprint,
     responseText: 'response-0-0',
     evaluation: firstTurn,
     studentTurns: [firstCase.turns[0].content],
     messages: [
-      { role: 'assistant', content: 'Soukromý úvod případu 0' },
+      { role: 'assistant', content: canonicalScenario.openingLine },
       { role: 'user', content: firstCase.turns[0].content },
     ],
     previousReceipt: firstResult.scenarioReceipt,
@@ -530,25 +699,21 @@ test('server podepíše i neúspěšný tah pro diagnostiku, ale release z něj 
   const selectedCase = PROFESSIONAL_COACH_READINESS_CASES[0];
   const result = results.find(item => item.id === selectedCase.id);
   const failedEvaluation = { ...result.roleplay.turns[0], pass: false };
+  const canonicalScenario = canonicalScenarioFor(selectedCase);
   failedEvaluation.releaseReceipt = createProfessionalCoachReleaseReceipt({
     runId,
     selectedCase,
     phase: 'roleplay',
     stepId: selectedCase.turns[0].id,
-    scenario: {
-      ...selectedCase.expectedScenario,
-      id: selectedCase.expectedScenario.id || `${selectedCase.id}:scenario`,
-      difficulty: selectedCase.difficulty,
-      openingLine: 'Soukromý úvod případu 0',
-      evaluationOnly: true,
-    },
+    scenario: { ...canonicalScenario, evaluationOnly: true },
+    canonicalScenario,
     attemptId: result.scenarioReceipt.attemptId,
     runtimeClaimFingerprint: provenance.deployment.runtimeClaimFingerprint,
     responseText: 'diagnosticky-neuspesna-odpoved',
     evaluation: failedEvaluation,
     studentTurns: [selectedCase.turns[0].content],
     messages: [
-      { role: 'assistant', content: 'Soukromý úvod případu 0' },
+      { role: 'assistant', content: canonicalScenario.openingLine },
       { role: 'user', content: selectedCase.turns[0].content },
     ],
     previousReceipt: result.scenarioReceipt,
@@ -807,13 +972,8 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
     const releaseEvaluation = isolated
       ? { isolated: true, memberUsageCharged: false, passportPersisted: false, certificateEvidencePersisted: false }
       : { isolated: false, memberUsageCharged: false, passportPersisted: false, certificateEvidencePersisted: false };
-    const scenario = {
-      ...selectedCase.expectedScenario,
-      id: selectedCase.expectedScenario.id || `${selectedCase.id}:scenario`,
-      difficulty: selectedCase.difficulty,
-      openingLine: `Soukromý úvod případu ${caseIndex}`,
-      evaluationOnly: isolated,
-    };
+    const canonicalScenario = canonicalScenarioFor(selectedCase);
+    const scenario = { ...canonicalScenario, evaluationOnly: isolated };
     const attemptId = `attempt-${String(caseIndex).padStart(2, '0')}-00000000`;
     const scenarioReceipt = createProfessionalCoachReleaseReceipt({
       runId,
@@ -821,6 +981,7 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
       phase: 'scenario',
       stepId: 'scenario',
       scenario,
+      canonicalScenario,
       attemptId,
       runtimeClaimFingerprint,
       studentTurns: [],
@@ -859,6 +1020,7 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
         phase: 'roleplay',
         stepId: selectedTurn.id,
         scenario,
+        canonicalScenario,
         attemptId,
         runtimeClaimFingerprint,
         responseText,
@@ -907,6 +1069,7 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
       phase: 'debrief',
       stepId: 'debrief',
       scenario,
+      canonicalScenario,
       attemptId,
       runtimeClaimFingerprint,
       responseText: debriefTextValue,
@@ -1053,6 +1216,7 @@ function signedArtifact(report) {
 }
 
 function roleplayPayload(selectedCase, text) {
+  const canonicalScenario = canonicalScenarioFor(selectedCase);
   return {
     text,
     provider: 'openai/gpt-5.6-luna',
@@ -1060,24 +1224,49 @@ function roleplayPayload(selectedCase, text) {
     activity: 'simulation',
     phase: 'roleplay',
     responseLanguage: selectedCase.language,
-    scenario: scenarioFor(selectedCase, 6),
+    scenario: { ...publicTrainingScenario(canonicalScenario), evaluationOnly: true },
     qualityGate: { pass: true, issueCodes: [], repaired: false },
     releaseEvaluation: { isolated: true, memberUsageCharged: false, passportPersisted: false, certificateEvidencePersisted: false },
   };
 }
 
-function debriefPayload(selectedCase, { text, rows, criticalFailures = [], scenario = null }) {
+function debriefPayload(selectedCase, {
+  text = null,
+  rows = null,
+  criticalFailures = null,
+  scenario = null,
+  messages = [],
+}) {
+  const runtimeScenario = scenario || scenarioFor(selectedCase, Array.isArray(rows) ? rows.length : 1);
+  const provider = 'openai/gpt-5.6-terra';
+  const canonical = createCanonicalCoachDebrief({
+    messages,
+    rubric: runtimeScenario.rubric,
+    scenario: runtimeScenario,
+    responseLanguage: selectedCase.language,
+    generationProvider: provider,
+  });
+  const achievement = Array.isArray(rows) || Array.isArray(criticalFailures)
+    ? {
+      ...canonical.achievement,
+      ...(Array.isArray(rows) ? { rows } : {}),
+      ...(Array.isArray(criticalFailures) ? {
+        criticalFailures,
+        hasCriticalFailure: criticalFailures.length > 0,
+      } : {}),
+    }
+    : canonical.achievement;
   return {
-    text,
-    provider: 'openai/gpt-5.6-terra',
+    text: text ?? canonical.text,
+    provider,
     mode: 'coaching_trainer',
     activity: 'simulation',
     phase: 'debrief',
     responseLanguage: selectedCase.language,
-    scenario: scenario || scenarioFor(selectedCase, rows.length),
+    scenario: { ...publicTrainingScenario(runtimeScenario), evaluationOnly: true },
     qualityGate: { pass: true, issueCodes: [], repaired: false, canonicalized: true },
-    debriefProvenance: canonicalDebriefProvenance(text, 'openai/gpt-5.6-terra'),
-    achievement: { rows, criticalFailures, hasCriticalFailure: criticalFailures.length > 0 },
+    debriefProvenance: canonical.provenance,
+    achievement,
     releaseEvaluation: { isolated: true, memberUsageCharged: false, passportPersisted: false, certificateEvidencePersisted: false },
   };
 }
@@ -1090,6 +1279,7 @@ function canonicalDebriefProvenance(text, provider) {
     registryVersion: '3.0.0',
     transcriptFingerprint: '1'.repeat(64),
     rubricFingerprint: '2'.repeat(64),
+    lessonContextFingerprint: '4'.repeat(64),
     ledgerFingerprint: '3'.repeat(64),
     outputFingerprint: sha256(text),
   };
@@ -1102,9 +1292,37 @@ function scenarioFor(selectedCase, rubricDefinition) {
   return {
     id: `${selectedCase.id}:scenario`,
     ...selectedCase.expectedScenario,
+    courseId: selectedCase.courseId,
+    courseSlug: selectedCase.courseSlug,
+    itemId: selectedCase.itemId,
+    moduleIndex: Number(/^m(\d+)-/u.exec(selectedCase.itemId || '')?.[1] || 0),
+    difficulty: selectedCase.difficulty,
+    title: `Testovací scénář ${selectedCase.id}`,
+    role: 'Modelová klientka pro izolovaný test',
+    assignment: 'Veď rozhovor podle právě testované kompetence.',
+    openingLine: 'Potřebuji si ujasnit, co bude užitečným výsledkem tohoto rozhovoru.',
     evaluationOnly: true,
     rubric,
+    private: {
+      facts: 'Izolovaný test obsahuje pouze fakta uvedená v testovacím přepisu.',
+      hiddenNeed: 'Potřebuje bezpečně dojít k vlastnímu závěru.',
+      behavior: 'Reaguje pouze na přesné otázky a nevymýšlí další fakta.',
+    },
   };
+}
+
+function canonicalScenarioFor(selectedCase) {
+  const item = CANONICAL_PROFESSIONAL_COACH_COURSE.modules
+    .flatMap(module => module.items || [])
+    .find(candidate => candidate.id === selectedCase.itemId);
+  assert.ok(item, `Chybí kanonická část kurzu ${selectedCase.itemId}`);
+  return createTrainingScenario(
+    CANONICAL_PROFESSIONAL_COACH_COURSE,
+    item,
+    selectedCase.difficulty,
+    selectedCase.expectedScenario.id || null,
+    null,
+  );
 }
 
 function validGapDebriefText({ quote, label }) {
