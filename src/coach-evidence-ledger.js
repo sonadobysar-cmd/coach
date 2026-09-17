@@ -314,7 +314,7 @@ function signalsCorrection(value) {
   // A preference or boundary such as "nechci získat svobodu" is content,
   // not proof that the coach misheard the client. Count only an explicit
   // correction of meaning, wording or understanding.
-  return /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemysl|takto som to nemysl|takhle to nemam|takto to nemam|ne(?:ri|r)i?k[aá]m ze|nehovorim ze|nesedi mi (?:to|tahle|tato) (?:interpretace|reflexe)|to mi nesedi|nepridavej mi|nepridavaj mi|podsouv|nerozumel(?:a)? jsi mi|nepochopil(?:a)? jsi me|oprav prosim)/u.test(normalized)
+  return /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemysl|takto som to nemysl|takhle to nemam|takto to nemam|takhle to necitim|takto to necitim|takhle to nevnimam|takto to nevnimam|ne(?:ri|r)i?k[aá]m ze|nehovorim ze|nesedi mi (?:to|tahle|tato) (?:interpretace|reflexe)|to mi nesedi|nepridavej mi|nepridavaj mi|podsouv|nerozumel(?:a)? jsi mi|nepochopil(?:a)? jsi me|oprav prosim)/u.test(normalized)
     || /^(?:ne|nie)\s*[,;:—-]?\s*(?:takhle|takto|tohle|toto)\b.{0,90}\b(?:nemam|nemysl|nerikam|nehovorim|nerek|nepoved|nesedi|nepasuj|nepochop|nerozum)/u.test(normalized);
 }
 

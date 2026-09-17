@@ -1056,8 +1056,8 @@ function buildRoleplayRepairContext({
   }
   if (/\b(?:takze vlastne|vlastne chces|vlastne chcete|potrebujes (?:jen|iba)|potrebujete (?:jen|iba))\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
-      ? 'Posledná intervencia prisúdila postave záver, ktorý nemusí byť jej. Postava ho nesmie automaticky prijať: povedz jasné áno alebo nie a vlastnými slovami oprav, čo skutočne chce podľa známych faktov.'
-      : 'Poslední intervence přisoudila postavě závěr, který nemusí být její. Postava ho nesmí automaticky přijmout: řekni jasné ano nebo ne a vlastními slovy oprav, co skutečně chce podle známých faktů.');
+      ? 'Posledná intervencia prisúdila postave záver, ktorý nemusí byť jej. Postava ho nesmie automaticky prijať. Odpovedz najviac dvoma vetami: najprv jasne odmietni prisúdený záver (napríklad „Nie, takto to necítim“), potom vlastnými slovami pomenuj skutočný konflikt alebo neistotu podľa už odhalených faktov. Neklaď študentke otázku a nepridávaj nový plán ani neskoršiu reflexiu.'
+      : 'Poslední intervence přisoudila postavě závěr, který nemusí být její. Postava ho nesmí automaticky přijmout. Odpověz nejvýše dvěma větami: nejprve jasně odmítni přisouzený závěr (například „Ne, takhle to necítím“), potom vlastními slovy pojmenuj skutečný konflikt nebo nejistotu podle již odhalených faktů. Neklaď studentce otázku a nepřidávej nový plán ani pozdější reflexi.');
   }
   if (/\b(?:ktery|ktory|jaky|aky|co)\b.{0,35}\b(?:krok|volis|vyberas|udelas|urobis)\w*\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'

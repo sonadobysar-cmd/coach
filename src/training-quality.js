@@ -1354,7 +1354,7 @@ function hasTrainerAdviceLeak(value) {
 
 function firstPersonCounterpartVoice(value) {
   const normalized = normalizeStudyText(value);
-  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|pripada|zkusila|udelala|udelam|mohu|muzu|muzeme|uvedomila|odnasim|zamerim|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|urobim|mozem|mozeme|uvedomila som si|odnasam si|zameriam sa|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
+  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|necitim|vnimam|nevnimam|pripada|zkusila|udelala|udelam|mohu|muzu|muzeme|uvedomila|odnasim|zamerim|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|urobim|mozem|mozeme|uvedomila som si|odnasam si|zameriam sa|souhlasim|nesouhlasim|suhlasim|nesuhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
   // Čeština i slovenština běžně vypouštějí zájmeno „já“: „váhám“,
   // „potřebuji“, „neviem“. Takový autentický klientský hlas nesmí propadnout
   // jen kvůli pro-drop gramatice. Současně nepouštíme rozkazovací trenérský hlas.

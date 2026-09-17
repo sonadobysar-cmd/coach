@@ -284,7 +284,7 @@ function autonomyEvidence(criterion, quote, previous) {
 }
 
 function allianceRepairEvidence(criterion, quote, previous, next) {
-  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|tohle jsem nerekl|tohle jsem neřekl|tohle jsem nerekla|tohle jsem neřekla|to som nepovedal|to som nepovedala|takto som to nepovedal|takto som to nepovedala|toto som nepovedal|toto som nepovedala|takhle to nemam|takhle to nemám|takto to nemam|takto to nemám|nerikam ze|neříkám že|nehovorim ze|nehovorím že|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
+  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|tohle jsem nerekl|tohle jsem neřekl|tohle jsem nerekla|tohle jsem neřekla|to som nepovedal|to som nepovedala|takto som to nepovedal|takto som to nepovedala|toto som nepovedal|toto som nepovedala|takhle to nemam|takhle to nemám|takto to nemam|takto to nemám|takhle to necitim|takhle to necítím|takto to necitim|takto to necítim|takhle to nevnimam|takhle to nevnímám|takto to nevnimam|takto to nevnímam|nerikam ze|neříkám že|nehovorim ze|nehovorím že|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
   const ownsError = /(?:mate pravdu|máte pravdu|mas pravdu|máš pravdu|dakujem za oprav|děkuji za oprav|omlouvam se|omlouvám se|ospravedlnujem sa|vlozila jsem|vložila jsem|domyslela jsem|pridala jsem|přidala jsem|to byla moje interpretace|to bola moja interpretacia|prevzala jsem|převzala jsem)/u.test(quote);
   const defense = /(?:ale|avsak|avšak|jenze|jenže).{0,40}(?:mela jsem pravdu|měla jsem pravdu|moja interpretacia bola spravna|moje interpretace byla spravna)/u.test(quote);
   if (/(?:dopad na alianci je uznan|dopad na alianci je uznán)/u.test(criterion)) {
@@ -332,9 +332,9 @@ function ethicalBoundaryEvidence(criterion, quote, previous) {
 }
 
 function outcomeEvidence(criterion, quote) {
-  const clientChoice = /(?:co|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,35}(?:krok|moznost|možnost).{0,30}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte)/u.test(quote)
-    || /(?:co|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,45}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte).{0,35}(?:krok|moznost|možnost)/u.test(quote)
-    || /(?:co presne|co přesně|co konkretne|co konkrétně).{0,25}(?:udelas|uděláš|udelate|uděláte|urobis|urobíš|urobite|urobíte)/u.test(quote);
+  const clientChoice = /(?:co|čo|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,35}(?:krok|moznost|možnost).{0,30}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte)/u.test(quote)
+    || /(?:co|čo|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,45}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte).{0,35}(?:krok|moznost|možnost)/u.test(quote)
+    || /(?:co presne|co přesně|co konkretne|co konkrétně|čo presne|čo přesně|čo konkrétne).{0,25}(?:udelas|uděláš|udelate|uděláte|urobis|urobíš|urobite|urobíte)/u.test(quote);
   const timing = /(?:do kdy|dokdy|kdy|kedy|dnes|zittra|zítra|zajtra|termin|termín)/u.test(quote);
   const verify = /(?:podle ceho|podle čeho|podľa coho|podľa čoho|jak poznas|jak poznáš|jak poznate|jak poznáte|ako spoznas|ako spoznáš|ako spoznate|ako spoznáte|vyhodnot|over|ověř|overiteln|ověřiteln|zmer|změř)/u.test(quote);
   if (/(?:vypadek|výpadek|navratovy protokol|návratový protokol|experiment|data)/u.test(criterion)) {

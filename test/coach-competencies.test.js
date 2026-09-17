@@ -24,6 +24,7 @@ import {
   createTrainingScenario,
 } from '../src/training.js';
 import { buildCoachEvidenceLedger } from '../src/coach-evidence-ledger.js';
+import { assessCoachCriterionEvidence } from '../src/coach-evidence-rules.js';
 
 const COURSE_ID = PROFESSIONAL_LIFE_COACH_COURSE_ID;
 
@@ -2207,7 +2208,7 @@ test('živá česká i slovenská oprava aliance je prokázaná a priorita zůst
     {
       language: 'sk',
       focus: 'Potrebujem sa rozhodnúť bez zrady dôležitých hodnôt.',
-      correction: 'Nie, takto som to nepovedala a necítim sa v tom presne zachytená.',
+      correction: 'Nie, takto to necítim — práve preto som hovorila o konflikte, nie o rozhodnutí, ktoré už mám urobené.',
       acceptance: 'Áno, sedí to oveľa viac.',
       turns: [
         'Beriem, otázku z GROW odložíme a nebudem ju obhajovať. Čomu sa potrebujeme venovať najprv, aby dnešný rozhovor slúžil tebe?',
@@ -2245,6 +2246,15 @@ test('živá česká i slovenská oprava aliance je prokázaná a priorita zůst
     assert.equal(ledger.priority?.evidence?.reference, 'S4', variant.language);
     assert.equal(ledger.priority?.competencyId, 'active_listening', variant.language);
   }
+});
+
+test('slovenská otázka Čo si volíš prokazuje klientkou zvolený krok', () => {
+  const assessment = assessCoachCriterionEvidence({
+    label: 'Klientkou zvolený a ověřitelný další krok',
+    quote: 'Čo si z porovnania volíš ako svoj najbližší overiteľný krok?',
+    previousCounterpartText: 'Chcem si najprv porovnať cenu oboch možností.',
+  });
+  assert.equal(assessment.relevant, true);
 });
 
 test('high-confidence mastery pravidla přijímají významové parafráze v češtině i slovenštině', () => {
