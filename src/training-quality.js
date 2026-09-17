@@ -143,14 +143,15 @@ export function assessRoleplayResponse(text, {
 } = {}) {
   const output = String(text || '').trim();
   const issues = [];
+  const invitedAllianceFeedback = roleplayInvitedAllianceFeedback(output, scenario, messages);
   const sentenceCount = output.split(/(?<=[.!?])\s+/u).filter(Boolean).length;
   if (!output) issues.push('empty');
   if (output.length > 750 || sentenceCount > 4) issues.push('too_long_for_counterpart');
   if (/^\s*(?:#{1,6}|[-*•]|\d+[.)])\s+/mu.test(output)) issues.push('list_or_heading');
-  if (isTrainingRoleBreak(output)) {
+  if (isTrainingRoleBreak(output) && !invitedAllianceFeedback) {
     issues.push('role_break');
   }
-  if (hasTrainerAdviceLeak(output)) {
+  if (hasTrainerAdviceLeak(output) && !invitedAllianceFeedback) {
     issues.push('trainer_advice_leak');
   }
   if (/(?:[.!?]["”']?|\s)-[\p{L}]{2,12}\s*$/u.test(output)) issues.push('trailing_fragment');
@@ -169,6 +170,24 @@ export function assessRoleplayResponse(text, {
     issues,
     shouldRepair: issues.length > 0,
   };
+}
+
+function roleplayInvitedAllianceFeedback(value, scenario, messages = []) {
+  if (!scenario) return false;
+  const latestStudent = [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find(message => message?.role === 'user')?.content || '';
+  const prompt = normalizeStudyText(latestStudent);
+  const output = normalizeStudyText(value);
+  const authoredFeedbackTurn = String(scenario?.scenarioFamilyId || '') === 'alliance-repair-mastery'
+    || /pozadej studentku.{0,45}(?:pojmen|ohlid)|poziadaj studentku.{0,45}(?:pomen|ustriehn)/u
+      .test(normalizeStudyText(scenario?.private?.behavior || ''));
+  const explicitlyAsked = /\bco\b.{0,55}\b(?:mam|mame)\b.{0,55}\b(?:priste|nabuduce|driv|skor)\b.{0,40}\b(?:udel|urob|ohlid|ustriehn)\w*\b/u.test(prompt)
+    || /\bco\b.{0,55}\b(?:priste|nabuduce)\b.{0,40}\b(?:udel|urob|ohlid|ustriehn)\w*\b/u.test(prompt);
+  const relationalClientFeedback = firstPersonCounterpartVoice(value)
+    && /\b(?:uzitecn|uzitocn|pomoh|potrebuji|potrebujem|chci|chcem|priste|nabuduce|poslouch|pocuv|slysen|vypocut|tlak|zaver|zaveru)\w*\b/u.test(output);
+  const containsEvaluatorMeta = /\b(?:rubrik|kriteri|hodnocen|vyhodnocen|vykon student|spravna odpoved)\w*\b/u.test(output);
+  return authoredFeedbackTurn && explicitlyAsked && relationalClientFeedback && !containsEvaluatorMeta;
 }
 
 export function isTrainingRoleBreak(value) {
@@ -1339,7 +1358,7 @@ function firstPersonCounterpartVoice(value) {
   // Čeština i slovenština běžně vypouštějí zájmeno „já“: „váhám“,
   // „potřebuji“, „neviem“. Takový autentický klientský hlas nesmí propadnout
   // jen kvůli pro-drop gramatice. Současně nepouštíme rozkazovací trenérský hlas.
-  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|mohu|muzu|mozem|udelam|urobim|uvedomuji|uvedomujem|odnasim|odnasam|zamerim|zameriam|vratme|vratme sa|pojdme|souhlasim|suhlasim|dekuji|dakujem|beru|prijimam|prijmu|prijmem|volim|vybiram)\b/u.test(normalized);
+  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|mohu|muzu|mozem|udelam|urobim|uvedomuji|uvedomujem|odnasim|odnasam|zamerim|zameriam|vratme|vratme sa|pojdme|souhlasim|suhlasim|dekuji|dakujem|beru|prijimam|prijmu|prijmem|volim|zvolim|vybiram|vyberu|vyberiem|nepodam|podam|zjistim|zistim|overim|proverim|sepisu|spisem|napisu|napisem|oslovim|kontaktujem|domluvim|dohodnem|porovnam|projdu|prejdem|naplanuji|naplanujem|vyhodnotim|zhodnotim)\b/u.test(normalized);
   const trainerVoice = /^(?:mela bys|mel bys|zkus|doporucuji|odporucam|tvym ukolem|spravna odpoved)\b/u.test(normalized);
   return !trainerVoice && (explicitFirstPerson || proDropFirstPersonVerb);
 }
@@ -1399,8 +1418,8 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
     authoredContextConcepts,
   );
   const normalizedQuestion = normalizeStudyText(latestStudent);
-  const questionCue = /(?:^|\b)(?:co|cim|jak\w*|kter\w*|proc|ceho|o cem|v cem|popis\w*|rekni|ako|ak\w*|ktor\w*|preco|coho|o com|v com|povedz)\b/u;
-  const startsAsQuestion = /^(?:co|cim|jak\w*|kter\w*|proc|ceho|o cem|v cem|ako|ak\w*|ktor\w*|preco|coho|o com|v com)\b/u.test(normalizedQuestion);
+  const questionCue = /(?:^|\b)(?:co|cim|cemu|kam|jak\w*|kter\w*|proc|ceho|o cem|v cem|popis\w*|rekni|ako|ak\w*|ktor\w*|preco|coho|comu|o com|v com|povedz)\b/u;
+  const startsAsQuestion = /^(?:co|cim|cemu|kam|jak\w*|kter\w*|proc|ceho|o cem|v cem|ako|ak\w*|ktor\w*|preco|coho|comu|o com|v com)\b/u.test(normalizedQuestion);
   const directElicitation = /\b(?:popis|rekni|povedz)\w*\b/u.test(normalizedQuestion);
   const asksQuestion = (/\?/u.test(String(latestStudent || '')) && questionCue.test(normalizedQuestion))
     || startsAsQuestion
@@ -1453,8 +1472,19 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const unrequestedFactConcepts = setDifference(privateFactsConcepts, boundaryQuestionConcepts);
   // U skryté potřeby zůstává práh záměrně přísnější: obecná otázka na
   // důvěrnost či výsledek nesmí odemknout celý autorský hidden need.
-  const unrequestedHiddenStems = setDifference(roleplayContentStems(hiddenNeed), boundaryQuestionStems);
-  const unrequestedHiddenConcepts = setDifference(roleplaySemanticConcepts(hiddenNeed), boundaryQuestionConcepts);
+  const revealedCounterpartStems = roleplayContentStems(priorCounterpartTurns.join(' '));
+  const revealedCounterpartConcepts = roleplaySemanticConcepts(priorCounterpartTurns.join(' '));
+  // Rubrika může odborně pojmenovat dovednost, ale tím ještě klientka
+  // neprozradila svůj skrytý motiv. Odečítáme proto jen skutečně položenou
+  // otázku a obsah, který už modelová klientka sama v rozhovoru vyslovila.
+  const unrequestedHiddenStems = setDifference(
+    setDifference(roleplayContentStems(hiddenNeed), boundaryQuestionStems),
+    revealedCounterpartStems,
+  );
+  const unrequestedHiddenConcepts = setDifference(
+    setDifference(roleplaySemanticConcepts(hiddenNeed), boundaryQuestionConcepts),
+    revealedCounterpartConcepts,
+  );
   const promptPrivateFactStemOverlap = setOverlapCount(boundaryQuestionStems, privateFactsStems);
   const promptPrivateFactConceptOverlap = setOverlapCount(boundaryQuestionConcepts, privateFactsConcepts);
   const promptHiddenNeedStemOverlap = setOverlapCount(boundaryQuestionStems, hiddenNeedStems);
@@ -1581,6 +1611,20 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
     && outputHiddenRepairAxisCount < hiddenRepairAxes.size
     && outputPrivateFactAxisCount < privateFactAxes.size
     && studyWordCount(value) <= 36;
+  const safeWrongFrameCorrection = dialogueKind === 'correction'
+    && /\b(?:skonc|ukonc|zavr)\w*\b/u.test(normalizedQuestion)
+    && /\b(?:nechci|nechcem|nepotreb|nerek|nepoved|nesedi|nevypl|nezavir|nezatvar|neukonc|nekonc)\w*\b/u.test(normalizedOutput)
+    && studyWordCount(value) <= 70;
+  const safeDueDiligencePushback = dialogueKind === 'due_diligence_pushback'
+    && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
+    && studyWordCount(value) <= 90;
+  const safeInvitedAllianceFeedback = roleplayInvitedAllianceFeedback(value, scenario, messages)
+    && studyWordCount(value) <= 90;
+  // Tyto reakce jsou přímo autorsky předepsané odpory modelové klientky:
+  // oprava vnuceného rámce, due diligence před nevratným rozhodnutím a
+  // výslovně vyžádaná vztahová zpětná vazba. Soukromý profil dál chrání
+  // fidelity i úzká vazba na rodinu scénáře; obecné otázky tuto výjimku nemají.
+  if (safeWrongFrameCorrection || safeDueDiligencePushback || safeInvitedAllianceFeedback) return false;
   if (!safePartialAllianceRepair && (
     (boundaryQuestion && dumpsUnrequestedFacts)
     || ((boundaryQuestion || broadOutcomeQuestion) && dumpsUnrequestedHiddenNeed)
@@ -1640,6 +1684,7 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const behaviorConcepts = roleplaySemanticConcepts(scenario?.private?.behavior || '');
   const deepElicitation = /(?:proc|preco|ceho se boj|coho sa boj|jakou obavu|aku obavu|ktera hodnota|ktora hodnota|jaky konflikt|aky konflikt|co pro tebe znamena|co pre teba znamena|co se za tim skryva|co sa za tym skryva|co potrebujes pochopit|co potrebujes pochopit)/u.test(normalizedQuestion);
   const outcomeElicitation = broadOutcomeQuestion;
+  const explorationElicitation = roleplayNeutralProcessPrompt(latestStudent);
   const boundaryElicitation = /\?/u.test(String(latestStudent || ''))
     && /\b(?:souhlas|suhlas|hranic|prijatel|dover|duver|obsah|poznamk|report)\w*\b/u.test(normalizedQuestion);
   const behaviorStemOverlap = setOverlapCount(questionStems, behaviorStems);
@@ -1660,6 +1705,7 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
     || setOverlapCount(questionConcepts, allPrivateFactsConcepts) >= 2
     || directSafetyAssessment
     || outcomeElicitation
+    || explorationElicitation
     || boundaryElicitation;
   // A hidden need is more sensitive than an ordinary case fact.  One generic
   // domain word (for example "práce") must not unlock a whole private motive.
@@ -1769,7 +1815,7 @@ function roleplayPromptGroundedInScenario(prompt, sourceStems, sourceConcepts) {
 
 function roleplayNeutralProcessPrompt(value) {
   const normalized = normalizeStudyText(value);
-  return /\b(?:(?:kter\w*|ktor\w*|aku|aky|co|kam)\s+(?:cast\w*\s+)?situac\w*.{0,28}(?:prozkoum|preskum|venov|zacit|zacat)\w*|(?:pokrac|zastav|ukonc|uzavr)\w*.{0,20}(?:otazk|rozhovor)\w*|rozhovor\w*.{0,20}(?:pokrac|zastav|ukonc|uzavr|vrat)\w*|(?:oprav|naprav)\w*.{0,20}(?:spoluprac|alianc|vztah)\w*|(?:moznost|sposob|zpusob)\w*\s+(?:prace|veden|rozhovor)\w*|(?:vlastn|svoj)\w*\s+otazk\w*)\b/u
+  return /\b(?:(?:kter\w*|ktor\w*|aku|aky|co|kam)\s+(?:cast\w*\s+)?situac\w*.{0,28}(?:prozkoum|preskum|venov|zacit|zacat)\w*|(?:cemu|comu)\s+(?:se\s+|sa\s+)?(?:potreb\w*\s+)?(?:venov|v[ěe]nov)\w*.{0,24}(?:nejdriv|najprv|najskor)|(?:pokrac|zastav|ukonc|uzavr)\w*.{0,20}(?:otazk|rozhovor)\w*|rozhovor\w*.{0,20}(?:pokrac|zastav|ukonc|uzavr|vrat)\w*|(?:oprav|naprav)\w*.{0,20}(?:spoluprac|alianc|vztah)\w*|(?:moznost|sposob|zpusob)\w*\s+(?:prace|veden|rozhovor)\w*|(?:vlastn|svoj)\w*\s+otazk\w*)\b/u
     .test(normalized);
 }
 
@@ -1781,7 +1827,8 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   // closed-choice answers. The response-level target-behaviour gate still
   // requires enough substance, so recognising the local dialogue act here
   // does not make a one-word roleplay turn pass overall.
-  if (!prompt || !output || words < 2 || words > 42) return null;
+  if (!prompt || !output || words < 2 || words > 90) return null;
+  const conciseDialogue = words <= 42;
 
   const asksSafetyAssessment = /\?/u.test(String(latestStudent || ''))
     && /\b(?:sebevraz|samovraz|ubliz)\w*\b/u.test(prompt)
@@ -1811,7 +1858,22 @@ function roleplayDialogueResponseKind(value, latestStudent) {
     && /\b(?:pozn|over|jasn|konkret|krok|vysled|ciel|cil)\w*\b/u.test(output);
 
   const imposesMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|nemusis|nemusite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|propust|vyhod|dej vypoved|daj vypoved|ja bych|udelala bych|urobila by som|nejlepsi volb|najlepsia volb)\w*\b/u.test(prompt);
-  const correctiveReply = /\b(?:ne|nie|nechci|nechcem|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nerozhoduj|rozhodnuti je na me|rozhodnutie je na mne)\w*\b/u.test(output);
+  const correctiveReply = /\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nerozhoduj|rozhodnuti je na me|rozhodnutie je na mne)\w*\b/u.test(output);
+
+  // Když studentka tlačí nevratné rozhodnutí bez základních dat, autentická
+  // klientka smí trvat na právním či finančním ověření. Jde o scénářem
+  // očekávanou obranu autonomie, nikoli o odbočení nebo trenérskou radu.
+  const dismissesDueDiligence = (
+    /\b(?:nemusis|nemusite|necekej|necakaj|neni treba|nie je treba|nepotrebujes)\w*\b/u.test(prompt)
+      && /\b(?:pravnik|pravn|vypovedn|podmink|podmienk|smlouv|zmluv|cis|data|cashflow|financ|rezerv)\w*\b/u.test(prompt)
+  ) || /\b(?:jedinecn|neopakovatel|posledn)\w*.{0,30}\b(?:sanc|prilezit|ponuk|nabidk)\w*\b/u.test(prompt);
+  const insistsOnDueDiligence = (
+    /\b(?:nevim|neviem|potrebuji|potrebujem|chci|chcem|nechci|nechcem)\w*\b/u.test(output)
+      && /\b(?:pravnik|pravn|vypovedn|podmink|podmienk|smlouv|zmluv|cis|data|cashflow|financ|rezerv|slab\w* scenar)\w*\b/u.test(output)
+  ) || (
+    /\b(?:pravnik|pravn|vypovedn|podmink|podmienk|smlouv|zmluv|cis|data|cashflow|financ|rezerv)\w*\b/u.test(output)
+      && /\b(?:over|prover|zkontrol|skontrol|zjist|zist|porovn|rezervac)\w*\b/u.test(output)
+  );
 
   const repairOwnership = /\b(?:mas pravdu|mate pravdu|omlouvam|ospravedlnujem|mrzi me|mrzi ma)\b/u.test(prompt)
     && /\b(?:pridal|prisoud|prevzal|prevzala|tla[cč]il|nevyzadan|radu|rozhodnut|nepocuv|neposlouch)\w*\b/u.test(prompt);
@@ -1838,12 +1900,12 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   const answersPriority = /\b(?:chci|nechci|potrebuji|potrebuju|jde mi|nejdulezitejsi|nejvic|dulezite|priorita|chcem|nechcem|potrebujem|ide mi|najdolezitejsie|najviac|dolezite)\b/u.test(output)
     || /\b(?:zalezi|prevaz|prilis|nedokaz|odhad|boj|strach|obav|nejist|neist|ohroz|rizik|jistot|istot|stabil|bezpec)\w*\b/u.test(output);
   const asksFacts = /\?/u.test(String(latestStudent || ''))
-    && /\b(?:fakta|skutecnosti|data|konkretni|fakty|skutocnosti|konkretne)\b/u.test(prompt);
+    && /\b(?:fakta|skutecnosti|data|fakty|skutocnosti)\b/u.test(prompt);
   const answersFacts = /\b(?:vim ze|nevim zda|zatim|uz vim|mam|nemam|fakt|konkretne|data|cis|stal|stava|deje|funguje|nefunguje|udelal|zkusil|viem ze|neviem ci|zatial|uz viem|skutocn|udial|urobil|skusil)\w*\b/u.test(output);
 
   const asksAction = /\?/u.test(String(latestStudent || ''))
     && /\b(?:ktery|ktory|jaky|aky|co)\b.{0,80}\b(?:krok|moznost|urobis|udelas|zvolis|vyberes)\w*\b/u.test(prompt);
-  const answersAction = /\b(?:udelam|urobim|napisu|napisem|zavolam|oslovim|porovnam|zjistim|zistim|vyberu|vyberiem|overim|proverim|domluvim|dohodnem|kontaktujem)\w*\b/u.test(output);
+  const answersAction = /\b(?:udelam|urobim|napisu|napisem|zavolam|oslovim|porovnam|zjistim|zistim|vyberu|vyberiem|volim|zvolim|overim|proverim|domluvim|dohodnem|kontaktujem|sepisi|spisem|projdu|prejdem|naplanuji|naplanujem)\w*\b/u.test(output);
   const asksReflection = /\?/u.test(String(latestStudent || ''))
     && /\b(?:uvedom|odnas|odnes|uzitecn|uzitocn|priste|nabuduce|jinak|inak)\w*\b/u.test(prompt);
   const answersReflection = /\b(?:uvedom|odnas|odnes|vidim|chapu|rozumim|rozumiem|priste|nabuduce|udelam|urobim|potrebuji|potrebujem)\w*\b/u.test(output);
@@ -1857,19 +1919,20 @@ function roleplayDialogueResponseKind(value, latestStudent) {
     || /\b(?:bez|pred)\b.{0,20}\b(?:zeptan|opytan|souhlas|suhlas)\w*\b/u.test(output)
     || /\b(?:nevyslech|neposlouch|nepocuv|tlak)\w*\b/u.test(output);
   const asksExplorationFocus = /\?/u.test(String(latestStudent || ''))
-    && /\b(?:co|kter\w*|ktor\w*)\b.{0,32}\b(?:prozkoum|preskum|venov|zacit|zacat)\w*.{0,16}\b(?:prvni|nejdriv|najprv|najskor)\w*\b/u.test(prompt);
+    && /\b(?:co|cemu|comu|kter\w*|ktor\w*)\b.{0,42}\b(?:prozkoum|preskum|venov|zacit|zacat)\w*.{0,20}\b(?:prvni|nejdriv|najprv|najskor)\w*\b/u.test(prompt);
   const answersExplorationFocus = /^(?:chci|chcem|nejdriv|najprv|zacn|zaujim)\w*\b/u.test(output);
 
-  if (asksConfirmation && /^(?:ano|jo|dobre|souhlasim|suhlasim|sedi|presne|ne|nie|nesedi|nechci|nechcem)\b/u.test(output)) return 'confirmation';
-  if ((asksExplicitChoice || asksYesNoChoice) && choiceReply) return 'choice';
+  if (conciseDialogue && asksConfirmation && /^(?:ano|jo|dobre|souhlasim|suhlasim|sedi|presne|ne|nie|nesedi|nechci|nechcem)\b/u.test(output)) return 'confirmation';
+  if (conciseDialogue && (asksExplicitChoice || asksYesNoChoice) && choiceReply) return 'choice';
   // „Zavři oči“ obsahuje stejný slovní kmen jako obecné „zavřít“, proto
   // musí explicitní odpor k tlačené technice dostat přednost před obecnou
   // opravou podsunutého významu.
-  if (pressuresRefusedTechnique && refusalPushbackReply) return 'refusal_pushback';
-  if (imposesMeaningOrDecision && correctiveReply) return 'correction';
-  if (repairOwnership && repairReply) return 'repair_acknowledgement';
-  if (refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
-  if (asksRecontractedChoice) return 'recontract';
+  if (conciseDialogue && pressuresRefusedTechnique && refusalPushbackReply) return 'refusal_pushback';
+  if (dismissesDueDiligence && insistsOnDueDiligence) return 'due_diligence_pushback';
+  if (words <= 70 && imposesMeaningOrDecision && correctiveReply) return 'correction';
+  if (conciseDialogue && repairOwnership && repairReply) return 'repair_acknowledgement';
+  if (conciseDialogue && refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
+  if (conciseDialogue && asksRecontractedChoice) return 'recontract';
   if (asksPriority && answersPriority) return 'priority_answer';
   if (asksFacts && answersFacts) return 'facts_answer';
   if (asksAction && answersAction) return 'action_answer';
@@ -1888,6 +1951,7 @@ function roleplayDialogueCanGroundFidelity(dialogueKind) {
     'confirmation',
     'choice',
     'refusal_pushback',
+    'due_diligence_pushback',
     'repair_acknowledgement',
     'autonomy_acknowledgement',
     'recontract',
@@ -1910,6 +1974,9 @@ function roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcep
   if (dialogueKind === 'autonomy_acknowledgement') {
     return scenarioFamilyId === 'decision-autonomy-remediation'
       || sourceConcepts.has('decision_control_ownership');
+  }
+  if (dialogueKind === 'due_diligence_pushback') {
+    return scenarioFamilyId === 'decision-autonomy-remediation';
   }
   if (!new Set(['alliance_check_answer', 'alliance_impact_answer']).has(dialogueKind)) return false;
   return scenarioFamilyId === 'alliance-repair-mastery'
@@ -2007,6 +2074,23 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     const briefAcknowledgement = /^(?:dekuji|dakujem)(?:\s+(?:to|toto))?(?:\s+(?:je|bolo))?(?:\s+(?:pro|pre)\s+(?:me|mna|mne))?(?:\s+(?:dulezit|dolezit)\w*)?$/u.test(normalizedClause)
       && studyWordCount(clause) <= 9;
     if (briefAcknowledgement) return false;
+    const briefProgressIntent = /^(?:chci|chcem)\s+(?:se\s+|sa\s+)?(?:pohnout|posunout|posunut)\s+(?:z\s+mista|dalej|dal)$/u.test(normalizedClause)
+      && sourceConcepts.has('transition_choice')
+      && studyWordCount(clause) <= 8;
+    if (briefProgressIntent) return false;
+    // Otevřená otázka na hodnotu, fakt, krok nebo reflexi legitimně vyvolá
+    // nový konkrétní obsah, který nelze předem opsat do scénáře. Každá klauzule
+    // však musí nést alespoň jeden významový okruh daného případu; náhodný
+    // podcast, počasí nebo Mars tímto průchod nezíská.
+    const groundedOpenAnswerClause = new Set([
+      'priority_answer',
+      'facts_answer',
+      'action_answer',
+      'reflection_answer',
+    ]).has(dialogueKind)
+      && promptGrounded
+      && sharedClauseConcepts >= 1;
+    if (groundedOpenAnswerClause) return false;
     // Two independent content stems already form a substantive new claim
     // ("koupit letenku") and must be grounded. One isolated noun remains
     // tolerated so ordinary short conversational fragments are not rejected.
@@ -2029,8 +2113,8 @@ function roleplayDirectDialogueResponse(value, latestStudent) {
 function roleplayCorrectiveDialogueResponse(value, latestStudent) {
   const prompt = normalizeStudyText(latestStudent);
   const output = normalizeStudyText(value);
-  return /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|dej vypoved|daj vypoved)\b/u.test(prompt)
-    && /\b(?:ne|nie|nechci|nechcem|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nevyplýva)\w*\b/u.test(output)
+  return /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|dej vypoved|daj vypoved)\b/u.test(prompt)
+    && /\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nevyplýva)\w*\b/u.test(output)
     && studyWordCount(value) <= 36;
 }
 
@@ -2042,7 +2126,9 @@ function roleplayTargetBehavior(value, messages = []) {
   const normalizedPrompt = normalizeStudyText(latestStudent);
   const normalizedOutput = normalizeStudyText(value);
   const asksPriority = /\b(?:nejdulezitejsi|dulezite|zalezi|priorita|najdolezitejsie|dolezite)\b/u.test(normalizedPrompt);
-  const asksFacts = /\b(?:fakta|skutecnosti|data|konkretni|fakty|skutocnosti|konkretne)\b/u.test(normalizedPrompt);
+  // „Konkrétní krok“ je žádost o akci, nikoli o faktický výčet. Obecné slovo
+  // konkrétní proto nesmí aktivovat fact-answer bránu.
+  const asksFacts = /\b(?:fakta|skutecnosti|data|fakty|skutocnosti)\b/u.test(normalizedPrompt);
   const answersPriority = /\b(?:chci|nechci|potrebuji|potrebuju|jde mi|nejdulezitejsi|dulezite|priorita|chcem|nechcem|potrebujem|ide mi|najdolezitejsie|dolezite)\b/u.test(normalizedOutput)
     || (firstPersonCounterpartVoice(value)
       && /\b(?:zalezi|prevaz|prilis|nedokaz|odhad|boj|strach|obav|nejist|neist|ohroz|rizik|jistot|istot|stabil|bezpec)\w*\b/u.test(normalizedOutput));
@@ -2079,6 +2165,11 @@ const ROLEPLAY_SEMANTIC_CONCEPTS = Object.freeze([
   Object.freeze(['uncertainty_risk', /\b(?:boj\w*|strach\w*|obav\w*|nejist\w*|neist\w*|ohroz\w*|rizik\w*|nedokaz\w*|nevi\w*|odhad\w*)\b/u]),
   Object.freeze(['family_relationships', /\b(?:rodin\w*|partner\w*|det\w*|diet\w*|vztah\w*|ocakav\w*|ocekav\w*)\b/u]),
   Object.freeze(['time_capacity', /\b(?:cas\w*|kapacit\w*|energ\w*|vycerp\w*|unav\w*|pretiz\w*)\b/u]),
+  Object.freeze(['time_commitment', /\b(?:termin\w*|deadline\w*|dokdy|nejpozdeji|najneskor|do\s+(?:\w+\s+)?(?:patk|piatk|tydn|tyzd|mesic|mesiac)\w*|behem\s+\d+\s+hodin|pocas\s+\d+\s+hodin|rychl\w*|rychlo)\b/u]),
+  Object.freeze(['organization_sponsorship', /\b(?:firm\w*|zamestnavatel\w*|veden\w*|sponzor\w*|report\w*|vykaz\w*|hrad\w*|plat\w*.{0,12}(?:firma|zamestnavatel))\b/u]),
+  Object.freeze(['entrepreneurship_direction', /\b(?:podnik\w*|obchodn\w*\s+model\w*|vlastn\w*\s+(?:firma|projekt|praxe)|konzultacn\w*\s+(?:firma|praxe))\b/u]),
+  Object.freeze(['observable_action', /\b(?:oslov\w*|kontakt\w*|napis\w*|domluv\w*|dohod\w*|zjist\w*|zist\w*|over\w*|prover\w*|porovn\w*|sepis\w*|spis\w*|projdu|prejdem|naplanuj\w*|vyhodnot\w*|zhodnot\w*)\b/u]),
+  Object.freeze(['duty_loyalty', /\b(?:spolehliv\w*|spolahliv\w*|loajal\w*|loyal\w*|zodpovedn\w*|odpovedn\w*|rucim\w*)\b/u]),
   Object.freeze(['values_identity', /\b(?:hodnot\w*|identit\w*|smysl\w*|zrad\w*|presvedc\w*)\b/u]),
   Object.freeze(['support_dependence', /\b(?:samot\w*|osamel\w*|opusten\w*|podpor\w*|pomoc\w*|nekdo\w*|niekto\w*|kouck\w*)\b/u]),
   Object.freeze(['acute_emotional_reactivity', /\b(?:konflikt\w*|afekt\w*|rozhozen\w*|rozhoden\w*|chaos\w*|odstup\w*|litov\w*|lutov\w*|emoc\w*)\b/u]),
@@ -2135,6 +2226,9 @@ function roleplaySemanticConcepts(value) {
 function roleplayDistinctiveScenarioConcept(concept) {
   return new Set([
     'financial_security',
+    'time_commitment',
+    'organization_sponsorship',
+    'duty_loyalty',
     'support_dependence',
     'acute_emotional_reactivity',
     'being_heard_alliance',

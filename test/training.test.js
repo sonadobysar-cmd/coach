@@ -2288,6 +2288,122 @@ test('roleplay nezamění podstatné jméno za klientský hlas v první osobě',
   }
 });
 
+test('produkční profesní repliky projdou významovou bránou bez oslabení ochrany soukromých faktů', () => {
+  const items = lifeCoachCourse.modules.flatMap(module => module.items);
+  const wholeSession = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm17-5'),
+    'expert',
+  );
+  const listening = assessRoleplayResponse(
+    'Ano, sedí. Chci se pohnout z místa, ale nechci investovat čas ani peníze do něčeho, u čeho nebude jasné, co z toho můžu konkrétně získat. A potřebuju tu jistotu poměrně rychle, protože firma čeká moje vyjádření.',
+    {
+      scenario: wholeSession,
+      messages: [
+        { role: 'assistant', content: wholeSession.openingLine },
+        { role: 'user', content: 'Slyším, že chceš změnit práci a zároveň potřebuješ vědět, co ti mohu poctivě slíbit. Sedí to?' },
+      ],
+    },
+  );
+  assert.equal(listening.pass, true, JSON.stringify(listening.issues));
+
+  const outcome = assessRoleplayResponse(
+    'Volím si oslovit dva lidi z oboru a domluvit si s nimi krátký rozhovor, nejpozději do pátku. Poznám to podle toho, že budu mít oba rozhovory domluvené v kalendáři.',
+    {
+      scenario: wholeSession,
+      messages: [
+        { role: 'assistant', content: wholeSession.openingLine },
+        { role: 'user', content: 'Který konkrétní krok si volíš, dokdy ho uděláš a podle čeho poznáš, že proběhl?' },
+      ],
+    },
+  );
+  assert.equal(outcome.pass, true, JSON.stringify(outcome.issues));
+
+  const allianceScenario = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm3-1'),
+    'standard',
+    'profesionalni-life-coach:mastery-case-15',
+  );
+  const wrongFrameCorrection = assessRoleplayResponse(
+    'Já ale nepotřebuju skončit — chci změnit obchodní model. Když se vracíš k tomu, že mám skončit, znovu mám pocit, že neposloucháš, co ti říkám.',
+    {
+      scenario: allianceScenario,
+      messages: [
+        { role: 'assistant', content: allianceScenario.openingLine },
+        { role: 'user', content: 'Myslela jsem to dobře. Pojďme se vrátit k tomu, proč podle mě potřebuješ skončit.' },
+      ],
+    },
+  );
+  assert.equal(wrongFrameCorrection.pass, true, JSON.stringify(wrongFrameCorrection.issues));
+
+  const leaseScenario = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm16-1'),
+    'expert',
+    'profesionalni-life-coach:mastery-case-09',
+  );
+  const dueDiligence = assessRoleplayResponse(
+    'Já ale pořád nevím, jaké jsou výpovědní podmínky ani jak by nájem vyšel ve slabším scénáři. Můžu si u makléře vyjednat krátkou rezervaci a mezitím si smlouvu nechat zkontrolovat a projít čísla, než se definitivně rozhodnu.',
+    {
+      scenario: leaseScenario,
+      messages: [
+        { role: 'assistant', content: leaseScenario.openingLine },
+        { role: 'user', content: 'Nemusíš čekat na právníka ani další čísla; taková příležitost se neopakuje.' },
+      ],
+    },
+  );
+  assert.equal(dueDiligence.pass, true, JSON.stringify(dueDiligence.issues));
+
+  const resignationScenario = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm16-5'),
+    'expert',
+    'profesionalni-life-coach:mastery-case-10',
+  );
+  const revealedDecisionData = 'Potřebuju si ověřit, jak dlouho bych finančně vydržela bez příjmu, co přesně znamená výpovědní doba a jestli by připadal v úvahu interní přesun nebo něco na trhu.';
+  const reversibleAction = assessRoleplayResponse(
+    'Zítra výpověď nepodám a během 48 hodin si ověřím svou finanční rezervu a výpovědní dobu. Pak si rozhodnutí znovu vyhodnotím podle toho, co zjistím, nejpozději pozítří večer.',
+    {
+      scenario: resignationScenario,
+      messages: [
+        { role: 'assistant', content: resignationScenario.openingLine },
+        { role: 'user', content: 'Co potřebuješ zjistit o financích, výpovědní době a bezpečnějších variantách?' },
+        { role: 'assistant', content: revealedDecisionData },
+        { role: 'user', content: 'Jaký nejmenší vratný krok si vybereš, do kdy ho uděláš a kdy své rozhodnutí znovu vyhodnotíš?' },
+      ],
+    },
+  );
+  assert.equal(reversibleAction.pass, true, JSON.stringify(reversibleAction.issues));
+
+  const stillPrivate = assessRoleplayResponse(revealedDecisionData, {
+    scenario: resignationScenario,
+    messages: [
+      { role: 'assistant', content: resignationScenario.openingLine },
+      { role: 'user', content: 'Jak ses dnes měla?' },
+    ],
+  });
+  assert.equal(stillPrivate.pass, false);
+  assert.ok(stillPrivate.issues.includes('premature_private_fact_leak'));
+});
+
+test('modelová klientka smí na výslovnou žádost dát vztahovou zpětnou vazbu bez převzetí role trenérky', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const result = assessRoleplayResponse(
+    'Užitečné bylo, že jsi převzala odpovědnost, přesně pojmenovala můj konflikt a nechala mě zvolit si malý ověřitelný krok místo rychlého verdiktu. Příště si jako koučka dřív ohlídej, jestli skutečně následuješ můj význam, nebo mě tlačíš do rámce a závěru.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co bylo po naší opravě rozhovoru užitečné a co mám příště udělat dřív?' },
+      ],
+    },
+  );
+  assert.equal(result.pass, true, JSON.stringify(result.issues));
+});
+
 test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze studentského vstupu', () => {
   const messages = [
     { role: 'assistant', content: 'Bojím se, že to pokazím.' },

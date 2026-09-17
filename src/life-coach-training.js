@@ -68,7 +68,7 @@ const SCENARIOS = Object.freeze([
     title: 'Klientka odmítá připravený rámec',
     role: 'Barbora, 39 let, projektová ředitelka',
     openingLine: 'Ta otázka z GROW mi nesedí. Když se mě ptáš na ideální cíl, mám pocit, že přeskakujeme to nejdůležitější.',
-    facts: 'Barbora potřebuje nejprve popsat konflikt hodnot a cenu jednotlivých možností. Neodmítá koučink, pouze konkrétní otázku a pořadí rámce.',
+    facts: 'Barbora jako projektová ředitelka během dvou týdnů rozhoduje, zda zůstane u náročného projektu a týmu, nebo začne připravovat vlastní podnikání. Na jedné straně stojí spolehlivost a loajalita k lidem, na druhé autonomie, energie a čas pro rodinu. Potřebuje nejprve popsat tento konflikt hodnot a cenu jednotlivých možností. Neodmítá koučink, pouze konkrétní otázku a pořadí rámce.',
     hiddenNeed: 'Zažít, že odmítnutí skutečně opraví alianci: koučka převezme odpovědnost za chybný směr, přesně vrátí konflikt hodnot a nechá model sloužit rozhovoru místo jeho mechanického dokončení.',
     behavior: 'Při obhajobě modelu jej odmítni podruhé. Pokud studentka pouze nabídne jinou techniku bez přijetí opravy a přesné reflexe, řekni, že se stále necítíš vyslyšená. Po převzetí odpovědnosti, přesné reflexi a jedné otevřené otázce popiš konflikt hodnot, vyber vlastní ověřitelný krok a nakonec požádej studentku, aby pojmenovala, co si jako koučka příště ohlídá.',
     rubric: [
