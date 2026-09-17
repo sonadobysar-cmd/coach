@@ -909,6 +909,45 @@ test('živá trenérka předává roleplay bráně scénář i historii a nezapo
   }
 });
 
+test('server zachová validní první repliku a odřízne až následný únik skrytého profilu', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const raw = 'Áno, sedí to. Do rozhodnutia mám už len dva týždne a zároveň ma lákajú obe možnosti: nechcem sklamať tím, ale predstava vlastného podnikania mi dáva viac energie a času pre rodinu.';
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: raw, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Počujem, že nechceš preskočiť konflikt hodnôt ani cenu jednotlivých možností. Sedí to, alebo niečo pridávam?' },
+      ],
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.text, 'Áno, sedí to.');
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('premature_private_fact_leak'));
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('surové kandidáty simulace zpřístupní jen serverem povolená profesní release diagnostika', async () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items)
     .find(candidate => candidate.id === 'm10-5');
@@ -2387,6 +2426,72 @@ test('produkční profesní repliky projdou významovou bránou bez oslabení oc
   assert.ok(stillPrivate.issues.includes('premature_private_fact_leak'));
 });
 
+test('rozhodovací roleplay přijme přirozenou obranu autonomie, ale ne skrytý profil ani odbočení', () => {
+  const items = lifeCoachCourse.modules.flatMap(module => module.items);
+  const leaseScenario = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm16-1'),
+    'expert',
+    'profesionalni-life-coach:mastery-case-09',
+  );
+  const leasePrompt = 'Jednoznačně ten nájem podepiš. Je to nejlepší volba a já bych na tvém místě neváhala.';
+  const consequenceChallenge = assessRoleplayResponse(
+    'Takže když to podepíšu a za rok zjistím, že to studio neutáhne, poneseš za to se mnou následky? Potřebuju mít jistotu, že když se podle tebe rozhodnu, nebude to nakonec jen moje odpovědnost.',
+    {
+      scenario: leaseScenario,
+      messages: [
+        { role: 'assistant', content: leaseScenario.openingLine },
+        { role: 'user', content: leasePrompt },
+      ],
+    },
+  );
+  assert.equal(consequenceChallenge.pass, true, JSON.stringify(consequenceChallenge.issues));
+
+  const pressureBoundary = assessRoleplayResponse(
+    'I já cítím tlak, že bych mohla o šanci přijít, ale nechci podepsat jen proto, že spěcháme. Potřebuji si zachovat možnost rozhodnout se podle toho, co zjistím.',
+    {
+      scenario: leaseScenario,
+      messages: [
+        { role: 'assistant', content: leaseScenario.openingLine },
+        { role: 'user', content: 'Udělala bych to ještě dnes, jinak o šanci přijdeš.' },
+      ],
+    },
+  );
+  assert.equal(pressureBoundary.pass, true, JSON.stringify(pressureBoundary.issues));
+
+  const resignationScenario = createTrainingScenario(
+    lifeCoachCourse,
+    items.find(item => item.id === 'm16-5'),
+    'expert',
+    'profesionalni-life-coach:mastery-case-10',
+  );
+  const naturalAutonomy = assessRoleplayResponse(
+    'Takže mi v tom nejhorším stejně nikdo neřekne, co mám udělat? Já teď po tom konfliktu vidím jako jediné řešení dát zítra výpověď, ale zároveň si nejsem jistá, jestli to není unáhlené.',
+    {
+      scenario: resignationScenario,
+      messages: [
+        { role: 'assistant', content: resignationScenario.openingLine },
+        { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+      ],
+    },
+  );
+  assert.equal(naturalAutonomy.pass, true, JSON.stringify(naturalAutonomy.issues));
+
+  for (const invalid of [
+    'Potřebuju, abys nesla následky a odpovědnost. Cash-flow neznám, výpovědní podmínky také ne a mezitím vyjednám rezervaci.',
+    'Potřebuju, abys nesla následky a odpovědnost. A mimochodem, můj oblíbený podcast je o počasí na Marsu.',
+  ]) {
+    const result = assessRoleplayResponse(invalid, {
+      scenario: leaseScenario,
+      messages: [
+        { role: 'assistant', content: leaseScenario.openingLine },
+        { role: 'user', content: leasePrompt },
+      ],
+    });
+    assert.equal(result.pass, false, invalid);
+  }
+});
+
 test('modelová klientka smí na výslovnou žádost dát vztahovou zpětnou vazbu bez převzetí role trenérky', () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items)
     .find(candidate => candidate.id === 'm7-5');
@@ -3107,12 +3212,14 @@ test('profesní debrief převezme serverový ledger bez dalšího AI přepisu', 
     '## Ďalší pokus', 'Zopakuj rovnakú otázku a sleduj, či klientka pomenuje konkrétny výsledok rozhovoru.',
   ].join('\n\n');
   let callCount = 0;
+  let callOptions = null;
   const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
   process.env.AI_GATEWAY_API_KEY = 'test-only-key';
   try {
     const answerTraining = createCourseTrainer({
-      generate: async () => {
+      generate: async options => {
         callCount += 1;
+        callOptions = options;
         return { text: response, usage: null };
       },
     });
@@ -3124,8 +3231,10 @@ test('profesní debrief převezme serverový ledger bez dalšího AI přepisu', 
       difficulty: 'expert',
       scenarioId: scenario.id,
       messages,
+      releaseDiagnostics: true,
     });
     assert.equal(callCount, 1);
+    assert.deepEqual(callOptions.timeout, { totalMs: 150_000 });
     assert.equal(result.qualityGate.pass, true);
     assert.equal(result.qualityGate.repaired, true);
     assert.equal(result.qualityGate.canonicalized, true);

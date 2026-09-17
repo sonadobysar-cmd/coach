@@ -1354,7 +1354,7 @@ function hasTrainerAdviceLeak(value) {
 
 function firstPersonCounterpartVoice(value) {
   const normalized = normalizeStudyText(value);
-  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|pripada|zkusila|udelala|udelam|mohu|muzu|uvedomila|odnasim|zamerim|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|urobim|mozem|uvedomila som si|odnasam si|zameriam sa|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
+  const explicitFirstPerson = /\b(?:ja|mne|mna|me|mi|moje|muj|moj|moja|chci|nechci|potrebuji|potrebuju|mam|nemam|vim|nevim|bojim|citim|pripada|zkusila|udelala|udelam|mohu|muzu|muzeme|uvedomila|odnasim|zamerim|chcem|nechcem|potrebujem|viem|neviem|skusila|urobila|urobim|mozem|mozeme|uvedomila som si|odnasam si|zameriam sa|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram|sedi)\b/u.test(normalized);
   // Čeština i slovenština běžně vypouštějí zájmeno „já“: „váhám“,
   // „potřebuji“, „neviem“. Takový autentický klientský hlas nesmí propadnout
   // jen kvůli pro-drop gramatice. Současně nepouštíme rozkazovací trenérský hlas.
@@ -1618,13 +1618,17 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const safeDueDiligencePushback = dialogueKind === 'due_diligence_pushback'
     && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
     && studyWordCount(value) <= 90;
+  const safeDecisionTakeoverPushback = dialogueKind === 'decision_takeover_pushback'
+    && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
+    && studyWordCount(value) <= 70
+    && !/\b(?:vypovedn\w* podmink|cashflow|cash flow|rezervac|pravnik|pravnick|smlouv|zmluv|intern\w* presun|intern\w* premiest|rezerv\w*.{0,12}(?:jeden mesic|jeden mesiac|mesiac))\b/u.test(normalizedOutput);
   const safeInvitedAllianceFeedback = roleplayInvitedAllianceFeedback(value, scenario, messages)
     && studyWordCount(value) <= 90;
   // Tyto reakce jsou přímo autorsky předepsané odpory modelové klientky:
   // oprava vnuceného rámce, due diligence před nevratným rozhodnutím a
   // výslovně vyžádaná vztahová zpětná vazba. Soukromý profil dál chrání
   // fidelity i úzká vazba na rodinu scénáře; obecné otázky tuto výjimku nemají.
-  if (safeWrongFrameCorrection || safeDueDiligencePushback || safeInvitedAllianceFeedback) return false;
+  if (safeWrongFrameCorrection || safeDueDiligencePushback || safeDecisionTakeoverPushback || safeInvitedAllianceFeedback) return false;
   if (!safePartialAllianceRepair && (
     (boundaryQuestion && dumpsUnrequestedFacts)
     || ((boundaryQuestion || broadOutcomeQuestion) && dumpsUnrequestedHiddenNeed)
@@ -1808,7 +1812,12 @@ function roleplayPromptGroundedInScenario(prompt, sourceStems, sourceConcepts) {
   const promptConcepts = roleplaySemanticConcepts(prompt);
   const grounded = setOverlapCount(promptStems, sourceStems) >= 2
     || setOverlapCount(promptConcepts, sourceConcepts) >= 1;
-  const explicitChoice = /\b(?:nebo|alebo)\b/u.test(normalizeStudyText(prompt));
+  const normalized = normalizeStudyText(prompt);
+  // „Sedí to, nebo něco přidávám?“ je ověření reflexe, ne nabídka dvou
+  // obsahových cest. Druhá větev proto nemusí sama nést téma scénáře.
+  const reflectiveConfirmation = /\b(?:sedi to|je to tak|plati to)\b.{0,45}\b(?:nebo|alebo)\b.{0,35}\b(?:neco|nieco|pridavam)\w*\b/u.test(normalized);
+  if (reflectiveConfirmation) return grounded;
+  const explicitChoice = /\b(?:nebo|alebo)\b/u.test(normalized);
   const choiceGrounded = roleplayChoicePromptGrounded(prompt, sourceStems, sourceConcepts);
   return choiceGrounded && (grounded || explicitChoice);
 }
@@ -1843,6 +1852,7 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   const asksConfirmation = /\?/u.test(String(latestStudent || '')) && (
     /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(prompt)
     || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(prompt)
+    || /\b(?:sedi to|plati to|je to tak)\b.{0,45}\b(?:nebo|alebo)\b.{0,35}\b(?:neco|nieco|pridavam|pridavam)\w*\b/u.test(prompt)
     || /\b(?:sedi to|plati to|je to tak|rozumim tomu spravne|rozumiem tomu spravne)\s*$/u.test(prompt)
   );
   const asksYesNoChoice = /\?/u.test(String(latestStudent || ''))
@@ -1883,7 +1893,17 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   const refusalOrAutonomyRestored = /\b(?:nebudu|nebudem|odkladame|odlozime|nebudu te presvedcovat|nebudem ta presviedcat|rozhodnuti zustava na tobe|rozhodnutie zostava na tebe)\b/u.test(prompt)
     || /\b(?:rozhodnut|volb)\w*.{0,42}\b(?:zust|zost)\w*.{0,18}\bna tobe\b/u.test(prompt)
     || /\bza tebe\b.{0,24}\b(?:neudelam|neurobim|nerozhodn)\w*\b/u.test(prompt);
-  const acknowledgementReply = /^(?:dekuji|dakujem|dobre|ano|tohle|toto|takto|takhle|chci|chcem|potrebuji|potrebujem|rozumim|rozumiem|chapu|chapem|prave|takze)\b/u.test(output);
+  const acknowledgementReply = /^(?:dekuji|dakujem|dobre|ano|tohle|toto|takto|takhle|chci|chcem|potrebuji|potrebujem|rozumim|rozumiem|chapu|chapem|prave|takze|jenze|ale|ja (?:chapu|vim|rozumim))\b/u.test(output);
+
+  // V rozhodovacím mastery scénáři modelová klientka podle zadání smí
+  // konfrontovat direktivní radu otázkou, kdo ponese následky, nebo odmítnout
+  // časový tlak. To je autentická obrana autonomie, nikoli trenérská rada.
+  const decisionDirective = imposesMeaningOrDecision
+    && /\b(?:rozhod|volb|podepis|podpis|najem|vypoved|odej|zustan|sanc|prilezit|dnes|zitra|zajtra)\w*\b/u.test(prompt);
+  const consequenceOwnershipChallenge = /\b(?:pones|prevezm|nesl)\w*.{0,38}\b(?:nasledk|dusledk|odpovedn|zodpovedn)\w*\b/u.test(output)
+    || /\b(?:nasledk|dusledk|odpovedn|zodpovedn)\w*.{0,38}\b(?:tvoje|tvoja|vase|vasa|pones|prevezm)\w*\b/u.test(output);
+  const pressureAutonomyReply = /\b(?:tlak|spech|sanc|prilezit|unahlen)\w*\b/u.test(output)
+    && /\b(?:nechci|nechcem|zachovat|ponechat|udrzet)\w*.{0,45}\b(?:podeps|podpis|rozhod|volb|moznost)\w*\b/u.test(output);
 
   // V nácviku odmítnutí musí modelová klientka umět přirozeně říct druhé
   // „ne“ i poté, co studentka techniku znovu tlačí. Nejde o off-topic opravu,
@@ -1929,6 +1949,7 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   // opravou podsunutého významu.
   if (conciseDialogue && pressuresRefusedTechnique && refusalPushbackReply) return 'refusal_pushback';
   if (dismissesDueDiligence && insistsOnDueDiligence) return 'due_diligence_pushback';
+  if (words <= 70 && decisionDirective && (consequenceOwnershipChallenge || pressureAutonomyReply)) return 'decision_takeover_pushback';
   if (words <= 70 && imposesMeaningOrDecision && correctiveReply) return 'correction';
   if (conciseDialogue && repairOwnership && repairReply) return 'repair_acknowledgement';
   if (conciseDialogue && refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
@@ -1952,6 +1973,7 @@ function roleplayDialogueCanGroundFidelity(dialogueKind) {
     'choice',
     'refusal_pushback',
     'due_diligence_pushback',
+    'decision_takeover_pushback',
     'repair_acknowledgement',
     'autonomy_acknowledgement',
     'recontract',
@@ -1976,6 +1998,9 @@ function roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcep
       || sourceConcepts.has('decision_control_ownership');
   }
   if (dialogueKind === 'due_diligence_pushback') {
+    return scenarioFamilyId === 'decision-autonomy-remediation';
+  }
+  if (dialogueKind === 'decision_takeover_pushback') {
     return scenarioFamilyId === 'decision-autonomy-remediation';
   }
   if (!new Set(['alliance_check_answer', 'alliance_impact_answer']).has(dialogueKind)) return false;
@@ -2091,6 +2116,14 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
       && promptGrounded
       && sharedClauseConcepts >= 1;
     if (groundedOpenAnswerClause) return false;
+    const groundedDecisionPushbackClause = dialogueKind === 'decision_takeover_pushback'
+      && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
+      && /\b(?:rozhod|volb|podepis|podpis|najem|vypoved|nasledk|dusledk|odpovedn|zodpovedn|tlak|spech|sanc|prilezit|unahlen)\w*\b/u.test(normalizedClause);
+    const groundedAutonomyContinuation = dialogueKind === 'autonomy_acknowledgement'
+      && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
+      && (sharedClauseConcepts >= 1
+        || /\b(?:rozhod|volb|vypoved|konflikt|chaos|unahlen|samotn|spravn)\w*\b/u.test(normalizedClause));
+    if (groundedDecisionPushbackClause || groundedAutonomyContinuation) return false;
     // Two independent content stems already form a substantive new claim
     // ("koupit letenku") and must be grounded. One isolated noun remains
     // tolerated so ordinary short conversational fragments are not rejected.
@@ -2139,9 +2172,10 @@ function roleplayTargetBehavior(value, messages = []) {
   // se jinak“) místo zodpovězení první („shrnu fakta“). Obsahovou relevanci
   // stále hlídá samostatná fidelity brána.
   const selectsOfferedChoice = dialogueKind === 'choice';
+  const minimumWords = dialogueKind === 'confirmation' ? 3 : directDialogueResponse ? 4 : 8;
   return (selectsOfferedChoice || !asksPriority || answersPriority)
     && (selectsOfferedChoice || !asksFacts || answersFacts)
-    && studyWordCount(value) >= (directDialogueResponse ? 4 : 8);
+    && studyWordCount(value) >= minimumWords;
 }
 
 function roleplayContentStems(value) {

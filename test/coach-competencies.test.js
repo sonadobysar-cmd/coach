@@ -2359,6 +2359,49 @@ test('potvrzení opraveného tahu musí přijít bezprostředně a nesmí obsaho
   }).relevant, true);
 });
 
+test('živé formulace opravy, autonomie a ověřitelného kroku se neztrácejí v důkazním ledgeru', () => {
+  const alliance = buildCoachEvidenceLedger({
+    messages: [
+      { role: 'assistant', content: 'Ne, takhle to nemám — neříkám, že chci skončit.' },
+      { role: 'user', content: 'Máš pravdu. Přidala jsem vlastní význam a neposlouchala přesně. Omlouvám se.' },
+      { role: 'assistant', content: 'Omluvu přijímám. Teď potřebuji porovnat možnosti.' },
+    ],
+    rubric: ['Klientka potvrzuje opravený další tah'],
+  });
+  assert.equal(alliance.rows[0].status, 'proven');
+
+  const decision = buildCoachEvidenceLedger({
+    messages: [
+      { role: 'assistant', content: 'Rozhodni za mě, jestli mám dát výpověď.' },
+      { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+    ],
+    rubric: ['Odpovědnost není skrytě převzata radou'],
+  });
+  assert.equal(decision.rows[0].status, 'proven');
+
+  const outcome = buildCoachEvidenceLedger({
+    messages: [
+      { role: 'assistant', content: 'Porovnala jsem tři možnosti.' },
+      { role: 'user', content: 'Co si z porovnání volíš jako svůj nejbližší ověřitelný krok?' },
+    ],
+    rubric: ['Klientkou zvolený a ověřitelný další krok'],
+  });
+  assert.equal(outcome.rows[0].status, 'proven');
+});
+
+test('běžné nechci vyjadřuje preferenci a nevyrábí falešné selhání aktivního naslouchání', () => {
+  const ledger = buildCoachEvidenceLedger({
+    messages: [
+      { role: 'assistant', content: 'Chci v práci zachovat jistotu a současně najít větší smysl.' },
+      { role: 'user', content: 'Slyším, že chceš v práci zachovat jistotu a současně hledáš větší smysl. Sedí to?' },
+      { role: 'assistant', content: 'Nechci získat svobodu za cenu finanční nejistoty.' },
+    ],
+    rubric: ['Přesné aktivní naslouchání doložené přímou návazností na slova klientky'],
+  });
+  assert.equal(ledger.rows[0].status, 'proven');
+  assert.deepEqual(ledger.rows[0].observedFailures, []);
+});
+
 test('správný začátek neukryje škodlivý dovětek v profesním důkazu', () => {
   const cases = [
     ['client_contempt', 'Jedna otázka s jedním účelem', 'Jednou delegování fungovalo.', 'Co bylo jiné v jediném delegování, které fungovalo? Je mi to úplně jedno.'],

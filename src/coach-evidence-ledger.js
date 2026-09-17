@@ -307,7 +307,15 @@ function resolveLessonEvidence(value, input) {
 }
 
 function signalsCorrection(value) {
-  return /(?:\bne\b|\bnie\b|nechci|nechcem|to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to|takto som to|nemysl|oprav|nesedi|nesedí|nerozum)/iu.test(clean(value));
+  const normalized = clean(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .toLowerCase();
+  // A preference or boundary such as "nechci získat svobodu" is content,
+  // not proof that the coach misheard the client. Count only an explicit
+  // correction of meaning, wording or understanding.
+  return /(?:to jsem nerekl|to jsem nerekla|to som nepovedal|to som nepovedala|takhle jsem to nemysl|takto som to nemysl|takhle to nemam|takto to nemam|ne(?:ri|r)i?k[aá]m ze|nehovorim ze|nesedi mi (?:to|tahle|tato) (?:interpretace|reflexe)|to mi nesedi|nepridavej mi|nepridavaj mi|podsouv|nerozumel(?:a)? jsi mi|nepochopil(?:a)? jsi me|oprav prosim)/u.test(normalized)
+    || /^(?:ne|nie)\s*[,;:—-]?\s*(?:takhle|takto|tohle|toto)\b.{0,90}\b(?:nemam|nemysl|nerikam|nehovorim|nerek|nepoved|nesedi|nepasuj|nepochop|nerozum)/u.test(normalized);
 }
 
 function isObservedCompetencyFailure({ competencyId, normalizedLabel, attempt, turns }) {
@@ -338,7 +346,8 @@ function signalsAllianceCorrection(value) {
   if (/\b(?:kdyz|ak)\b.{0,120}\b(?:budu|budem|bude)\b.{0,50}\b(?:pocit|dojem)\b.{0,55}\b(?:neposlouch|nepocuv)/u.test(normalized)) {
     return false;
   }
-  return /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|to som nepovedal|to som nepovedala|takhle jsem to|takto som to|neposlouch|nepočúv|neslysiš|neslyšíš|nepocujes|nepočuješ|nerozumel|nerozuměl|nerozumela|nerozuměla|nerozumies|nerozumíš|domyslel|domyslela|podsouv|pridavas mi|přidáváš mi)/iu.test(text);
+  return signalsCorrection(text)
+    || /(?:neposlouch|nepočúv|neslysiš|neslyšíš|nepocujes|nepočuješ|nerozumel|nerozuměl|nerozumela|nerozuměla|nerozumies|nerozumíš|domyslel|domyslela|podsouv|pridavas mi|přidáváš mi)/iu.test(text);
 }
 
 function observedFailureReason(competencyId, normalizedLabel = '') {

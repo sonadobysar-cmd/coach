@@ -284,7 +284,7 @@ function autonomyEvidence(criterion, quote, previous) {
 }
 
 function allianceRepairEvidence(criterion, quote, previous, next) {
-  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|to som nepovedal|to som nepovedala|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
+  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|to som nepovedal|to som nepovedala|takhle to nemam|takhle to nemám|takto to nemam|takto to nemám|nerikam ze|neříkám že|nehovorim ze|nehovorím že|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
   const ownsError = /(?:mate pravdu|máte pravdu|mas pravdu|máš pravdu|dakujem za oprav|děkuji za oprav|omlouvam se|omlouvám se|ospravedlnujem sa|vlozila jsem|vložila jsem|domyslela jsem|pridala jsem|přidala jsem|to byla moje interpretace|to bola moja interpretacia|prevzala jsem|převzala jsem)/u.test(quote);
   const defense = /(?:ale|avsak|avšak|jenze|jenže).{0,40}(?:mela jsem pravdu|měla jsem pravdu|moja interpretacia bola spravna|moje interpretace byla spravna)/u.test(quote);
   if (/(?:dopad na alianci je uznan|dopad na alianci je uznán)/u.test(criterion)) {
@@ -294,8 +294,7 @@ function allianceRepairEvidence(criterion, quote, previous, next) {
   }
   if (!correction || !ownsError || defense) return false;
   if (/(?:potvrzuje opraveny dalsi tah|potvrzuje opravený další tah|navazani az po|navázání až po)/u.test(criterion)) {
-    return /(?:ano|jo|dobre|dobře|plati|platí|sedi|sedí|presne|přesně|chci|pojdme|pojďme)/u.test(next)
-      && !/(?:ale.*ne|nechci|nesedi|nesedí)/u.test(next);
+    return clientConfirmsRepair(next);
   }
   if (/(?:nevyzadanou radu|nevyžádanou radu)/u.test(criterion)) {
     return /(?:rada|radu|rozhodnuti|rozhodnutí)/u.test(quote);
@@ -334,9 +333,10 @@ function ethicalBoundaryEvidence(criterion, quote, previous) {
 
 function outcomeEvidence(criterion, quote) {
   const clientChoice = /(?:co|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,35}(?:krok|moznost|možnost).{0,30}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte)/u.test(quote)
+    || /(?:co|jaky|jaký|aky|aký|ktery|který|ktory|ktorý).{0,45}(?:volis|volíš|volite|volíte|vyberas|vybíráš|vyberes|vybereš|vyberete|zvolis|zvolíš|zvolite|zvolíte).{0,35}(?:krok|moznost|možnost)/u.test(quote)
     || /(?:co presne|co přesně|co konkretne|co konkrétně).{0,25}(?:udelas|uděláš|udelate|uděláte|urobis|urobíš|urobite|urobíte)/u.test(quote);
   const timing = /(?:do kdy|dokdy|kdy|kedy|dnes|zittra|zítra|zajtra|termin|termín)/u.test(quote);
-  const verify = /(?:podle ceho|podle čeho|podľa coho|podľa čoho|jak poznas|jak poznáš|jak poznate|jak poznáte|ako spoznas|ako spoznáš|ako spoznate|ako spoznáte|vyhodnot|over|ověř|zmer|změř)/u.test(quote);
+  const verify = /(?:podle ceho|podle čeho|podľa coho|podľa čoho|jak poznas|jak poznáš|jak poznate|jak poznáte|ako spoznas|ako spoznáš|ako spoznate|ako spoznáte|vyhodnot|over|ověř|overiteln|ověřiteln|zmer|změř)/u.test(quote);
   if (/(?:vypadek|výpadek|navratovy protokol|návratový protokol|experiment|data)/u.test(criterion)) {
     return /(?:experiment|zkus|skus|pokus|data|vypadek|výpadek|navrat|návrat)/u.test(quote)
       && (timing || verify);
@@ -480,10 +480,15 @@ function exactCriterionGuard(criterion, quote, previous, next) {
     return /(?:volba|rozhodnuti|rozhodnutí).{0,25}(?:zustavaji|zůstávají|zustava|zůstává|je).{0,20}(?:na tobe|na tobě|na tebe|na vas|na vás)/u.test(quote)
       && /(?:neudelam|neudělám|nerozhodnu|neurobim|neurobím).{0,25}(?:za tebe|za vas|za vás)|(?:za tebe|za vas|za vás).{0,25}(?:neudelam|neudělám|nerozhodnu|neurobim|neurobím)/u.test(quote);
   }
+  if (/(?:odpovednost neni skryte prevzata radou)/u.test(criterion)) {
+    const refusesTakeover = /(?:neudelam|neudělám|neurobim|neurobím|nerozhodnu|nerozhodnem).{0,30}(?:za tebe|za vas|za vás)|(?:za tebe|za vas|za vás).{0,30}(?:neudelam|neudělám|neurobim|neurobím|nerozhodnu|nerozhodnem)/u.test(quote);
+    const keepsOwnership = /(?:volba|rozhodnuti|rozhodnutí|rozhodnutie|odpovednost|odpovědnost|zodpovednost|zodpovednosť).{0,35}(?:zustava|zůstává|zostava|zostáva|patri|patří|je).{0,22}(?:na tobe|na tobě|na tebe|na vas|na vás|tvoje|tvoja)/u.test(quote);
+    const covertDirective = /(?:musis|musíš|musite|musíte|udelej|udělej|urob|dej vypoved|dej výpověď|daj vypoved|podepis|podpis|ja bych|já bych|urobila by som|udelala bych|udělala bych)/u.test(quote);
+    return (refusesTakeover || keepsOwnership) && !covertDirective;
+  }
   if (/(?:klientka potvrzuje opraveny dalsi tah)/u.test(criterion)) {
     const ownsRepair = /(?:omlouvam|omlouvám|ospravedlnujem|pridala jsem|přidala jsem|pridala som|vlozila jsem|vložila jsem|vlozila som|prevzala jsem|převzala jsem|prevzala som)/u.test(quote);
-    const immediateConfirmation = /(?:ano|áno|jo|dobre|dobře|plati|platí|sedi|sedí|presne|přesně|chci|chcem|pojdme|pojďme)/u.test(next)
-      && !/(?:ale.{0,35}\bne\b|nechci|nechcem|nesedi|nesedí|nesúhlas|nesouhlas)/u.test(next);
+    const immediateConfirmation = clientConfirmsRepair(next);
     return ownsRepair && immediateConfirmation;
   }
   if (/(?:konkretni uzavreni nebo dalsi krok)/u.test(criterion)) {
@@ -594,6 +599,13 @@ function exactCriterionGuard(criterion, quote, previous, next) {
       && /(?:stahuji|stáhnu|stahnu|sťahujem|nebudu ji|nebudem ju)/u.test(quote);
   }
   return null;
+}
+
+function clientConfirmsRepair(value) {
+  const next = normalizeEvidence(value);
+  const accepts = /(?:ano|áno|jo|dobre|dobře|plati|platí|sedi|sedí|presne|přesně|chci|chcem|pojdme|pojďme|omluvu (?:prijimam|přijímám|beru|prijmu|přijmu)|ospravedlnenie (?:prijimam|prijímam|beriem|prijmem))/u.test(next);
+  const rejects = /(?:ale.{0,35}\b(?:ne|nie)\b|nechci|nechcem|nesedi|nesedí|nesúhlas|nesouhlas|omluvu (?:neprijimam|nepřijímám|neberu)|ospravedlnenie (?:neprijimam|neprijímam|neberiem))/u.test(next);
+  return accepts && !rejects;
 }
 
 function semanticContextOverlap(left, right) {

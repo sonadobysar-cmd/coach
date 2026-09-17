@@ -537,6 +537,11 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
           modelId,
           safePhase === 'debrief' ? 'medium' : 'low',
         ),
+        ...(releaseDiagnostics === true
+          && safePhase === 'debrief'
+          && isProfessionalLifeCoachCourse(course?.id)
+          ? { timeout: { totalMs: 150_000 } }
+          : {}),
       });
       totalUsage = mergeUsage(totalUsage, result.usage);
     } catch (error) {
@@ -652,6 +657,16 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       };
     }
     let initialCandidate = rawInitialCandidate;
+    if (safeActivity === 'simulation' && safePhase === 'roleplay' && !initialCandidate.quality.pass) {
+      const sanitizedRoleplay = prepareTrainingCandidate(rawInitialCandidate.text, candidateContext);
+      if (sanitizedRoleplay.quality.pass) {
+        initialCandidate = {
+          ...sanitizedRoleplay,
+          rawIssueCodes: [...rawInitialCandidate.rawIssueCodes],
+          changed: true,
+        };
+      }
+    }
     if (safePhase === 'debrief') {
       const targetedBetterFormulation = sanitizeDebriefTargetedBetterFormulation(rawInitialCandidate.text, {
         messages: safeMessages,
@@ -1132,6 +1147,17 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
 
   const rawQuality = assessTrainingOutput(preparedText, context);
   let quality = rawQuality;
+  if (sanitize && !quality.pass && context.activity === 'simulation' && context.phase === 'roleplay') {
+    const progressiveDisclosure = sanitizeRoleplayProgressiveDisclosure(preparedText, quality);
+    if (progressiveDisclosure.changed) {
+      const progressiveQuality = assessTrainingOutput(progressiveDisclosure.text, context);
+      if (progressiveQuality.pass) {
+        preparedText = progressiveDisclosure.text;
+        changed = true;
+        quality = progressiveQuality;
+      }
+    }
+  }
   if (sanitize && !quality.pass && context.phase === 'debrief') {
     const evidenceSanitized = sanitizeDebriefEvidence(preparedText, {
       messages: context.messages,
@@ -1198,6 +1224,26 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
     rawIssueCodes: [...(rawQuality.issues || [])],
     changed,
   };
+}
+
+function sanitizeRoleplayProgressiveDisclosure(value, quality) {
+  const text = String(value || '').trim();
+  const issues = [...(quality?.issues || [])];
+  const allowedIssues = new Set([
+    'premature_private_fact_leak',
+    'scenario_fidelity_missing',
+    'target_behavior_missing',
+  ]);
+  if (!issues.includes('premature_private_fact_leak')
+    || issues.some(issue => !allowedIssues.has(issue))) {
+    return { text, changed: false };
+  }
+  // The model often gives a complete, natural reply and then appends the
+  // still-private character sheet. Keep only that first reply; the normal
+  // roleplay gate must independently approve it before it can be returned.
+  const firstSentence = text.match(/^([\s\S]*?[.!?]["”']?)(?=\s|$)/u)?.[1]?.trim() || '';
+  if (!firstSentence || firstSentence === text) return { text, changed: false };
+  return { text: firstSentence, changed: true };
 }
 
 function normalizeIntentText(value) {
