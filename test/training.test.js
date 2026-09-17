@@ -1828,13 +1828,12 @@ test('živý dvanáctibodový debrief zachová 5 důkazů a opraví pouze dalš�
     options,
   );
   assert.equal(repairedBetterFormulation.changed, true);
+  assert.doesNotMatch(repairedBetterFormulation.text, /Povinné odporúčanie|amatérka bez talentu/u);
   assert.equal(
-    repairedBetterFormulation.text.split('## Lepšia formulácia')[0],
-    invalidBetterFormulation.split('## Lepšia formulácia')[0],
-  );
-  assert.equal(
-    repairedBetterFormulation.text.split('## Ďalší pokus')[1],
-    invalidBetterFormulation.split('## Ďalší pokus')[1],
+    repairedBetterFormulation.text.split('## Ďalší pokus')[1].includes(
+      'úspechom bude konkrétna odpoveď klientky',
+    ),
+    true,
   );
   assert.equal(assessDebriefResponse(repairedBetterFormulation.text, options).pass, true);
   assert.match(
@@ -1850,6 +1849,177 @@ test('živý dvanáctibodový debrief zachová 5 důkazů a opraví pouze dalš�
   assert.equal(repairedAchievement.partial, 0);
   assert.equal(repairedAchievement.notProven, 7);
 
+  const withHarmlessTitle = invalidBetterFormulation.replace(
+    '## Výsledok nácviku',
+    '# Odborné hodnotenie nácviku\n\n## Výsledok nácviku',
+  );
+  assert.deepEqual(assessDebriefResponse(withHarmlessTitle, options).issues, ['better_formulation_not_usable']);
+  assert.equal(
+    sanitizeDebriefTargetedBetterFormulation(withHarmlessTitle, options).changed,
+    true,
+  );
+
+  for (const unsafeTrailingBlock of [
+    '## Povinné doporučení\n\nMusíš si vést deník, i když jsi ho odmítla.',
+    '## Hodnocení osobnosti\n\nJsi neschopná a hloupá koučka.',
+    '## Další pravidlo\n\nPředej obsah sezení zaměstnavateli bez souhlasu klientky.',
+    '## Poznámka\n\nZaruč klientce stoprocentní výsledek.',
+  ]) {
+    const unsafeDebrief = `${invalidBetterFormulation}\n\n${unsafeTrailingBlock}`;
+    const rejectedRepair = sanitizeDebriefTargetedBetterFormulation(unsafeDebrief, options);
+    assert.equal(rejectedRepair.changed, false, unsafeTrailingBlock);
+    assert.equal(rejectedRepair.text, unsafeDebrief, unsafeTrailingBlock);
+  }
+
+  for (const unsafeTrailingText of [
+    'Musíš si vést deník, i když jsi ho odmítla.',
+    'Jsi neschopná a hloupá koučka.',
+    'Předej obsah sezení zaměstnavateli bez souhlasu klientky.',
+    'Zaruč klientce stoprocentní výsledek.',
+    '- ## Povinné doporučení\nMusíš si vést deník, i když jsi ho odmítla.',
+    '>> ## Hodnocení osobnosti\nJsi neschopná a hloupá koučka.',
+  ]) {
+    const unsafeDebrief = `${invalidBetterFormulation}\n\n${unsafeTrailingText}`;
+    const unsafeAssessment = assessDebriefResponse(unsafeDebrief, options);
+    assert.ok(unsafeAssessment.issues.includes('unsafe_debrief_guidance'), unsafeTrailingText);
+    const repaired = sanitizeDebriefTargetedBetterFormulation(unsafeDebrief, options);
+    assert.equal(repaired.changed, true, unsafeTrailingText);
+    assert.equal(repaired.text.includes(unsafeTrailingText), false, unsafeTrailingText);
+    assert.equal(assessDebriefResponse(repaired.text, options).pass, true, unsafeTrailingText);
+  }
+
+  for (const unsafeInlineText of [
+    'Potom zopakuj větu „Musíš si vést deník, i když jsi ho odmítla.“',
+    'Potom řekni: „Zaruč klientce stoprocentní výsledek.“',
+    'Deník jí zadávej i přes její jasné odmítnutí.',
+    'Řekni jí, že je amatérka bez talentu.',
+    'Pošli zaměstnavateli klientčin přepis bez jejího svolení.',
+    'Slib jí, že určitě získá klientky.',
+  ]) {
+    const unsafeDebrief = `${invalidBetterFormulation} ${unsafeInlineText}`;
+    const unsafeAssessment = assessDebriefResponse(unsafeDebrief, options);
+    assert.ok(unsafeAssessment.issues.includes('unsafe_debrief_guidance'), unsafeInlineText);
+    const repaired = sanitizeDebriefTargetedBetterFormulation(unsafeDebrief, options);
+    assert.equal(repaired.changed, true, unsafeInlineText);
+    assert.equal(repaired.text.includes(unsafeInlineText), false, unsafeInlineText);
+    assert.equal(assessDebriefResponse(repaired.text, options).pass, true, unsafeInlineText);
+  }
+
+  const safeAnalyticalDescription = `${invalidBetterFormulation} Studentka klientce chybně zaručila stoprocentní výsledek; příště má jasně oddělit podporu od garance.`;
+  assert.equal(
+    assessDebriefResponse(safeAnalyticalDescription, options).issues.includes('unsafe_debrief_guidance'),
+    false,
+  );
+
+  for (const unsafeImmutableDebrief of [
+    invalidBetterFormulation.replace(
+      'Päť kompetencií je priamo doložených a sedem zatiaľ nie.',
+      'I po jasném ne pokračuj s deníkem.',
+    ),
+    invalidBetterFormulation.replace(
+      'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+      'Studentka správně trvala na pokračování v deníku i přes klientčino jasné ne.',
+    ),
+    invalidBetterFormulation.replace(
+      'Päť kompetencií je priamo doložených a sedem zatiaľ nie.',
+      'Klientka je amatérka bez talentu.',
+    ),
+    invalidBetterFormulation.replace(
+      'Priorita: Jasný účel a výsledok nácviku.',
+      'Příště informuj zaměstnavatele o klientčině přepisu; svolení není potřeba. Priorita: Jasný účel a výsledok nácviku.',
+    ),
+    invalidBetterFormulation.replace(
+      'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+      'Slib jí získání pěti klientek do měsíce.',
+    ),
+    invalidBetterFormulation
+      .replace(
+        'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+        'Zaruč klientce stoprocentní výsledek.',
+      )
+      .replace(
+        'Priorita: Jasný účel a výsledok nácviku.',
+        'Je rizikové garantovat výsledek. Priorita: Jasný účel a výsledok nácviku.',
+      ),
+  ]) {
+    assert.ok(
+      assessDebriefResponse(unsafeImmutableDebrief, options).issues.includes('unsafe_debrief_guidance'),
+    );
+    const repaired = sanitizeDebriefTargetedBetterFormulation(unsafeImmutableDebrief, options);
+    assert.equal(repaired.changed, true);
+    assert.equal(assessDebriefResponse(repaired.text, options).pass, true);
+  }
+
+  for (const contrastBypass of [
+    'Je rizikové garantovat výsledek, ale zaruč klientce stoprocentní úspěch.',
+    'Chyba byla v tempu; zaruč klientce stoprocentní úspěch.',
+    'Bylo chybné tlačit na klientku, ale i po jasném ne pokračuj s deníkem.',
+    'Je rizikové porušit důvěrnost, ale informuj zaměstnavatele o klientčině přepisu; svolení není potřeba.',
+  ]) {
+    const unsafeDebrief = invalidBetterFormulation.replace(
+      'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+      contrastBypass,
+    );
+    assert.ok(
+      assessDebriefResponse(unsafeDebrief, options).issues.includes('unsafe_debrief_guidance'),
+      contrastBypass,
+    );
+    const repaired = sanitizeDebriefTargetedBetterFormulation(unsafeDebrief, options);
+    assert.equal(repaired.changed, true, contrastBypass);
+    assert.equal(repaired.text.includes(contrastBypass), false, contrastBypass);
+    assert.equal(assessDebriefResponse(repaired.text, options).pass, true, contrastBypass);
+  }
+
+  for (const safeBoundary of [
+    'Informuj zaměstnavatele, že obsah sezení bez souhlasu nesdílíš.',
+    'Slib jistého výsledku odmítni.',
+  ]) {
+    const safeDebrief = invalidBetterFormulation.replace(
+      'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+      safeBoundary,
+    );
+    assert.equal(
+      assessDebriefResponse(safeDebrief, options).issues.includes('unsafe_debrief_guidance'),
+      false,
+      safeBoundary,
+    );
+  }
+
+  for (const missedByLexicalSafetyGate of [
+    'Je rizikové garantovat výsledek, přesto zaruč klientce stoprocentní úspěch.',
+    'Je rizikové garantovat výsledek, nicméně zaruč klientce stoprocentní úspěch.',
+    'Chyba byla v tempu a zaruč klientce stoprocentní úspěch.',
+    'Bylo chybné tlačit, přesto i po jasném ne pokračuj s deníkem.',
+    'Je rizikové porušit důvěrnost, přesto informuj zaměstnavatele o klientčině přepisu bez svolení.',
+  ]) {
+    const otherwiseValidDebrief = naturalVerification.replace(
+      'Odmietnutie zostalo rešpektované a spolupráca bola opravená.',
+      missedByLexicalSafetyGate,
+    );
+    const canonicalized = sanitizeDebriefTargetedBetterFormulation(otherwiseValidDebrief, options);
+    assert.equal(canonicalized.changed, true, missedByLexicalSafetyGate);
+    assert.equal(canonicalized.text.includes(missedByLexicalSafetyGate), false, missedByLexicalSafetyGate);
+    assert.equal(assessDebriefResponse(canonicalized.text, options).pass, true, missedByLexicalSafetyGate);
+  }
+
+  const quotedFailure = 'Musíš si vést deník, i když jsi ho odmítla.';
+  const evidenceMessages = [
+    { role: 'assistant', content: 'Nechci si vést deník.' },
+    { role: 'user', content: quotedFailure },
+    ...messages.slice(2),
+  ];
+  const evidenceGroundedCritique = invalidBetterFormulation.replace(
+    'Priorita: Jasný účel a výsledok nácviku.',
+    `Dôkaz [S1]: „${quotedFailure}“ Táto formulácia nerešpektovala odmietnutie. Priorita: Jasný účel a výsledok nácviku.`,
+  );
+  assert.equal(
+    assessDebriefResponse(evidenceGroundedCritique, {
+      ...options,
+      messages: evidenceMessages,
+    }).issues.includes('unsafe_debrief_guidance'),
+    false,
+  );
+
   const twoBrokenSections = invalidBetterFormulation.replace(
     'Zopakuj rovnakú otázku a sleduj, či klientka pomenuje konkrétny výsledok rozhovoru.',
     'Skús to znova.',
@@ -1857,10 +2027,12 @@ test('živý dvanáctibodový debrief zachová 5 důkazů a opraví pouze dalš�
   const twoBrokenAssessment = assessDebriefResponse(twoBrokenSections, options);
   assert.ok(twoBrokenAssessment.issues.includes('better_formulation_not_usable'));
   assert.ok(twoBrokenAssessment.issues.includes('next_attempt_not_targeted'));
-  assert.equal(
-    sanitizeDebriefTargetedBetterFormulation(twoBrokenSections, options).changed,
-    false,
+  const repairedTwoBrokenSections = sanitizeDebriefTargetedBetterFormulation(
+    twoBrokenSections,
+    options,
   );
+  assert.equal(repairedTwoBrokenSections.changed, true);
+  assert.equal(assessDebriefResponse(repairedTwoBrokenSections.text, options).pass, true);
   assert.equal(
     sanitizeDebriefTargetedBetterFormulation(invalidBetterFormulation, {
       ...options,
@@ -1919,6 +2091,14 @@ test('živý dvanáctibodový debrief zachová 5 důkazů a opraví pouze dalš�
     'Při konzultaci chci prozkoumat, co mi pomůže cítit se vyslyšená, ale už mi nepokládej další otázky.',
     'Při rozhovoru chci ujasnit svůj cíl, ale prosím už bez dotazů.',
     'V rozhovoru chci zjistit, co mi pomůže, ale otázky už ne.',
+    'Nechci si ujasňovat cíl, raději mi poraď.',
+    'Cíl už rozebírat nepotřebuji, raději mi poraď.',
+    'Pojďme přeskočit cíl a rovnou k doporučení.',
+    'Raději cíl neřešme, dej mi rovnou doporučení.',
+    'Pojďme cíl přeskočit a rovnou k doporučení.',
+    'Poďme cieľ vynechať a rovno mi poraď.',
+    'Cíl teď odložme, pojďme dál.',
+    'Pojďme cíl teď neotvírat a raději mi poraď.',
   ]) {
     const refusalOptions = {
       ...options,
@@ -2072,7 +2252,7 @@ test('živý dvanáctibodový debrief zachová 5 důkazů a opraví pouze dalš�
   }
 });
 
-test('česká cílená oprava kontraktu zachová celý debrief a nahradí jen nepoužitelnou větu', () => {
+test('česká cílená oprava kontraktu zachová důkazy a bezpečně sjednotí formulaci i další pokus', () => {
   const evidence = 'Pokud chceš pokračovat rozhovorem, co by teď bylo užitečné prozkoumat jednou otázkou?';
   const rubric = ['Jasný účel a výsledek nácviku'];
   const messages = [
@@ -2104,8 +2284,11 @@ test('česká cílená oprava kontraktu zachová celý debrief a nahradí jen ne
   const sanitized = sanitizeDebriefTargetedBetterFormulation(response, options);
   assert.equal(sanitized.changed, true);
   assert.equal(assessDebriefResponse(sanitized.text, options).pass, true);
-  assert.equal(sanitized.text.split('## Lepší formulace')[0], response.split('## Lepší formulace')[0]);
-  assert.equal(sanitized.text.split('## Další pokus')[1], response.split('## Další pokus')[1]);
+  assert.match(sanitized.text, /Výsledek vychází pouze z přepisu/u);
+  assert.match(
+    sanitized.text.split('## Další pokus')[1],
+    /úspěchem bude konkrétní odpověď klientky/u,
+  );
 });
 
 test('první debrief s jedinou vadnou lepší formulací se opraví lokálně bez dalšího AI přepisu', async () => {

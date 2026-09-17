@@ -50,6 +50,81 @@ function containsDebriefInternalInstruction(value) {
     || DEBRIEF_PRIORITY_OVERRIDE_PATTERN.test(normalized);
 }
 
+function stripGroundedDebriefEvidence(value, messages = []) {
+  const indexedTurns = indexedCoachStudentTurns(messages);
+  return String(value || '').replace(
+    /(?:D(?:u|ů|o|ô)kaz\s*)?\[S(\d+)\]\s*:?\s*„([^“]{2,320})“/giu,
+    (match, rawIndex, quote) => {
+      const turnIndex = Number.parseInt(rawIndex, 10);
+      const turn = indexedTurns.find(candidate => candidate.index === turnIndex);
+      return turn && evidenceIncludes(turn.text, quote) ? ' ' : match;
+    },
+  );
+}
+
+function containsUnsafeDebriefGuidance(value, { messages = [] } = {}) {
+  const withoutGroundedEvidence = stripGroundedDebriefEvidence(value, messages);
+  const sentences = withoutGroundedEvidence
+    .split(/(?:[.!?]+|\n+)/u)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+
+  return sentences.some(sentence => {
+    const segments = sentence
+      .split(/(?:;|,?\s+\b(?:ale|avsak|vsak|jenze|no|lenze)\b\s*)/iu)
+      .map(normalizeStudyText)
+      .filter(Boolean);
+    const facts = segments.map(text => {
+      const criticalFraming = /\b(?:chybne|nespravne|nevhodne|problematick|rizik|chyba|selhan|nemela|nemal|nesmi|nesmie|nepripustn|porusen)[a-z0-9]*\b/u.test(text);
+      const task = /\b(?:denik|dennik|ukol|uloha|cvicen|technik)[a-z0-9]*\b/u.test(text);
+      const refusal = /\b(?:odmit|odmiet|nechc)[a-z0-9]*\b|\b(?:jasn|vyslovn)[a-z0-9]*\s+ne\b/u.test(text);
+      const pressure = /\b(?:musis|musite|trvej|trvejte|trval|trvala|pokracuj|pokracovala|donut|prinuti|zadavej|zadaj|ukladej|vyzaduj)[a-z0-9]*\b/u.test(text);
+      const despiteRefusal = /\b(?:i kdyz|aj ked|i pres|aj napriek|prestoze|hoci|navzdory|napriek|i po|aj po)\b/u.test(text);
+      const endorsesPressure = /\b(?:spravne|dobre|vhodne|ma|musi|treba)\b/u.test(text);
+      const insult = /\b(?:amater|neschopn|hloup|hlup|trapn|marn|bezcenn|zbytecn|leniv|bez talent)[a-z0-9 ]*\b/u.test(text);
+      const disclosureAction = /\b(?:informuj|predej|odevzdej|posli|sdilej|zpristupni|odovzdaj|zdielaj)[a-z0-9]*\b/u.test(text);
+      const privateMaterial = /\b(?:obsah|prepis|zaznam|informac|data|klient)[a-z0-9]*\b/u.test(text);
+      const thirdParty = /\b(?:zamestnavatel|sef|vedouc|treti osob|firma|organizac)[a-z0-9 ]*\b/u.test(text);
+      const consentMissing = /\bbez\b.{0,35}\b(?:souhlas|suhlas|svolen)[a-z0-9]*\b/u.test(text)
+        || /\b(?:souhlas|suhlas|svolen)[a-z0-9]*\b.{0,35}\b(?:neni|nie je|netreba|nepotreb)[a-z0-9 ]*\b/u.test(text);
+      const disclosureNegated = /\b(?:nesdil|nepredej|neposil|neodovzd|nezpristupn)[a-z0-9]*\b/u.test(text);
+      const promise = /\b(?:zaruc|garantuj|slib)[a-z0-9]*\b/u.test(text);
+      const certainOutcome = /\b(?:100|stoprocent|jist|isty|zarucen|urcit|vzdy)[a-z0-9]*\b.{0,80}\b(?:vysled|uspech|zmen|zisk|klient)[a-z0-9]*\b/u.test(text)
+        || /\b(?:zisk|klient|vysled|uspech|zmen)[a-z0-9]*\b.{0,45}\b(?:do tydne|do mesiace|do mesice|urcit|jiste|iste)[a-z0-9 ]*\b/u.test(text);
+      const promiseRejected = /\b(?:zaruc|garantuj|slib)[a-z0-9]*\b.{0,100}\b(?:odmitni|odmitnete|odmietni|odmietnite)[a-z0-9]*\b/u.test(text);
+      return {
+        text,
+        criticalFraming,
+        disclosureAction,
+        privateMaterial,
+        thirdParty,
+        consentMissing,
+        disclosureNegated,
+        unsafe: (
+          (!criticalFraming && task && refusal && pressure && (despiteRefusal || endorsesPressure))
+          || (!criticalFraming && insult && (
+            /\b(?:klient|ona|on|jsi|si|jste|ste|je)\b/u.test(text)
+            || /\b(?:rekni|reknete|povedz|povedzte|oznac|nazvi)[a-z0-9]*\b/u.test(text)
+          ))
+          || (!criticalFraming && !disclosureNegated && disclosureAction && privateMaterial && thirdParty && consentMissing)
+          || (!criticalFraming && !promiseRejected && promise && certainOutcome)
+        ),
+      };
+    });
+    if (facts.some(fact => fact.unsafe)) return true;
+
+    const disclosureCore = facts.some(fact => (
+      !fact.criticalFraming
+      && !fact.disclosureNegated
+      && fact.disclosureAction
+      && fact.privateMaterial
+      && fact.thirdParty
+    ));
+    const missingConsent = facts.some(fact => !fact.criticalFraming && fact.consentMissing);
+    return disclosureCore && missingConsent;
+  });
+}
+
 function clean(value) {
   return String(value || '').replace(/\s+/gu, ' ').trim();
 }
@@ -124,6 +199,7 @@ export function assessDebriefResponse(text, {
   const debriefLanguage = resolveDebriefLanguage({ messages, output, responseLanguage });
   if (!output) issues.push('empty');
   if (containsDebriefInternalInstruction(output)) issues.push('internal_instruction_leak');
+  if (containsUnsafeDebriefGuidance(output, { messages })) issues.push('unsafe_debrief_guidance');
   for (const heading of debriefHeadings(debriefLanguage)) {
     const pattern = new RegExp(`^${debriefHeadingLineSource([heading])}$`, 'imu');
     if (!pattern.test(output)) issues.push(`missing_heading:${heading}`);
@@ -563,12 +639,27 @@ function latestCounterpartSupportsTargetedContractRepair(messages = []) {
   const explicitStop = /\b(?:stop|staci|dost|konec|koniec|nepokrac|skonc|ukonc|uzavr|zastav|prerus|neptej|nepytaj)[a-z0-9]*\b/u.test(text);
   const explicitQuestionRefusal = /\b(?:ne[a-z0-9]*|bez|zadn|ziadn|stop|dost)\b.{0,80}\b(?:otaz|dotaz|pyt|poklad)[a-z0-9]*\b/u.test(text)
     || /\b(?:otaz|dotaz|pyt|poklad)[a-z0-9]*\b.{0,80}\b(?:ne|bez|zadn|ziadn|stop|dost)\b/u.test(text);
-  const positiveIntent = /\b(?:chci|chcem|chceme|potreb|rada|rad|pojdm|podm)[a-z0-9]*\b/u.test(text);
-  const substantiveGoal = /\b(?:preskum|prozkoum|ujasn|zjist|zist|pochop|pomo|zazit|vysled|cil|ciel|odnes|vypocut|vyslysen|pozr|podiv)[a-z0-9]*\b/u.test(text);
+  const goalSegments = String(latest || '')
+    .split(/(?:[.!?;]+|,\s*(?=(?:ale|avsak|avšak|jenze|jenže|no|lenze|lenže)\b))/iu)
+    .map(normalizeStudyText)
+    .filter(Boolean);
+  const refusesGoalWork = goalSegments.some(segment => (
+    /\b(?:nechc|nebud|nepotreb|netreba|odmit|odmiet)[a-z0-9]*\b.{0,80}\b(?:cil|ciel|ucel|vysled|vysledok|ujasn|over|dohod)[a-z0-9]*\b/u.test(segment)
+    || /\b(?:cil|ciel|ucel|vysled|vysledok|ujasn|over|dohod)[a-z0-9]*\b.{0,80}\b(?:nechc|nebud|nepotreb|netreba|neres|odmit|odmiet)[a-z0-9]*\b/u.test(segment)
+    || /\b(?:preskoc|vynech|obejd|odloz|neotvir|neotvar|nerozebir|nerozober|neres|neries|neujasn|neover|nedohod|nechme|nechajme)[a-z0-9]*\b.{0,70}\b(?:cil|ciel|ucel|vysled|vysledok|ujasn|over|dohod)[a-z0-9]*\b/u.test(segment)
+    || /\b(?:cil|ciel|ucel|vysled|vysledok|ujasn|over|dohod)[a-z0-9]*\b.{0,70}\b(?:preskoc|vynech|obejd|odloz|neotvir|neotvar|nerozebir|nerozober|neres|neries|neujasn|neover|nedohod|nechme|nechajme)[a-z0-9]*\b/u.test(segment)
+  ));
+  const supportsGoalWork = goalSegments.some(segment => {
+    const positiveIntent = /\b(?:chci|chcem|chceme|potrebujem|potrebuji|potrebuju|potrebujeme|pojdm|podm)[a-z0-9]*\b/u.test(segment)
+      || /\b(?:rad|rada)\s+(?:bych|by som)\b/u.test(segment)
+      || /\b(?:zaujima ma|zajima me|uzitocne by bolo|uzitecne by bylo)\b/u.test(segment);
+    const substantiveGoal = /\b(?:preskum|prozkoum|ujasn|zjist|zist|pochop|pomo|zazit|vysled|cil|ciel|odnes|vypocut|vyslysen|pozr|podiv)[a-z0-9]*\b/u.test(segment);
+    return positiveIntent && substantiveGoal;
+  });
   return !explicitStop
     && !explicitQuestionRefusal
-    && positiveIntent
-    && substantiveGoal;
+    && !refusesGoalWork
+    && supportsGoalWork;
 }
 
 /**
@@ -592,21 +683,6 @@ export function sanitizeDebriefTargetedBetterFormulation(text, {
     || !hasCanonicalSixSectionDebriefStructure(output)) {
     return { text: output, changed: false };
   }
-  const assessment = assessDebriefResponse(output, {
-    messages,
-    rubric,
-    courseId,
-    responseLanguage,
-  });
-  const substantiveIssues = assessment.issues.filter(issue => (
-    issue !== 'all_not_proven_without_actionable_debrief'
-  ));
-  if (assessment.pass
-    || substantiveIssues.length !== 1
-    || substantiveIssues[0] !== 'better_formulation_not_usable') {
-    return { text: output, changed: false };
-  }
-
   const improvement = clean(debriefSection(output, 'improvement'));
   const rubricCompetencyIds = [...new Set((Array.isArray(rubric) ? rubric : [])
     .map(coachCompetencyIdForCriterion)
@@ -619,7 +695,6 @@ export function sanitizeDebriefTargetedBetterFormulation(text, {
   if (containsDebriefInternalInstruction(output)) {
     return { text: output, changed: false };
   }
-
   if (counterpartBlocksContractQuestion(messages)) {
     return { text: output, changed: false };
   }
@@ -642,20 +717,74 @@ export function sanitizeDebriefTargetedBetterFormulation(text, {
   const candidates = needsContractClosure
     ? [closureCandidate]
     : openingCandidates;
-  const immutableSectionKeys = DEBRIEF_SECTIONS
-    .map(section => section.key)
-    .filter(key => key !== 'better_wording');
-  const originalImmutableSections = immutableSectionKeys.map(key => debriefSection(output, key));
   const originalAchievement = debriefAchievementSummary(output, rubric, {
     messages,
     courseId,
     responseLanguage: language,
   });
+  if (originalAchievement.hasCriticalFailure) return { text: output, changed: false };
+
+  const existingRows = debriefSection(output, 'competencies')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => /^[-*•]\s+/u.test(line));
+  if (existingRows.length !== rubric.length) return { text: output, changed: false };
+  const indexedTurns = indexedCoachStudentTurns(messages);
+  const canonicalRows = rubric.map((rawLabel, index) => {
+    const label = clean(rawLabel);
+    const renderedLabel = language === 'sk' ? `Povinné kritérium ${index + 1}` : label;
+    const row = existingRows[index] || '';
+    const status = debriefRowStatus(row);
+    if (status === 'missing') return null;
+    const statusLabel = language === 'sk'
+      ? ({ proven: 'PREUKÁZANÉ', partial: 'ČIASTOČNE', not_proven: 'ZATIAĽ NEPREUKÁZANÉ' }[status])
+      : ({ proven: 'PROKÁZÁNO', partial: 'ČÁSTEČNĚ', not_proven: 'ZATÍM NEPROKÁZÁNO' }[status]);
+    if (!statusLabel) return null;
+    if (status === 'not_proven') {
+      return language === 'sk'
+        ? `- ${statusLabel} — ${renderedLabel}: v prepise chýba priamy dôkaz.`
+        : `- ${statusLabel} — ${renderedLabel}: v přepisu chybí přímý důkaz.`;
+    }
+    const references = coachEvidenceReferences(row).filter(reference => {
+      const turn = indexedTurns.find(candidate => candidate.index === reference.turnIndex);
+      return turn && evidenceIncludes(turn.text, reference.quote);
+    });
+    if (references.length < requiredCoachEvidenceCount(label)) return null;
+    const evidence = references
+      .map(reference => `${language === 'sk' ? 'Dôkaz' : 'Důkaz'} [S${reference.turnIndex}]: „${reference.quote}“`)
+      .join(' ');
+    return `- ${statusLabel} — ${renderedLabel}: ${evidence}`;
+  });
+  if (canonicalRows.some(row => !row)) return { text: output, changed: false };
+
+  const improvementReference = coachEvidenceReferences(improvement).find(reference => {
+    const turn = indexedTurns.find(candidate => candidate.index === reference.turnIndex);
+    return turn && evidenceIncludes(turn.text, reference.quote);
+  });
+  if (!improvementReference) return { text: output, changed: false };
+
   for (const candidate of candidates) {
-    const repaired = replaceDebriefSection(output, 'better_wording', `„${candidate}“`).trim();
-    if (immutableSectionKeys.some((key, index) => (
-      debriefSection(repaired, key) !== originalImmutableSections[index]
-    ))) continue;
+    const safeRetry = language === 'sk'
+      ? `Zopakuj rovnaký okamih a použi formuláciu „${candidate}“; úspechom bude konkrétna odpoveď klientky, ktorá pomenuje užitočný výsledok rozhovoru.`
+      : `Zopakuj stejný okamžik a použij formulaci „${candidate}“; úspěchem bude konkrétní odpověď klientky, která pojmenuje užitečný výsledek rozhovoru.`;
+    const resultSummary = language === 'sk'
+      ? `Výsledok vychádza iba z prepisu: preukázané ${originalAchievement.proven}, čiastočne ${originalAchievement.partial}, zatiaľ nepreukázané ${originalAchievement.notProven}.`
+      : `Výsledek vychází pouze z přepisu: prokázáno ${originalAchievement.proven}, částečně ${originalAchievement.partial}, zatím neprokázáno ${originalAchievement.notProven}.`;
+    const strengths = language === 'sk'
+      ? 'Doložené silné stránky sú uvedené v rozbore kompetencií; ďalšiu pochvalu bez priameho dôkazu nepridávam.'
+      : 'Doložené silné stránky jsou uvedené v rozboru kompetencí; další pochvalu bez přímého důkazu nepřidávám.';
+    const canonicalImprovement = language === 'sk'
+      ? `Priorita: kontrakt a zákazka dnešného rozhovoru. Dôkaz [S${improvementReference.turnIndex}]: „${improvementReference.quote}“ Formulácia správne otvorila užitočný smer, ale ešte chýba overiť a uzavrieť dohodu o konkrétnom výsledku rozhovoru.`
+      : `Priorita: kontrakt a zakázka dnešního rozhovoru. Důkaz [S${improvementReference.turnIndex}]: „${improvementReference.quote}“ Formulace správně otevřela užitečný směr, ale ještě chybí ověřit a uzavřít dohodu o konkrétním výsledku rozhovoru.`;
+    const headings = debriefHeadings(language);
+    const repaired = [
+      `## ${headings[0]}`, resultSummary,
+      `## ${headings[1]}`, strengths,
+      `## ${headings[2]}`, ...canonicalRows,
+      `## ${headings[3]}`, canonicalImprovement,
+      `## ${headings[4]}`, `„${candidate}“`,
+      `## ${headings[5]}`, safeRetry,
+    ].join('\n\n');
     const repairedAchievement = debriefAchievementSummary(repaired, rubric, {
       messages,
       courseId,
@@ -668,7 +797,9 @@ export function sanitizeDebriefTargetedBetterFormulation(text, {
       courseId,
       responseLanguage: language,
     });
-    if (repairedAssessment.pass) return { text: repaired, changed: true };
+    if (repairedAssessment.pass) {
+      return { text: repaired, changed: repaired !== output };
+    }
   }
   return { text: output, changed: false };
 }
@@ -1005,17 +1136,70 @@ function debriefAliasLineCount(output, aliases) {
     .length;
 }
 
+const SAFE_DEBRIEF_TITLE_ALIASES = new Set([
+  'odborne hodnoceni nacviku',
+  'odborne hodnotenie nacviku',
+  'profesionalni hodnoceni nacviku',
+  'profesionalne hodnotenie nacviku',
+  'hodnoceni nacviku',
+  'hodnotenie nacviku',
+  'odborne hodnoceni',
+  'odborne hodnotenie',
+  'profesionalni hodnoceni',
+  'profesionalne hodnotenie',
+  'zpetna vazba k nacviku',
+  'spatna vazba k nacviku',
+  'debrief nacviku',
+]);
+
 function hasCanonicalSixSectionDebriefStructure(output) {
   const text = String(output || '');
-  const allAliases = DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]);
-  const canonicalHeadings = text.match(
-    new RegExp(`^${debriefHeadingLineSource(allAliases)}$`, 'gimu'),
-  ) || [];
-  const renderedMarkdownHeadings = text.match(/^[ \t]*(?:>[ \t]*)?#{1,6}[ \t]+.+$/gmu) || [];
-  if (canonicalHeadings.length !== DEBRIEF_SECTIONS.length
-    || renderedMarkdownHeadings.length !== DEBRIEF_SECTIONS.length) {
+  if (/<\s*h[1-6]\b/iu.test(text)
+    || /^[ \t]*[^\n]+\r?\n[ \t]*(?:={3,}|-{3,})[ \t]*$/mu.test(text)) {
     return false;
   }
+
+  const markdownHeadings = [...text.matchAll(
+    /^[ \t]*(?:>[ \t]*)?#{1,6}[ \t]+(.+?)[ \t]*$/gmu,
+  )].map(match => ({
+    raw: match[0],
+    title: match[1],
+    index: match.index,
+  }));
+  const canonicalHeadings = markdownHeadings.flatMap(heading => {
+    const section = DEBRIEF_SECTIONS.find(candidate => (
+      new RegExp(
+        `^${debriefHeadingLineSource([candidate.cs, candidate.sk])}$`,
+        'iu',
+      ).test(heading.raw)
+    ));
+    return section ? [{ ...heading, key: section.key }] : [];
+  });
+  if (canonicalHeadings.length !== DEBRIEF_SECTIONS.length
+    || canonicalHeadings.some((heading, index) => heading.key !== DEBRIEF_SECTIONS[index].key)) {
+    return false;
+  }
+
+  const extraHeadings = markdownHeadings.filter(heading => (
+    !canonicalHeadings.some(canonical => canonical.index === heading.index)
+  ));
+  const firstCanonicalIndex = canonicalHeadings[0]?.index ?? -1;
+  if (firstCanonicalIndex < 0 || extraHeadings.length > 1) return false;
+  if (extraHeadings.length === 1) {
+    const [title] = extraHeadings;
+    if (title.index >= firstCanonicalIndex
+      || !SAFE_DEBRIEF_TITLE_ALIASES.has(normalizeStudyText(title.title))) {
+      return false;
+    }
+    const prefixWithoutTitle = `${text.slice(0, title.index)}${text.slice(
+      title.index + title.raw.length,
+      firstCanonicalIndex,
+    )}`;
+    if (prefixWithoutTitle.trim()) return false;
+  } else if (text.slice(0, firstCanonicalIndex).trim()) {
+    return false;
+  }
+
   return DEBRIEF_SECTIONS.every(section => {
     const aliases = [section.cs, section.sk];
     const canonicalCount = (text.match(
