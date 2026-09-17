@@ -27,6 +27,7 @@ import {
   completeDebriefRubric,
   debriefAchievementSummary,
   sanitizeDebriefEvidence,
+  sanitizeDebriefTargetedBetterFormulation,
   sanitizeDebriefTargetedRetry,
   sanitizeStudyInternalInstructionLeak,
   sanitizeStudyQuestionCount,
@@ -580,26 +581,44 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
     };
     const rawInitialCandidate = prepareTrainingCandidate(result.text, candidateContext, { sanitize: false });
     let initialCandidate = rawInitialCandidate;
-    const initialSubstantiveIssues = (rawInitialCandidate.quality.issues || []).filter(issue => (
-      issue !== 'all_not_proven_without_actionable_debrief'
-    ));
-    if (safePhase === 'debrief'
-      && initialSubstantiveIssues.length === 1
-      && initialSubstantiveIssues[0] === 'next_attempt_not_targeted') {
-      const targetedRetry = sanitizeDebriefTargetedRetry(rawInitialCandidate.text, {
+    if (safePhase === 'debrief') {
+      const targetedBetterFormulation = sanitizeDebriefTargetedBetterFormulation(rawInitialCandidate.text, {
         messages: safeMessages,
         rubric: scenario.rubric,
         courseId: course?.id,
         responseLanguage,
+        scenarioId: scenario?.id,
       });
-      if (targetedRetry.changed) {
-        const verifiedRetry = prepareTrainingCandidate(targetedRetry.text, candidateContext, { sanitize: false });
-        if (verifiedRetry.quality.pass) {
+      if (targetedBetterFormulation.changed) {
+        const verifiedBetterFormulation = prepareTrainingCandidate(
+          targetedBetterFormulation.text,
+          candidateContext,
+          { sanitize: false },
+        );
+        if (verifiedBetterFormulation.quality.pass) {
           initialCandidate = {
-            ...verifiedRetry,
+            ...verifiedBetterFormulation,
             rawIssueCodes: [...rawInitialCandidate.rawIssueCodes],
             changed: true,
           };
+        }
+      }
+      if (!initialCandidate.quality.pass) {
+        const targetedRetry = sanitizeDebriefTargetedRetry(rawInitialCandidate.text, {
+          messages: safeMessages,
+          rubric: scenario.rubric,
+          courseId: course?.id,
+          responseLanguage,
+        });
+        if (targetedRetry.changed) {
+          const verifiedRetry = prepareTrainingCandidate(targetedRetry.text, candidateContext, { sanitize: false });
+          if (verifiedRetry.quality.pass) {
+            initialCandidate = {
+              ...verifiedRetry,
+              rawIssueCodes: [...rawInitialCandidate.rawIssueCodes],
+              changed: true,
+            };
+          }
         }
       }
     }
@@ -955,6 +974,20 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
       preparedText = evidenceSanitized.text;
       changed = true;
       quality = assessTrainingOutput(preparedText, context);
+    }
+    if (!quality.pass) {
+      const betterFormulationSanitized = sanitizeDebriefTargetedBetterFormulation(preparedText, {
+        messages: context.messages,
+        rubric: context.scenario.rubric,
+        courseId: context.course?.id,
+        responseLanguage: context.responseLanguage,
+        scenarioId: context.scenario?.id,
+      });
+      if (betterFormulationSanitized.changed) {
+        preparedText = betterFormulationSanitized.text;
+        changed = true;
+        quality = assessTrainingOutput(preparedText, context);
+      }
     }
     if (!quality.pass) {
       const retrySanitized = sanitizeDebriefTargetedRetry(preparedText, {

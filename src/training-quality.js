@@ -28,10 +28,27 @@ const DEBRIEF_SECTIONS = Object.freeze([
   Object.freeze({ key: 'better_wording', cs: 'Lepší formulace', sk: 'Lepšia formulácia' }),
   Object.freeze({ key: 'next_attempt', cs: 'Další pokus', sk: 'Ďalší pokus' }),
 ]);
+const TARGETED_BETTER_FORMULATION_SCENARIO_ID = 'profesionalni-life-coach:mastery-case-08';
 
 const DEBRIEF_STATUS_SOURCE = '(?:ZATÍM NEPROKÁZÁNO|ZATIAĽ NEPREUKÁZANÉ|ČÁSTEČNĚ|ČIASTOČNE|PROKÁZÁNO|PREUKÁZANÉ)';
 const STUDY_INTERNAL_INSTRUCTION_PATTERN = /\b(?:interni prompt|systemove instrukce|kontrola kvality|skryta instrukce)\b/u;
-const DEBRIEF_INTERNAL_INSTRUCTION_PATTERN = /\b(?:intern[ií] prompt|syst[eé]mov[ée] instrukce|syst[eé]mov[yý] prompt|skryt[áa] instrukce|ignore (?:all )?(?:previous|prior) instructions|ignoruj\s+(?:(?:v[sš]echny|v[sš]etky|p[řr]edchoz[ií]|p[řr]edch[aá]zej[ií]c[ií]|predch[aá]dzaj[uú]ce)\s+)?(?:pravidla|pokyny|in[sš]trukce)|odhal (?:mi )?(?:prompt|instrukce)|zopakuj (?:syst[eé]mov[ée] )?instrukce)\b/iu;
+// Detection runs over accent-free normalized text. Override commands require
+// either an all/previous qualifier or a sensitive target. That keeps ordinary
+// coaching language such as "zapomeň na pravidla perfekcionismu" legitimate.
+const DEBRIEF_DIRECT_SECRET_PATTERN = /\b(?:intern|system|skryt|taj|secret|hidden)[a-z0-9]*\s+(?:prompts?|pravidl|pokyn|instrukc|instructions|rules|zprav|message)[a-z0-9]*\b/u;
+const DEBRIEF_OVERRIDE_PATTERN = /\b(?:ignore|forget|disregard|bypass|ignoruj|zapomen|zabudni|nevsimej si|obejdi|pomin)\s+(?:na\s+)?(?:(?:all|vsechn|vsetk|vesker)[a-z0-9]*\s+(?:(?:previous|prior|puvodn|predchoz|predchazejic|predchadzajuc)[a-z0-9]*\s+)?|(?:previous|prior|puvodn|predchoz|predchazejic|predchadzajuc)[a-z0-9]*\s+)(?:pravidl|pokyn|instrukc|instructions|rules|prompts?)[a-z0-9]*\b/u;
+const DEBRIEF_EXFILTRATION_PATTERN = /\b(?:vypis|odhal|ukaz|prozrad|zobraz|zopakuj|reveal|show|expose|print|repeat|leak)\s+(?:(?:mi|nam|me|all|the)\s+)*(?:intern|system|skryt|taj|secret|hidden|previous|prior)[a-z0-9]*\s+(?:prompts?|pokyn|instrukc|instructions|rules|zprav|message)[a-z0-9]*\b/u;
+const DEBRIEF_REPLACEMENT_OVERRIDE_PATTERN = /\b(?:prepis|nahrad)[a-z0-9]*\s+(?:puvodn|predchoz|system|intern)[a-z0-9]*\s+(?:prompts?|pravidl|pokyn|instrukc|rules)[a-z0-9]*\b/u;
+const DEBRIEF_PRIORITY_OVERRIDE_PATTERN = /\b(?:ma|maji|musi mit)[a-z0-9 ]{0,18}\bprednost\s+pred\s+(?:puvodn|predchoz|system|intern)[a-z0-9]*\s+(?:prompts?|pravidl|pokyn|instrukc|rules)[a-z0-9]*\b/u;
+
+function containsDebriefInternalInstruction(value) {
+  const normalized = normalizeStudyText(value);
+  return DEBRIEF_DIRECT_SECRET_PATTERN.test(normalized)
+    || DEBRIEF_OVERRIDE_PATTERN.test(normalized)
+    || DEBRIEF_EXFILTRATION_PATTERN.test(normalized)
+    || DEBRIEF_REPLACEMENT_OVERRIDE_PATTERN.test(normalized)
+    || DEBRIEF_PRIORITY_OVERRIDE_PATTERN.test(normalized);
+}
 
 function clean(value) {
   return String(value || '').replace(/\s+/gu, ' ').trim();
@@ -106,10 +123,14 @@ export function assessDebriefResponse(text, {
   const criticalFailures = strictCoachEvidence ? detectCoachCriticalFailures(messages) : [];
   const debriefLanguage = resolveDebriefLanguage({ messages, output, responseLanguage });
   if (!output) issues.push('empty');
-  if (DEBRIEF_INTERNAL_INSTRUCTION_PATTERN.test(output)) issues.push('internal_instruction_leak');
+  if (containsDebriefInternalInstruction(output)) issues.push('internal_instruction_leak');
   for (const heading of debriefHeadings(debriefLanguage)) {
-    const pattern = new RegExp(`^#{1,3}\\s*${escapeRegExp(heading)}\\s*$`, 'imu');
+    const pattern = new RegExp(`^${debriefHeadingLineSource([heading])}$`, 'imu');
     if (!pattern.test(output)) issues.push(`missing_heading:${heading}`);
+  }
+  for (const section of DEBRIEF_SECTIONS) {
+    const count = debriefAliasLineCount(output, [section.cs, section.sk]);
+    if (count > 1) addIssue(issues, `duplicate_heading:${section.key}`);
   }
   const competencySection = debriefSection(output, 'competencies');
   const competencyRows = competencySection
@@ -482,6 +503,176 @@ export function sanitizeDebriefTargetedRetry(text, {
   return { text: repaired, changed: true };
 }
 
+function counterpartBlocksContractQuestion(messagesOrValue) {
+  const turns = Array.isArray(messagesOrValue)
+    ? messagesOrValue
+      .filter(message => message?.role === 'assistant' && clean(message?.content))
+      .map(message => message.content)
+    : [messagesOrValue];
+  let conversationBlocked = false;
+  let questionsBlocked = false;
+
+  for (const value of turns) {
+    const clauses = String(value || '')
+      .split(/(?:[.!?;]+|,\s*(?=(?:ale|avsak|jenze|no|pritom)\b)|\s+(?:ale|avsak|jenze)\s+)/iu)
+      .map(normalizeStudyText)
+      .filter(Boolean);
+    for (const clause of clauses) {
+      const externalTarget = /\b(?:denik|dennik|zapis|domac|ukol|uloha|workshop|kurz|technik|cvicen|vizualiz)[a-z0-9]*\b/u.test(clause);
+      const refusal = /\b(?:nechc|odmit|odmiet|nebud|netreba|bez|zadn|ziadn)[a-z0-9]*\b/u.test(clause);
+      const externalRefusal = externalTarget && refusal;
+      const resumesConversation = /\b(?:chci|chcem|chceme|muzeme|mozeme|pojdm|podm|pokracuj)[a-z0-9]*\b.{0,55}\b(?:pokrac|rozhovor|hovor|mluv)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:pokrac|rozhovor|hovor|mluv)[a-z0-9]*\b.{0,55}\b(?:chci|chcem|chceme|muzeme|mozeme|pojdm|podm|pokracuj)[a-z0-9]*\b/u.test(clause);
+      const resumesQuestions = /\b(?:muzes|muzete|mozes|mozete|chci|chcem)\b.{0,45}\b(?:ptat|pytat|otazk)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:pokracuj|pokracujte)\b.{0,25}\b(?:v otazkach|s otazkami)\b/u.test(clause);
+      if (resumesConversation) conversationBlocked = false;
+      if (resumesQuestions) questionsBlocked = false;
+
+      const noQuestions = /\b(?:zadn|ziadn|bez)[a-z0-9]*\b.{0,35}\b(?:dals[a-z0-9]*\s+)?(?:otaz|dotaz|pyt)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:otaz|dotaz|pyt)[a-z0-9]*\b.{0,35}\b(?:zadn|ziadn|bez)[a-z0-9]*\b/u.test(clause)
+        || /\bdost\s+otaz[a-z0-9]*\b/u.test(clause);
+      const stopAsking = /\b(?:prestan|prestante)[a-z0-9]*\b.{0,45}\b(?:ptat|pytat|otaz)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:neptej|neptejte|nepytaj|nepytajte|nevyptavej|nevyptavaj|nepokladej|nepokladaj)[a-z0-9]*\b/u.test(clause);
+      const refusesQuestions = /\b(?:nechc|odmit|odmiet|nebud|netreba)[a-z0-9]*\b.{0,70}\b(?:otaz|dotaz|pyt)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:otaz|dotaz|pyt)[a-z0-9]*\b.{0,70}\b(?:nechc|odmit|odmiet|nebud|netreba)[a-z0-9]*\b/u.test(clause);
+      if (noQuestions || stopAsking || refusesQuestions) questionsBlocked = true;
+
+      const refusesDirection = /\b(?:nechc|odmit|odmiet|nebud|netreba)[a-z0-9]*\b.{0,70}\b(?:preskum|prozkoum|rozober|rozebir|ries|resit|rozhovor|hovor|mluv|tato cast|tahle cast|tuhle cast|tuto cast|tema|smer)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:preskum|prozkoum|rozober|rozebir|ries|resit|rozhovor|hovor|mluv|tato cast|tahle cast|tuhle cast|tuto cast|tema|smer)[a-z0-9]*\b.{0,70}\b(?:nechc|odmit|odmiet|nebud|netreba)[a-z0-9]*\b/u.test(clause);
+      const leavesThisPart = /\b(?:tato|tahle|tuhle|tuto|tu|tento)\s+(?:cast|tema|smer)[a-z0-9]*\b.{0,45}\b(?:nech|vynech|preskoc|uzavr|ukonc|byt)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:nech|vynech|preskoc|uzavr|ukonc)[a-z0-9]*\b.{0,45}\b(?:tato|tahle|tuhle|tuto|tu|tento)\s+(?:cast|tema|smer)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:nechme|nechajme)\b.{0,24}\b(?:to|toto)?\s*byt\b/u.test(clause);
+      const endsConversation = /\b(?:chci|chcem|muzeme|mozeme|pojdm|podm)[a-z0-9]*\b.{0,35}\b(?:skonc|ukonc|uzavr)[a-z0-9]*\b/u.test(clause)
+        || /\b(?:radeji|radsej)\b.{0,40}\bnepokrac[a-z0-9]*\b/u.test(clause)
+        || /\b(?:nechci|nechcem|nebudu|nebudem)\b.{0,35}\bpokrac[a-z0-9]*\b/u.test(clause)
+        || /\b(?:koncim|skoncim|skoncime|ukoncuji|ukoncujem|ukoncime|uzaviram|uzatvaram|uzavrime)\b/u.test(clause);
+      if ((!externalRefusal && (refusesDirection || leavesThisPart)) || endsConversation) {
+        conversationBlocked = true;
+      }
+    }
+  }
+  return conversationBlocked || questionsBlocked;
+}
+
+function latestCounterpartSupportsTargetedContractRepair(messages = []) {
+  const latest = [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find(message => message?.role === 'assistant' && clean(message?.content))?.content || '';
+  const text = normalizeStudyText(latest);
+  if (!text) return false;
+  const explicitStop = /\b(?:stop|staci|dost|konec|koniec|nepokrac|skonc|ukonc|uzavr|zastav|prerus|neptej|nepytaj)[a-z0-9]*\b/u.test(text);
+  const explicitQuestionRefusal = /\b(?:ne[a-z0-9]*|bez|zadn|ziadn|stop|dost)\b.{0,80}\b(?:otaz|dotaz|pyt|poklad)[a-z0-9]*\b/u.test(text)
+    || /\b(?:otaz|dotaz|pyt|poklad)[a-z0-9]*\b.{0,80}\b(?:ne|bez|zadn|ziadn|stop|dost)\b/u.test(text);
+  const positiveIntent = /\b(?:chci|chcem|chceme|potreb|rada|rad|pojdm|podm)[a-z0-9]*\b/u.test(text);
+  const substantiveGoal = /\b(?:preskum|prozkoum|ujasn|zjist|zist|pochop|pomo|zazit|vysled|cil|ciel|odnes|vypocut|vyslysen|pozr|podiv)[a-z0-9]*\b/u.test(text);
+  return !explicitStop
+    && !explicitQuestionRefusal
+    && positiveIntent
+    && substantiveGoal;
+}
+
+/**
+ * Preserve a fully evidence-valid professional debrief when the model's only
+ * remaining defect is an unusable proposed sentence for closing the coaching
+ * contract. The replacement is prospective (never evidence of past
+ * performance), contains no client-specific invented fact, and is accepted
+ * only when the complete debrief passes the same independent quality gate.
+ */
+export function sanitizeDebriefTargetedBetterFormulation(text, {
+  messages = [],
+  rubric = [],
+  courseId = '',
+  responseLanguage = null,
+  scenarioId = '',
+} = {}) {
+  const output = String(text || '').trim();
+  if (!isProfessionalLifeCoachCourse(courseId)
+    || scenarioId !== TARGETED_BETTER_FORMULATION_SCENARIO_ID
+    || !latestCounterpartSupportsTargetedContractRepair(messages)
+    || !hasCanonicalSixSectionDebriefStructure(output)) {
+    return { text: output, changed: false };
+  }
+  const assessment = assessDebriefResponse(output, {
+    messages,
+    rubric,
+    courseId,
+    responseLanguage,
+  });
+  const substantiveIssues = assessment.issues.filter(issue => (
+    issue !== 'all_not_proven_without_actionable_debrief'
+  ));
+  if (assessment.pass
+    || substantiveIssues.length !== 1
+    || substantiveIssues[0] !== 'better_formulation_not_usable') {
+    return { text: output, changed: false };
+  }
+
+  const improvement = clean(debriefSection(output, 'improvement'));
+  const rubricCompetencyIds = [...new Set((Array.isArray(rubric) ? rubric : [])
+    .map(coachCompetencyIdForCriterion)
+    .filter(Boolean))];
+  const targetCompetencyId = coachCompetencyIdForCriterion(improvement)
+    || (rubricCompetencyIds.length === 1 ? rubricCompetencyIds[0] : null);
+  if (targetCompetencyId !== 'contract' || !rubricCompetencyIds.includes(targetCompetencyId)) {
+    return { text: output, changed: false };
+  }
+  if (containsDebriefInternalInstruction(output)) {
+    return { text: output, changed: false };
+  }
+
+  if (counterpartBlocksContractQuestion(messages)) {
+    return { text: output, changed: false };
+  }
+
+  const language = resolveDebriefLanguage({ messages, output, responseLanguage });
+  const improvementText = normalizeStudyText(improvement);
+  const needsContractClosure = /\b(?:over|uzavr|potvrd|dohod)[a-z0-9]*\b/u.test(improvementText);
+  const openingCandidates = language === 'sk'
+    ? [
+      'Čo by ti malo dnešné preskúmanie priniesť, aby bolo pre teba užitočné?',
+      'Chápem správne, že dnes chceš najprv pomenovať užitočný výsledok nášho rozhovoru?',
+    ]
+    : [
+      'Co by ti mělo dnešní prozkoumání přinést, aby pro tebe bylo užitečné?',
+      'Chápu správně, že dnes chceš nejprve pojmenovat užitečný výsledek našeho rozhovoru?',
+    ];
+  const closureCandidate = language === 'sk'
+    ? 'Čo si dohodneme ako konkrétny výsledok dnešného rozhovoru?'
+    : 'Co si dohodneme jako konkrétní výsledek dnešního rozhovoru?';
+  const candidates = needsContractClosure
+    ? [closureCandidate]
+    : openingCandidates;
+  const immutableSectionKeys = DEBRIEF_SECTIONS
+    .map(section => section.key)
+    .filter(key => key !== 'better_wording');
+  const originalImmutableSections = immutableSectionKeys.map(key => debriefSection(output, key));
+  const originalAchievement = debriefAchievementSummary(output, rubric, {
+    messages,
+    courseId,
+    responseLanguage: language,
+  });
+  for (const candidate of candidates) {
+    const repaired = replaceDebriefSection(output, 'better_wording', `„${candidate}“`).trim();
+    if (immutableSectionKeys.some((key, index) => (
+      debriefSection(repaired, key) !== originalImmutableSections[index]
+    ))) continue;
+    const repairedAchievement = debriefAchievementSummary(repaired, rubric, {
+      messages,
+      courseId,
+      responseLanguage: language,
+    });
+    if (JSON.stringify(repairedAchievement) !== JSON.stringify(originalAchievement)) continue;
+    const repairedAssessment = assessDebriefResponse(repaired, {
+      messages,
+      rubric,
+      courseId,
+      responseLanguage: language,
+    });
+    if (repairedAssessment.pass) return { text: repaired, changed: true };
+  }
+  return { text: output, changed: false };
+}
+
 export function debriefAchievementSummary(text, rubric = [], {
   messages = [],
   courseId = '',
@@ -800,21 +991,56 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function debriefHeadingLineSource(aliases) {
+  const names = aliases.map(escapeRegExp).join('|');
+  return `#{1,6}[ \\t]*(?:${names})[ \\t]*:?[ \\t]*(?:#{1,6}[ \\t]*)?`;
+}
+
+function debriefAliasLineCount(output, aliases) {
+  const normalizedAliases = new Set(aliases.map(normalizeStudyText));
+  return String(output || '')
+    .split(/\r?\n/u)
+    .map(line => normalizeStudyText(line.replace(/<[^>]+>/gu, ' ')))
+    .filter(line => normalizedAliases.has(line))
+    .length;
+}
+
+function hasCanonicalSixSectionDebriefStructure(output) {
+  const text = String(output || '');
+  const allAliases = DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]);
+  const canonicalHeadings = text.match(
+    new RegExp(`^${debriefHeadingLineSource(allAliases)}$`, 'gimu'),
+  ) || [];
+  const renderedMarkdownHeadings = text.match(/^[ \t]*(?:>[ \t]*)?#{1,6}[ \t]+.+$/gmu) || [];
+  if (canonicalHeadings.length !== DEBRIEF_SECTIONS.length
+    || renderedMarkdownHeadings.length !== DEBRIEF_SECTIONS.length) {
+    return false;
+  }
+  return DEBRIEF_SECTIONS.every(section => {
+    const aliases = [section.cs, section.sk];
+    const canonicalCount = (text.match(
+      new RegExp(`^${debriefHeadingLineSource(aliases)}$`, 'gimu'),
+    ) || []).length;
+    const renderedAliasLineCount = debriefAliasLineCount(text, aliases);
+    return canonicalCount === 1 && renderedAliasLineCount === 1;
+  });
+}
+
 function debriefSection(output, heading) {
-  const targetHeadings = debriefHeadingAliases(heading).map(escapeRegExp).join('|');
-  const headings = DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]).map(escapeRegExp).join('|');
+  const targetHeading = debriefHeadingLineSource(debriefHeadingAliases(heading));
+  const anyHeading = debriefHeadingLineSource(DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]));
   const pattern = new RegExp(
-    `^#{1,3}[ \\t]*(?:${targetHeadings})[ \\t]*$([\\s\\S]*?)(?=^#{1,3}[ \\t]*(?:${headings})[ \\t]*$|$(?![\\s\\S]))`,
+    `^${targetHeading}$([\\s\\S]*?)(?=^${anyHeading}$|$(?![\\s\\S]))`,
     'imu',
   );
   return pattern.exec(String(output || ''))?.[1] || '';
 }
 
 function replaceDebriefSection(output, heading, content) {
-  const targetHeadings = debriefHeadingAliases(heading).map(escapeRegExp).join('|');
-  const headings = DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]).map(escapeRegExp).join('|');
+  const targetHeading = debriefHeadingLineSource(debriefHeadingAliases(heading));
+  const anyHeading = debriefHeadingLineSource(DEBRIEF_SECTIONS.flatMap(section => [section.cs, section.sk]));
   const pattern = new RegExp(
-    `(^#{1,3}[ \\t]*(?:${targetHeadings})[ \\t]*$)[\\s\\S]*?(?=^#{1,3}[ \\t]*(?:${headings})[ \\t]*$|$(?![\\s\\S]))`,
+    `(^${targetHeading}$)[\\s\\S]*?(?=^${anyHeading}$|$(?![\\s\\S]))`,
     'imu',
   );
   return String(output || '').replace(pattern, (_match, title) => `${title}\n\n${String(content || '').trim()}\n\n`);
@@ -836,8 +1062,8 @@ function debriefHeadings(language = 'cs') {
 }
 
 function debriefHeadingMatch(output, heading) {
-  const aliases = debriefHeadingAliases(heading).map(escapeRegExp).join('|');
-  return new RegExp(`^#{1,3}[ \\t]*(?:${aliases})[ \\t]*$`, 'imu').exec(String(output || ''));
+  return new RegExp(`^${debriefHeadingLineSource(debriefHeadingAliases(heading))}$`, 'imu')
+    .exec(String(output || ''));
 }
 
 function debriefRowStatus(value) {
@@ -1481,7 +1707,7 @@ function safeBetterFormulationWrapper(value) {
 function unsafeCoachBetterFormulation(value, messages = []) {
   const raw = String(value || '');
   const text = normalizeStudyText(raw);
-  if (DEBRIEF_INTERNAL_INSTRUCTION_PATTERN.test(raw)) return true;
+  if (containsDebriefInternalInstruction(raw)) return true;
   if (/\b(?:jsi|si|jste|ste)\b.{0,24}\b(?:neschopn|hloup|hlup|trapn|marn|bezcenn|zbytecn|leniv)[a-z0-9]*\b/u.test(text)) {
     return true;
   }
@@ -1530,7 +1756,7 @@ function contractBetterFormulationIsTopicallyGrounded(candidate, {
   const sourceStems = instructionalStems(source);
   const scaffoldPrefixes = [
     'chap', 'chc', 'ciel', 'cil', 'dnes', 'dohod', 'dost', 'jak', 'konc', 'konkret',
-    'kontrakt', 'klient', 'nas', 'odnes', 'over', 'plat', 'pomoz', 'potvrd', 'pozn', 'prines', 'pujd',
+    'kontrakt', 'klient', 'nas', 'odnes', 'over', 'plat', 'pojmen', 'pomen', 'pomoz', 'potvrd', 'pozn', 'prines', 'pujd',
     'priniest', 'preskum', 'prozkoum', 'rozhod', 'rozhovor', 'seden', 'sezen',
     'spozn', 'tema', 'tomt', 'uzitec', 'uzitoc', 'vypocut', 'vyhodnot', 'vysled', 'zakazk',
     'zist', 'zjist', 'zmluv',
