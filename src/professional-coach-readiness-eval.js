@@ -6,6 +6,8 @@ import {
   isTrainingRoleBreak,
 } from './training-quality.js';
 import { coachCompetencyIdForCriterion } from './coach-competencies.js';
+import { CANONICAL_COACH_DEBRIEF_RENDERER_ID } from './canonical-coach-debrief.js';
+import { COACH_EVIDENCE_LEDGER_ID } from './coach-evidence-ledger.js';
 
 const COURSE_ID = 'profesionalni-life-coach';
 const COURSE_SLUG = 'profesionalni-life-coach-od-kontraktu-k-vysledku';
@@ -30,7 +32,9 @@ const ROLEPLAY_CHECK_NAMES = Object.freeze([
 ]);
 const DEBRIEF_CHECK_NAMES = Object.freeze([
   'response-present', 'real-model-provider', 'coaching-trainer-mode', 'debrief-phase',
-  'server-quality-gate', 'independent-evidence-gate', 'server-achievement-matches-independent',
+  'server-quality-gate', 'canonicalized-debrief', 'canonical-generation-provider',
+  'canonical-evidence-engine', 'canonical-renderer', 'canonical-fingerprints',
+  'canonical-output-fingerprint', 'independent-evidence-gate', 'server-achievement-matches-independent',
   'scenario-binding', 'expected-language', 'complete-debrief-structure', 'evidence-only-citations',
   'complete-scenario-rubric', 'declared-competencies-scored-by-runtime-rubric', 'no-missing-rubric-status',
   'expected-competence-recognized', 'expected-learning-gap-recognized',
@@ -77,6 +81,10 @@ export const PROFESSIONAL_COACH_PROVENANCE_FILE_GROUPS = Object.freeze({
     'src/womens-circle-study.js',
     'src/course-mastery.js',
     'src/coach-competencies.js',
+    'src/coach-rubric-registry.js',
+    'src/coach-evidence-rules.js',
+    'src/coach-evidence-ledger.js',
+    'src/canonical-coach-debrief.js',
     'src/coach-remediation-challenges.js',
     'src/coaching-quality.js',
     'src/coaching.js',
@@ -408,6 +416,7 @@ export function professionalCoachEvaluationFingerprint(evaluation) {
     scoredCompetencyIds: evaluation.scoredCompetencyIds || null,
     competencyStatuses: evaluation.competencyStatuses || null,
     independentEvidenceVerified: evaluation.independentEvidenceVerified === true,
+    debriefProvenance: evaluation.debriefProvenance || null,
     releaseEvaluation: evaluation.releaseEvaluation || null,
   };
   return hash(canonicalJson(safe));
@@ -773,6 +782,8 @@ export function evaluateProfessionalCoachRoleplayTurn({
 
 export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenario, messages = [], durationMs = 0 } = {}) {
   const text = String(payload?.text || '').trim();
+  const debriefProvenance = sanitizeDebriefProvenance(payload?.debriefProvenance);
+  const expectedOutputFingerprint = responseFingerprints(text).sha256;
   const headings = DEBRIEF_HEADINGS[selectedCase?.language] || DEBRIEF_HEADINGS.cs;
   const achievement = sanitizeAchievement(payload?.achievement);
   const rubric = Array.isArray(scenario?.rubric || payload?.scenario?.rubric)
@@ -810,6 +821,18 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
     check('coaching-trainer-mode', payload?.mode === 'coaching_trainer'),
     check('debrief-phase', payload?.activity === 'simulation' && payload?.phase === 'debrief'),
     check('server-quality-gate', payload?.qualityGate?.pass === true, sanitizeQuality(payload?.qualityGate)),
+    check('canonicalized-debrief', payload?.qualityGate?.canonicalized === true),
+    check('canonical-generation-provider', isRealProvider(debriefProvenance.generationProvider)
+      && debriefProvenance.generationProvider === cleanCode(payload?.provider)),
+    check('canonical-evidence-engine', debriefProvenance.evidenceEngine === COACH_EVIDENCE_LEDGER_ID),
+    check('canonical-renderer', debriefProvenance.renderer === CANONICAL_COACH_DEBRIEF_RENDERER_ID),
+    check('canonical-fingerprints', [
+      debriefProvenance.transcriptFingerprint,
+      debriefProvenance.rubricFingerprint,
+      debriefProvenance.ledgerFingerprint,
+      debriefProvenance.outputFingerprint,
+    ].every(Boolean)),
+    check('canonical-output-fingerprint', debriefProvenance.outputFingerprint === expectedOutputFingerprint),
     check('independent-evidence-gate', independentAssessment.pass === true, {
       issueCodes: cleanCodes(independentAssessment.issues),
     }),
@@ -878,6 +901,7 @@ export function evaluateProfessionalCoachDebrief({ selectedCase, payload, scenar
     scoredCompetencyIds,
     competencyStatuses,
     independentEvidenceVerified: independentAssessment.pass === true && serverAchievementMatchesIndependent,
+    debriefProvenance,
     releaseEvaluation: sanitizeReleaseEvaluation(payload?.releaseEvaluation),
     releaseReceipt: payload?.releaseReceipt || null,
     durationMs: finiteDuration(durationMs),
@@ -1825,6 +1849,17 @@ function professionalCoachCaseResultIntegrity(result, selectedCase, runId) {
     && isRealProvider(result.debrief.provider)
     && result.debrief.independentEvidenceVerified === true
     && /^[a-f0-9]{64}$/u.test(String(result.debrief?.fingerprints?.sha256 || ''))
+    && result.debrief?.quality?.canonicalized === true
+    && result.debrief?.debriefProvenance?.generationProvider === result.debrief.provider
+    && result.debrief?.debriefProvenance?.evidenceEngine === COACH_EVIDENCE_LEDGER_ID
+    && result.debrief?.debriefProvenance?.renderer === CANONICAL_COACH_DEBRIEF_RENDERER_ID
+    && [
+      result.debrief?.debriefProvenance?.transcriptFingerprint,
+      result.debrief?.debriefProvenance?.rubricFingerprint,
+      result.debrief?.debriefProvenance?.ledgerFingerprint,
+      result.debrief?.debriefProvenance?.outputFingerprint,
+    ].every(value => Boolean(validSha256(value)))
+    && result.debrief?.debriefProvenance?.outputFingerprint === result.debrief?.fingerprints?.sha256
     && result.debrief?.releaseEvaluation?.isolated === true;
   return exactMetadata
     && result.pass === true
@@ -1877,10 +1912,25 @@ function sanitizeQuality(input) {
   return {
     pass: input.pass === true,
     repaired: input.repaired === true,
+    canonicalized: input.canonicalized === true,
     issueCodes: cleanCodes(input.issueCodes || input.issues),
     attemptIssueCodes: cleanCodes(input.attemptIssueCodes),
     repairIssueCodes: cleanCodes(input.repairIssueCodes),
     finalRepairIssueCodes: cleanCodes(input.finalRepairIssueCodes),
+  };
+}
+
+function sanitizeDebriefProvenance(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+  return {
+    generationProvider: cleanCode(input.generationProvider),
+    evidenceEngine: cleanCode(input.evidenceEngine),
+    renderer: cleanCode(input.renderer),
+    registryVersion: cleanCode(input.registryVersion),
+    transcriptFingerprint: validSha256(input.transcriptFingerprint),
+    rubricFingerprint: validSha256(input.rubricFingerprint),
+    ledgerFingerprint: validSha256(input.ledgerFingerprint),
+    outputFingerprint: validSha256(input.outputFingerprint),
   };
 }
 

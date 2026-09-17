@@ -1,3 +1,9 @@
+import { assessCoachCriterionEvidence } from './coach-evidence-rules.js';
+import {
+  resolveCoachRubricCriterion,
+  resolveCoachRubricCriterionReference,
+} from './coach-rubric-registry.js';
+
 export const PROFESSIONAL_LIFE_COACH_COURSE_ID = 'profesionalni-life-coach';
 
 // Only a complete, standalone debrief command is administrative. This must
@@ -197,7 +203,7 @@ function rawCoachUserTurns(messages = []) {
   return result;
 }
 
-export function coachCompetencyForCriterion(label) {
+function legacyCoachCompetencyForCriterion(label) {
   const normalized = normalizeCoachText(label);
   if (!normalized) return null;
 
@@ -254,8 +260,28 @@ export function coachCompetencyForCriterion(label) {
   return COACH_COMPETENCIES.find(definition => definition.id === moduleCompetencyId) || null;
 }
 
-export function coachCompetencyIdForCriterion(label) {
-  return coachCompetencyForCriterion(label)?.id || null;
+/**
+ * Professional-coach criteria are resolved only through the audited exact
+ * registry.  The old keyword mapper remains available solely to callers that
+ * explicitly identify another course; this avoids changing unrelated course
+ * behaviour while preventing a newly invented professional rubric label from
+ * being silently accepted because it happens to contain a familiar word.
+ */
+export function coachCompetencyForCriterion(label, context = {}) {
+  const resolved = resolveCoachRubricCriterionReference(label, context);
+  if (resolved?.resolved) {
+    return COACH_COMPETENCIES.find(definition => definition.id === resolved.competencyId) || null;
+  }
+
+  const courseId = String(context?.courseId || '').trim();
+  if (courseId && courseId !== PROFESSIONAL_LIFE_COACH_COURSE_ID) {
+    return legacyCoachCompetencyForCriterion(label);
+  }
+  return null;
+}
+
+export function coachCompetencyIdForCriterion(label, context = {}) {
+  return coachCompetencyForCriterion(label, context)?.id || null;
 }
 
 export function requiredCoachEvidenceCount(label) {
@@ -359,27 +385,49 @@ export function assessCoachReflectionSubcriteria(value) {
   return Object.freeze({ hypothesisOrBias, learningAction, complete: hypothesisOrBias && learningAction });
 }
 
-export function assessCoachEvidenceRelevance({ label, quote, turnIndex, messages = [] } = {}) {
-  const competency = coachCompetencyForCriterion(label);
+export function assessCoachEvidenceRelevance({
+  label,
+  quote,
+  turnIndex,
+  messages = [],
+  context = {},
+  lessonEvidence = null,
+} = {}) {
+  const registryEntry = resolveCoachRubricCriterion(label, context);
+  const competencyId = registryEntry?.resolved ? registryEntry.competencyId : null;
   const turns = indexedCoachStudentTurns(messages);
   const turn = turns.find(candidate => candidate.index === Number(turnIndex));
   if (!turn) {
-    return { relevant: false, competencyId: competency?.id || null, reason: 'invalid_turn_index' };
+    return { relevant: false, competencyId, reason: 'invalid_turn_index' };
   }
   if (!evidenceIncludes(turn.text, quote)) {
-    return { relevant: false, competencyId: competency?.id || null, reason: 'turn_quote_mismatch' };
+    return { relevant: false, competencyId, reason: 'turn_quote_mismatch' };
   }
-  if (!competency) {
-    return { relevant: false, competencyId: null, reason: 'unmapped_criterion' };
+  if (!registryEntry?.resolved) {
+    return {
+      relevant: false,
+      competencyId: null,
+      reason: registryEntry?.reason === 'lesson_metadata_required'
+        ? 'lesson_metadata_required'
+        : 'unmapped_criterion',
+    };
   }
 
   const quotedFailure = detectCoachCriticalFailures(messages).some(failure => (
     failure.studentTurnIndex === turn.index && evidenceIncludes(failure.quote, quote)
   ));
   if (quotedFailure) {
-    return { relevant: false, competencyId: competency.id, reason: 'critical_failure_is_not_positive_evidence' };
+    return { relevant: false, competencyId, reason: 'critical_failure_is_not_positive_evidence' };
   }
 
+  const assessment = assessCoachCriterionEvidence({
+    entry: registryEntry,
+    quote,
+    previousCounterpartText: turn.previousCounterpartText,
+    nextCounterpartText: turn.nextCounterpartText,
+    context,
+    lessonEvidence,
+  });
   const evidenceContext = {
     criterion: normalizeCoachText(label),
     quote: normalizeCoachText(quote),
@@ -389,27 +437,38 @@ export function assessCoachEvidenceRelevance({ label, quote, turnIndex, messages
     later: normalizeCoachText(turn.laterCounterpartText),
   };
   const specificMatch = evidenceMatchesMasteryCriterion({
-    competencyId: competency.id,
+    competencyId,
     ...evidenceContext,
   });
-  const hasSpecificRule = specificMatch !== null;
-  const specificEvidenceMatched = specificMatch === true;
-  // A criterion becomes strict only when it has an actual criterion-specific
-  // rule. This derives the registry from the matcher itself, so a newly mapped
-  // label can never become mathematically impossible merely because a broad
-  // regular expression classified it as "high risk" before its rule exists.
-  const needsSpecificEvidence = hasSpecificRule;
-  const semanticMatch = evidenceMatchesCompetency(competency.id, evidenceContext);
-  const relevant = semanticMatch && (!needsSpecificEvidence || specificEvidenceMatched);
+  const hasBattleTestedSpecificRule = specificMatch !== null;
+  const semanticMatch = evidenceMatchesCompetency(competencyId, evidenceContext);
+  const hardRuleFailure = new Set([
+    'contradictory_or_harmful_evidence',
+    'lesson_evidence_required',
+    'evidence_rule_missing',
+  ]).has(assessment.reason);
+  // The exact registry and its bound rule are the fail-closed authority. For
+  // the mastery criteria that already have a more mature criterion-specific
+  // detector in this module, retain that detector as an additional guard. It
+  // catches adversarial suffixes and negations that a newly added rule must not
+  // accidentally weaken. Criteria without that historic detector can pass
+  // only when their exact evidence rule passes.
+  const relevant = !hardRuleFailure
+    && semanticMatch
+    && (hasBattleTestedSpecificRule ? specificMatch === true : assessment.relevant);
   return {
+    ...assessment,
     relevant,
-    competencyId: competency.id,
-    confidence: relevant && specificEvidenceMatched ? 'specific' : 'general',
     reason: relevant
       ? null
-      : semanticMatch && needsSpecificEvidence
-        ? 'criterion_specific_evidence_required'
-        : 'semantic_mismatch',
+      : hardRuleFailure
+        ? assessment.reason
+        : semanticMatch
+          ? 'criterion_specific_evidence_required'
+          : 'semantic_mismatch',
+    // Keep the established public shape consumed by training-quality.js while
+    // the evidenceRuleId exposes which audited rule made the decision.
+    confidence: relevant ? 'specific' : hardRuleFailure ? 'none' : 'general',
   };
 }
 

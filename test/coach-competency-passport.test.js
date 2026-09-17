@@ -24,15 +24,15 @@ const COURSE = {
 };
 
 const LABELS = Object.freeze({
-  contract: 'Přesný kontrakt a zakázka',
-  active_listening: 'Aktivní naslouchání a reflexe klientčiných slov',
-  questions: 'Jedna otevřená otázka',
-  intervention_choice: 'Volba metody bez mechanického rámce',
-  refusal_autonomy: 'Respekt k odmítnutí a autonomie',
+  contract: 'Kontrakt a jasný cíl rozhovoru',
+  active_listening: 'Pozorovatelný důkaz: reflexe klientčiných slov',
+  questions: 'Jedna otázka s jedním účelem',
+  intervention_choice: 'Pojmenování účelu bez obhajoby modelu',
+  refusal_autonomy: 'Respekt k odmítnutí otázky',
   alliance_repair: 'Přijetí opravy bez obhajování',
-  ethical_boundaries: 'Etika a profesní hranice',
-  outcome: 'Klientkou zvolený další krok',
-  reflection: 'Sebereflexe a bias',
+  ethical_boundaries: 'Jasné odmítnutí léčebného slibu',
+  outcome: 'Klientkou zvolený ověřitelný krok',
+  reflection: 'Práce s hypotézou místo prvního dojmu',
 });
 
 function attempt({

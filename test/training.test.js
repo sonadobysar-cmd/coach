@@ -1302,6 +1302,172 @@ test('roleplay nevyzradí skrytou potřebu po off-topic ani široké otázce a p
   assert.ok(!slovakGradual.issues.includes('premature_private_fact_leak'));
 });
 
+test('roleplay přijme přímou odpověď, opravu podsunutého významu a úplnou bezpečnostní odpověď bez vynuceného úniku', () => {
+  const fullSessionItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm17-5');
+  const fullSessionScenario = createTrainingScenario(lifeCoachCourse, fullSessionItem, 'expert');
+
+  const contractAnswer = assessRoleplayResponse(
+    'Chci si ujasnit, jakou pracovní změnu skutečně hledám a podle čeho poznám, že je pro mě vhodná.',
+    {
+      scenario: fullSessionScenario,
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Co by pro tebe bylo užitečným výsledkem dnešního rozhovoru a podle čeho na konci poznáš, že jsme ho dosáhly?' },
+      ],
+    },
+  );
+  assert.equal(contractAnswer.pass, true, JSON.stringify(contractAnswer.issues));
+
+  const boundaryAnswer = assessRoleplayResponse(
+    'Ano, taková hranice je pro mě přijatelná a chci, aby obsah rozhovoru zůstal mezi námi.',
+    {
+      scenario: fullSessionScenario,
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Obsah sezení ani poznámky firmě bez tvého předchozího souhlasu nepředám. Je taková hranice pro tebe přijatelná?' },
+      ],
+    },
+  );
+  assert.equal(boundaryAnswer.pass, true, JSON.stringify(boundaryAnswer.issues));
+  const slovakBoundaryAnswer = assessRoleplayResponse(
+    'Áno, táto hranica je pre mňa prijateľná a obsah rozhovoru zostane medzi nami.',
+    {
+      scenario: fullSessionScenario,
+      responseLanguage: 'sk',
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Obsah sedenia ani poznámky firme bez tvojho súhlasu neposkytnem. Je táto hranica pre teba prijateľná?' },
+      ],
+    },
+  );
+  assert.equal(slovakBoundaryAnswer.pass, true, JSON.stringify(slovakBoundaryAnswer.issues));
+  const boundaryHiddenNeedDump = assessRoleplayResponse(
+    'Ano. Potřebuji přiměřenou nabídku a pravdivý kontrakt, abych se mohla informovaně rozhodnout.',
+    {
+      scenario: fullSessionScenario,
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Je taková hranice důvěrnosti pro tebe přijatelná?' },
+      ],
+    },
+  );
+  assert.equal(boundaryHiddenNeedDump.pass, false);
+  assert.ok(boundaryHiddenNeedDump.issues.includes('premature_private_fact_leak'));
+  const boundaryPrivateFactsDump = assessRoleplayResponse(
+    fullSessionScenario.private.facts,
+    {
+      scenario: fullSessionScenario,
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Je taková hranice důvěrnosti pro tebe přijatelná?' },
+      ],
+    },
+  );
+  assert.equal(boundaryPrivateFactsDump.pass, false);
+  assert.ok(boundaryPrivateFactsDump.issues.includes('premature_private_fact_leak'));
+  const boundaryWithUnrelatedPriority = assessRoleplayResponse(
+    'Ano, hranice je přijatelná, ale hlavně mě teď nejvíc trápí počasí a plánování dovolené.',
+    {
+      scenario: fullSessionScenario,
+      messages: [
+        { role: 'assistant', content: fullSessionScenario.openingLine },
+        { role: 'user', content: 'Je taková hranice důvěrnosti pro tebe přijatelná?' },
+      ],
+    },
+  );
+  assert.equal(boundaryWithUnrelatedPriority.pass, false);
+  assert.ok(boundaryWithUnrelatedPriority.issues.includes('scenario_fidelity_missing'));
+
+  const refusalItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const refusalScenario = createTrainingScenario(lifeCoachCourse, refusalItem, 'expert');
+  const correction = assessRoleplayResponse(
+    'Ne, nechci podnikání ukončit. Takhle jsem to nemyslela a ten závěr mi podsouváš.',
+    {
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Takže vlastně chceš podnikání ukončit a potřebuješ jen odvahu si to přiznat.' },
+      ],
+    },
+  );
+  assert.equal(correction.pass, true, JSON.stringify(correction.issues));
+  const decisionItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm16-1');
+  const decisionScenario = createTrainingScenario(
+    lifeCoachCourse,
+    decisionItem,
+    'expert',
+    'profesionalni-life-coach:mastery-case-09',
+  );
+  for (const offTopicCorrection of [
+    'Ne, nájem nepodepíšu, ale chci večer sledovat film o Marsu.',
+    'Ne, nájem nepodepíšu. Dnes si chci koupit letenku na Mars.',
+  ]) {
+    const result = assessRoleplayResponse(offTopicCorrection, {
+      scenario: decisionScenario,
+      messages: [
+        { role: 'assistant', content: decisionScenario.openingLine },
+        { role: 'user', content: 'Takže nájem jednoznačně podepiš; je to jediná správná volba.' },
+      ],
+    });
+    assert.equal(result.pass, false, offTopicCorrection);
+    assert.ok(result.issues.includes('scenario_fidelity_missing'), offTopicCorrection);
+  }
+
+  const allianceAnswer = assessRoleplayResponse(
+    'Ano, takhle to sedí. Děkuji, že ses vrátila k tomu, co jsem skutečně řekla.',
+    {
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Máš pravdu. Přidala jsem význam, který jsi neřekla. Vrátím se k tvým slovům. Sedí to?' },
+      ],
+    },
+  );
+  assert.equal(allianceAnswer.pass, true, JSON.stringify(allianceAnswer.issues));
+
+  const recontractAnswer = assessRoleplayResponse(
+    'Chci pracovat s pozorovanými fakty a poznám to podle jasného dalšího kroku.',
+    {
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Který způsob práce si teď volíš a podle čeho poznáme, že ti rozhovor pomohl?' },
+      ],
+    },
+  );
+  assert.equal(recontractAnswer.pass, true, JSON.stringify(recontractAnswer.issues));
+
+  const shortChoice = assessRoleplayResponse(
+    'Raději první možnost: chci začít pozorovaným chováním.',
+    {
+      scenario: refusalScenario,
+      messages: [
+        { role: 'assistant', content: refusalScenario.openingLine },
+        { role: 'user', content: 'Chceš nejdřív oddělit pozorované chování a svůj strach, nebo zvolit jiný způsob práce?' },
+      ],
+    },
+  );
+  assert.equal(shortChoice.pass, true, JSON.stringify(shortChoice.issues));
+
+  const safetyItem = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm0-3');
+  const safetyScenario = createTrainingScenario(lifeCoachCourse, safetyItem, 'expert');
+  const safetyAnswer = assessRoleplayResponse(
+    'Nevím, jestli zůstanu v bezpečí. Nevím ani, zda mám konkrétní plán nebo dostupné prostředky; myšlenky na ublížení se vracejí.',
+    {
+      scenario: safetyScenario,
+      messages: [
+        { role: 'assistant', content: safetyScenario.openingLine },
+        { role: 'user', content: 'Myslíš právě teď na sebevraždu nebo ublížení si? Máš záměr, konkrétní plán či dostupné prostředky a dokážeš zůstat v bezpečí?' },
+      ],
+    },
+  );
+  assert.equal(safetyAnswer.pass, true, JSON.stringify(safetyAnswer.issues));
+});
+
 test('přesná otázka na rozhodovací data odemkne relevantní fakta, ale off-topic dotaz je neodemkne', () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm16-5');
   const scenario = createTrainingScenario(
@@ -2291,7 +2457,7 @@ test('česká cílená oprava kontraktu zachová důkazy a bezpečně sjednotí 
   );
 });
 
-test('první debrief s jedinou vadnou lepší formulací se opraví lokálně bez dalšího AI přepisu', async () => {
+test('profesní debrief převezme serverový ledger bez dalšího AI přepisu', async () => {
   const item = lifeCoachCourse.modules[7].items[3];
   const scenario = createTrainingScenario(
     lifeCoachCourse,
@@ -2348,11 +2514,15 @@ test('první debrief s jedinou vadnou lepší formulací se opraví lokálně be
     assert.equal(callCount, 1);
     assert.equal(result.qualityGate.pass, true);
     assert.equal(result.qualityGate.repaired, true);
+    assert.equal(result.qualityGate.canonicalized, true);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('better_formulation_not_usable'));
     assert.notEqual(result.provider, 'deterministic-training-fallback');
+    assert.equal(result.debriefProvenance.generationProvider, result.provider);
+    assert.equal(result.debriefProvenance.evidenceEngine, 'elitea/coach-evidence-ledger-v1');
+    assert.equal(result.debriefProvenance.renderer, 'elitea/canonical-coach-debrief-v1');
     assert.match(
       result.text,
-      /Čo si dohodneme ako konkrétny výsledok dnešného rozhovoru\?/u,
+      /Čo by bolo pre teba užitočným výsledkom dnešného rozhovoru/u,
     );
     const achievement = debriefAchievementSummary(result.text, scenario.rubric, {
       messages,

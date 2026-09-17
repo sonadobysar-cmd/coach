@@ -19,7 +19,10 @@ export const COACH_PASSPORT_STANDARD = Object.freeze({
   coreCompetencyIds: Object.freeze(COACH_COMPETENCIES.map(competency => competency.id)),
 });
 
-export const COACH_ASSESSMENT_POLICY_VERSION = 2;
+// Version 3 binds passport evidence to the exact audited rubric registry and
+// canonical server ledger. Earlier keyword-based assessments must never be
+// mixed into the stricter professional credential.
+export const COACH_ASSESSMENT_POLICY_VERSION = 3;
 
 const TRUSTED_PROVIDER = /^(openai|anthropic|google|xai|mistral|meta)\/[a-z0-9._-]+$/i;
 const UNTRUSTED_PROVIDER = /(fallback|demo|local|deterministic)/i;

@@ -1878,12 +1878,15 @@ test('course trainer aktivuje strict režim jen podle life-coach course id a opr
         { role: 'user', content: 'Ukončuji simulaci. Vyhodnoť celý nácvik.' },
       ],
     });
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 1);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('missing_evidence_turn_index'));
     assert.equal(result.qualityGate.pass, true);
     assert.equal(result.qualityGate.repaired, true);
+    assert.equal(result.qualityGate.canonicalized, true);
+    assert.equal(result.debriefProvenance.evidenceEngine, 'elitea/coach-evidence-ledger-v1');
+    assert.equal(result.debriefProvenance.renderer, 'elitea/canonical-coach-debrief-v1');
     assert.match(calls[0].messages[0].content, /\[STUDENTKA\]\n\[S1\]/u);
-    assert.match(calls[1].instructions, /Důkaz \[S#\]/u);
+    assert.match(result.text, /Důkaz \[S1\]/u);
   } finally {
     if (previousKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previousKey;

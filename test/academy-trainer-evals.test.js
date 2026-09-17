@@ -117,7 +117,7 @@ test('roleplay eval odmítne obecnou vatu a vyžaduje konkrétní návaznost na 
 
   const grounded = evaluateTrainerSimulation(
     entry,
-    payload('Nejdůležitější je pro mě začít pracovat bez závislosti na pomůckách. Zatím vím, že mě moje prostředí při startu ruší.'),
+    payload('Nejdůležitější je pro mě začít pracovat bez závislosti na pomůckách a zatím vím, že mě moje prostředí při startu ruší.'),
     request,
   );
   assert.equal(grounded.pass, true, JSON.stringify(grounded.checks));
