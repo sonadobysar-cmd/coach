@@ -2007,11 +2007,22 @@ function professionalCoachCaseResultIntegrity(result, selectedCase, runId) {
     ].every(value => Boolean(validSha256(value)))
     && result.debrief?.debriefProvenance?.outputFingerprint === result.debrief?.fingerprints?.sha256
     && result.debrief?.releaseEvaluation?.isolated === true;
+  const declaredCompetencies = result.declaredCompetencies || [];
+  const scoredCompetencies = result.scoredCompetencies || [];
+  const recognizedCompetencies = new Set(PROFESSIONAL_COACH_READINESS_STANDARD.requiredCompetencies);
+  // Deklarace případu musí být přesná. Kanonická runtime rubrika však smí
+  // poctivě skórovat i další relevantní profesní kompetenci (např. otázky v
+  // krizovém scénáři). Takový legitimní superset nesmí zneplatnit celý release.
+  // Současně nepovolujeme chybějící deklarovanou ani neznámou kompetenci a
+  // vyžadujeme shodu se serverovým debriefem, který je svázán receipt podpisem.
+  const competencyBindingValid = sameStringSet(declaredCompetencies, selectedCase.competencies || [])
+    && sameStringSet(scoredCompetencies, result?.debrief?.scoredCompetencyIds || [])
+    && (selectedCase.competencies || []).every(competencyId => scoredCompetencies.includes(competencyId))
+    && scoredCompetencies.every(competencyId => recognizedCompetencies.has(competencyId));
   return exactMetadata
     && result.pass === true
     && exactPassingChecks(result.checks, CASE_CHECK_NAMES)
-    && sameStringSet(result.declaredCompetencies || [], selectedCase.competencies || [])
-    && sameStringSet(result.scoredCompetencies || [], selectedCase.competencies || [])
+    && competencyBindingValid
     && roleplayValid
     && debriefValid;
 }

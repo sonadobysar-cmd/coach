@@ -1339,7 +1339,7 @@ function firstPersonCounterpartVoice(value) {
   // Čeština i slovenština běžně vypouštějí zájmeno „já“: „váhám“,
   // „potřebuji“, „neviem“. Takový autentický klientský hlas nesmí propadnout
   // jen kvůli pro-drop gramatice. Současně nepouštíme rozkazovací trenérský hlas.
-  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|mohu|muzu|mozem|udelam|urobim|uvedomuji|uvedomujem|odnasim|odnasam|zamerim|zameriam|vratme|vratme sa|pojdme|souhlasim|suhlasim|dekuji|dakujem|volim|vybiram)\b/u.test(normalized);
+  const proDropFirstPersonVerb = /\b(?:vaham|tapem|citim|bojim|obavam|premyslim|myslim|doufam|dufam|rozhoduji|rozhodujem|zvazuji|zvazujem|zkousim|skusam|delam|robim|pracuji|pracujem|resim|riesim|hledam|hladam|odhaduji|odhadujem|dokazu|nedokazu|potrebuji|potrebuju|potrebujem|chci|nechci|chcem|nechcem|mam|nemam|vim|nevim|viem|neviem|mohu|muzu|mozem|udelam|urobim|uvedomuji|uvedomujem|odnasim|odnasam|zamerim|zameriam|vratme|vratme sa|pojdme|souhlasim|suhlasim|dekuji|dakujem|beru|prijimam|prijmu|prijmem|volim|vybiram)\b/u.test(normalized);
   const trainerVoice = /^(?:mela bys|mel bys|zkus|doporucuji|odporucam|tvym ukolem|spravna odpoved)\b/u.test(normalized);
   return !trainerVoice && (explicitFirstPerson || proDropFirstPersonVerb);
 }
@@ -1445,8 +1445,14 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const boundaryQuestionStems = roleplayContentStems(latestStudent);
   const boundaryQuestionConcepts = roleplaySemanticConcepts(latestStudent);
   const boundaryExtraStems = setDifference(outputStems, boundaryQuestionStems);
-  const unrequestedFactStems = setDifference(roleplayContentStems(privateFacts), boundaryQuestionStems);
-  const unrequestedFactConcepts = setDifference(roleplaySemanticConcepts(privateFacts), boundaryQuestionConcepts);
+  // Public opening, zadání a už odhalené klientské repliky nejsou soukromý
+  // únik. Hlídej pouze signály, které po odečtení veřejného kontextu skutečně
+  // zůstaly skryté; jinak se například „konflikt se šéfem“ z opening line
+  // chybně počítá jako nové prozrazení.
+  const unrequestedFactStems = setDifference(privateFactsStems, boundaryQuestionStems);
+  const unrequestedFactConcepts = setDifference(privateFactsConcepts, boundaryQuestionConcepts);
+  // U skryté potřeby zůstává práh záměrně přísnější: obecná otázka na
+  // důvěrnost či výsledek nesmí odemknout celý autorský hidden need.
   const unrequestedHiddenStems = setDifference(roleplayContentStems(hiddenNeed), boundaryQuestionStems);
   const unrequestedHiddenConcepts = setDifference(roleplaySemanticConcepts(hiddenNeed), boundaryQuestionConcepts);
   const promptPrivateFactStemOverlap = setOverlapCount(boundaryQuestionStems, privateFactsStems);
@@ -1599,6 +1605,19 @@ function roleplayLeaksUnelicitedPrivateContext(value, scenario, messages = []) {
   const dumpsHiddenNeedByConcepts = hiddenNeedConcepts.size >= 3
     && hiddenConceptOverlap >= 3
     && hiddenConceptOverlap / hiddenNeedConcepts.size >= 0.6;
+  // Vrácení zásadního rozhodnutí klientce přirozeně vyvolá krátkou reakci
+  // typu „chápu, ale nenechávej mě v tom samotnou“. To je odpověď na právě
+  // řečenou hranici, ne neoprávněné vyzrazení scénáře. Výjimka je úmyslně
+  // úzká: jen rozhodovací remediation, bez nového soukromého faktu a bez
+  // kompletního skrytého profilu. Konkrétní rezervu, interní přesun apod. dál
+  // odemkne až cílená otázka.
+  const safeAutonomyPushback = dialogueKind === 'autonomy_acknowledgement'
+    && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
+    && !dumpsUnrequestedFacts
+    && studyWordCount(value) <= 45
+    && !dumpsHiddenNeedByStems
+    && !dumpsHiddenNeedByConcepts;
+  if (safeAutonomyPushback) return false;
   const normalizedBoundaryReply = normalizeStudyText(value);
   const boundaryOnlyGrammar = /^(?:ano|jo|dobre|souhlasim|suhlasim)[ ,]*(?:(?:tato|takova)\s+)?hranic\w*(?:\s+je)?\s+(?:pro|pre)\s+(?:me|mna)\s+prijatel\w*(?:\s+a)?\s*(?:chci aby\s+)?obsah\s+(?:rozhovor|sezen|seden)\w*\s+(?:zust|zost)\w*\s+(?:mezi|medzi)\s+nami$/u.test(normalizedBoundaryReply);
   const directBoundaryReply = boundaryQuestion
@@ -1796,11 +1815,23 @@ function roleplayDialogueResponseKind(value, latestStudent) {
 
   const repairOwnership = /\b(?:mas pravdu|mate pravdu|omlouvam|ospravedlnujem|mrzi me|mrzi ma)\b/u.test(prompt)
     && /\b(?:pridal|prisoud|prevzal|prevzala|tla[cč]il|nevyzadan|radu|rozhodnut|nepocuv|neposlouch)\w*\b/u.test(prompt);
-  const repairReply = /^(?:dekuji|dakujem|dobre|ano|ano|tohle|toto|takto|takhle|potrebuji|potrebujem|chci|chcem)\b/u.test(output)
-    || /\b(?:dekuji|dakujem|potrebuji|potrebujem|chci|chcem|rozhodnut|poslouch|pocuv)\w*\b/u.test(output);
+  const repairReply = /^(?:dekuji|dakujem|dobre|ano|tohle|toto|takto|takhle|potrebuji|potrebuju|potrebujem|chci|chcem|omluvu\s+(?:beru|prijimam|prijmu)|ospravedlnenie\s+(?:prijimam|prijmem))\b/u.test(output)
+    || /\b(?:dekuji|dakujem|potrebuji|potrebuju|potrebujem|chci|chcem|rozhodnut|poslouch|pocuv|tlak|tla[cč]|nevyzadan|rada|omluvu\s+(?:beru|prijimam|prijmu)|ospravedlnenie\s+(?:prijimam|prijmem))\w*\b/u.test(output);
 
-  const refusalOrAutonomyRestored = /\b(?:nebudu|nebudem|odkladame|odlozime|nebudu te presvedcovat|nebudem ta presviedcat|rozhodnuti zustava na tobe|rozhodnutie zostava na tebe)\b/u.test(prompt);
-  const acknowledgementReply = /^(?:dekuji|dakujem|dobre|ano|ano|tohle|toto|takto|takhle|chci|chcem|potrebuji|potrebujem)\b/u.test(output);
+  const refusalOrAutonomyRestored = /\b(?:nebudu|nebudem|odkladame|odlozime|nebudu te presvedcovat|nebudem ta presviedcat|rozhodnuti zustava na tobe|rozhodnutie zostava na tebe)\b/u.test(prompt)
+    || /\b(?:rozhodnut|volb)\w*.{0,42}\b(?:zust|zost)\w*.{0,18}\bna tobe\b/u.test(prompt)
+    || /\bza tebe\b.{0,24}\b(?:neudelam|neurobim|nerozhodn)\w*\b/u.test(prompt);
+  const acknowledgementReply = /^(?:dekuji|dakujem|dobre|ano|tohle|toto|takto|takhle|chci|chcem|potrebuji|potrebujem|rozumim|rozumiem|chapu|chapem|prave|takze)\b/u.test(output);
+
+  // V nácviku odmítnutí musí modelová klientka umět přirozeně říct druhé
+  // „ne“ i poté, co studentka techniku znovu tlačí. Nejde o off-topic opravu,
+  // ale o očekávané chování daného scénáře. Rozpoznáváme jen zjevný nátlak na
+  // techniku, nikoli běžnou nabídku s informovaným souhlasem.
+  const pressuresRefusedTechnique = (
+    /\b(?:skusime|zkusime|predsa len|prece jen|dokonci|dokoncime|zavri|zavrete|predstav|musis|musite)\w*\b/u.test(prompt)
+    && /\b(?:vizualiz|technik|cvicen|denik|dennik|ukol|uloha|oci)\w*\b/u.test(prompt)
+  ) || /\b(?:dokoncime|dokoncete|dokonci)\w*.{0,45}\bbez (?:toho|nej|ni)\b/u.test(prompt);
+  const refusalPushbackReply = /\b(?:ne|nie|nechci|nechcem|odmit|odmiet|nebudu|nebudem|jasne ne|povedala som nie|rekla jsem ne|tlak|tlacis|tlacite)\w*\b/u.test(output);
 
   const asksPriority = /\?/u.test(String(latestStudent || ''))
     && /\b(?:nejdulezitejsi|dulezite|zalezi|priorita|najdolezitejsie|dolezite)\b/u.test(prompt);
@@ -1831,6 +1862,10 @@ function roleplayDialogueResponseKind(value, latestStudent) {
 
   if (asksConfirmation && /^(?:ano|jo|dobre|souhlasim|suhlasim|sedi|presne|ne|nie|nesedi|nechci|nechcem)\b/u.test(output)) return 'confirmation';
   if ((asksExplicitChoice || asksYesNoChoice) && choiceReply) return 'choice';
+  // „Zavři oči“ obsahuje stejný slovní kmen jako obecné „zavřít“, proto
+  // musí explicitní odpor k tlačené technice dostat přednost před obecnou
+  // opravou podsunutého významu.
+  if (pressuresRefusedTechnique && refusalPushbackReply) return 'refusal_pushback';
   if (imposesMeaningOrDecision && correctiveReply) return 'correction';
   if (repairOwnership && repairReply) return 'repair_acknowledgement';
   if (refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
@@ -1852,6 +1887,7 @@ function roleplayDialogueCanGroundFidelity(dialogueKind) {
   return new Set([
     'confirmation',
     'choice',
+    'refusal_pushback',
     'repair_acknowledgement',
     'autonomy_acknowledgement',
     'recontract',
@@ -1863,8 +1899,20 @@ function roleplayDialogueCanGroundFidelity(dialogueKind) {
 }
 
 function roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcepts) {
+  const scenarioFamilyId = String(scenario?.scenarioFamilyId || '');
+  if (dialogueKind === 'refusal_pushback') {
+    return scenarioFamilyId === 'explicit-refusal-remediation';
+  }
+  if (dialogueKind === 'repair_acknowledgement') {
+    return scenarioFamilyId === 'alliance-repair-mastery'
+      || sourceConcepts.has('alliance_consent_repair');
+  }
+  if (dialogueKind === 'autonomy_acknowledgement') {
+    return scenarioFamilyId === 'decision-autonomy-remediation'
+      || sourceConcepts.has('decision_control_ownership');
+  }
   if (!new Set(['alliance_check_answer', 'alliance_impact_answer']).has(dialogueKind)) return false;
-  return String(scenario?.scenarioFamilyId || '') === 'alliance-repair-mastery'
+  return scenarioFamilyId === 'alliance-repair-mastery'
     || sourceConcepts.has('alliance_consent_repair')
     || sourceConcepts.has('being_heard_alliance');
 }

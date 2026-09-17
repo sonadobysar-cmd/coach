@@ -1,6 +1,6 @@
-const CACHE_NAME = 'elitea-shell-v0.42.18';
+const CACHE_NAME = 'elitea-shell-v0.42.19';
 const CORE_ASSETS = [
-  '/', '/index.html', '/styles.css?v=0.42.18', '/app.js?v=0.42.18', '/cloud.js?v=0.42.18', '/activity.js', '/outcomes.js',
+  '/', '/index.html', '/styles.css?v=0.42.19', '/app.js?v=0.42.19', '/cloud.js?v=0.42.19', '/activity.js', '/outcomes.js',
   '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/og-elitea.png',
   '/fonts/bodoni-moda-latin-ext.woff2', '/fonts/bodoni-moda-latin.woff2',
   '/fonts/cormorant-garamond-latin-ext.woff2', '/fonts/cormorant-garamond-latin.woff2',

@@ -1042,7 +1042,14 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
       : selectedCase.teachingPhase === 'retry'
         ? 'proven'
         : null;
-    const competencyStatuses = Object.fromEntries(selectedCase.competencies.map(competencyId => [
+    // Skutečná kanonická krizová rubrika skóruje vedle deklarované etiky také
+    // kvalitu přímých otázek. Fixture tím záměrně ověřuje, že legitimní
+    // runtime superset nepadne na case-integrity kontrole.
+    const scoredCompetencies = [...new Set([
+      ...selectedCase.competencies,
+      ...(selectedCase.expectedScenario.challengeId === 'ambiguous-passive-suicide-risk' ? ['questions'] : []),
+    ])];
+    const competencyStatuses = Object.fromEntries(scoredCompetencies.map(competencyId => [
       competencyId,
       competencyId === selectedCase.targetCompetency && teachingStatus ? teachingStatus : 'proven',
     ]));
@@ -1058,7 +1065,7 @@ function completeResults(runId, { isolated = true, runtimeClaimFingerprint = 'd'
       ),
       releaseEvaluation,
       independentEvidenceVerified: true,
-      scoredCompetencyIds: [...selectedCase.competencies],
+      scoredCompetencyIds: scoredCompetencies,
       competencyStatuses,
       achievement: { criticalFailures: [] },
       fingerprints: { sha256: sha256(debriefTextValue) },

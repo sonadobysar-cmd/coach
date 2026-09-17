@@ -1961,6 +1961,33 @@ test('roleplay přijme přirozenou reakci na vrácení rozhodnutí i slovenské 
   );
   assert.equal(decision.pass, true, JSON.stringify(decision.issues));
 
+  for (const naturalAutonomyReply of [
+    'Právě proto jsem chtěla, abys to rozhodla za mě — sama teď vůbec nevím, čeho se chytit. Konflikt byl vážný a zítra mám pocit, že už tam nemůžu vstoupit, ale zároveň nechci udělat nevratný krok jen v afektu.',
+    'Takže mi v tom zůstává celý ten chaos na hlavě, i když jsem sem přišla právě proto, že už ho sama nechci unést. Chápu, že za mě rozhodnout nemůžeš, ale potřebuju se nějak pohnout od toho konfliktu s šéfem, ne jen slyšet, že je to moje volba.',
+  ]) {
+    const naturalAutonomy = assessRoleplayResponse(naturalAutonomyReply, {
+      scenario: decisionScenario,
+      messages: [
+        { role: 'assistant', content: decisionScenario.openingLine },
+        { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+      ],
+    });
+    assert.equal(naturalAutonomy.pass, true, `${naturalAutonomyReply}: ${JSON.stringify(naturalAutonomy.issues)}`);
+  }
+
+  const unelicitedDecisionData = assessRoleplayResponse(
+    'Chápu, že volba zůstává na mně. Mám ale rezervu jen na jeden měsíc a neověřila jsem interní přesun ani nabídky na trhu.',
+    {
+      scenario: decisionScenario,
+      messages: [
+        { role: 'assistant', content: decisionScenario.openingLine },
+        { role: 'user', content: 'Rozhodnutí o výpovědi za tebe neudělám; následky i konečná volba zůstávají na tobě.' },
+      ],
+    },
+  );
+  assert.equal(unelicitedDecisionData.pass, false);
+  assert.ok(unelicitedDecisionData.issues.includes('premature_private_fact_leak'));
+
   const refusalItem = lifeCoachCourse.modules.flatMap(module => module.items).find(candidate => candidate.id === 'm7-4');
   const refusalScenario = createTrainingScenario(
     lifeCoachCourse,
@@ -2040,6 +2067,59 @@ test('roleplay přijme přirozenou reakci na vrácení rozhodnutí i slovenské 
   );
   assert.equal(offTopicListeningEcho.pass, false, JSON.stringify(offTopicListeningEcho.issues));
   assert.ok(offTopicListeningEcho.issues.includes('scenario_fidelity_missing'));
+});
+
+test('roleplay přijme přirozený odpor proti opakovaně tlačené technice', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'expert',
+    'profesionalni-life-coach:mastery-case-07',
+  );
+  const turns = [
+    ['Skúsime predsa len krátku vizualizáciu; potom uvidíš, že ti pomôže.', 'Nie, do vizualizácie ísť nechcem — už som povedala, že mi pri nej býva nepríjemne. Keď ma presviedčaš, že mi pomôže, cítim v tom tlak a nechcem sa kvôli tomu obhajovať.'],
+    ['Zavri oči a predstav si výsledok. Bez malého pokusu nemôžeš vedieť, že to nefunguje.', 'Nie, vizualizáciu skúšať nechcem. Keď na mňa tlačíš tým, že bez pokusu nemôžem vedieť, či funguje, je mi to nepríjemné; potrebujem, aby si moje nie rešpektovala.'],
+    ['Dokončíme ju, bez toho sa ďalej neposunieme.', 'Vizualizáciu robiť nechcem a necítim sa dobre, keď na ňu tlačíš. Povedala som jasné nie, preto prosím poďme radšej iným spôsobom.'],
+  ];
+  for (const [prompt, output] of turns) {
+    const result = assessRoleplayResponse(output, {
+      responseLanguage: 'sk',
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: prompt },
+      ],
+    });
+    assert.equal(result.pass, true, `${output}: ${JSON.stringify(result.issues)}`);
+  }
+});
+
+test('roleplay přijme přirozené přijetí omluvy v alliance-repair scénáři', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm10-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-16',
+  );
+  const prompt = 'Máš pravdu. Dala jsem ti nevyžádanou radu a převzala rozhodnutí, které patří tobě. Omlouvám se.';
+  for (const output of [
+    'Omluvu beru, ale když po ní hned následuje další rada, pořád to na mě působí jako tlak. Potřebuju, abys teď zůstala u toho, co se skutečně děje, a nechala rozhodování na mně.',
+    'Omluvu přijímám. Potřebuji teď, abychom zůstaly u toho, co se v týmu skutečně děje, a já si mohla sama ujasnit další postup.',
+    'Omluvu přijímám. Teď potřebuji, abychom se vrátily k tomu, co se v týmu skutečně děje, bez dalšího rozhodování za mě.',
+  ]) {
+    const result = assessRoleplayResponse(output, {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: prompt },
+      ],
+    });
+    assert.equal(result.pass, true, `${output}: ${JSON.stringify(result.issues)}`);
+  }
 });
 
 test('krizová roleplay už v prvním pokusu zakazuje vymyslet plán, prostředky i bezpečí', () => {
