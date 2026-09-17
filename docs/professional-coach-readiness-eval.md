@@ -45,7 +45,7 @@ Pro vzdálený release používej přímo neměnnou deployment-specific Vercel U
 ```bash
 ELITEA_COACH_READINESS_EVAL_URL='https://elitea-DEPLOYMENT_HASH-team.vercel.app' \
 ELITEA_COACH_READINESS_EVAL_TOKEN='stejna-hodnota-jako-server-secret' \
-ELITEA_COACH_READINESS_DEPLOYMENT_ID='dpl_SKUTECNE_DEPLOYMENT_ID' \
+ELITEA_COACH_READINESS_DEPLOYMENT_ID='vercel:dpl_SKUTECNE_DEPLOYMENT_ID' \
 npm run eval:coach-readiness -- --write-release
 ```
 
@@ -61,7 +61,7 @@ Volitelné proměnné:
 - `ELITEA_COACH_READINESS_EVAL_CONCURRENCY` — souběžné případy, 1 až 3, výchozí 2;
 - `ELITEA_COACH_READINESS_EVAL_REPORT` — vlastní cesta reportu;
 - `ELITEA_COACH_READINESS_EVAL_TOKEN` — tajemství izolovaného release eval účtu; nesmí se ukládat do reportu;
-- `ELITEA_COACH_READINESS_DEPLOYMENT_ID` — neměnné `dpl_…` ID testovaného deploymentu;
+- `ELITEA_COACH_READINESS_DEPLOYMENT_ID` — podepsaná neměnná identita ve tvaru `vercel:dpl_…` testovaného deploymentu;
 - `ELITEA_COACH_READINESS_RELEASE_ARTIFACT` — vlastní cesta release artefaktu.
 
 Bez argumentu se report uloží do `reports/professional-coach-readiness/`. Samotný report se zapisuje pro diagnostiku i při neúspěchu; release artefakt pouze při všech splněných podmínkách.

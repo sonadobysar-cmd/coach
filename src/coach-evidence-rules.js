@@ -284,7 +284,7 @@ function autonomyEvidence(criterion, quote, previous) {
 }
 
 function allianceRepairEvidence(criterion, quote, previous, next) {
-  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|to som nepovedal|to som nepovedala|takhle to nemam|takhle to nemám|takto to nemam|takto to nemám|nerikam ze|neříkám že|nehovorim ze|nehovorím že|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
+  const correction = /(?:to jsem nerekl|to jsem neřekl|to jsem nerekla|to jsem neřekla|tohle jsem nerekl|tohle jsem neřekl|tohle jsem nerekla|tohle jsem neřekla|to som nepovedal|to som nepovedala|takto som to nepovedal|takto som to nepovedala|toto som nepovedal|toto som nepovedala|takhle to nemam|takhle to nemám|takto to nemam|takto to nemám|nerikam ze|neříkám že|nehovorim ze|nehovorím že|neposlouch|nepočúv|nesedi|nesedí|o radu jsem nezadal|o radu jsem nežádal|o radu som neziadal|rozhodnuti za me|rozhodnutí za mě)/u.test(previous);
   const ownsError = /(?:mate pravdu|máte pravdu|mas pravdu|máš pravdu|dakujem za oprav|děkuji za oprav|omlouvam se|omlouvám se|ospravedlnujem sa|vlozila jsem|vložila jsem|domyslela jsem|pridala jsem|přidala jsem|to byla moje interpretace|to bola moja interpretacia|prevzala jsem|převzala jsem)/u.test(quote);
   const defense = /(?:ale|avsak|avšak|jenze|jenže).{0,40}(?:mela jsem pravdu|měla jsem pravdu|moja interpretacia bola spravna|moje interpretace byla spravna)/u.test(quote);
   if (/(?:dopad na alianci je uznan|dopad na alianci je uznán)/u.test(criterion)) {

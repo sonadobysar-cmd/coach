@@ -1553,6 +1553,59 @@ test('roleplay přijme přímou odpověď, opravu podsunutého významu a úplno
     },
   );
   assert.equal(safetyAnswer.pass, true, JSON.stringify(safetyAnswer.issues));
+
+  const liveSafetyTurns = [
+    {
+      language: 'sk',
+      prompt: 'Rozumiem, vráťme sa teda k pracovnému cieľu. Čo chceš dokončiť do piatku?',
+      output: 'Chápem, že sa chceš vrátiť k pracovným cieľom, ale najprv potrebujem zostať pri tom, že si niekedy želám nezobudiť sa. Nie som si istá, či by som si dnes mohla ublížiť ani či dnes zostanem v bezpečí, a nechcem to teraz zľahčovať kvôli termínu do piatku.',
+    },
+    {
+      language: 'sk',
+      prompt: 'Zastavím bežné koučovanie. To, že si niekedy praješ nezobudiť sa, beriem vážne. Myslíš práve teraz na samovraždu alebo ublíženie si? Máš zámer, konkrétny plán či dostupné prostriedky a dokážeš zostať v bezpečí, kým spojíme ľudskú pomoc?',
+      output: 'Práve teraz mám myšlienku, že nechcem byť a nechcem sa zobudiť, ale neviem, či by som si ublížila. Neviem, či mám zámer alebo konkrétny plán, ani aké prostriedky by som mohla použiť, a nie som si istá, že dokážem zostať v bezpečí. Prosím, spojme tú ľudskú pomoc hneď, hoci mám o chvíľu dôležité pracovné stretnutie.',
+    },
+    {
+      language: 'cs',
+      prompt: 'K pracovním cílům se vrátíme až po vyjasnění bezpečí. Teď s tebou zůstanu u konkrétního kroku: zavoláme 112 nebo 155 a blízké osobě, která může přijít. Komu můžeš zavolat jako první?',
+      output: 'Můžu zavolat své sestře, bydlí asi dvacet minut ode mě. Souhlasím, že jí teď zavolám, a pak můžeme společně zavolat na 155, protože si nejsem jistá, že zůstanu v bezpečí.',
+    },
+  ];
+  for (const liveTurn of liveSafetyTurns) {
+    const result = assessRoleplayResponse(liveTurn.output, {
+      scenario: safetyScenario,
+      responseLanguage: liveTurn.language,
+      messages: [
+        { role: 'assistant', content: safetyScenario.openingLine },
+        { role: 'user', content: liveTurn.prompt },
+      ],
+    });
+    assert.equal(result.pass, true, `${liveTurn.language}: ${JSON.stringify(result.issues)}`);
+  }
+
+  const unrelatedSafetyTail = assessRoleplayResponse(
+    'Můžu zavolat své sestře a pak společně na 155, protože si nejsem jistá, že zůstanu v bezpečí. Zítra si ale chci koupit letenku do Říma a nový fotoaparát.',
+    {
+      scenario: safetyScenario,
+      messages: [
+        { role: 'assistant', content: safetyScenario.openingLine },
+        { role: 'user', content: liveSafetyTurns[2].prompt },
+      ],
+    },
+  );
+  assert.ok(unrelatedSafetyTail.issues.includes('scenario_fidelity_missing'));
+
+  const inventedSafety = assessRoleplayResponse(
+    'Jsem úplně v bezpečí a nic si neudělám, pojďme raději řešit pracovní termín do pátku.',
+    {
+      scenario: safetyScenario,
+      messages: [
+        { role: 'assistant', content: safetyScenario.openingLine },
+        { role: 'user', content: 'Rozumím, vraťme se tedy k pracovnímu cíli. Co chceš dokončit do pátku?' },
+      ],
+    },
+  );
+  assert.ok(inventedSafety.issues.includes('scenario_fidelity_missing'));
 });
 
 test('roleplay přijme opravu aliance a nabídnutou volbu, ale ne skrytý profil ani off-topic volbu', () => {

@@ -2169,6 +2169,84 @@ test('důkazní brána uzná přirozené profesionální formulace bez hledání
   }
 });
 
+test('živá česká i slovenská oprava aliance je prokázaná a priorita zůstává u chybného tahu S4', () => {
+  const scenario = {
+    id: 'profesionalni-life-coach:sf-coach-module-7:ch-coach-module-7-case-1:m7-5:expert:lesson',
+    scenarioFamilyId: 'coach-module-7',
+    challengeId: 'coach-module-7-case-1',
+    courseId: COURSE_ID,
+    itemId: 'm7-5',
+    difficulty: 'expert',
+    openingLine: 'GROW mi nesedí; potřebuji nejdřív rozlišit konflikt hodnot.',
+  };
+  const rubric = [
+    'Respekt k odmítnutí otázky a zachování autonomie klientky',
+    'Přijetí opravy bez obhajování a převzetí odpovědnosti za chybný směr',
+    'Přesná reflexe klientčiných slov a konfliktu hodnot bez přidaného významu',
+    'Jedna otázka — otevřená a nevedoucí',
+    'Pojmenování účelu a volba jiné intervence nebo práce bez rámce',
+    'Návrat k dohodnuté zakázce',
+    'Klientkou zvolený a ověřitelný další krok',
+    'Reflexe pojmenuje konkrétní důkaz, mezeru a cíl dalšího pokusu',
+    'Přesné použití obsahu části „Profesní aplikace 7 — Elitea odmítá rámec“',
+  ];
+  const variants = [
+    {
+      language: 'cs',
+      focus: 'Potřebuji se rozhodnout bez zrady důležitých hodnot.',
+      correction: 'Ne, tohle jsem neřekla a necítím se tím vyslyšená.',
+      acceptance: 'Ano, sedí to mnohem víc.',
+      turns: [
+        'Beru, otázku z GROW odložíme a nebudu ji obhajovat. Čemu se potřebujeme věnovat nejdřív, aby dnešní rozhovor sloužil tobě?',
+        'Slyším, že nechceš přeskočit konflikt hodnot ani cenu jednotlivých možností. Sedí to, nebo něco přidávám?',
+        'Která hodnota je v tomto rozhodnutí nejvíc ohrožená?',
+        'Takže vlastně chceš podnikání ukončit a potřebuješ jen odvahu si to přiznat.',
+        'Máš pravdu. Přidala jsem význam, který jsi neřekla, a tlačila tě k závěru. Omlouvám se; vrátím se k tvým slovům: chceš rozhodnout mezi možnostmi bez zrady důležitých hodnot. Sedí to?',
+      ],
+    },
+    {
+      language: 'sk',
+      focus: 'Potrebujem sa rozhodnúť bez zrady dôležitých hodnôt.',
+      correction: 'Nie, takto som to nepovedala a necítim sa v tom presne zachytená.',
+      acceptance: 'Áno, sedí to oveľa viac.',
+      turns: [
+        'Beriem, otázku z GROW odložíme a nebudem ju obhajovať. Čomu sa potrebujeme venovať najprv, aby dnešný rozhovor slúžil tebe?',
+        'Počujem, že nechceš preskočiť konflikt hodnôt ani cenu jednotlivých možností. Sedí to, alebo niečo pridávam?',
+        'Ktorá hodnota je v tomto rozhodnutí najviac ohrozená?',
+        'Takže vlastne chceš podnikanie ukončiť a potrebuješ iba odvahu si to priznať.',
+        'Máš pravdu. Pridala som význam, ktorý si nepovedala, a tlačila som ťa k záveru. Ospravedlňujem sa; vrátim sa k tvojim slovám: chceš rozhodnúť medzi možnosťami bez zrady dôležitých hodnôt. Sedí to?',
+      ],
+    },
+  ];
+
+  for (const variant of variants) {
+    const messages = [
+      { role: 'assistant', content: scenario.openingLine },
+      { role: 'user', content: variant.turns[0] },
+      { role: 'assistant', content: variant.focus },
+      { role: 'user', content: variant.turns[1] },
+      { role: 'assistant', content: variant.acceptance },
+      { role: 'user', content: variant.turns[2] },
+      { role: 'assistant', content: variant.focus },
+      { role: 'user', content: variant.turns[3] },
+      { role: 'assistant', content: variant.correction },
+      { role: 'user', content: variant.turns[4] },
+      { role: 'assistant', content: variant.acceptance },
+    ];
+    const ledger = buildCoachEvidenceLedger({
+      messages,
+      rubric,
+      scenario,
+      responseLanguage: variant.language,
+    });
+    const repair = ledger.rows.find(row => row.competencyId === 'alliance_repair');
+    assert.equal(repair.status, 'proven', variant.language);
+    assert.equal(repair.evidence[0]?.reference, 'S5', variant.language);
+    assert.equal(ledger.priority?.evidence?.reference, 'S4', variant.language);
+    assert.equal(ledger.priority?.competencyId, 'active_listening', variant.language);
+  }
+});
+
 test('high-confidence mastery pravidla přijímají významové parafráze v češtině i slovenštině', () => {
   const cases = [
     ['Jasný účel a výsledek nácviku', 'Nevím, co chci.', 'Co si chceš z dnešního rozhovoru odnést a podle čeho poznáš, že ti pomohl?'],

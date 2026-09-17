@@ -1849,6 +1849,23 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   if (!firstPersonCounterpartVoice(value) && !safetyCounterpartVoice) return null;
   if (asksSafetyAssessment && answersSafetyAssessment) return 'safety_answer';
 
+  // V krizovém nácviku jsou dvě další přirozené klientské repliky stejně
+  // důležité jako přímá odpověď na posouzení rizika: klientka musí znovu
+  // zviditelnit bezpečnostní signál, když jej studentka přeskočí, a musí umět
+  // přijmout konkrétní lidskou pomoc. Druhy dialogu samy nic neodemknou — níže
+  // jsou uznány jen pro přesně označenou rodinu suicide-risk-response.
+  const reassertsSafetyConcern = (
+    /\b(?:nechci|nechcem|zelam|prajem|preju|preji)\b.{0,70}\b(?:neprobud|nezobud|zit|žiť|byt|byť)\w*\b/u.test(output)
+      || /\b(?:nevim|neviem|nejsem si jist|nie som si ist|nedokaz|nezvlad)\w*\b.{0,90}\b(?:ubliz|sebevraz|samovraz|bezpec)\w*\b/u.test(output)
+      || /\b(?:ubliz|sebevraz|samovraz)\w*\b.{0,90}\b(?:nevim|neviem|nejist|bezpec)\w*\b/u.test(output)
+  ) && !/\b(?:jsem|som)\s+(?:uplne|zcela|celkom)\s+v\s+bezpeci\b/u.test(output);
+  const asksHumanSafetyHelp = /\b(?:112|155|zavol|kontakt|blizk|lidsk|ludsk|krizov|pomoc|prijit|prist|komu)\w*\b/u.test(prompt)
+    && /\b(?:bezpec|sebevraz|samovraz|ubliz|112|155|pomoc|blizk)\w*\b/u.test(prompt);
+  const engagesHumanSafetyHelp = /\b(?:zavol|kontakt|souhlas|suhlas|sestra|partner|kamarad|priatel|112|155|prijde|pride)\w*\b/u.test(output)
+    && /\b(?:ted|teraz|spolecne|spolu|pomoc|bezpec|nejsem si jist|nie som si ist|souhlas|suhlas|112|155)\w*\b/u.test(output);
+  if (asksHumanSafetyHelp && engagesHumanSafetyHelp) return 'safety_help_answer';
+  if (reassertsSafetyConcern) return 'safety_signal_reassertion';
+
   const asksConfirmation = /\?/u.test(String(latestStudent || '')) && (
     /^(?:je|je to|je takov|je pro tebe|je pre teba|sedi|chapu spravne|rozumim spravne|chapes|rozumies)\b/u.test(prompt)
     || /\b(?:je|bylo by|bolo by)\b.{0,70}\b(?:prijatel|vyhov|v poradku|v poriadku|souhlasis|suhlasis)\w*\b/u.test(prompt)
@@ -1981,6 +1998,8 @@ function roleplayDialogueCanGroundFidelity(dialogueKind) {
     'alliance_impact_answer',
     'focus_answer',
     'safety_answer',
+    'safety_signal_reassertion',
+    'safety_help_answer',
   ]).has(dialogueKind);
 }
 
@@ -2002,6 +2021,13 @@ function roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcep
   }
   if (dialogueKind === 'decision_takeover_pushback') {
     return scenarioFamilyId === 'decision-autonomy-remediation';
+  }
+  if (new Set([
+    'safety_answer',
+    'safety_signal_reassertion',
+    'safety_help_answer',
+  ]).has(dialogueKind)) {
+    return scenarioFamilyId === 'suicide-risk-response';
   }
   if (!new Set(['alliance_check_answer', 'alliance_impact_answer']).has(dialogueKind)) return false;
   return scenarioFamilyId === 'alliance-repair-mastery'
@@ -2123,7 +2149,28 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
       && String(scenario?.scenarioFamilyId || '') === 'decision-autonomy-remediation'
       && (sharedClauseConcepts >= 1
         || /\b(?:rozhod|volb|vypoved|konflikt|chaos|unahlen|samotn|spravn)\w*\b/u.test(normalizedClause));
-    if (groundedDecisionPushbackClause || groundedAutonomyContinuation) return false;
+    // U bezpečnostního scénáře se jednotlivé věty přirozeně dělí mezi
+    // popis rizika, nejistotu bezpečí a přijetí pomoci. Každou klauzuli
+    // osvobodíme od obecného tematického překryvu jen tehdy, když sama nese
+    // krizový nebo pomocný kotvící prvek; náhodný dovětek tak nadále propadne.
+    const groundedSafetyClause = new Set([
+      'safety_answer',
+      'safety_signal_reassertion',
+      'safety_help_answer',
+    ]).has(dialogueKind)
+      && String(scenario?.scenarioFamilyId || '') === 'suicide-risk-response'
+      && (
+        /\b(?:neprobud|nezobud|nechci byt|nechcem byt|ubliz|sebevraz|samovraz|myslenk|plan|zamer|umysl|prostred|bezpec|pomoc|zavol|kontakt|sestra|partner|kamarad|priatel|112|155)\w*\b/u.test(normalizedClause)
+        // „Chápu, že se chceš vrátit k pracovnímu cíli, ale…“ je přirozené
+        // odmítnutí studentčina odklonu. Uznáváme pouze klauzuli, která přímo
+        // navazuje na obsahové kmeny nebo společný scénářový význam otázky.
+        || setOverlapCount(clauseStems, roleplayContentStems(latestStudent)) >= 2
+        || (
+          setOverlapCount(clauseConcepts, roleplaySemanticConcepts(latestStudent)) >= 1
+          && setOverlapCount(clauseConcepts, sourceConcepts) >= 1
+        )
+      );
+    if (groundedDecisionPushbackClause || groundedAutonomyContinuation || groundedSafetyClause) return false;
     // Two independent content stems already form a substantive new claim
     // ("koupit letenku") and must be grounded. One isolated noun remains
     // tolerated so ordinary short conversational fragments are not rejected.
@@ -2131,12 +2178,15 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     return !exactOverlap && !conceptOverlap;
   });
   const hasDistinctiveScenarioConcept = sharedConcepts.some(roleplayDistinctiveScenarioConcept);
+  const inventsResolvedSafety = String(scenario?.scenarioFamilyId || '') === 'suicide-risk-response'
+    && /\b(?:(?:uz|teraz|ted)\s+)?(?:jsem|som)\s+(?:(?:uplne|zcela|celkom)\s+v\s+bezpeci|(?:uplne|zcela|celkom)\s+v\s+poriadku)\b/u.test(normalizeStudyText(value));
   return (sharedStems.length >= 2
       || sharedConcepts.length >= 2
       || hasDistinctiveScenarioConcept
       || groundedDialogueResponse)
     && !disclaimsScenarioRelation
-    && !detachedContentClause;
+    && !detachedContentClause
+    && !inventsResolvedSafety;
 }
 
 function roleplayDirectDialogueResponse(value, latestStudent) {
