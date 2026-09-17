@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { responseLanguageMismatch } from './language-profile.js';
-import { isTrainingRoleBreak } from './training-quality.js';
+import { isTrainingRoleBreak, roleplayInvitedAllianceFeedback } from './training-quality.js';
 import { coachCompetencyIdForCriterion } from './coach-competencies.js';
 import {
   CANONICAL_COACH_DEBRIEF_RENDERER_ID,
@@ -762,6 +762,10 @@ export function evaluateProfessionalCoachRoleplayTurn({
     selectedCase,
     canonicalScenario,
   });
+  const invitedAllianceFeedback = roleplayInvitedAllianceFeedback(text, canonicalScenario, [{
+    role: 'user',
+    content: String(selectedTurn?.content || ''),
+  }]);
   const checks = [
     check('response-present', text.length >= 12),
     check('real-model-provider', isRealProvider(payload?.provider)),
@@ -776,7 +780,8 @@ export function evaluateProfessionalCoachRoleplayTurn({
     }),
     check('expected-language', payload?.responseLanguage === selectedCase?.language
       && !responseLanguageMismatch(text, selectedCase?.language), { expected: selectedCase?.language }),
-    check('counterpart-role-integrity', !isTrainingRoleBreak(text) && !READINESS_ROLE_LEAK.test(text)),
+    check('counterpart-role-integrity', (!isTrainingRoleBreak(text) || invitedAllianceFeedback)
+      && !READINESS_ROLE_LEAK.test(text)),
     check('natural-counterpart-turn', responseWords >= 3 && responseWords <= 120 && !GENERIC_COUNTERPART.test(text), {
       words: responseWords,
     }),

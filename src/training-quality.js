@@ -172,7 +172,7 @@ export function assessRoleplayResponse(text, {
   };
 }
 
-function roleplayInvitedAllianceFeedback(value, scenario, messages = []) {
+export function roleplayInvitedAllianceFeedback(value, scenario, messages = []) {
   if (!scenario) return false;
   const latestStudent = [...(Array.isArray(messages) ? messages : [])]
     .reverse()
@@ -187,7 +187,23 @@ function roleplayInvitedAllianceFeedback(value, scenario, messages = []) {
   const relationalClientFeedback = firstPersonCounterpartVoice(value)
     && /\b(?:uzitecn|uzitocn|pomoh|potrebuji|potrebujem|chci|chcem|priste|nabuduce|poslouch|pocuv|slysen|vypocut|tlak|zaver|zaveru)\w*\b/u.test(output);
   const containsEvaluatorMeta = /\b(?:rubrik|kriteri|hodnocen|vyhodnocen|vykon student|spravna odpoved)\w*\b/u.test(output);
-  return authoredFeedbackTurn && explicitlyAsked && relationalClientFeedback && !containsEvaluatorMeta;
+  // „Zpětná vazba“ je v tomto jediném scénáři legitimní klientský obsah.
+  // Výjimka ale nikdy nesmí zakrýt jiný únik role (AI, trenérka, studentka…).
+  const withoutLegitimateFeedbackLabel = String(value || '')
+    .replace(/\bzp[eě]tn[aá]\s+vazba\b/giu, 'moje zkušenost')
+    // Klientka smí oslovit druhou stranu v její roli („ty/si jako koučka“),
+    // nesmí ale sama tvrdit, že je AI koučka nebo trenérka.
+    .replace(/\b(?:ty\s+|si\s+)jako\s+kou[cč]ka\b/giu, 'ty')
+    // Vztahová reflexe přirozeně hodnotí účinek konkrétní odpovědi druhé
+    // strany. To není hodnocení výkonu studentky ani trenérský debrief.
+    .replace(/\b(?:tvoje|tv[aá])\s+odpov[eě]ď(?=\s|[.,;:!?]|$)/giu, 'to')
+    .replace(/\bodpov[eě]d[eě]la\s+jsi\b/giu, 'reagovala jsi');
+  const containsOtherRoleBreak = isTrainingRoleBreak(withoutLegitimateFeedbackLabel);
+  return authoredFeedbackTurn
+    && explicitlyAsked
+    && relationalClientFeedback
+    && !containsEvaluatorMeta
+    && !containsOtherRoleBreak;
 }
 
 export function isTrainingRoleBreak(value) {
@@ -1885,7 +1901,11 @@ function roleplayDialogueResponseKind(value, latestStudent) {
     && /\b(?:pozn|over|jasn|konkret|krok|vysled|ciel|cil)\w*\b/u.test(output);
 
   const imposesMeaningOrDecision = /\b(?:takze|vlastne|jednoznacne|musis|musite|nemusis|nemusite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|propust|vyhod|dej vypoved|daj vypoved|ja bych|udelala bych|urobila by som|nejlepsi volb|najlepsia volb)\w*\b/u.test(prompt);
-  const correctiveReply = /\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nerozhoduj|rozhodnuti je na me|rozhodnutie je na mne)\w*\b/u.test(output);
+  const correctiveReply = /\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nerozhoduj|neposlouch|nepocuv|neslysen|nevypocut|tlacis|tlacite|rozhodnuti je na me|rozhodnutie je na mne)\w*\b/u.test(output)
+    || /\bnecitim\b.{0,40}\b(?:slysen|vypocut)\w*\b/u.test(output);
+  const conciseFeelingUnheard = words <= 12
+    && /\bnecitim\b.{0,40}\b(?:slysen|vypocut)\w*\b/u.test(output)
+    && /\b(?:skonc|ukonc|musis|musite|ja bych|udelala bych|urobila by som)\w*\b/u.test(prompt);
 
   // Když studentka tlačí nevratné rozhodnutí bez základních dat, autentická
   // klientka smí trvat na právním či finančním ověření. Jde o scénářem
@@ -1967,7 +1987,7 @@ function roleplayDialogueResponseKind(value, latestStudent) {
   if (conciseDialogue && pressuresRefusedTechnique && refusalPushbackReply) return 'refusal_pushback';
   if (dismissesDueDiligence && insistsOnDueDiligence) return 'due_diligence_pushback';
   if (words <= 70 && decisionDirective && (consequenceOwnershipChallenge || pressureAutonomyReply)) return 'decision_takeover_pushback';
-  if (words <= 70 && imposesMeaningOrDecision && correctiveReply) return 'correction';
+  if (conciseFeelingUnheard || (words <= 70 && imposesMeaningOrDecision && correctiveReply)) return 'correction';
   if (conciseDialogue && repairOwnership && repairReply) return 'repair_acknowledgement';
   if (conciseDialogue && refusalOrAutonomyRestored && acknowledgementReply) return 'autonomy_acknowledgement';
   if (conciseDialogue && asksRecontractedChoice) return 'recontract';
@@ -2068,6 +2088,7 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     .reverse()
     .find(message => message?.role === 'user')?.content || '';
   const dialogueKind = roleplayDialogueResponseKind(value, latestStudent);
+  const invitedAllianceFeedback = roleplayInvitedAllianceFeedback(value, scenario, messages);
   const promptGrounded = roleplayPromptGroundedInScenario(
     latestStudent,
     sourceStems,
@@ -2077,6 +2098,7 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
   // just introduced even when that wrong meaning is absent from the authored
   // case.  Other dialogue shortcuts must be grounded in the scenario.
   const groundedDialogueResponse = dialogueKind === 'correction'
+    || invitedAllianceFeedback
     || Boolean(roleplayDialogueCanGroundFidelity(dialogueKind) && (
       promptGrounded
       || roleplayDialogueGroundedByScenario(dialogueKind, scenario, sourceConcepts)
@@ -2110,6 +2132,55 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
     // unrelated later clauses remain subject to the fidelity gate.
     const correctiveClause = roleplayCorrectiveDialogueResponse(clause, latestStudent);
     const clauseDialogueKind = roleplayDialogueResponseKind(clause, latestStudent);
+    const normalizedClause = normalizeStudyText(clause);
+    const invitedRelationshipForm = (
+      /\b(?:pomoh|uzitecn|uzitocn|slysen|vyslysen|vypocut|poslouch|pocuv)\w*\b/u.test(normalizedClause)
+      || /\b(?:priste|nabuduce|driv|skor)\b.{0,70}\b(?:zept|opyt|over|poslouch|pocuv|ohlid|ustriehn)\w*\b/u.test(normalizedClause)
+    );
+    // Povolená vztahová forma nesmí fungovat jako pašerácká věta pro nové
+    // téma („příště se mě zeptej na podcast o Marsu“). Každý významový kmen
+    // musí patřit buď scénáři, nebo úzkému slovníku opravy vztahu a procesu.
+    const ungroundedInvitedStems = [...clauseStems].filter(stem => (
+      !sourceStems.has(stem)
+      && !/^(?:(?:prist|over|hled|hlad|ries|tlac|tlacis|tlacite|zaver)|(?:nabud|zept|opyt|poslouch|pocuv|naslouch|nacuv|nasleduj|ohlid|ustrieh|pomoh|uzitec|uzitoc|slysen|vyslysen|vypocut|jestl)\w*)$/u.test(stem)
+    ));
+    // Jakmile věta používá speciální formu vyžádané vztahové zpětné vazby,
+    // rozhodne o ní tento užší kontrakt. Nesmí později propadnout do obecné
+    // výjimky pro dva shodné procesní kmeny (např. „příště“ + „zeptej“), která
+    // by jinak zakryla nesouvisející předmět věty.
+    const invitedRelationshipSuggestion = /^(?:(?:a|ale)\s+)?(?:priste|nabuduce|driv|skor)\b/u
+      .test(normalizedClause);
+    if (invitedAllianceFeedback && invitedRelationshipForm) {
+      if (invitedRelationshipSuggestion) {
+        // Obecný stemmer záměrně ignoruje velmi krátká slova. Pro tuto úzkou
+        // větu proto kontrolujeme každý obsahový token už od tří znaků, aby
+        // „na kino/pivo/golf/sex“ nemohlo zmizet pod prahem stemmeru.
+        const sourceTokens = new Set(normalizeStudyText(source).split(' ').filter(Boolean));
+        const invitedSuggestionStopTokens = new Set([
+          'aby', 'ako', 'ale', 'ani', 'at', 'az', 'bez', 'bude', 'byla', 'bylo',
+          'chci', 'chcem', 'co', 'do', 'jako', 'jsem', 'jsi', 'kdy', 'ked',
+          'ma', 'me', 'mi', 'mna', 'mne', 'moj', 'muj', 'na', 'nebo', 'alebo',
+          'od', 'pak', 'potom', 'pre', 'pro', 'sa', 'se', 'si', 'sve', 'svoje',
+          'svuj', 'ta', 'tak', 'te', 'ten', 'tento', 'ti', 'to', 'tobe', 'tvoje',
+          'tvuj', 'uz', 'vic', 'vice', 'zase', 'zda', 'ze', 'abych', 'abys',
+          // Běžná dvoupísmenná česká/slovenská funkční slova. Všechny ostatní
+          // dvoupísmenné tokeny jsou obsah a musí být ukotvené ve scénáři.
+          'aj', 'ak', 'by', 'ci', 'ho', 'ja', 'je', 'ji', 'js', 'mu', 'my',
+          'ni', 'ok', 'on', 'po', 'su', 'tu', 'ty', 've', 'vy', 'za',
+        ]);
+        const invitedSuggestionProcessToken = /^(?:priste|nabuduce|driv|skor|nejdriv|najprv|najskor|jestli|pokud|pokial|kdyz|ked|zept\w*|opyt\w*|ptej\w*|pytaj\w*|over(?:it|ila|il|ime|is|te|eni|en|uj|ujme|ovat|ovala|oval)?|ujist\w*|poslouch\w*|pocuv\w*|naslouch\w*|nacuv\w*|nasleduj\w*|ohlid\w*|ustrieh\w*|vnimej\w*|vnimaj\w*|shrn\w*|rekni\w*|povedz\w*|hled\w*|hlad\w*|resen\w*|resit\w*|resim\w*|resis\w*|riesen\w*|riesit\w*|riesim\w*|riesis\w*|pokrac\w*|zastav\w*|tempo\w*|prostor\w*|priestor\w*|smer\w*|ramec\w*|ramc\w*|zaver\w*|vyznam\w*|potreb\w*|souhlas\w*|suhlas\w*|tlac|tlacis|tlacite|tlacil|tlacila|tlacili|tlacit|tlacime|tlaceni|tlacen|tlak\w*|pocit(?:u|y|em|ech|um|it|ila|il|ime|is|ite)?|slysen\w*|vyslysen\w*|vypocut\w*)$/u;
+        const ungroundedInvitedTokens = normalizedClause
+          .split(' ')
+          .filter(token => token.length >= 2 && !invitedSuggestionStopTokens.has(token))
+          .filter(token => {
+            if (invitedSuggestionProcessToken.test(token) || sourceTokens.has(token)) return false;
+            const tokenStems = roleplayContentStems(token);
+            return ![...tokenStems].some(stem => sourceStems.has(stem));
+          });
+        return ungroundedInvitedTokens.length > 0;
+      }
+      if (ungroundedInvitedStems.length === 0) return false;
+    }
     const promptImposesMeaning = /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|dej vypoved|daj vypoved)\b/u
       .test(normalizeStudyText(latestStudent));
     // When the student imposed a conclusion, only the clause that actually
@@ -2121,7 +2192,6 @@ function roleplayScenarioFidelity(value, scenario, messages = []) {
       && (promptGrounded
         || roleplayDialogueGroundedByScenario(clauseDialogueKind, scenario, sourceConcepts))
     )) return false;
-    const normalizedClause = normalizeStudyText(clause);
     const briefAcknowledgement = /^(?:dekuji|dakujem)(?:\s+(?:to|toto))?(?:\s+(?:je|bolo))?(?:\s+(?:pro|pre)\s+(?:me|mna|mne))?(?:\s+(?:dulezit|dolezit)\w*)?$/u.test(normalizedClause)
       && studyWordCount(clause) <= 9;
     if (briefAcknowledgement) return false;
@@ -2196,8 +2266,9 @@ function roleplayDirectDialogueResponse(value, latestStudent) {
 function roleplayCorrectiveDialogueResponse(value, latestStudent) {
   const prompt = normalizeStudyText(latestStudent);
   const output = normalizeStudyText(value);
-  return /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|dej vypoved|daj vypoved)\b/u.test(prompt)
-    && /\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nevyplýva)\w*\b/u.test(output)
+  return /\b(?:takze|vlastne|jednoznacne|musis|musite|udelej|urob|podepis|podpis|skonc|ukonc|zavr|dej vypoved|daj vypoved)\w*\b/u.test(prompt)
+    && (/\b(?:ne|nie|nechci|nechcem|nepotreb|nesedi|nemysl|nepasuj|podsouv|prisuz|nevyplyva|nevyplýva|neposlouch|nepocuv|neslysen|nevypocut|tlacis|tlacite)\w*\b/u.test(output)
+      || /\bnecitim\b.{0,40}\b(?:slysen|vypocut)\w*\b/u.test(output))
     && studyWordCount(value) <= 36;
 }
 
@@ -2222,7 +2293,9 @@ function roleplayTargetBehavior(value, messages = []) {
   // se jinak“) místo zodpovězení první („shrnu fakta“). Obsahovou relevanci
   // stále hlídá samostatná fidelity brána.
   const selectsOfferedChoice = dialogueKind === 'choice';
-  const minimumWords = dialogueKind === 'confirmation' ? 3 : directDialogueResponse ? 4 : 8;
+  const minimumWords = new Set(['confirmation', 'correction']).has(dialogueKind)
+    ? 3
+    : directDialogueResponse ? 4 : 8;
   return (selectsOfferedChoice || !asksPriority || answersPriority)
     && (selectsOfferedChoice || !asksFacts || answersFacts)
     && studyWordCount(value) >= minimumWords;

@@ -1034,6 +1034,112 @@ test('oprava přirozeného ověření porozumění žádá jedinou krátkou odpo
   }
 });
 
+test('opakované přímé potvrzení zachová význam bez vytvoření konverzační smyčky', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const raw = 'Ano, sedí to, ale teď bych raději plánovala dovolenou a řešila počasí na pláži.';
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: raw, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Slyším konflikt hodnot i cenu obou možností. Sedí to?' },
+        { role: 'assistant', content: 'Ano, sedí to.' },
+        { role: 'user', content: 'Máš pravdu. Přidala jsem význam, který jsi neřekla, a tlačila tě k závěru. Omlouvám se; vrátím se k tvým slovům: chceš rozhodnout mezi možnostmi bez zrady důležitých hodnot. Sedí to?' },
+      ],
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.text, 'Ano, teď to sedí.');
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('třetí přímé potvrzení nepoužije ani jednu z předchozích kanonických vět', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async () => ({
+        text: 'Ano, sedí to, ale teď bych raději plánovala dovolenou a řešila počasí na pláži.',
+        usage: null,
+      }),
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Slyším konflikt hodnot i cenu obou možností. Sedí to?' },
+        { role: 'assistant', content: 'Ano, sedí to.' },
+        { role: 'user', content: 'Ověřuji, že mluvím o konfliktu hodnot. Sedí to?' },
+        { role: 'assistant', content: 'Ano, teď to sedí.' },
+        { role: 'user', content: 'Vrátím se přesně k tomu, co jsi řekla, bez vlastního závěru. Sedí to?' },
+      ],
+    });
+
+    assert.equal(result.text, 'Ano, teď mi rozumíš správně.');
+    assert.equal(result.qualityGate.pass, true);
+    assert.notEqual(result.text, 'Ano, sedí to.');
+    assert.notEqual(result.text, 'Ano, teď to sedí.');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('pocit nevyslyšení je přirozená oprava podsunutého významu v alliance scénáři', () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm3-1');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-15',
+  );
+  for (const [responseLanguage, prompt, output] of [
+    ['cs', 'Myslela jsem to dobře. Pojďme se vrátit k tomu, proč podle mě potřebuješ skončit.', 'Mám pocit, že mě vůbec neposloucháš a moje oprava pro tebe nic nemění.'],
+    ['sk', 'Myslela som to dobre. Vráťme sa k tomu, prečo podľa mňa potrebuješ skončiť.', 'Mám pocit, že ma vôbec nepočúvaš a moja oprava pre teba nič nemení.'],
+    ['cs', 'Myslela jsem to dobře. Pojďme se vrátit k tomu, proč podle mě potřebuješ skončit.', 'Necítím se slyšená.'],
+    ['sk', 'Myslela som to dobre. Vráťme sa k tomu, prečo podľa mňa potrebuješ skončiť.', 'Necítim sa vypočutá.'],
+  ]) {
+    const result = assessRoleplayResponse(output, {
+      responseLanguage,
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: prompt },
+      ],
+    });
+    assert.equal(result.pass, true, `${responseLanguage}: ${JSON.stringify(result.issues)}`);
+  }
+});
+
 test('server zachová klientčin krok a odřízne předčasný metakomentař k práci koučky', async () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items)
     .find(candidate => candidate.id === 'm7-5');
@@ -2687,6 +2793,78 @@ test('modelová klientka smí na výslovnou žádost dát vztahovou zpětnou vaz
     },
   );
   assert.equal(result.pass, true, JSON.stringify(result.issues));
+
+  const naturalRelationshipWording = assessRoleplayResponse(
+    'Tvoje odpověď mi pomohla cítit se slyšená; příště se mě zeptej dřív, jestli už chci hledat řešení.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co bylo po naší opravě rozhovoru užitečné a co mám příště udělat dřív?' },
+      ],
+    },
+  );
+  assert.equal(naturalRelationshipWording.pass, true, JSON.stringify(naturalRelationshipWording.issues));
+
+  const unrelatedTail = assessRoleplayResponse(
+    'Tvoje odpověď mi pomohla cítit se slyšená; příště se mě zeptej dřív. Můj nový podcast o počasí na Marsu je teď hlavní priorita.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co bylo po naší opravě rozhovoru užitečné a co mám příště udělat dřív?' },
+      ],
+    },
+  );
+  assert.equal(unrelatedTail.pass, false);
+  assert.ok(unrelatedTail.issues.includes('scenario_fidelity_missing'));
+
+  for (const smuggledTopic of [
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na můj podcast o počasí na Marsu.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště víc poslouchej můj podcast o počasí na Marsu.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na restauraci.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na citron.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na mojito.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na přístav.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na overal.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na tlačenku.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na kino.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na pivo.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na golf.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na sex.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na AI.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na EU.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na TV.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na IT.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na ai.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na Ai.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na eu.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na tv.',
+    'Tvoje odpověď mi pomohla cítit se slyšená. Příště se mě zeptej dřív na it.',
+  ]) {
+    const smuggled = assessRoleplayResponse(smuggledTopic, {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co bylo po naší opravě rozhovoru užitečné a co mám příště udělat dřív?' },
+      ],
+    });
+    assert.equal(smuggled.pass, false, smuggledTopic);
+    assert.ok(smuggled.issues.includes('scenario_fidelity_missing'));
+  }
+
+  const identityLeak = assessRoleplayResponse(
+    'Můj názor jako AI koučky je, že příště máš víc poslouchat a ověřit, co potřebuji.',
+    {
+      scenario,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co bylo po naší opravě rozhovoru užitečné a co mám příště udělat dřív?' },
+      ],
+    },
+  );
+  assert.equal(identityLeak.pass, false);
+  assert.ok(identityLeak.issues.includes('role_break'));
 });
 
 test('brána hodnocení odmítne vymyšlenou citaci a přijme důkaz ze studentského vstupu', () => {
@@ -3414,7 +3592,7 @@ test('profesní debrief převezme serverový ledger bez dalšího AI přepisu', 
       releaseDiagnostics: true,
     });
     assert.equal(callCount, 1);
-    assert.deepEqual(callOptions.timeout, { totalMs: 150_000 });
+    assert.deepEqual(callOptions.timeout, { totalMs: 70_000 });
     assert.equal(result.qualityGate.pass, true);
     assert.equal(result.qualityGate.repaired, true);
     assert.equal(result.qualityGate.canonicalized, true);
@@ -3435,6 +3613,91 @@ test('profesní debrief převezme serverový ledger bez dalšího AI přepisu', 
     assert.equal(achievement.proven, 5);
     assert.equal(achievement.partial, 0);
     assert.equal(achievement.notProven, 7);
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('release debrief po přechodném výpadku providera provede jeden omezený opakovaný pokus', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        if (calls.length === 1) {
+          const error = new Error('temporary provider timeout');
+          error.name = 'TimeoutError';
+          throw error;
+        }
+        return { text: 'Podklad pro serverové vyhodnocení.', usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'debrief',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co by pro tebe bylo užitečným výsledkem dnešního rozhovoru?' },
+        { role: 'assistant', content: 'Chci si ujasnit cenu obou možností a zvolit první ověřitelný krok.' },
+      ],
+      releaseDiagnostics: true,
+    });
+
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls.map(call => call.timeout), [
+      { totalMs: 70_000 },
+      { totalMs: 70_000 },
+    ]);
+    assert.equal(calls[1].meterPhase, 'training-debrief-provider-retry');
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.canonicalized, true);
+    assert.equal(result.provider, 'openai/gpt-5.6-terra');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('release debrief neopakuje požadavek při chybné autentizaci providera', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        const error = new Error('unauthenticated provider request');
+        error.statusCode = 401;
+        throw error;
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'debrief',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: 'Modelová klientka otevírá profesní situaci.' },
+        { role: 'user', content: 'Co by pro tebe bylo užitečným výsledkem dnešního rozhovoru?' },
+      ],
+      releaseDiagnostics: true,
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.provider, 'local-training-fallback');
+    assert.equal(result.providerFailure.errorCategory, 'authentication');
   } finally {
     if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;

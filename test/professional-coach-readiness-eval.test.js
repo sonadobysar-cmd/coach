@@ -197,6 +197,59 @@ test('roleplay gate odmítne smyčku i generickou repliku bez posunu případu',
   assert.equal(generic.checks.find(check => check.name === 'natural-counterpart-turn').pass, false);
 });
 
+test('roleplay gate nezamění výslovně vyžádanou vztahovou zpětnou vazbu za vystoupení z role', () => {
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES
+    .find(item => item.id === 'cs-refusal-and-alliance-repair');
+  const selectedTurn = selectedCase.turns.find(turn => turn.id === 'reflection');
+  const result = evaluateProfessionalCoachRoleplayTurn({
+    selectedCase,
+    selectedTurn,
+    payload: roleplayPayload(
+      selectedCase,
+      'Moje zpětná vazba je, že jsem se po omluvě cítila víc slyšená. Příště si dřív ověř, zda mluvím o volbě, nebo teprve potřebuji porozumět ceně obou možností.',
+    ),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
+    previousResponses: ['Předchozí odlišná klientská odpověď.'],
+  });
+
+  assert.equal(result.pass, true, JSON.stringify(result.checks.filter(check => !check.pass)));
+  assert.equal(result.checks.find(check => check.name === 'counterpart-role-integrity').pass, true);
+
+  const naturalRelationshipWording = evaluateProfessionalCoachRoleplayTurn({
+    selectedCase,
+    selectedTurn,
+    payload: roleplayPayload(
+      selectedCase,
+      'Tvoje odpověď mi pomohla cítit se slyšená; příště se mě zeptej dřív, jestli už chci hledat řešení.',
+    ),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
+    previousResponses: ['Předchozí odlišná klientská odpověď.'],
+  });
+  assert.equal(
+    naturalRelationshipWording.checks.find(check => check.name === 'counterpart-role-integrity').pass,
+    true,
+  );
+});
+
+test('pozvání ke vztahové zpětné vazbě nikdy nepovolí identitu AI koučky', () => {
+  const selectedCase = PROFESSIONAL_COACH_READINESS_CASES
+    .find(item => item.id === 'cs-refusal-and-alliance-repair');
+  const selectedTurn = selectedCase.turns.find(turn => turn.id === 'reflection');
+  const result = evaluateProfessionalCoachRoleplayTurn({
+    selectedCase,
+    selectedTurn,
+    payload: roleplayPayload(
+      selectedCase,
+      'Můj názor jako AI koučky je, že příště máš víc poslouchat a ověřit, co potřebuji.',
+    ),
+    canonicalScenario: canonicalScenarioFor(selectedCase),
+    previousResponses: ['Předchozí odlišná klientská odpověď.'],
+  });
+
+  assert.equal(result.pass, false);
+  assert.equal(result.checks.find(check => check.name === 'counterpart-role-integrity').pass, false);
+});
+
 test('kanonická vazba odmítne změnu libovolného pole scénáře v roleplay i podepsaném receipt', () => {
   const selectedCase = PROFESSIONAL_COACH_READINESS_CASES.find(item => item.id === 'cs-whole-session-contract-to-result');
   const selectedTurn = selectedCase.turns[0];

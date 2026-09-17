@@ -525,27 +525,47 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         rubric: scenario.rubric,
       })
       : safeMessages.slice(-24);
+    const releaseEvaluationDebrief = releaseDiagnostics === true
+      && safePhase === 'debrief'
+      && isProfessionalLifeCoachCourse(course?.id);
+    const generationOptions = {
+      meterPhase: `training-${safePhase}`,
+      model: modelId,
+      instructions,
+      messages: modelMessages,
+      maxOutputTokens: safePhase === 'debrief' ? 3000 : safeActivity === 'study' ? 1200 : 450,
+      reasoning: normalizeReasoningEffort(
+        modelId,
+        safePhase === 'debrief' ? 'medium' : 'low',
+      ),
+      ...(releaseEvaluationDebrief ? { timeout: { totalMs: 70_000 } } : {}),
+    };
     let result;
     let totalUsage = null;
+    let providerError = null;
     try {
-      result = await generate({
-        meterPhase: `training-${safePhase}`,
-        model: modelId,
-        instructions,
-        messages: modelMessages,
-        maxOutputTokens: safePhase === 'debrief' ? 3000 : safeActivity === 'study' ? 1200 : 450,
-        reasoning: normalizeReasoningEffort(
-          modelId,
-          safePhase === 'debrief' ? 'medium' : 'low',
-        ),
-        ...(releaseDiagnostics === true
-          && safePhase === 'debrief'
-          && isProfessionalLifeCoachCourse(course?.id)
-          ? { timeout: { totalMs: 150_000 } }
-          : {}),
-      });
+      result = await generate(generationOptions);
       totalUsage = mergeUsage(totalUsage, result.usage);
     } catch (error) {
+      providerError = error;
+    }
+    const retryableProviderFailure = providerError
+      ? ['timeout', 'provider_unavailable'].includes(summarizeAiFailure(providerError).errorCategory)
+      : true;
+    if (releaseEvaluationDebrief && !result?.text?.trim() && retryableProviderFailure) {
+      try {
+        const retryResult = await generate({
+          ...generationOptions,
+          meterPhase: 'training-debrief-provider-retry',
+        });
+        totalUsage = mergeUsage(totalUsage, retryResult.usage);
+        result = retryResult;
+        providerError = null;
+      } catch (error) {
+        providerError = error;
+      }
+    }
+    if (!result) {
       const fallback = demoTrainingAnswer({
         safeMessages,
         course,
@@ -558,7 +578,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       return {
         ...fallback,
         provider: 'local-training-fallback',
-        providerFailure: summarizeAiFailure(error),
+        providerFailure: summarizeAiFailure(providerError),
       };
     }
     if (!result.text?.trim()) {
@@ -575,10 +595,14 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         ...fallback,
         provider: 'local-training-fallback',
         providerFailure: {
-          errorCategory: 'empty_response',
-          errorName: null,
-          errorStatusCode: null,
-          errorCode: null,
+          ...(providerError
+            ? summarizeAiFailure(providerError)
+            : {
+              errorCategory: 'empty_response',
+              errorName: null,
+              errorStatusCode: null,
+              errorCode: null,
+            }),
         },
       };
     }
@@ -1310,9 +1334,18 @@ function sanitizeRoleplayDirectConfirmation(value, quality, context = {}) {
   if (contradictedAffirmative) return { text, changed: false };
 
   const slovak = context.responseLanguage === 'sk';
-  const canonical = affirmative
-    ? (slovak ? 'Áno, sedí to.' : 'Ano, sedí to.')
-    : (slovak ? 'Nie, nesedí mi to.' : 'Ne, nesedí mi to.');
+  const variants = affirmative
+    ? (slovak
+      ? ['Áno, sedí to.', 'Áno, teraz to sedí.', 'Áno, teraz mi rozumieš správne.', 'Áno, toto vystihuje, čo potrebujem.']
+      : ['Ano, sedí to.', 'Ano, teď to sedí.', 'Ano, teď mi rozumíš správně.', 'Ano, tohle vystihuje, co potřebuji.'])
+    : (slovak
+      ? ['Nie, nesedí mi to.', 'Nie, stále mi to nesedí.', 'Nie, stále tam pridávaš iný význam.', 'Nie, takto som to nemyslela.']
+      : ['Ne, nesedí mi to.', 'Ne, pořád mi to nesedí.', 'Ne, stále tam přidáváš jiný význam.', 'Ne, takhle jsem to nemyslela.']);
+  const priorCounterpartTurns = (Array.isArray(context.messages) ? context.messages : [])
+    .filter(message => message?.role === 'assistant')
+    .map(message => normalizeIntentText(message.content));
+  const canonical = variants.find(candidate => !priorCounterpartTurns.includes(normalizeIntentText(candidate)))
+    || variants.at(-1);
   return canonical !== text
     ? { text: canonical, changed: true }
     : { text, changed: false };
