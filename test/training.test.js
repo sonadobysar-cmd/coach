@@ -182,6 +182,7 @@ test('simulace drží Elitea výhradně v roli modelové protistrany', () => {
   assert.match(instructions, /Nedávej studentce rady, nápovědu, rozbor, hodnocení/i);
   assert.match(instructions, /Neprozrazuj skrytou potřebu/i);
   assert.match(instructions, /Reaguj na přesné znění posledního vstupu/i);
+  assert.match(instructions, /budoucí fázi, žádost o reflexi ani hodnocení její práce nikdy nepředbíhej/i);
 });
 
 test('vyhodnocení posuzuje kompetence podle důkazů a ne osobnost studentky', () => {
@@ -948,6 +949,47 @@ test('server zachová validní první repliku a odřízne až následný únik s
   }
 });
 
+test('server zachová klientčin krok a odřízne předčasný metakomentař k práci koučky', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm7-5');
+  const scenario = createTrainingScenario(lifeCoachCourse, item, 'expert');
+  const clientReply = 'Do pátku si sepíšu cenu obou možností a vyberu jeden ověřitelný krok.';
+  const raw = `${clientReply} A teď mi jako koučka řekni, co si příště ohlídáš.`;
+  const calls = [];
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async options => {
+        calls.push(options);
+        return { text: raw, usage: null };
+      },
+    });
+    const result = await answerTraining({
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'expert',
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co si z porovnání volíš jako svůj nejbližší ověřitelný krok?' },
+      ],
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.text, clientReply);
+    assert.equal(result.qualityGate.pass, true);
+    assert.equal(result.qualityGate.repaired, true);
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('role_break'));
+    assert.ok(result.qualityGate.attemptIssueCodes.includes('premature_private_fact_leak'));
+    assert.notEqual(result.provider, 'deterministic-training-fallback');
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
 test('surové kandidáty simulace zpřístupní jen serverem povolená profesní release diagnostika', async () => {
   const item = lifeCoachCourse.modules.flatMap(module => module.items)
     .find(candidate => candidate.id === 'm10-5');
@@ -1082,7 +1124,7 @@ test('konečná roleplay oprava odstraní metaroli a vrátí pouze autentickou v
     assert.equal(calls.length, 3);
     assert.match(calls[1].instructions, /Nepoužij metatext ani označení/u);
     assert.match(calls[1].instructions, /„modelová klientka“/u);
-    assert.match(calls[1].instructions, /odpoví vlastní konkrétní volbou/u);
+    assert.match(calls[1].instructions, /odpověz jednou větou obsahující pouze vlastní konkrétní volbu/u);
     assert.match(calls[1].instructions, /Neopakuj ani těsně neparafrázuj žádnou předchozí zprávu/u);
     assert.equal(result.qualityGate.pass, true);
     assert.ok(result.qualityGate.attemptIssueCodes.includes('role_break'));

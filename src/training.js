@@ -369,6 +369,7 @@ export function buildTrainingInstructions({
       'Nedávej studentce rady, nápovědu, rozbor, hodnocení ani seznam toho, co má udělat.',
       'Neprozrazuj skrytou potřebu ani fakta, na která se studentka vhodně nezeptala.',
       'Reaguj na přesné znění posledního vstupu a udržuj fakta případu konzistentní.',
+      'Pravidla chování popisují možný průběh celé simulace, nikoli seznam úkolů pro každou repliku. Proveď pouze tu část, kterou právě spustil poslední vstup studentky; budoucí fázi, žádost o reflexi ani hodnocení její práce nikdy nepředbíhej.',
       'Pokud studentka položí více otázek najednou, reaguj realisticky jen na tu, která je pro modelovou protistranu nejsilnější.',
       String(scenario?.scenarioFamilyId || '') === 'suicide-risk-response'
         ? (trainingLanguage === 'sk'
@@ -1060,8 +1061,8 @@ function buildRoleplayRepairContext({
   }
   if (/\b(?:ktery|ktory|jaky|aky|co)\b.{0,35}\b(?:krok|volis|vyberas|udelas|urobis)\w*\b/u.test(normalizedLatestTurn)) {
     rules.push(language === 'sk'
-      ? 'Ak sa študentka pýta na voľbu alebo krok, postava odpovie vlastnou konkrétnou voľbou z tohto prípadu. Nehodnotí otázku a neradí študentke.'
-      : 'Pokud se studentka ptá na volbu nebo krok, postava odpoví vlastní konkrétní volbou z tohoto případu. Nehodnotí otázku a neradí studentce.');
+      ? 'Ak sa študentka pýta na voľbu alebo krok, odpovedz jednou vetou obsahujúcou iba vlastnú konkrétnu voľbu postavy z tohto prípadu. Termín alebo znak dokončenia uveď len vtedy, keď sa naň otázka pýta. Nezhrň všetky hodnoty či súkromné fakty, nevymýšľaj nesúvisiaci projekt, nežiadaj druhú osobu o nič a nepredbiehaj neskoršiu reflexiu ani spätnú väzbu.'
+      : 'Pokud se studentka ptá na volbu nebo krok, odpověz jednou větou obsahující pouze vlastní konkrétní volbu postavy z tohoto případu. Termín nebo znak dokončení uveď jen tehdy, když se na něj otázka ptá. Neshrnuj všechny hodnoty či soukromá fakta, nevymýšlej nesouvisející projekt, nežádej druhou osobu o nic a nepředbíhej pozdější reflexi ani zpětnou vazbu.');
   }
 
   if (safetyScenario) {
@@ -1148,6 +1149,12 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
   const rawQuality = assessTrainingOutput(preparedText, context);
   let quality = rawQuality;
   if (sanitize && !quality.pass && context.activity === 'simulation' && context.phase === 'roleplay') {
+    const metaTail = sanitizeRoleplayMetaTail(preparedText, quality, context.responseLanguage);
+    if (metaTail.changed) {
+      preparedText = metaTail.text;
+      changed = true;
+      quality = assessTrainingOutput(preparedText, context);
+    }
     const progressiveDisclosure = sanitizeRoleplayProgressiveDisclosure(preparedText, quality);
     if (progressiveDisclosure.changed) {
       const progressiveQuality = assessTrainingOutput(progressiveDisclosure.text, context);
@@ -1224,6 +1231,29 @@ function prepareTrainingCandidate(text, context, { sanitize = true } = {}) {
     rawIssueCodes: [...(rawQuality.issues || [])],
     changed,
   };
+}
+
+function sanitizeRoleplayMetaTail(value, quality, responseLanguage = 'cs') {
+  const text = String(value || '').trim();
+  const issues = new Set(Array.isArray(quality?.issues) ? quality.issues : []);
+  if (!issues.has('role_break') && !issues.has('trainer_advice_leak')) {
+    return { text, changed: false };
+  }
+  // A model sometimes answers the latest client question correctly and then
+  // prematurely executes a later scenario instruction (for example asks the
+  // student to evaluate herself). Preserve only the authentic client reply
+  // before that first meta/trainer sentence. The shortened text still has to
+  // pass the complete scenario, disclosure and language gate before use.
+  const sentences = text.match(/[^.!?]+[.!?]["”']?(?:\s+|$)|[^.!?]+$/gu) || [];
+  const firstMetaIndex = sentences.findIndex(sentence => {
+    const assessed = assessRoleplayResponse(sentence.trim(), { responseLanguage });
+    return assessed.issues.includes('role_break') || assessed.issues.includes('trainer_advice_leak');
+  });
+  if (firstMetaIndex <= 0) return { text, changed: false };
+  const clientReply = sentences.slice(0, firstMetaIndex).join(' ').replace(/\s+/gu, ' ').trim();
+  return clientReply && clientReply !== text
+    ? { text: clientReply, changed: true }
+    : { text, changed: false };
 }
 
 function sanitizeRoleplayProgressiveDisclosure(value, quality) {
