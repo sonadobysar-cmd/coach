@@ -902,6 +902,54 @@ test('živá trenérka předává roleplay bráně scénář i historii a nezapo
     assert.equal(result.provider, 'deterministic-training-fallback');
     assert.ok(result.qualityGate.attemptIssueCodes.includes('scenario_fidelity_missing'));
     assert.ok(result.qualityGate.attemptIssueCodes.includes('target_behavior_missing'));
+    assert.equal(Object.hasOwn(result, 'releaseDiagnostics'), false);
+  } finally {
+    if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;
+  }
+});
+
+test('surové kandidáty simulace zpřístupní jen serverem povolená profesní release diagnostika', async () => {
+  const item = lifeCoachCourse.modules.flatMap(module => module.items)
+    .find(candidate => candidate.id === 'm10-5');
+  const scenario = createTrainingScenario(
+    lifeCoachCourse,
+    item,
+    'advanced',
+    'profesionalni-life-coach:mastery-case-16',
+  );
+  const broken = 'Jako trenérka ti doporučuji, abys položila lepší otázku.';
+  const previousGatewayKey = process.env.AI_GATEWAY_API_KEY;
+  process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+  try {
+    const answerTraining = createCourseTrainer({
+      generate: async () => ({ text: broken, usage: null }),
+    });
+    const request = {
+      course: lifeCoachCourse,
+      item,
+      activity: 'simulation',
+      phase: 'roleplay',
+      difficulty: 'advanced',
+      scenarioId: scenario.id,
+      messages: [
+        { role: 'assistant', content: scenario.openingLine },
+        { role: 'user', content: 'Co teď ode mě potřebuješ?' },
+      ],
+    };
+    const ordinary = await answerTraining(request);
+    assert.equal(Object.hasOwn(ordinary, 'releaseDiagnostics'), false);
+
+    const diagnostic = await answerTraining({ ...request, releaseDiagnostics: true });
+    assert.equal(diagnostic.provider, 'deterministic-training-fallback');
+    assert.deepEqual(
+      diagnostic.releaseDiagnostics.candidates.map(candidate => candidate.stage),
+      ['initial', 'repair', 'final-repair'],
+    );
+    for (const candidate of diagnostic.releaseDiagnostics.candidates) {
+      assert.equal(candidate.text, broken);
+      assert.ok(candidate.issueCodes.includes('role_break'));
+    }
   } finally {
     if (previousGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
     else process.env.AI_GATEWAY_API_KEY = previousGatewayKey;

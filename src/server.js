@@ -1638,6 +1638,7 @@ app.post('/api/training', async (request, response) => {
       counterpartHint,
       autoTransition,
       finalExam,
+      releaseDiagnostics: professionalReleaseEvaluation,
     });
     if (!releaseEvaluation && result.provider === 'local-training-fallback') {
       throw Object.assign(

@@ -434,7 +434,7 @@ export function buildDebriefTranscriptMessages(messages = [], {
 }
 
 export function createCourseTrainer({ knowledgeRecords = [], generate = generateText } = {}) {
-  return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false, finalExam = false }) {
+  return async function answerTraining({ messages, memory = {}, course, item, activity = 'study', phase, difficulty = 'standard', scenarioId = null, counterpartHint = null, autoTransition = false, finalExam = false, releaseDiagnostics = false }) {
     const safeActivity = sanitizeTrainingActivity(activity);
     const safeDifficulty = sanitizeTrainingDifficulty(difficulty);
     const safePhase = sanitizeTrainingPhase(phase, safeActivity);
@@ -587,6 +587,14 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
       responseLanguage,
     };
     const rawInitialCandidate = prepareTrainingCandidate(result.text, candidateContext, { sanitize: false });
+    const includeReleaseDiagnostics = releaseDiagnostics === true
+      && isProfessionalLifeCoachCourse(course?.id)
+      && safeActivity === 'simulation';
+    const releaseDiagnosticCandidates = includeReleaseDiagnostics ? [{
+      stage: 'initial',
+      text: String(result.text || '').trim(),
+      issueCodes: [...rawInitialCandidate.rawIssueCodes],
+    }] : [];
     // For the professional coach programme the model may explain or phrase a
     // candidate review, but it is never allowed to own grades, citations or
     // the learning priority.  Those are rendered from a server-owned evidence
@@ -640,6 +648,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         },
         achievement: canonical.achievement,
         usage: totalUsage,
+        ...(includeReleaseDiagnostics ? { releaseDiagnostics: { candidates: releaseDiagnosticCandidates } } : {}),
       };
     }
     let initialCandidate = rawInitialCandidate;
@@ -720,6 +729,11 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         totalUsage = mergeUsage(totalUsage, repairResult.usage);
         if (repairResult.text?.trim()) {
           const repairCandidate = prepareTrainingCandidate(repairResult.text, candidateContext);
+          if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+            stage: 'repair',
+            text: String(repairResult.text || '').trim(),
+            issueCodes: [...repairCandidate.rawIssueCodes],
+          });
           repairAttemptIssueCodes = [...repairCandidate.rawIssueCodes];
           repairIssueCodes = [...(repairCandidate.quality.issues || [])];
           latestFailedQuality = repairCandidate.quality;
@@ -730,11 +744,21 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
             repaired = true;
           }
         } else {
+          if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+            stage: 'repair',
+            text: '',
+            issueCodes: ['empty'],
+          });
           repairAttemptIssueCodes = ['empty'];
           repairIssueCodes = ['empty'];
           latestFailedQuality = { pass: false, issues: ['empty'], shouldRepair: true };
         }
       } catch {
+        if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+          stage: 'repair',
+          text: '',
+          issueCodes: ['provider_repair_error'],
+        });
         repairAttemptIssueCodes = ['provider_repair_error'];
         repairIssueCodes = ['provider_repair_error'];
       }
@@ -774,6 +798,11 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         totalUsage = mergeUsage(totalUsage, finalRepairResult.usage);
         if (finalRepairResult.text?.trim()) {
           const finalRepairCandidate = prepareTrainingCandidate(finalRepairResult.text, candidateContext);
+          if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+            stage: 'final-repair',
+            text: String(finalRepairResult.text || '').trim(),
+            issueCodes: [...finalRepairCandidate.rawIssueCodes],
+          });
           finalRepairAttemptIssueCodes = [...finalRepairCandidate.rawIssueCodes];
           finalRepairIssueCodes = [...(finalRepairCandidate.quality.issues || [])];
           if (finalRepairCandidate.quality.pass) {
@@ -783,10 +812,20 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
             repaired = true;
           }
         } else {
+          if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+            stage: 'final-repair',
+            text: '',
+            issueCodes: ['empty'],
+          });
           finalRepairAttemptIssueCodes = ['empty'];
           finalRepairIssueCodes = ['empty'];
         }
       } catch {
+        if (includeReleaseDiagnostics) releaseDiagnosticCandidates.push({
+          stage: 'final-repair',
+          text: '',
+          issueCodes: ['provider_final_repair_error'],
+        });
         finalRepairAttemptIssueCodes = ['provider_final_repair_error'];
         finalRepairIssueCodes = ['provider_final_repair_error'];
       }
@@ -855,6 +894,7 @@ export function createCourseTrainer({ knowledgeRecords = [], generate = generate
         })
         : null,
       usage: totalUsage,
+      ...(includeReleaseDiagnostics ? { releaseDiagnostics: { candidates: releaseDiagnosticCandidates } } : {}),
     };
   };
 }
